@@ -118,3 +118,17 @@ it('preserves adjacent character outline colors and widths after saving and load
   expect(plain).toBeDefined();
   expect(plain).not.toContain('stroke=');
 });
+
+it('preserves double strikethrough in browser and SVG previews after round-trip', async () => {
+  const { pres } = deck({ strike: 'dblStrike', underline: 'sng', color: '#123456' });
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const slide = getSlides(loaded)[0]!;
+  expect(renderSlideToSvg(loaded, slide)).toContain('text-decoration:line-through double');
+  const svg = renderSlideToSvg(loaded, slide, { textLayout: 'svg' });
+  const lines = [...svg.matchAll(/<line [^>]*stroke="#123456"[^>]*\/>/g)];
+  expect(lines).toHaveLength(2);
+  expect(svg).toContain('text-decoration="underline"');
+  expect(svg).not.toContain('line-through');
+  const ys = lines.map((line) => Number(line[0].match(/y1="([^"]+)"/)?.[1]));
+  expect(ys[1]).toBeGreaterThan(ys[0]!);
+});

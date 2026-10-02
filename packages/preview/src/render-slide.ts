@@ -2286,7 +2286,8 @@ const renderRun = (
   const hasUnderline = underline !== undefined && underline !== false && underline !== 'none';
   const hasStrike = strike !== undefined && strike !== false && strike !== 'noStrike';
   // Keep strike on the outer span so underline patterns never alter its style.
-  if (hasStrike) styles.push('text-decoration:line-through');
+  if (hasStrike)
+    styles.push(`text-decoration:line-through${strike === 'dblStrike' ? ' double' : ''}`);
   const underlineCss = hasUnderline
     ? textUnderlineStyle(
         underline,
@@ -2440,8 +2441,9 @@ const underlineStyleOf = (fmt: ReadTextFormat | null): PieceInput['underline'] =
       return 'sng';
   }
 };
-const hasStrikeFmt = (fmt: ReadTextFormat | null): boolean => {
+const strikeStyleOf = (fmt: ReadTextFormat | null): PieceInput['strike'] => {
   const s = fmt?.strike;
+  if (s === 'dblStrike') return 'double';
   return s !== undefined && s !== false && s !== 'noStrike';
 };
 
@@ -2606,7 +2608,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
           ? { underlineHex: resolveColor(fmt.underlineColor, a.theme, fillHex) }
           : {}),
         underline: underlineStyleOf(fmt),
-        strike: hasStrikeFmt(fmt),
+        strike: strikeStyleOf(fmt),
         ...(fmt?.highlight
           ? { highlightHex: resolveColor(fmt.highlight, a.theme, '#FFFF00') }
           : {}),
