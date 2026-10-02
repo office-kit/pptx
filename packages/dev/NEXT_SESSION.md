@@ -1,3 +1,11 @@
+## 2026-10-02: 改行だけが大きい場合の編集時レイアウトシフト
+
+- Mac PowerPoint の reference.pptx で Before / Shift+Enter / After を入力し、改行のみ選択して 40pt → 80pt に変更。前後の文字・行の画面位置は不変。保存 XML で a:br/rPr sz=8900 と normAutofit fontScale=90000 を確認（UI は 80pt）。リボンのサイズ欄は AX click ではフォーカスが移らず、Font メニューを開いた直後の Tab でサイズ欄へ移動できた。
+- 文字の直後の改行 span に line-height:0 と vertical-align:top を指定し、書式を保持したまま行ボックスへの影響をなくした。段落先頭や連続改行の空行には適用していない。このケースの実機比較は図形で実施、表は共通の編集表示経路の回帰を検証。
+- ブラウザーで修正前に図形・表の編集開始時に約 53px の位置ずれを再現。修正後は 2px 未満、改行のコピーで 80pt を保持。継承書式・空段落を含む関連 10 件成功。
+- 検証: format/lint/core typecheck/build、core 3298 成功 / 109 skip、site 135 成功、Svelte 0 errors/warnings、preview build、DSL/dev typecheck、dev build 成功。
+- 一時変更を Undo disabled まで取り消し、Outline title / Ordinary text box に戻して保存済み。4173 と .pnpm-store は保持。全操作一致は未完了、PR #287 に集約。
+
 ## 2026-10-02: 明示改行の継承書式
 
 - getShapeRunFormatEffective / getTableCellRunFormatEffective に { breakIndex } を追加。a:br の直接 rPr と段落・リスト等の既定書式を既存 resolver で合成。通常 run / field のインデックスは別々のまま維持。
