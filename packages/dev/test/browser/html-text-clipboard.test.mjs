@@ -186,6 +186,21 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
             return result;
           }),
         );
+        const semanticDecorations = ['u', 's', 'strike', 'del'].map((tag) => {
+          const html = `<${tag} style="text-decoration-style:double">A</${tag}>`;
+          const mount = document.createElement('div');
+          mount.innerHTML = html;
+          document.body.append(mount);
+          const css = getComputedStyle(mount.firstElementChild);
+          const result = {
+            tag,
+            line: css.textDecorationLine,
+            style: css.textDecorationStyle,
+            parsed: parse(html, 'A'),
+          };
+          mount.remove();
+          return result;
+        });
         const externalDoubleStrike = parse(
           '<span style="text-decoration:line-through double">A</span>',
           'A',
@@ -335,6 +350,7 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           combinedPatternedStrikeRoundtrip,
           doubleStrikeCases,
           externalDoubleStrike,
+          semanticDecorations,
           underlineColorHtml,
           underlineColorRoundtrip,
           underlineColorStrikeHtml,
@@ -415,6 +431,15 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.underline, 'wavy');
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.strike, true);
     assert.equal(result.externalDoubleStrike.formats[0].format.strike, 'dblStrike');
+    for (const entry of result.semanticDecorations) {
+      assert.equal(entry.style, 'double');
+      assert.equal(entry.line, entry.tag === 'u' ? 'underline' : 'line-through');
+      const format = entry.parsed.formats[0].format;
+      assert.equal(
+        entry.tag === 'u' ? format.underline : format.strike,
+        entry.tag === 'u' ? 'dbl' : 'dblStrike',
+      );
+    }
     for (const entry of result.doubleStrikeCases) {
       assert.equal(entry.strikeLine, 'line-through');
       assert.equal(entry.strikeStyle, 'double');

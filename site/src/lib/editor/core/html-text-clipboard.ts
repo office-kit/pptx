@@ -67,11 +67,6 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     const style = element.style;
     if (tag === 'B' || tag === 'STRONG') format.bold = true;
     if (tag === 'I' || tag === 'EM') format.italic = true;
-    // A present text-decoration-line (including `none`, normalized from the
-    // shorthand) overrides the semantic HTML element's default decoration.
-    if (tag === 'U' && !style.textDecorationLine) format.underline = true;
-    if ((tag === 'S' || tag === 'STRIKE' || tag === 'DEL') && !style.textDecorationLine)
-      format.strike = true;
     if (tag === 'SUP') format.baseline = 0.3;
     if (tag === 'SUB') format.baseline = -0.25;
     // PowerPoint's capitalization is represented by one DrawingML `cap`
@@ -131,7 +126,15 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     if (foreground) format.color = foreground;
     const background = color(style.backgroundColor);
     if (background) format.highlight = background;
-    const decoration = style.textDecorationLine || style.textDecoration;
+    // Explicit `none` overrides the tag default; otherwise semantic tags still
+    // use authored decoration style/color even without a decoration-line value.
+    const semanticDecoration =
+      tag === 'U'
+        ? 'underline'
+        : tag === 'S' || tag === 'STRIKE' || tag === 'DEL'
+          ? 'line-through'
+          : '';
+    const decoration = style.textDecorationLine || style.textDecoration || semanticDecoration;
     if (decoration && !/^(inherit|initial|unset|revert)$/.test(decoration)) {
       if (decoration.includes('underline')) {
         const decorationStyle = style.textDecorationStyle.toLowerCase() as CssUnderlineStyle;
