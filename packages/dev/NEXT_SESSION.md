@@ -1,3 +1,11 @@
+## 2026-10-02: タイトル→本文への貼り付け置換
+
+- reference.pptx の Outline title / Body から tline title + 改行 + Bo を選択。プレーン X 貼り付けで OuXdy、Undo 後 X\nY 貼り付けで OuX / Ydy、スライドは 1 枚。保存 XML はタイトル 2 a:p、本文空。証拠: /tmp/pptx-outline-audit/title-body-paste-multiline-native.pptx。
+- replaceTitleBodyRange を貼り付けイベント／メニューに接続し、replayTextEdits で書式と段落を適用。単一行・複数行・HTML 太字のブラウザー回帰を追加（修正前は本文末尾 dy がタイトルに移らず失敗）。
+- reference.pptx は保存後に閉じ、reference-before-table-style.pptx から復元。byte 比較一致、閉じたまま。ほかの文書は変更していない。
+- 検証: format、lint、Svelte 型検査、単体 35 件、エディタービルド成功。既存ブラウザー 14 件成功。追加 3 件は太字検査を run.format.bold に修正後、全件成功。
+- 次: beforeinput / IME の構造置換、複数スライド間の置換・削除。複数段落タイトルから本文にまたがる削除はコアが first paragraph 境界を使っているので実機比較と修正が必要。全面一致は未達成。
+
 ## 2026-10-02: タイトル→本文の切り取り・文字入力置換
 
 - Mac 実機の reference.pptx で Outline title / Body の tline title + 改行 + Bo を選択。Cmd+X は Oudy、Undo 後の X 入力は OuXdy。削除と同じ本文末尾の結合を確認。
