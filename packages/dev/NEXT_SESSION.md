@@ -1,3 +1,12 @@
+## 2026-10-02: 空段落の文字サイズ変更
+
+- 図形全体のIncrease/Decrease Font Sizeで複数空段落の書式が残る不具合を修正。表セル・ゼロ長runにも対応。通常runや未知XMLを作り直さず、既存setShapeTextFormat/setTableCellTextFormatのparagraphEndオプションで段落末を更新する。
+- ブラウザー回帰は旧bundleで20/44ptが変化せず失敗、修正版で24/48pt・Undo/Redo・保存再読込成功。既存の混在サイズ・キャレット・図形選択テストも成功。
+- 検証: core3207件、site129件、ブラウザー5件（空段落・既存文字サイズ・アウトライン3件）成功。最終ログ `/tmp/empty-font-browser-final.log`。確認プレビュー4175 HTTP200。format/lint/typecheck、core/editor build、Svelte 0 errors/warnings。途中のゼロ長runが後続文字のサイズ判定をずらす不具合も回帰で再現・修正。
+- NativeでHomeのChange Caseメニューを確認: Sentence case. / lowercase / UPPERCASE / Capitalize Each Word / tOGGLE cASE。FontダイアログはLatin/Asian font、style/size、color/underline、strike/double strike、superscript/subscript/offset、small/all caps、equalize height。今回は文書の変更なし、Cancel済み。
+- Change Case未実装。次はcopyTextRange + TextEdit/replayTextEdits、OutlineSelectionModel.copy/replaceの書式spanを利用可能。ただしUnicode変換でUTF-16長が変わる場合のspan再計算、フィールド等の保持、nativeのキャレット時動作を確認してから実装する。
+- 完全一致は未完了。同一PR #287、プレビュー4175を継続。4173の未保存編集と.pnpm-storeには触らない。
+
 ## 2026-10-02: Homeの文字サイズ拡大・縮小
 
 - HomeにIncrease/Decrease Font Sizeを追加。選択範囲内の混在サイズをそれぞれ増減し、図形選択・キャレット入力・アウトライン・表セル編集から適用できる。

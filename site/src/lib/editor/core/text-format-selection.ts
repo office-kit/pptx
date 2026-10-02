@@ -51,7 +51,8 @@ export function textFormatsInRange(
             (caret === paragraphStart && offset === caret))
         )
           return [format()];
-      } else if (offset < range.end && offset + length > range.start) formats.push(format());
+      } else if (length > 0 && offset < range.end && offset + length > range.start)
+        formats.push(format());
       offset += length;
     }
     // Empty paragraphs have no character to sample. Their end mark carries

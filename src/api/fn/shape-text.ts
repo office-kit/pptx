@@ -9,6 +9,7 @@ import {
   copyTextBodyRange,
   copyTextBodyRanges,
   editTextBody,
+  formatTextBodyParagraphEnd,
   formatTextBodyRange,
 } from '../../internal/drawingml/text-body-edit.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS } from '../../internal/enum-values.ts';
@@ -819,20 +820,26 @@ export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignme
  * with an exclusive end. Paragraph separators and line breaks each count as one
  * character. Empty ranges do nothing; invalid or split-surrogate boundaries throw.
  * Partially selected fields become literal runs; fully selected fields stay fields.
+ * Pass a zero-based `paragraphEnd` instead of `range` to update a paragraph's end mark
+ * without rebuilding its runs or paragraph properties.
  * With `reset`, clears direct visual run properties before applying `format`,
  * restoring inherited fonts and appearance while keeping links and language.
- * Without a range, also clears text-body and paragraph run-format defaults.
+ * Without either target, also clears text-body and paragraph run-format defaults.
  * Blank autoshapes receive a text body and paragraph-end formatting for future input.
  */
 export const setShapeTextFormat = (
   shape: SlideShapeData,
   format: TextFormat,
-  options?: { range?: { start: number; end: number }; reset?: boolean },
+  options?:
+    | { range?: { start: number; end: number }; reset?: boolean; paragraphEnd?: never }
+    | { paragraphEnd: number; reset?: boolean; range?: never },
 ): void => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'shape') requireTxBody(shape);
   const existing = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
   const body = existing ?? createTxBody();
-  if (options?.range) formatTextBodyRange(body, format, options.range, options.reset);
+  if (options?.paragraphEnd !== undefined)
+    formatTextBodyParagraphEnd(body, options.paragraphEnd, format, options.reset);
+  else if (options?.range) formatTextBodyRange(body, format, options.range, options.reset);
   else applyFormatToAllRuns(body, format, 'setShapeTextFormat', options?.reset);
   if (!existing) {
     if (options?.range) return;
