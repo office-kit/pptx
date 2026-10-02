@@ -1186,6 +1186,7 @@ export const ja: Record<string, string> = {
   'operates on': '対象',
   category: 'カテゴリ',
   returns: '戻り値',
+  'Home ribbon groups': 'ホームリボンのグループ',
   'Selected text formatting': '選択した文字の書式',
   'Selected text': '選択した文字',
   'Select text to format': '書式を変える文字を選択',

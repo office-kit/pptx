@@ -4,6 +4,8 @@ import {
   getShapeParagraphCount,
   getShapeParagraphElements,
   getShapeRunFormatEffective,
+  getShapePlaceholderType,
+  getPresentationFonts,
   getTableCellParagraphs,
   getTableCells,
   type PresentationData,
@@ -12,6 +14,31 @@ import {
 import { paragraphNumberLabels } from '@office-kit/pptx-preview';
 import { shapeTextDefaults } from './text-layout-defaults.ts';
 import { textClipboardHtml } from './html-text-clipboard.ts';
+
+// Keep the editing overlay's inherited text metrics aligned with the preview
+// renderer when a run has no authored rPr size or font. These are the same
+// stock master defaults used by packages/preview/src/render-slide.ts.
+const DEFAULT_BODY_PT = 18;
+const DEFAULT_TITLE_PT = 44;
+const DEFAULT_SUBTITLE_PT = 32;
+const DEFAULT_FOOTER_PT = 12;
+const DEFAULT_FONT = `Calibri, "Helvetica Neue", Arial, sans-serif`;
+
+function defaultTextMetrics(pres: PresentationData, shape: SlideShapeData) {
+  const placeholder = getShapePlaceholderType(shape);
+  const size =
+    placeholder === 'title' || placeholder === 'ctrTitle'
+      ? DEFAULT_TITLE_PT
+      : placeholder === 'subTitle'
+        ? DEFAULT_SUBTITLE_PT
+        : placeholder === 'ftr' || placeholder === 'dt' || placeholder === 'sldNum'
+          ? DEFAULT_FOOTER_PT
+          : DEFAULT_BODY_PT;
+  const fonts = getPresentationFonts(pres);
+  const face =
+    placeholder === 'title' || placeholder === 'ctrTitle' ? fonts?.majorLatin : fonts?.minorLatin;
+  return { size, family: face ? `${JSON.stringify(face)}, ${DEFAULT_FONT}` : DEFAULT_FONT };
+}
 
 /** Keep literal UTF-16 paragraph separators for editing and clipboard offsets. */
 export function inlineTextHtml(
@@ -22,6 +49,7 @@ export function inlineTextHtml(
 ): string {
   const tableCell = cell ? getTableCells(shape)[cell.row]![cell.col]! : undefined;
   const target = tableCell ?? shape;
+  const defaults = defaultTextMetrics(pres, shape);
   const paragraphs = tableCell
     ? getTableCellParagraphs(tableCell).map((p) => p.elements)
     : Array.from({ length: getShapeParagraphCount(shape) }, (_, index) =>
@@ -61,6 +89,9 @@ export function inlineTextHtml(
     style.verticalAlign = 'top';
     style.width = '100%';
     style.boxSizing = 'border-box';
+    style.fontSize = scaled(defaults.size, 'pt');
+    style.fontFamily = defaults.family;
+    style.lineHeight = '1.05';
     const props = properties[index]!;
     style.tabSize = scaled((props.defaultTabSizeEmu ?? 914400) / 9525, 'px');
     if (props.tabStops?.length)
