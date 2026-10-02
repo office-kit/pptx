@@ -14,14 +14,14 @@ import {
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
-async function writeOutlineDeck(dir, title = 'Heading') {
+async function writeOutlineDeck(dir, title = 'Heading', extra = false) {
   await copyFile(
     new URL('../../../../test/fixtures/minimal/one-text-slide.pptx', import.meta.url),
     join(dir, 'template.pptx'),
   );
   await writeFile(
     join(dir, 'deck.tsx'),
-    `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>{${JSON.stringify(title)}}</Fill><Fill target={{placeholder:{idx:1}}}>Body</Fill></Slide><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>Next</Fill><Fill target={{placeholder:{idx:1}}}>Following</Fill></Slide></Presentation>;`,
+    `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill,Text} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>{${JSON.stringify(title)}}</Fill><Fill target={{placeholder:{idx:1}}}>Body</Fill></Slide><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>Next</Fill><Fill target={{placeholder:{idx:1}}}>Following</Fill>${extra ? '<Text x={1} y={5} width={5} height={1}>Additional object</Text>' : ''}</Slide></Presentation>;`,
   );
 }
 
@@ -774,3 +774,47 @@ for (const action of ['paste', 'multiline', 'rich'])
       }
     },
   );
+
+for (const action of ['Backspace', 'Z']) {
+  test(
+    `outline slide merge confirmation cancels and restores objects with Undo (${action})`,
+    { timeout: 60000 },
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'office-outline-delete-confirm-'));
+      let preview, browser, page, outline;
+      try {
+        await writeOutlineDeck(dir, 'Heading', true);
+        ({ preview, browser, page, outline } = await openOutline(dir));
+        const title = outline.getByRole('textbox').nth(0);
+        const editor = page.frameLocator('#editor-frame');
+        const dialog = editor.getByRole('dialog', { name: 'Delete', exact: true });
+        const before = (await waitForState(preview.url, () => true)).revision;
+        await extendForward(page, title);
+        await page.keyboard.press(action);
+        await dialog.getByRole('button', { name: 'No', exact: true }).click();
+        assert.equal((await waitForState(preview.url, () => true)).revision, before);
+        assert.equal(getSlides(await readDeck(preview)).length, 2);
+        await title.click();
+        await extendForward(page, title);
+        await page.keyboard.press(action);
+        await dialog.getByRole('button', { name: 'Yes', exact: true }).click();
+        const changed = await waitForState(preview.url, (state) => state.revision !== before);
+        const merged = getSlides(await readDeck(preview));
+        assert.equal(merged.length, 1);
+        assert.equal(getShapeText(getSlideShapes(merged[0])[0]), action === 'Z' ? 'HeZ' : 'He');
+        assert.equal(getShapeText(getSlideShapes(merged[0])[1]), 'Following');
+        await title.press('Control+z');
+        await waitForState(preview.url, (state) => state.revision !== changed.revision);
+        const restored = getSlides(await readDeck(preview));
+        assert.equal(restored.length, 2);
+        assert.ok(
+          getSlideShapes(restored[1]).some((shape) => getShapeText(shape) === 'Additional object'),
+        );
+      } finally {
+        await browser?.close();
+        await preview?.close();
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+}
