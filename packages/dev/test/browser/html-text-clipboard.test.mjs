@@ -122,6 +122,47 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           '<span style="font-variant-caps:small-caps">Small<span style="text-transform:none">Still Small</span></span>',
           'SmallStill Small',
         );
+        const cssUnderlineStyles = ['double', 'dotted', 'dashed', 'wavy'];
+        const parsedUnderlineStyles = Object.fromEntries(
+          cssUnderlineStyles.map((style) => {
+            const parsed = parse(
+              `<span style="text-decoration-line:underline;text-decoration-style:${style}">A</span>`,
+              'A',
+            );
+            return [style, parsed?.formats[0]?.format.underline];
+          }),
+        );
+        const serializedUnderlineStyles = Object.fromEntries(
+          cssUnderlineStyles.map((style) => {
+            const value = { double: 'dbl', dotted: 'dotted', dashed: 'dash', wavy: 'wavy' }[style];
+            return [
+              style,
+              serialize({
+                text: 'A',
+                formats: [{ start: 0, end: 1, format: { underline: value } }],
+              }),
+            ];
+          }),
+        );
+        const combinedPatternedStrike = serialize({
+          text: 'A',
+          formats: [{ start: 0, end: 1, format: { underline: 'wavy', strike: true } }],
+        });
+        const combinedPatternedStrikeRoundtrip = parse(combinedPatternedStrike, 'A');
+        const underlineNone = parse('<u style="text-decoration:none">A</u>', 'A');
+        const strikeNone = parse('<s style="text-decoration:none">A</s>', 'A');
+        const inheritedDecorationNone = parse(
+          '<span style="text-decoration:underline">Parent<u style="text-decoration:none">Child</u></span>',
+          'ParentChild',
+        );
+        const decorationNoneMount = document.createElement('div');
+        decorationNoneMount.innerHTML =
+          '<u style="text-decoration:none">A</u><s style="text-decoration:none">B</s>';
+        document.body.append(decorationNoneMount);
+        const computedDecorationNone = [...decorationNoneMount.children].map(
+          (node) => getComputedStyle(node).textDecorationLine,
+        );
+        decorationNoneMount.remove();
         const hostile = parse(
           '<script>globalThis.clipboardExecuted=true</script><img src="https://clipboard.invalid/image" onerror="globalThis.clipboardExecuted=true"><iframe src="https://clipboard.invalid/frame"></iframe><style>@import "https://clipboard.invalid/style";</style><b>Safe</b>',
           'Safe',
@@ -161,6 +202,14 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           resetCaps,
           inheritedAllCaps,
           inheritedSmallCaps,
+          parsedUnderlineStyles,
+          serializedUnderlineStyles,
+          combinedPatternedStrike,
+          combinedPatternedStrikeRoundtrip,
+          underlineNone,
+          strikeNone,
+          inheritedDecorationNone,
+          computedDecorationNone,
           spacingRoundtrip: parse(serialize(spacing), spacing.text),
           allCapsRoundtrip: parse(serialize(allCaps), allCaps.text),
           smallCapsRoundtrip: parse(serialize(smallCaps), smallCaps.text),
@@ -211,6 +260,25 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.equal(result.resetCaps.formats[1].format.cap, 'none');
     assert.equal(result.inheritedAllCaps.formats[1].format.cap, 'all');
     assert.equal(result.inheritedSmallCaps.formats[1].format.cap, 'small');
+    assert.deepEqual(result.parsedUnderlineStyles, {
+      double: 'dbl',
+      dotted: 'dotted',
+      dashed: 'dash',
+      wavy: 'wavy',
+    });
+    for (const style of ['double', 'dotted', 'dashed', 'wavy'])
+      assert.match(
+        result.serializedUnderlineStyles[style],
+        new RegExp(`text-decoration-style: ${style}`),
+      );
+    assert.match(result.combinedPatternedStrike, /text-decoration-line: line-through/);
+    assert.match(result.combinedPatternedStrike, /<u[^>]*text-decoration-line: underline/);
+    assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.underline, 'wavy');
+    assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.strike, true);
+    assert.equal(result.underlineNone.formats[0].format.underline, undefined);
+    assert.equal(result.strikeNone.formats[0].format.strike, undefined);
+    assert.equal(result.inheritedDecorationNone.formats[1].format.underline, true);
+    assert.deepEqual(result.computedDecorationNone, ['none', 'none']);
     assert.deepEqual(result.spacingRoundtrip, result.spacing);
     assert.deepEqual(result.allCapsRoundtrip, result.allCaps);
     assert.deepEqual(result.smallCapsRoundtrip, result.smallCaps);

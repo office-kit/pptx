@@ -1,3 +1,12 @@
+## 2026-10-02: 編集開始時とHTML貼り付けの下線保持
+
+- `textClipboardHtml`が下線を単線へ丸め、inline編集開始時にdbl/wavy等が変わることを本番エディタのブラウザー回帰で再現して修正。CSSで表現できるdouble/dotted/dashed/wavyを出力・再取り込みする。pattern付き下線とstrikeは外側spanの実線strike、内側uの下線へ分離し、親のstrikeをパーサーで保持。
+- dbl/wavyの編集開始でglyphのx/y/width/height差が2px未満、wavyとstrike併用でstrikeがsolidであることを検証。HTML clipboardを含むブラウザー5件成功。
+- normalizeHeightを含む内部clipboard metadataが拒否されていた。boolean検証を追加し、true/falseともcopy→parse→pasteで他の書式とともに保持する回帰を追加。
+- 品質確認: core3250件/109skip、site133件、format/lint/typecheck/core・editor build、Svelte 0 errors/warnings。
+- 残件: 編集HTMLではheavyの太さ、long dash/dash-dot/double-wave/words-onlyなどの完全な表示対応が未完了。previewのSVG背景パターンと編集HTMLのCSS点線/破線は寸法の一致まで未確認。normalizeHeightは保存・clipboard対応であり、文字高さの描画は未実装。全操作一致の完了ではない。
+- PR #287へ継続反映。ユーザーの4173の未保存編集と.pnpm-storeには触れない。
+
 ## 2026-10-02: 下線描画と表セルのホーム Font 操作
 
 - 下線のDrawingML値をSVGへ渡す際の単線への丸めを撤去。二重線・太線・点線・長破線・鎖線・二重波線を明示的なSVG線/パスで描画。単語のみの下線は計測済みtoken幅で空白を除く。通常単線のフォント固有下線位置は従来のtext-decorationを保持。

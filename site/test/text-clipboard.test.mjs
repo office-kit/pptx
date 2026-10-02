@@ -9,6 +9,8 @@ test('invalid character metadata falls back to plain text before paste', () => {
   for (const format of [
     { underline: 'invalid' },
     { strike: 'dotted' },
+    { normalizeHeight: 'true' },
+    { normalizeHeight: 1 },
     { size: 0.1 },
     { spc: 400001 },
     { kern: -1 },
