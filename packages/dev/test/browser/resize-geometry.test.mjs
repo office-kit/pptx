@@ -81,7 +81,9 @@ test(
       };
       await saved();
       const originals = (await shapes()).map(getShapeBounds);
-      await editor.locator('.hit').nth(0).click();
+      const firstBox = await editor.locator('.hit').nth(0).boundingBox();
+      assert.ok(firstBox);
+      await page.mouse.click(firstBox.x + 2, firstBox.y + 2);
       const nw = await canvasCenter(handle('nw'));
       await drag('se', 60, 45, true);
       const resized = getShapeBounds((await shapes())[0]);
@@ -104,6 +106,7 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
       await editor.locator('.hit').nth(1).click();
+      await editor.locator('.inline-edit').press('Escape');
       const fixed = await canvasCenter(handle('nw'));
       const start = await canvasCenter(handle('se'));
       await drag('se', 45, 15);

@@ -1288,3 +1288,5 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Scoped format/lint pass for these three test files. CI 37028531188 remains running Chromium; static checks and OOXML validation have passed. No claim of full parity.
 - Native PowerPoint retry still fails at native pipe startup. No further native mutations; reference restoration remains pending.
 - Uncommitted agent work on font-dialog-table, line-spacing, inline-paragraphs and FontRibbon remains under investigation. Verify table header inherited bold before treating unspecified run bold as normal; do not retain speculative FontRibbon changes without a reproduced regression and passing checks.
+
+- Resize-geometry now passes both tests (`/tmp/resize-geometry-final.log`). Initial object selection uses the border; after clicking the rotated text shape, Escape exits inline editing before resizing. Aspect ratio, opposite-corner anchoring, pointer tracking, saved rotation, Undo/Redo and reload assertions remain unchanged. Scoped format/lint and diff checks pass.
