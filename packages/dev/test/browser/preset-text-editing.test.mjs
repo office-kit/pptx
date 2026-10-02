@@ -16,6 +16,7 @@ import {
   inches,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
 for (const { preset, grouped = false, collapsed = false } of [
   ...['rect', 'triangle', 'diamond', 'pentagon', 'star5', 'leftRightArrow'].map((preset) => ({
@@ -67,7 +68,8 @@ for (const { preset, grouped = false, collapsed = false } of [
         );
         preview = await startPreview(file);
         browser = await chromium.launch({ headless: true });
-        const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+        const page = await browser.newPage({ viewport: { width: 2400, height: 1000 } });
+        await installRichTextSelection(page);
         await page.goto(preview.url);
         await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
@@ -76,6 +78,17 @@ for (const { preset, grouped = false, collapsed = false } of [
         await editor.locator('.hit').first().dblclick();
         const input = editor.locator('.inline-edit');
         await input.waitFor();
+        const select = async (start, end = start) => {
+          await input.focus();
+          await input.evaluate(
+            (node, range) => {
+              window.selectEditorText(node, range.start, range.end);
+              node.dispatchEvent(new Event('select', { bubbles: true }));
+            },
+            { start, end },
+          );
+        };
+        await select(9);
         const layout = await input.evaluate((node) => {
           const box = node.getBoundingClientRect(),
             style = getComputedStyle(node);
@@ -102,17 +115,9 @@ for (const { preset, grouped = false, collapsed = false } of [
         assert.equal(layout.align, 'center');
         assert.equal(
           await editor
-            .locator('.canvas-shell > .text-format-bar')
-            .getByLabel('Paragraph alignment', { exact: true })
-            .inputValue(),
-          'center',
-        );
-        assert.equal(
-          await editor
-            .locator('.paragraphs')
-            .getByLabel('Paragraph alignment', { exact: true })
-            .inputValue(),
-          'center',
+            .locator('.paragraph-alignment button[aria-label="Center"]')
+            .getAttribute('aria-pressed'),
+          'true',
         );
         await input.fill('編集済み Edited');
         await page.keyboard.press('ControlOrMeta+Enter');
@@ -122,34 +127,19 @@ for (const { preset, grouped = false, collapsed = false } of [
         await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
         if (grouped) await editor.locator('.hit').dblclick();
         await editor.locator('.hit').first().dblclick();
+        await select(9);
         assert.equal(await input.innerText(), '編集済み Edited');
         assert.equal(
           await editor
-            .locator('.canvas-shell > .text-format-bar')
-            .getByLabel('段落の配置', { exact: true })
-            .inputValue(),
-          'center',
-        );
-        assert.equal(
-          await editor
-            .locator('.paragraphs')
-            .getByLabel('段落の配置', { exact: true })
-            .inputValue(),
-          'center',
+            .locator('.paragraph-alignment button[aria-label="中央"]')
+            .getAttribute('aria-pressed'),
+          'true',
         );
         if (preset === 'rect') {
-          const alignment = editor
-            .locator('.canvas-shell > .text-format-bar')
-            .getByLabel('段落の配置', { exact: true });
-          await alignment.selectOption('right');
+          const alignment = editor.locator('.paragraph-alignment button[aria-label="右揃え"]');
+          await alignment.click();
           await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
-          assert.equal(
-            await editor
-              .locator('.paragraphs')
-              .getByLabel('段落の配置', { exact: true })
-              .inputValue(),
-            'right',
-          );
+          assert.equal(await alignment.getAttribute('aria-pressed'), 'true');
           assert.equal(
             await input
               .locator('[data-text-paragraph]')
@@ -158,10 +148,15 @@ for (const { preset, grouped = false, collapsed = false } of [
           );
           await input.press('ControlOrMeta+z');
           await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
-          assert.equal(await alignment.inputValue(), 'center');
+          assert.equal(
+            await editor
+              .locator('.paragraph-alignment button[aria-label="中央"]')
+              .getAttribute('aria-pressed'),
+            'true',
+          );
           await input.press('ControlOrMeta+Shift+z');
           await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
-          assert.equal(await alignment.inputValue(), 'right');
+          assert.equal(await alignment.getAttribute('aria-pressed'), 'true');
         }
         await page.screenshot({ path: `/tmp/pptx-preset-${preset}.png` });
       } finally {

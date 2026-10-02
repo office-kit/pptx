@@ -98,11 +98,23 @@ for (const language of ['en', 'ja']) {
         assert.match(painted, /text-shadow:0 0 6\.67px #00FF00/);
 
         // The format painter carries them onto the plain box.
-        await editor.locator('.hit').first().click();
-        await editor.locator('.hit').first().click({ button: 'right' });
+        await editor
+          .locator('.hit')
+          .first()
+          .click({ position: { x: 2, y: 2 } });
+        await editor
+          .locator('.hit')
+          .first()
+          .click({ button: 'right', position: { x: 2, y: 2 } });
         await editor.getByRole('menuitem', { name: word('Copy formatting') }).click();
-        await editor.locator('.hit').nth(1).click();
-        await editor.locator('.hit').nth(1).click({ button: 'right' });
+        await editor
+          .locator('.hit')
+          .nth(1)
+          .click({ position: { x: 2, y: 2 } });
+        await editor
+          .locator('.hit')
+          .nth(1)
+          .click({ button: 'right', position: { x: 2, y: 2 } });
         await editor.getByRole('menuitem', { name: word('Paste formatting') }).click();
         await editor.getByText(word('Saved to this project'), { exact: true }).waitFor();
 

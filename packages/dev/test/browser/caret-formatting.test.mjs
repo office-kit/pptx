@@ -27,7 +27,7 @@ for (const kind of ['shape', 'cell'])
         const element =
           kind === 'shape'
             ? '<Text x={1} y={1} width={7} height={3}>aaa</Text>'
-            : '<Table x={1} y={1} width={6} height={3} rows={[["aaa","Other"]]} />';
+            : '<Table x={1} y={1} width={6} height={3} headerStyle={{format:{bold:false}}} rows={[["aaa","Other"]]} />';
         await writeFile(
           file,
           `import {Presentation,Slide,Text,Table} from '@office-kit/pptx-dsl';export default <Presentation><Slide>${element}</Slide></Presentation>`,
@@ -108,7 +108,7 @@ for (const kind of ['shape', 'cell'])
           'false',
         );
         await input.press('z');
-        await bar.getByRole('button', { name: 'Done', exact: true }).click();
+        await input.press('ControlOrMeta+Enter');
         await saved();
         const formats = (await runs()).flatMap((r) =>
           Array.from(r.text, (text) => ({ text, ...r.format })),
@@ -141,7 +141,7 @@ for (const kind of ['shape', 'cell'])
         await jaBar.getByRole('button', { name: '文字の書式を解除', exact: true }).click();
         await input.focus();
         await page.keyboard.insertText('日本語');
-        await jaBar.getByRole('button', { name: '完了', exact: true }).click();
+        await input.press('ControlOrMeta+Enter');
         await saved();
         const reset = (await runs()).find((r) => r.text.includes('日本語'));
         assert.equal(reset.format?.bold, undefined);
