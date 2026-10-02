@@ -1,3 +1,12 @@
+## 2026-10-02: 空段落の箇条書き表示
+
+- Mac PowerPoint の通常テキストボックスで Before / Enter の末尾空段落に Bullets を適用。Escape 後は記号が表示されないことを実機で確認。保存 XML は第 2 a:p に buChar と endParaRPr があり、文字 run はない。タイトルの Enter は a:br になるため、通常テキストボックスで比較した。
+- foreignObject 表示が空段落の箇条書き記号を表示する差異を図形・表のテストで再現し、文字のない段落では描画しないよう修正。SVG は既に同じケースを非表示にする。書式付きの文字のある段落は保持し、保存再読込も検証。
+- 検証: format/lint/core typecheck/build、core 3306 成功 / 109 skip、preview/DSL/dev 型検査と依存パッケージ込み build 成功。関連 browser 10 件成功。
+- 参照文書の変更は Undo disabled まで取り消し、Outline title / Ordinary text box と Saved to my Mac を確認済み。
+- 前回の末尾改行＋中央配置のブラウザーテストも図形・表とも成功済み（全 10 ケース）、3a8f13a6 で PR #287 へ push 済み。末尾改行そのものの詳細な実機メトリクス比較は残る。
+- 残件: 編集中の空段落記号・番号付け、フィールド独自 pPr、表スタイル等。全操作一致は未完了。4173 と .pnpm-store を保持、PR #287 に集約。
+
 ## 2026-10-02: 連続改行の空行を実機と比較
 
 - Mac PowerPoint で Before / Shift+Enter / Shift+Enter / After を入力し、空行を作る後方の改行だけを 80pt に変更。Before と After の間隔が広がることを確認（中央配置のため Before は上、After は下へ移動）。先頭空行と同様に空行の改行書式が高さへ影響する。一時変更を Undo disabled まで取り消し、Outline title / Ordinary text box を復元して保存済み。
