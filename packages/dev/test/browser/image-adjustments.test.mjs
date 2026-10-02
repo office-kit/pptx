@@ -93,6 +93,21 @@ test(
       };
       const uncropped = await picture();
       const initialBounds = getShapeBounds(uncropped);
+      await change('Picture width', '0.01');
+      const narrow = await picture();
+      const narrowCrop = getShapeImageCrop(narrow);
+      const offset = editor.getByLabel('Offset X', { exact: true });
+      await offset.fill('5963.92');
+      await offset.press('Tab');
+      await editor
+        .getByText('These crop dimensions exceed the supported range.', { exact: true })
+        .waitFor();
+      assert.equal(await offset.inputValue(), '0');
+      assert.deepEqual(getShapeBounds(await picture()), initialBounds);
+      assert.deepEqual(getShapeImageCrop(await picture()), narrowCrop);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(getShapeImageCrop(await picture()), getShapeImageCrop(uncropped));
       await change('Offset X', '0.5');
       const shifted = await picture();
       const shiftedCrop = getShapeImageCrop(shifted);
@@ -131,6 +146,7 @@ test(
       assert.deepEqual(adjustments(await picture()), [0.4, 0.2, -0.3]);
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
+      await editor.getByRole('region', { name: 'トリミング', exact: true }).waitFor();
       await reset().click();
       await saved();
       assert.deepEqual(adjustments(await picture()), [1, 0, 0]);

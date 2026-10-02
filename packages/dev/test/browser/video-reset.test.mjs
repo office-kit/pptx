@@ -146,7 +146,9 @@ test(
       assert.equal(before.fillOpacity, 0.62);
       assert.equal(before.strokeOpacity, 0.58);
 
-      const reset = detail.getByRole('button', { name: 'Reset', exact: true });
+      const reset = detail
+        .getByRole('region', { name: 'Video options', exact: true })
+        .getByRole('button', { name: 'Reset', exact: true });
       await reset.click();
       await saved();
       const cleared = await readVideo();
@@ -184,6 +186,7 @@ test(
       assert.equal(
         await editor
           .getByRole('tabpanel', { name: 'Video', exact: true })
+          .getByRole('region', { name: 'Video options', exact: true })
           .getByRole('button', { name: 'Reset', exact: true })
           .isDisabled(),
         false,
