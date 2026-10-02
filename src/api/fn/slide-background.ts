@@ -156,7 +156,8 @@ const readBackgroundColor = (
       ? (resolveDrawingColor(colorEl, theme, colorMap) ?? `scheme:${val}`)
       : `scheme:${val}`;
   }
-  if (!['srgbClr', 'sysClr', 'prstClr'].includes(colorEl.name.localName)) return null;
+  if (!['srgbClr', 'scrgbClr', 'hslClr', 'sysClr', 'prstClr'].includes(colorEl.name.localName))
+    return null;
   return resolveDrawingColor(colorEl, null);
 };
 

@@ -440,25 +440,13 @@ const renderPicture = (
         );
       }
       if (duotone && duotone.firstColor && duotone.secondColor) {
-        // Duotone: gray → lerp(firstColor, secondColor, gray). We emit
-        // a feColorMatrix that desaturates first (Rec. 709 luminance),
-        // then a feComponentTransfer with tableValues sampling the
-        // gradient between the two colors.
+        // Duotone mixes the two sRGB colors by luminance. Keep both primitives
+        // in sRGB: SVG's linearRGB default would brighten the supplied endpoints.
         const [r1, g1, b1] = hexChannels(duotone.firstColor);
         const [r2, g2, b2] = hexChannels(duotone.secondColor);
-        const steps = 16;
-        const tR: string[] = [];
-        const tG: string[] = [];
-        const tB: string[] = [];
-        for (let i = 0; i < steps; i++) {
-          const t = i / (steps - 1);
-          tR.push(((r1 + (r2 - r1) * t) / 255).toFixed(4));
-          tG.push(((g1 + (g2 - g1) * t) / 255).toFixed(4));
-          tB.push(((b1 + (b2 - b1) * t) / 255).toFixed(4));
-        }
         prims.push(
-          `<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>`,
-          `<feComponentTransfer><feFuncR type="table" tableValues="${tR.join(' ')}"/><feFuncG type="table" tableValues="${tG.join(' ')}"/><feFuncB type="table" tableValues="${tB.join(' ')}"/></feComponentTransfer>`,
+          `<feColorMatrix color-interpolation-filters="sRGB" type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>`,
+          `<feComponentTransfer color-interpolation-filters="sRGB"><feFuncR type="table" tableValues="${r1 / 255} ${r2 / 255}"/><feFuncG type="table" tableValues="${g1 / 255} ${g2 / 255}"/><feFuncB type="table" tableValues="${b1 / 255} ${b2 / 255}"/></feComponentTransfer>`,
         );
       }
       if (biLevel !== null) {
