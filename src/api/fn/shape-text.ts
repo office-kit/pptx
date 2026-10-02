@@ -75,7 +75,8 @@ export type { TextCase };
 
 /**
  * Replaces the shape's visible text with `value`. Newlines start a new
- * paragraph. By default, new paragraphs inherit the first existing run and
+ * paragraph by default; `newlines: 'break'` inserts paragraph-internal `<a:br>` instead.
+ * By default, new paragraphs inherit the first existing run and
  * paragraph properties (font, color, size, alignment and bullets). The paragraph-end
  * format (`<a:endParaRPr>`) is not kept by default; author it with `setShapeParagraphs`.
  * Set `preserveFormatting` for incremental editing: unchanged prefix/suffix runs
@@ -90,6 +91,7 @@ export const setShapeText = (
   shape: SlideShapeData,
   value: string | { case: TextCase },
   options: {
+    newlines?: 'paragraph' | 'break';
     bullets?: BulletStyle;
     preserveFormatting?: boolean;
     range?: { start: number; end: number };
@@ -103,9 +105,9 @@ export const setShapeText = (
     transformTextBodyCase(txBody, value.case, options.range);
     if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
   } else if (options.preserveFormatting || options.range) {
-    editTextBody(txBody, value, options.range);
+    editTextBody(txBody, value, options.range, options.newlines);
     if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
-  } else setTextBody(txBody, value, options.bullets);
+  } else setTextBody(txBody, value, options.bullets, options.newlines);
   commitAndRefresh(shape);
 };
 

@@ -305,6 +305,7 @@ export function editTextBody(
   txBody: XmlElement,
   value: string,
   range?: { start: number; end: number },
+  newlines: 'paragraph' | 'break' = 'paragraph',
 ): void {
   const before = textBodyText(txBody);
   if (range) validateTextRange(before, range, 'setText');
@@ -357,7 +358,7 @@ export function editTextBody(
   const left = slice(firstParagraph, 0, start - firstOffset);
   const right = slice(lastParagraph, end - lastOffset, paragraphText(lastParagraph).length);
   const properties = propertiesAt(firstParagraph, start - firstOffset, start === end);
-  const lines = replacement.split('\n');
+  const lines = newlines === 'break' ? [replacement] : replacement.split('\n');
   const inserted = lines.map((line, index) => {
     const p = copy(firstParagraph);
     const pPr = firstChildElement(p, name('pPr'));
@@ -370,7 +371,14 @@ export function editTextBody(
       ...(index === 0 ? left : []),
       ...(line ||
       ((index !== 0 || left.length === 0) && (index !== lines.length - 1 || right.length === 0))
-        ? [run(line, properties)]
+        ? line
+            .split('\n')
+            .flatMap((part, partIndex) => [
+              ...(partIndex
+                ? [elem(name('br'), { children: properties ? [copy(properties)] : [] })]
+                : []),
+              ...(part || !line ? [run(part, properties)] : []),
+            ])
         : []),
       ...(index === lines.length - 1 ? right : []),
       ...(endPr ? [copy(endPr)] : []),

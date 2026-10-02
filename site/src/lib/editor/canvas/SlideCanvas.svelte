@@ -32,6 +32,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
   import {
+    getShapePlaceholderType,
     getParagraphPropertiesEffective,
     setParagraphAlignment,
     setParagraphLevel,
@@ -739,12 +740,12 @@
     textInput?.select();
   }
 
-  function replaceSelectedText(text: string, formats?: TextEdit['formats']) {
+  function replaceSelectedText(text: string, formats?: TextEdit['formats'], newlines?: TextEdit['newlines']) {
     if (!editing) return;
     const start = textInput?.getSelection().start ?? editing.text.length;
     const end = textInput?.getSelection().end ?? start;
     checkpointEditing();
-    editing.changes.push({ start, end, text, ...(formats ? { formats } : editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
+    editing.changes.push({ start, end, text, newlines: newlines ?? 'paragraph', ...(formats ? { formats } : editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
     if (formats) delete editing.typing;
     editing.text = editing.text.slice(0, start) + text + editing.text.slice(end);
     textRange = { start: start + text.length, end: start + text.length };
@@ -1442,7 +1443,12 @@
               oninput={updateEditing}
               onhistory={editingHistory}
               oncomposition={(active) => { composingText = active; compositionRecorded = false; }}
-              onnewline={() => replaceSelectedText('\n')}
+              onnewline={(kind) => {
+                const source = boxes.find(b => b.id === editing?.id)?.shape;
+                const placeholder = source && !editing?.cell ? getShapePlaceholderType(source) : null;
+                // Mac PowerPoint uses inline breaks for Enter inside title placeholders.
+                replaceSelectedText('\n', undefined, placeholder === 'title' || placeholder === 'ctrTitle' ? 'break' : kind);
+              }}
               oncopy={(event) => copyEditingText(event)}
               oncut={(event) => copyEditingText(event, true)}
               onpaste={pasteEditingText}

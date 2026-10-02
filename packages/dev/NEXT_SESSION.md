@@ -1,3 +1,12 @@
+## 2026-10-02: Enter と段落内改行
+
+- setShapeText / setTableCellText に newlines: 'break' を追加。通常置換・範囲置換・preserveFormatting の全経路で a:br を生成。既定値は従来の段落分割。
+- キャンバスの Shift+Enter とタイトル / ctrTitle の Enter を段落内改行へ接続。通常テキストの Enter は段落分割を維持。pending preview と commit は同じ編集列を使用。
+- 新規 core 6 ケースで図形 / 表の保存再読込、preview で改行書式継承を検証。ブラウザー 2 ケースでタイトル Enter の保存・再編集、通常テキスト Shift+Enter と Undo を確認。
+- 検証: format/lint/core と dev typecheck、dev 依存込み build 成功。core 3313 成功 / 109 skip。
+- PowerPoint の画面取得が復旧し、参照文書の元の文字列と保存済みを確認。今回参照文書の追加変更なし。
+- 次: OutlineText は新しい onnewline 引数をまだ使っていない。アウトラインの Shift+Enter を実機比較して接続する。表セルの Shift+Enter のブラウザー保存検証、空段落番号等も残る。全操作一致は未完了。4173 と .pnpm-store は保持。
+
 ## 2026-10-02: 空段落の箇条書き表示
 
 - Mac PowerPoint の通常テキストボックスで Before / Enter の末尾空段落に Bullets を適用。Escape 後は記号が表示されないことを実機で確認。保存 XML は第 2 a:p に buChar と endParaRPr があり、文字 run はない。タイトルの Enter は a:br になるため、通常テキストボックスで比較した。

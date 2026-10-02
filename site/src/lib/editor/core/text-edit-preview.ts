@@ -22,6 +22,7 @@ export type TextEdit = {
   start: number;
   end: number;
   text: string;
+  newlines?: 'paragraph' | 'break';
   typing?: { format: TextFormat; reset: boolean };
   formats?: { start: number; end: number; format: TextFormat }[];
 };
@@ -36,8 +37,9 @@ export function replayTextEdits(
   const cell = position ? getTableCells(shape)[position.row]![position.col]! : undefined;
   for (const change of changes) {
     const range = { start: change.start, end: change.end };
-    if (cell) setTableCellText(cell, change.text, { range });
-    else setShapeText(shape, change.text, { range });
+    if (cell)
+      setTableCellText(cell, change.text, { range, newlines: change.newlines ?? 'paragraph' });
+    else setShapeText(shape, change.text, { range, newlines: change.newlines ?? 'paragraph' });
     for (const span of change.formats ?? []) {
       const options = {
         range: { start: change.start + span.start, end: change.start + span.end },

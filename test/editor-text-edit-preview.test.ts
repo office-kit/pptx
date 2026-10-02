@@ -193,3 +193,19 @@ describe('pending text formatting preview', () => {
     expect(getShapeText(shape)).toBe('AB');
   });
 });
+
+it('previews inline breaks without splitting paragraphs or losing insertion formatting', () => {
+  const slide = addBlankSlide(createPresentation());
+  const shape = addSlideTextBox(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(4),
+    h: inches(2),
+    text: '',
+  });
+  setShapeParagraphs(shape, [{ runs: [{ text: 'AB', format: { bold: true } }] }]);
+  const projected = projectTextEdits(shape, [{ start: 1, end: 1, text: '\n', newlines: 'break' }]);
+  expect(getShapeParagraphElements(projected, 0).map((e) => e.kind)).toEqual(['r', 'br', 'r']);
+  expect(getShapeParagraphElements(projected, 0)[1]!.format?.bold).toBe(true);
+  expect(getShapeText(shape)).toBe('AB');
+});

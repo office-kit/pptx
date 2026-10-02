@@ -10,7 +10,7 @@
     onselect: (range: TextSelection) => void;
     onbeforeinput: (range: TextSelection, event?: InputEvent) => void;
     onkeydown: (event: KeyboardEvent) => void;
-    onnewline: () => void;
+    onnewline: (kind: 'paragraph' | 'break') => void;
     oncomposition: (active: boolean) => void;
     onhistory: (backward: boolean) => void;
     oncopy: (event: ClipboardEvent) => void;
@@ -98,7 +98,7 @@
     capture(event);
     if (!composing && (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak')) {
       event.preventDefault();
-      onnewline();
+      onnewline(event.inputType === 'insertLineBreak' ? 'break' : 'paragraph');
     }
   }}
   oninput={changed}
