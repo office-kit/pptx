@@ -100,9 +100,11 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
       await thumbs.nth(2).click();
+      await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
+      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
       await editor
-        .locator('.ribbon')
-        .getByRole('button', { name: 'プレースホルダーの配置を戻す', exact: true })
+        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menuitem', { name: 'プレースホルダーの配置を戻す', exact: true })
         .click();
       await saved();
       assert.deepEqual((await state()).bounds, expected);
@@ -187,11 +189,14 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
       await thumbs.nth(2).click();
+      await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
+      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
       const restore = editor
-        .locator('.ribbon')
-        .getByRole('button', { name: '削除したプレースホルダーを復元', exact: true });
+        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menuitem', { name: '削除したプレースホルダーを復元', exact: true });
       await restore.click();
       await saved();
+      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
       await restore.click();
       await saved();
       await page.screenshot({ path: '/tmp/pptx-restore-slots-ja.png', fullPage: true });
@@ -285,9 +290,11 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
       await thumbs.nth(2).click();
+      await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
+      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
       await editor
-        .locator('.ribbon')
-        .getByRole('button', { name: 'プレースホルダーの文字書式を戻す', exact: true })
+        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menuitem', { name: 'プレースホルダーの文字書式を戻す', exact: true })
         .click();
       await saved();
       assert.deepEqual((await state()).formatted, [false, false, false]);
@@ -398,9 +405,11 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
       await thumbs.nth(2).click();
+      await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
+      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
       await editor
-        .locator('.ribbon')
-        .getByRole('button', { name: 'レイアウトをリセット', exact: true })
+        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menuitem', { name: 'レイアウトをリセット', exact: true })
         .click();
       await saved();
       assert.deepEqual((await state()).bounds, expected);
