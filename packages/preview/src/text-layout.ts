@@ -174,7 +174,7 @@ export interface PieceInput {
   readonly underline: UnderlineStyle;
   /** Resolved DrawingML underline color; omitted means the glyph color. */
   readonly underlineHex?: string;
-  readonly strike: boolean;
+  readonly strike: boolean | 'double';
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
   /** Lowercase source letters rendered as reduced-size capitals for small caps. */
   readonly smallCaps?: boolean;
@@ -887,7 +887,7 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   return (
     emitHighlights(groups, line.textAnchor, x0, baselineY) +
     text +
-    emitUnderlineDecorations(groups, line.textAnchor, x0, baselineY)
+    emitTextDecorations(groups, line.textAnchor, x0, baselineY)
   );
 };
 
@@ -1000,8 +1000,12 @@ const underlineSegments = (group: Group, x: number): Array<{ x: number; width: n
   return segments;
 };
 
+const STRIKE_CENTER_EM = 0.3;
+const STRIKE_THICKNESS_EM = 0.05;
+const MIN_STRIKE_THICKNESS_PX = 0.6;
+
 // Account for text-anchor before advancing by each measured group's width.
-const emitUnderlineDecorations = (
+const emitTextDecorations = (
   groups: readonly Group[],
   textAnchor: 'start' | 'middle' | 'end',
   x0: number,
@@ -1013,6 +1017,18 @@ const emitUnderlineDecorations = (
   let cursor = lineStartX;
   const parts: string[] = [];
   for (const g of groups) {
+    if (g.piece.strike === 'double' && !g.isTab && g.width > 0) {
+      // SVG renderers do not reliably support text-decoration-style:double.
+      // Use explicit strokes, with the same baseline shift as the glyphs.
+      const size = renderedSizePxOf(g.piece);
+      const center = baselineY - baselineShiftPxOf(g.piece) - size * STRIKE_CENTER_EM;
+      const stroke = Math.max(MIN_STRIKE_THICKNESS_PX, size * STRIKE_THICKNESS_EM);
+      for (const offset of [-stroke, stroke]) {
+        parts.push(
+          `<line x1="${fmt(cursor)}" x2="${fmt(cursor + g.width)}" y1="${fmt(center + offset)}" y2="${fmt(center + offset)}" stroke="${g.piece.fillHex}" stroke-width="${fmt(stroke)}"/>`,
+        );
+      }
+    }
     if (
       g.piece.underline !== 'none' &&
       g.width > 0 &&
@@ -1153,7 +1169,7 @@ const tspan = (g: Group): string => {
   // resvg ignores text-decoration-color. Explicit colors use the measured
   // underline line emitted separately, keeping glyphs and strike unchanged.
   if (p.underline === 'sng' && p.underlineHex === undefined) decorations.push('underline');
-  if (p.strike) decorations.push('line-through');
+  if (p.strike === true) decorations.push('line-through');
   if (decorations.length) attrs.push(`text-decoration="${decorations.join(' ')}"`);
   if (p.letterSpacingPx !== 0) attrs.push(`letter-spacing="${fmt(p.letterSpacingPx)}"`);
   if (p.superSub !== 0) attrs.push(`baseline-shift="${fmt(baselineShiftPxOf(p))}"`);

@@ -191,6 +191,33 @@ const countText = (svg: string): number => (svg.match(/<text /g) ?? []).length;
 
 describe('layoutTextSvg', () => {
   it.each(['left', 'center', 'right'] as const)(
+    'positions double strike independently of adjacent single strike for %s alignment',
+    (align) => {
+      const svg = layoutTextSvg(
+        body(
+          [
+            para([piece('A', { strike: true }), piece('B', { strike: 'double' }), piece('C')], {
+              align,
+            }),
+          ],
+          { boxWpx: 100 },
+        ),
+        stubMeasurer,
+      );
+      const lines = [...svg.matchAll(/<line x1="([^"]+)" x2="([^"]+)"/g)];
+      expect(lines).toHaveLength(2);
+      // The renderer applies its shared glyph-grid correction to text and lines.
+      const start = (align === 'left' ? 10 : align === 'center' ? 45 : 80) - 0.75;
+      for (const line of lines) {
+        expect(Number(line[1])).toBe(start);
+        expect(Number(line[2])).toBe(start + 10);
+      }
+      expect(svg).toMatch(/<tspan[^>]*text-decoration="line-through"[^>]*>A<\/tspan>/);
+      expect(svg).toMatch(/<tspan[^>]*>B<\/tspan>/);
+      expect(svg).toMatch(/<tspan[^>]*>C<\/tspan>/);
+    },
+  );
+  it.each(['left', 'center', 'right'] as const)(
     'positions run highlights behind %s-aligned text',
     (align) => {
       const svg = layoutTextSvg(
