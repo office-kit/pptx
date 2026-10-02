@@ -18,6 +18,13 @@ describe('fn API: resolveDrawingColor', () => {
     expect(resolveDrawingColor(el, null)).toBe('#FF0000');
   });
 
+  it('resolves every standard preset color through the same transform pipeline', () => {
+    const el = parseColorEl(
+      `<a:prstClr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" val="red"/>`,
+    );
+    expect(resolveDrawingColor(el, null)).toBe('#FF0000');
+  });
+
   it('darkens via shade', () => {
     // shade=50000 (50%) of pure red. PowerPoint applies shade in LINEAR light,
     // so R = srgb(linear(1)·0.5) = srgb(0.5) ≈ 0.735 → 0xBC, giving #BC0000
