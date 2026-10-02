@@ -26,7 +26,9 @@ import { NS, qname } from '../src/internal/xml/index.ts';
 const STYLE_ID = '{AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE}';
 const STYLE_XML = `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${STYLE_ID}"><a:tblStyle styleId="${STYLE_ID}" styleName="Edges"><a:wholeTbl><a:tcStyle><a:tcBdr><a:left><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:left><a:right><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:right><a:top><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:top><a:bottom><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:bottom><a:insideH><a:ln w="6350"><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill></a:ln></a:insideH><a:insideV><a:ln w="6350"><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill></a:ln></a:insideV></a:tcBdr><a:fill><a:solidFill><a:srgbClr val="FFFF00"/></a:solidFill></a:fill></a:tcStyle></a:wholeTbl><a:firstRow><a:tcStyle><a:tcBdr><a:bottom><a:ln w="12700"><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:ln></a:bottom></a:tcBdr></a:tcStyle></a:firstRow></a:tblStyle></a:tblStyleLst>`;
 
-const makeDeck = async () => {
+const BAND_STYLE_XML = `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${STYLE_ID}"><a:tblStyle styleId="${STYLE_ID}" styleName="Band edges"><a:wholeTbl><a:tcStyle/></a:wholeTbl><a:band1H><a:tcStyle><a:tcBdr><a:left><a:ln w="1016"><a:solidFill><a:srgbClr val="AA0000"/></a:solidFill></a:ln></a:left><a:top><a:ln w="1016"><a:solidFill><a:srgbClr val="00AA00"/></a:solidFill></a:ln></a:top><a:insideH><a:ln w="1016"><a:solidFill><a:srgbClr val="AA00AA"/></a:solidFill></a:ln></a:insideH><a:insideV><a:ln w="1016"><a:solidFill><a:srgbClr val="AA00AA"/></a:solidFill></a:ln></a:insideV></a:tcBdr></a:tcStyle></a:band1H><a:band1V><a:tcStyle><a:tcBdr><a:left><a:ln w="1016"><a:solidFill><a:srgbClr val="0000AA"/></a:solidFill></a:ln></a:left><a:top><a:ln w="1016"><a:solidFill><a:srgbClr val="00AAAA"/></a:solidFill></a:ln></a:top><a:insideH><a:ln w="1016"><a:solidFill><a:srgbClr val="AA5500"/></a:solidFill></a:ln></a:insideH><a:insideV><a:ln w="1016"><a:solidFill><a:srgbClr val="AA5500"/></a:solidFill></a:ln></a:insideV></a:tcBdr></a:tcStyle></a:band1V></a:tblStyle></a:tblStyleLst>`;
+
+const makeDeck = async (styleXml = STYLE_XML) => {
   const original = createPresentation();
   addSlideTable(addBlankSlide(original), {
     x: inches(0),
@@ -46,7 +48,7 @@ const makeDeck = async () => {
     writeZip(
       entries.map((entry) => {
         if (entry.name === 'ppt/tableStyles.xml')
-          return { ...entry, data: encoder.encode(STYLE_XML) };
+          return { ...entry, data: encoder.encode(styleXml) };
         if (entry.name !== 'ppt/slides/slide1.xml') return entry;
         return {
           ...entry,
@@ -116,5 +118,26 @@ describe('getTableCellAppearanceEffective table-style edges', () => {
     const tcPr = firstChildElement(cells[1]![1]![CELL_ELEMENT], qname('a', 'tcPr', NS.dml));
     tcPr?.children.push(elem(qname('a', 'noFill', NS.dml)));
     expect(getTableCellAppearanceEffective(pres, cells[1]![1]!).fill).toEqual({ kind: 'none' });
+  });
+
+  it('keeps band borders on their cell sides instead of remapping them to whole-table interiors', async () => {
+    const pres = await makeDeck(BAND_STYLE_XML);
+    const table = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    setTableStyleFlags(table, { firstRow: true, firstCol: true, bandRow: true, bandCol: true });
+    const cells = getTableCells(table);
+
+    // Row 1 is the first horizontal band, but is not the table boundary.
+    expect(getTableCellAppearanceEffective(pres, cells[1]![2]!).borders).toMatchObject({
+      left: { color: '#AA0000' },
+      top: { color: '#00AA00' },
+      bottom: { color: '#AA00AA' },
+    });
+
+    // Row 2 / column 1 isolates the first vertical band from the horizontal band.
+    expect(getTableCellAppearanceEffective(pres, cells[2]![1]!).borders).toMatchObject({
+      left: { color: '#0000AA' },
+      top: { color: '#00AAAA' },
+      right: { color: '#AA5500' },
+    });
   });
 });
