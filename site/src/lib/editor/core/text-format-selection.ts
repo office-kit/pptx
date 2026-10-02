@@ -31,29 +31,40 @@ export function textFormatsInRange(
   for (const [paragraphIndex, { elements, endFormat }] of paragraphs.entries()) {
     let runIndex = 0;
     let fieldIndex = 0;
+    let breakIndex = 0;
     const paragraphStart = offset;
     for (const element of elements) {
       const currentRun = runIndex;
       const currentField = fieldIndex;
+      const currentBreak = breakIndex;
+      if (element.kind === 'br') breakIndex++;
       if (element.kind === 'fld') fieldIndex++;
       if (element.kind === 'r') runIndex++;
       // Readers widen colors to plain strings; the selection's format is fed
       // straight back into writers, so it is converted once here.
       const format = (): TextFormat =>
         toWritableTextFormat(
-          context && element.kind !== 'br'
+          context
             ? tableCell
               ? getTableCellRunFormatEffective(
                   context.pres,
                   tableCell,
                   paragraphIndex,
-                  element.kind === 'fld' ? { fieldIndex: currentField } : currentRun,
+                  element.kind === 'fld'
+                    ? { fieldIndex: currentField }
+                    : element.kind === 'br'
+                      ? { breakIndex: currentBreak }
+                      : currentRun,
                 )
               : getShapeRunFormatEffective(
                   context.pres,
                   shape,
                   paragraphIndex,
-                  element.kind === 'fld' ? { fieldIndex: currentField } : currentRun,
+                  element.kind === 'fld'
+                    ? { fieldIndex: currentField }
+                    : element.kind === 'br'
+                      ? { breakIndex: currentBreak }
+                      : currentRun,
                   { inheritanceSource: context.source ?? shape },
                 )
             : (element.format ?? {}),

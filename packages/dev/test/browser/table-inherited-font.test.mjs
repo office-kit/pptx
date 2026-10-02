@@ -16,13 +16,15 @@ import {
 import { startPreview } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
-for (const { kind, field } of [
+for (const { kind, field, lineBreak = false } of [
   { kind: 'table', field: false },
   { kind: 'table', field: true },
   { kind: 'shape', field: true },
+  { kind: 'shape', field: false, lineBreak: true },
+  { kind: 'table', field: false, lineBreak: true },
 ]) {
   test(
-    `${kind} paragraph default font survives entering text editing (field: ${field})`,
+    `${kind} paragraph default font survives entering text editing (field: ${field}, break: ${lineBreak})`,
     { timeout: 60000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-table-inherited-font-'));
@@ -59,6 +61,10 @@ for (const { kind, field } of [
               )
               .replace('</a:r>', '</a:fld>'),
           );
+        if (lineBreak)
+          parts[name] = strToU8(
+            strFromU8(parts[name]).replace('<a:r>', '<a:br><a:rPr i="1"/></a:br><a:r>'),
+          );
         assert.notEqual(strFromU8(parts[name]), xml, 'fixture has a paragraph default');
         const source = join(dir, 'source.pptx');
         await writeFile(source, zipSync(parts));
@@ -78,6 +84,21 @@ for (const { kind, field } of [
         await editor.locator('.hit').first().dblclick();
         const input = editor.locator('.inline-edit');
         await input.waitFor();
+        if (lineBreak) {
+          const breakStyle = await input
+            .locator('span')
+            .first()
+            .evaluate((node) => ({
+              text: node.textContent,
+              font: node.style.fontFamily,
+              size: node.style.fontSize,
+              weight: getComputedStyle(node).fontWeight,
+            }));
+          assert.equal(breakStyle.text, '\n');
+          assert.match(breakStyle.font, /Courier New/);
+          assert.equal(breakStyle.size, 'calc(28pt * var(--text-zoom))');
+          assert.equal(breakStyle.weight, '700');
+        }
         const style = await input
           .locator('span')
           .filter({ hasText: 'Inherited text' })
@@ -95,6 +116,7 @@ for (const { kind, field } of [
         assert.equal(style.weight, '700');
         assert.equal(style.color, 'rgb(170, 34, 68)');
         assert.equal(style.size, 'calc(28pt * var(--text-zoom))');
+        if (lineBreak) return;
         const copied = await input.evaluate((node) => {
           node.focus();
           window.selectEditorText(node, 0, node.textContent.length);

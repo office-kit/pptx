@@ -45,7 +45,7 @@ export function copyTextRange(
   cell?: { row: number; col: number },
   resolveRunFormat?: (
     paragraphIndex: number,
-    runIndex: number | { fieldIndex: number },
+    runIndex: number | { fieldIndex: number } | { breakIndex: number },
   ) => TextFormat | undefined,
 ): TextClipboard {
   const paragraphs = cell
@@ -64,13 +64,18 @@ export function copyTextRange(
     if (index) append('\n', {});
     let runIndex = 0;
     let fieldIndex = 0;
+    let breakIndex = 0;
     for (const element of elements) {
       let format = element.format;
-      if (element.kind !== 'br') {
-        const selector = element.kind === 'r' ? runIndex++ : { fieldIndex: fieldIndex++ };
-        if (resolveRunFormat && text.length < end && text.length + element.text.length > start)
-          format = resolveRunFormat(index, selector) ?? format;
-      }
+      const selector =
+        element.kind === 'r'
+          ? runIndex++
+          : element.kind === 'fld'
+            ? { fieldIndex: fieldIndex++ }
+            : { breakIndex: breakIndex++ };
+      const length = element.kind === 'br' ? 1 : element.text.length;
+      if (resolveRunFormat && text.length < end && text.length + length > start)
+        format = resolveRunFormat(index, selector) ?? format;
       // What the reader hands back widens colors to strings; the clipboard
       // carries a format that can be written straight into another shape.
       append(element.kind === 'br' ? '\n' : element.text, toWritableTextFormat(format ?? {}));

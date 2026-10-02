@@ -1,3 +1,11 @@
+## 2026-10-02: 明示改行の継承書式
+
+- getShapeRunFormatEffective / getTableCellRunFormatEffective に { breakIndex } を追加。a:br の直接 rPr と段落・リスト等の既定書式を既存 resolver で合成。通常 run / field のインデックスは別々のまま維持。
+- 選択、編集 HTML、書式付きコピーで改行の継承フォント・サイズ・太字が失われる不具合を修正。図形の選択書式で変更前の失敗を再現し、図形・表、範囲外、保存再読込、コピーを検証。ブラウザーで両方の改行 span が Courier New / 28pt / bold になることも確認。
+- 根拠: Microsoft SDK Drawing.Break remarks (ISO/IEC 29500 §21.1.2.2.1): https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.break?view=openxml-3.0.1 。改行の rPr は挿入文字の書式を保持する。行高にどう影響するかはこの資料だけでは確定しないため、描画側を推測で変更していない。
+- 検証: core 3298 成功 / 109 skip、site 135 件、Svelte check 0 errors/warnings、関連 browser 6 件成功。format/lint/core typecheck/build、preview build、DSL typecheck、dev typecheck/build 成功。
+- 改行の描画側は依然 fmt:null / 既定サイズ。行高・前後の文字サイズ・改行直後の入力は Mac 実機比較が必要。空文字 run、空段落の箇条書き、表の共有辺/スタイル等も残る。全操作一致は未完了。参照文書に変更なし。4173 と .pnpm-store を保持。PR #287 に集約。
+
 ## 2026-10-02: 図形の空段落と編集開始時の位置
 
 - getShapeRunFormatEffective の null 指定で段落末尾の実効書式を取得。図形の空段落も表示・編集 HTML・カーソルの書式取得に同じ継承を使用する。
