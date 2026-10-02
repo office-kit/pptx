@@ -120,8 +120,17 @@ export function inlineTextHtml(
     // Keep the paragraph strut at zero. A large inherited fallback here would
     // enlarge line boxes containing smaller explicitly-sized runs; preview
     // lays out each run at its own effective size instead.
-    style.fontSize = text ? '0px' : scaled(defaults.size, 'pt');
-    style.fontFamily = defaults.family;
+    const emptyFormat =
+      elements.length === 0 && tableCell
+        ? getTableCellRunFormatEffective(pres, tableCell, index, null)
+        : null;
+    style.fontSize = text ? '0px' : scaled(emptyFormat?.size ?? defaults.size, 'pt');
+    style.fontFamily = emptyFormat?.font ?? defaults.family;
+    if (emptyFormat?.bold !== undefined) style.fontWeight = emptyFormat.bold ? '700' : '400';
+    if (emptyFormat?.italic !== undefined)
+      style.fontStyle = emptyFormat.italic ? 'italic' : 'normal';
+    if (emptyFormat?.color)
+      style.color = resolveEditingTextColor(pres, shape, emptyFormat.color) ?? '';
     style.lineHeight = text ? '0' : '1.05';
     const props = properties[index]!;
     style.tabSize = scaled((props.defaultTabSizeEmu ?? 914400) / 9525, 'px');

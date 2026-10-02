@@ -150,7 +150,7 @@ export const resolveTextBodyRunFormatEffective = (
   },
   textBody: XmlElement,
   paragraphIndex: number,
-  runIndex: number,
+  runIndex: number | null,
 ): ReadTextFormat => {
   const paragraphs = textBody.children.filter(
     (child): child is XmlElement =>
@@ -165,8 +165,8 @@ export const resolveTextBodyRunFormatEffective = (
     );
   }
   const runs = runsOf(paragraph);
-  const run = runs[runIndex];
-  if (!run) {
+  const run = runIndex === null ? null : runs[runIndex];
+  if (runIndex !== null && !run) {
     throw new RangeError(
       `run index ${runIndex} out of range in paragraph ${paragraphIndex} (have ${runs.length})`,
     );
@@ -184,9 +184,9 @@ export const resolveTextBodyRunFormatEffective = (
     }
   }
 
-  const runRPr = firstChildElement(run, NAME_A_RPR);
+  const runRPr = run ? firstChildElement(run, NAME_A_RPR) : null;
   if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
-  if (runs[runs.length - 1] === run) {
+  if (runIndex === null || runs[runs.length - 1] === run) {
     const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
     if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
   }

@@ -210,3 +210,42 @@ describe('fn API: getTableCellRunFormatEffective', () => {
     });
   });
 });
+
+it('resolves an empty cell paragraph end mark through paragraph and table defaults', async () => {
+  const original = createPresentation();
+  addSlideTable(addBlankSlide(original), {
+    x: inches(0),
+    y: inches(0),
+    w: inches(4),
+    h: inches(2),
+    rows: [['Empty']],
+  });
+  const { entries } = readZip(await savePresentation(original));
+  const loaded = await loadPresentation(
+    writeZip(
+      entries.map((entry) =>
+        entry.name === 'ppt/slides/slide1.xml'
+          ? {
+              ...entry,
+              data: new TextEncoder().encode(
+                new TextDecoder()
+                  .decode(entry.data)
+                  .replace(
+                    /<a:p>[\s\S]*?<\/a:p>/,
+                    '<a:p><a:pPr><a:defRPr sz="2400" i="1"/></a:pPr><a:endParaRPr sz="3600" b="0"/></a:p>',
+                  ),
+              ),
+            }
+          : entry,
+      ),
+    ),
+  );
+  const cell = getTableCells(getSlideShapes(getSlides(loaded)[0]!)[0]!)[0]![0]!;
+  expect(getTableCellRunFormatEffective(loaded, cell, 0, null)).toMatchObject({
+    size: 36,
+    bold: false,
+    italic: true,
+    color: '#FFFFFF',
+  });
+  expect(() => getTableCellRunFormatEffective(loaded, cell, 0, 0)).toThrow(RangeError);
+});
