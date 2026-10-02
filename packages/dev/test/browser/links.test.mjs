@@ -452,11 +452,13 @@ for (const target of ['shape', 'cell'])
             el.dispatchEvent(new Event('select', { bubbles: true }));
           });
           if (keyboard) await input.press('Control+k');
-          else
-            await editor
-              .locator('.canvas-shell .text-format-bar')
+          else {
+            const formatting = editor.locator('.floating-text-format-bar');
+            await formatting.locator('summary').click();
+            await formatting
               .getByRole('button', { name: ja ? 'リンクを編集' : 'Edit link', exact: true })
               .click();
+          }
           return editor.getByRole('dialog', {
             name: ja ? 'リンクを編集' : 'Edit link',
             exact: true,

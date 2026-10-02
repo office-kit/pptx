@@ -117,9 +117,10 @@ test(
       const oldAudio = await audio.elementHandle();
       const startTime = await audio.evaluate((element) => element.currentTime);
       await inline.getByRole('button', { name: 'Play', exact: true }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      assert.ok(
-        await oldAudio.evaluate((element, start) => element.currentTime > start + 1, startTime),
+      await page.waitForFunction(
+        ({ element, start }) => element.currentTime > start + 1,
+        { element: oldAudio, start: startTime },
+        { timeout: 5000 },
       );
       assert.equal(await oldAudio.evaluate((element) => element.paused), false);
       await editor.locator('.hit').nth(1).click();
