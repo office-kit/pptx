@@ -175,7 +175,7 @@ export interface PieceInput {
   /** Resolved DrawingML underline color; omitted means the glyph color. */
   readonly underlineHex?: string;
   readonly strike: boolean | 'double';
-  readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
+  readonly baseline: number; // Offset as a fraction of the authored font size.
   /** Lowercase source letters rendered as reduced-size capitals for small caps. */
   readonly smallCaps?: boolean;
   readonly href: string | null;
@@ -928,14 +928,7 @@ const groupTokens = (toks: Token[]): Group[] => {
 // below reuses it (as a y offset in the opposite direction) so an underlined
 // super/subscript run draws under the shifted glyphs, not the line's plain
 // baseline.
-const SUPERSCRIPT_SHIFT_RATIO = 0.33;
-const SUBSCRIPT_SHIFT_RATIO = 0.16;
-const baselineShiftPxOf = (p: PieceInput): number =>
-  p.superSub === 1
-    ? p.sizePx * SUPERSCRIPT_SHIFT_RATIO
-    : p.superSub === -1
-      ? -p.sizePx * SUBSCRIPT_SHIFT_RATIO
-      : 0;
+const baselineShiftPxOf = (p: PieceInput): number => p.sizePx * p.baseline;
 
 // A super/subscript run's glyphs render at this fraction of its authored
 // size (see tspan()) — wavyPath reuses it so a wavy-underlined super/
@@ -949,7 +942,7 @@ const SUPER_SUB_SIZE_RATIO = 0.65;
 const SMALL_CAPS_LOWERCASE_RATIO = 0.8;
 const renderedSizePxOf = (p: PieceInput): number =>
   p.sizePx *
-  (p.superSub !== 0 ? SUPER_SUB_SIZE_RATIO : 1) *
+  (p.baseline !== 0 ? SUPER_SUB_SIZE_RATIO : 1) *
   (p.smallCaps === true ? SMALL_CAPS_LOWERCASE_RATIO : 1);
 
 // resvg does not support patterned text decorations. Draw the special styles
@@ -1077,7 +1070,7 @@ const emitHighlights = (
     const metrics = group.highlightMetrics;
     if (group.piece.highlightHex && metrics && group.width > 0) {
       const scale =
-        (group.piece.superSub === 0 ? 1 : SUPER_SUB_SIZE_RATIO) *
+        (group.piece.baseline === 0 ? 1 : SUPER_SUB_SIZE_RATIO) *
         (group.piece.smallCaps === true ? SMALL_CAPS_LOWERCASE_RATIO : 1);
       const y = baselineY - baselineShiftPxOf(group.piece) - metrics.a * scale;
       backgrounds.push(
@@ -1140,7 +1133,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&
   a.strike === b.strike &&
-  a.superSub === b.superSub &&
+  a.baseline === b.baseline &&
   a.smallCaps === b.smallCaps &&
   a.href === b.href &&
   a.hrefTip === b.hrefTip;
@@ -1172,7 +1165,7 @@ const tspan = (g: Group): string => {
   if (p.strike === true) decorations.push('line-through');
   if (decorations.length) attrs.push(`text-decoration="${decorations.join(' ')}"`);
   if (p.letterSpacingPx !== 0) attrs.push(`letter-spacing="${fmt(p.letterSpacingPx)}"`);
-  if (p.superSub !== 0) attrs.push(`baseline-shift="${fmt(baselineShiftPxOf(p))}"`);
+  if (p.baseline !== 0) attrs.push(`baseline-shift="${fmt(baselineShiftPxOf(p))}"`);
   return `<tspan ${attrs.join(' ')}>${escapeXml(g.text)}</tspan>`;
 };
 

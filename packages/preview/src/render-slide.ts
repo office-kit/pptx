@@ -2305,11 +2305,10 @@ const renderRun = (
     styles.push(`letter-spacing:${trackingPx.toFixed(3)}px`);
   }
   if (format?.baseline !== undefined && format.baseline !== 0) {
-    // Positive = superscript, negative = subscript. Scale the glyph a
-    // little smaller as PowerPoint does (~64% for super/subscript).
-    const direction = format.baseline > 0 ? 'super' : 'sub';
-    styles.push(`vertical-align:${direction}`);
-    styles.push('font-size:0.65em');
+    // The offset uses the authored size, before the preview's script-size
+    // approximation. Using em here would instead shrink the parent's font.
+    styles.push(`vertical-align:${(format.baseline * effectivePt * PX_PER_PT).toFixed(2)}px`);
+    styles.push(`font-size:${(effectivePt * PX_PER_PT * 0.65).toFixed(2)}px`);
   }
   if (format?.cap === 'all') styles.push('text-transform:uppercase');
   else if (format?.cap === 'small') styles.push('font-variant:small-caps');
@@ -2585,8 +2584,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         fmt?.color !== undefined && fmt.color !== null
           ? resolveColor(fmt.color, a.theme, '#000000')
           : a.defaultColor;
-      const superSub: 0 | 1 | -1 =
-        fmt?.baseline !== undefined && fmt.baseline !== 0 ? (fmt.baseline > 0 ? 1 : -1) : 0;
+      const baseline = fmt?.baseline ?? 0;
       const letterSpacingPx =
         fmt?.spc !== undefined && fmt.spc !== 0 ? (fmt.spc / 100) * PX_PER_PT : 0;
       // OOXML's kern is a 1/100-point size threshold. An omitted threshold
@@ -2618,7 +2616,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
               outlineWidthPx: (fmt.outline.widthEmu ?? 9525) / EMU_PER_PX,
             }
           : {}),
-        superSub,
+        baseline,
         href: run.href ?? null,
         ...(run.hrefTip !== undefined ? { hrefTip: run.hrefTip } : {}),
       };
@@ -2722,7 +2720,7 @@ const breakPiece = (): PieceInput => ({
   fillHex: '#000000',
   underline: 'none',
   strike: false,
-  superSub: 0,
+  baseline: 0,
   href: null,
   isBreak: true,
 });
