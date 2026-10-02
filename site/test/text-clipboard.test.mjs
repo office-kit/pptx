@@ -18,6 +18,7 @@ test('invalid character metadata falls back to plain text before paste', () => {
     { baseline: 30000 },
     { baseline: -30000 },
     { color: 'ACCENT1' },
+    { underlineColor: 'ACCENT1' },
   ]) {
     assert.equal(parseTextClipboard(clipboard(format), '日本語'), null, JSON.stringify(format));
   }
@@ -32,6 +33,14 @@ test('supported character metadata preserves theme colors and detailed underline
     kern: 400000,
     baseline: 0.3,
     color: 'scheme:accent1',
+    underlineColor: '#123456',
   };
   assert.deepEqual(parseTextClipboard(clipboard(format), '日本語')?.formats[0].format, format);
+});
+
+test('underlineColor accepts null as follow-text metadata', () => {
+  for (const underlineColor of [null, '#123456', 'scheme:accent1']) {
+    const format = { underline: true, underlineColor };
+    assert.deepEqual(parseTextClipboard(clipboard(format), '日本語')?.formats[0].format, format);
+  }
 });

@@ -97,6 +97,9 @@ const mergeRPrLayer = (base: Partial<ReadTextFormat>, layer: Partial<ReadTextFor
   if (base.underline === undefined && layer.underline !== undefined) {
     base.underline = layer.underline;
   }
+  if (base.underlineColor === undefined && layer.underlineColor !== undefined) {
+    base.underlineColor = layer.underlineColor;
+  }
   if (base.strike === undefined && layer.strike !== undefined) base.strike = layer.strike;
   if (base.spc === undefined && layer.spc !== undefined) base.spc = layer.spc;
   if (base.kern === undefined && layer.kern !== undefined) base.kern = layer.kern;

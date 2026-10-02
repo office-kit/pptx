@@ -172,6 +172,8 @@ export interface PieceInput {
   readonly outlineWidthPx?: number;
   /** DrawingML `ST_TextUnderlineType`; wavy variants use explicit SVG paths. */
   readonly underline: UnderlineStyle;
+  /** Resolved DrawingML underline color; omitted means the glyph color. */
+  readonly underlineHex?: string;
   readonly strike: boolean;
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
   /** Lowercase source letters rendered as reduced-size capitals for small caps. */
@@ -1002,7 +1004,11 @@ const emitUnderlineDecorations = (
   let cursor = lineStartX;
   const parts: string[] = [];
   for (const g of groups) {
-    if (g.piece.underline !== 'none' && g.piece.underline !== 'sng' && g.width > 0) {
+    if (
+      g.piece.underline !== 'none' &&
+      g.width > 0 &&
+      (g.piece.underline !== 'sng' || g.piece.underlineHex !== undefined)
+    ) {
       const size = renderedSizePxOf(g.piece);
       const baseline = baselineY - baselineShiftPxOf(g.piece);
       const y = baseline + size * WAVY_BASELINE_OFFSET_RATIO;
@@ -1022,7 +1028,7 @@ const emitUnderlineDecorations = (
           for (const offset of offsets) {
             const dashAttr = dash === null ? '' : ` stroke-dasharray="${dash}"`;
             parts.push(
-              `<line x1="${fmt(segment.x)}" x2="${fmt(segment.x + segment.width)}" y1="${fmt(y + offset)}" y2="${fmt(y + offset)}" stroke="${g.piece.fillHex}" stroke-width="${fmt(stroke)}"${dashAttr}/>`,
+              `<line x1="${fmt(segment.x)}" x2="${fmt(segment.x + segment.width)}" y1="${fmt(y + offset)}" y2="${fmt(y + offset)}" stroke="${g.piece.underlineHex ?? g.piece.fillHex}" stroke-width="${fmt(stroke)}"${dashAttr}/>`,
             );
           }
         }
@@ -1092,7 +1098,7 @@ const wavyPath = (
     up = !up;
   }
   const strokeWidth = underlineStrokeWidth(piece);
-  return `<path d="${d}" stroke="${piece.fillHex}" stroke-width="${fmt(strokeWidth)}" fill="none"/>`;
+  return `<path d="${d}" stroke="${piece.underlineHex ?? piece.fillHex}" stroke-width="${fmt(strokeWidth)}" fill="none"/>`;
 };
 
 const samePiece = (a: PieceInput, b: PieceInput): boolean =>
@@ -1103,6 +1109,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.letterSpacingPx === b.letterSpacingPx &&
   a.kerning === b.kerning &&
   a.fillHex === b.fillHex &&
+  a.underlineHex === b.underlineHex &&
   a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&
   a.strike === b.strike &&
@@ -1132,7 +1139,9 @@ const tspan = (g: Group): string => {
     attrs.push('paint-order="stroke fill"');
   }
   const decorations: string[] = [];
-  if (p.underline === 'sng') decorations.push('underline');
+  // resvg ignores text-decoration-color. Explicit colors use the measured
+  // underline line emitted separately, keeping glyphs and strike unchanged.
+  if (p.underline === 'sng' && p.underlineHex === undefined) decorations.push('underline');
   if (p.strike) decorations.push('line-through');
   if (decorations.length) attrs.push(`text-decoration="${decorations.join(' ')}"`);
   if (p.letterSpacingPx !== 0) attrs.push(`letter-spacing="${fmt(p.letterSpacingPx)}"`);

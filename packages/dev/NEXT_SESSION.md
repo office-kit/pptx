@@ -1,3 +1,12 @@
+## 2026-10-02: 下線色の独立編集
+
+- Mac Font ダイアログで、下線なし時の色選択無効化と、下線あり時の「Automatic」を実機確認。ダイアログを Cancel し、reference.pptx の Undo disabled を確認。参照文書の未復元変更なし。
+- `TextFormat.underlineColor` を追加。明示色は `a:uFill/a:solidFill`、null は `a:uFillTx`。継承停止、テーマ色、PPTX保存再読込、未知の非solid下線塗りの保持、rPr子要素順序をテスト。
+- Font ダイアログに下線色と Automatic を追加。選択範囲、書式、選択外、Undo、保存XMLをブラウザーで検証。内部/HTML clipboardと表セルのテーマ色解決も対応。
+- SVG rasterizer が text-decoration-color を無視するため、明示色の単線下線は測定済み幅の線で描画。native 下線との重複なし。画像上の文字/strikeと下線の色分離もテスト。
+- 検証: core3259成功/109skip、site135成功、関連ブラウザーテスト成功。最終SVG調整後のpreview/layout101件も成功。format/lint/root・DSL型検査、core・preview・editor build、Svelte 0 errors/warnings。
+- 残件: 下線色の濃淡テーマパレット、gradient/pattern塗りの編集・描画、Mac全フォントでの下線寸法一致。normalizeHeight実描画、表セルの完全な継承書式、アウトラインの特殊下線、全操作一致も未完了。今回のテスト成功はこれらの完了を意味しない。
+
 ## 2026-10-02: 全下線スタイルの編集表示
 
 - 通常表示とinline編集で共通の `textUnderlineStyle` を使用。太線、長破線、鎖線、二重波線、単語のみの下線を編集開始後も維持する。外部HTML clipboardは従来のCSS書式を維持。

@@ -160,6 +160,47 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           formats: [{ start: 0, end: 1, format: { underline: 'wavy', strike: true } }],
         });
         const combinedPatternedStrikeRoundtrip = parse(combinedPatternedStrike, 'A');
+        const underlineColorHtml = serialize({
+          text: 'A',
+          formats: [
+            {
+              start: 0,
+              end: 1,
+              format: { color: '#112233', underline: 'dbl', underlineColor: '#aabbcc' },
+            },
+          ],
+        });
+        const underlineColorRoundtrip = parse(underlineColorHtml, 'A');
+        const underlineColorStrikeHtml = serialize({
+          text: 'A',
+          formats: [
+            {
+              start: 0,
+              end: 1,
+              format: {
+                color: '#112233',
+                underline: true,
+                underlineColor: '#aabbcc',
+                strike: true,
+              },
+            },
+          ],
+        });
+        const underlineColorStrikeRoundtrip = parse(underlineColorStrikeHtml, 'A');
+        const strikeOnlyUnderlineColorHtml = serialize({
+          text: 'A',
+          formats: [{ start: 0, end: 1, format: { strike: true, underlineColor: '#aabbcc' } }],
+        });
+        const underlineNoneStrikeHtml = serialize({
+          text: 'A',
+          formats: [
+            {
+              start: 0,
+              end: 1,
+              format: { underline: 'none', strike: true, underlineColor: '#aabbcc' },
+            },
+          ],
+        });
         const editingUnderlineStyles = [
           true,
           'none',
@@ -262,6 +303,12 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           serializedUnderlineStyles,
           combinedPatternedStrike,
           combinedPatternedStrikeRoundtrip,
+          underlineColorHtml,
+          underlineColorRoundtrip,
+          underlineColorStrikeHtml,
+          underlineColorStrikeRoundtrip,
+          strikeOnlyUnderlineColorHtml,
+          underlineNoneStrikeHtml,
           editingUnderlineHtml,
           editingWordsHtml,
           editingSpacesHtml,
@@ -335,6 +382,14 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.match(result.combinedPatternedStrike, /<u[^>]*text-decoration-line: underline/);
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.underline, 'wavy');
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.strike, true);
+    assert.match(result.underlineColorHtml, /text-decoration-color: rgb\(170, 187, 204\)/);
+    assert.equal(result.underlineColorRoundtrip.formats[0].format.color, '#112233');
+    assert.equal(result.underlineColorRoundtrip.formats[0].format.underlineColor, '#aabbcc');
+    assert.match(result.underlineColorStrikeHtml, /<u[^>]*text-decoration-color/);
+    assert.equal(result.underlineColorStrikeRoundtrip.formats[0].format.strike, true);
+    assert.equal(result.underlineColorStrikeRoundtrip.formats[0].format.underlineColor, '#aabbcc');
+    assert.doesNotMatch(result.strikeOnlyUnderlineColorHtml, /<u|text-decoration-color/);
+    assert.doesNotMatch(result.underlineNoneStrikeHtml, /<u|text-decoration-color/);
     assert.equal(result.editingUnderlineHtml.length, 19);
     assert.match(result.editingUnderlineHtml[0], /<u[^>]*text-decoration: underline/);
     assert.doesNotMatch(result.editingUnderlineHtml[1], /<u|text-decoration/);

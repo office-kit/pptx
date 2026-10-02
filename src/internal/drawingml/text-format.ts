@@ -46,6 +46,8 @@ const NAME_LATIN = qname('a', 'latin', NS.dml);
 const NAME_EA = qname('a', 'ea', NS.dml);
 const NAME_CS = qname('a', 'cs', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
+const NAME_U_FILL_TX = qname('a', 'uFillTx', NS.dml);
+const NAME_U_FILL = qname('a', 'uFill', NS.dml);
 const NAME_SRGB_CLR = qname('a', 'srgbClr', NS.dml);
 const NAME_SCHEME_CLR = qname('a', 'schemeClr', NS.dml);
 const ATTR_SZ = qname('', 'sz', '');
@@ -124,6 +126,12 @@ export interface TextFormat {
    */
   underline?: boolean | string;
   /**
+   * Underline color. `null` explicitly follows the run's text color via
+   * `<a:uFillTx>`; omit the property to leave an existing underline fill
+   * untouched.
+   */
+  underlineColor?: Color | null;
+  /**
    * Strikethrough style. `true` is shorthand for `'sngStrike'` (single
    * line). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,
    * `'dblStrike'`, `'noStrike'`) for other styles. `false` clears.
@@ -192,9 +200,10 @@ export interface TextOutline {
  */
 export type ReadTextFormat = Omit<
   TextFormat,
-  'color' | 'highlight' | 'outline' | 'shadow' | 'glow'
+  'color' | 'underlineColor' | 'highlight' | 'outline' | 'shadow' | 'glow'
 > & {
   color?: string | null;
+  underlineColor?: string | null;
   highlight?: string | null;
   outline?: ReadTextOutline | null;
   shadow?: (Omit<ShadowOptions, 'color'> & { readonly color?: string }) | null;
@@ -212,13 +221,16 @@ export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: st
  * round trip never writes a color the schema has no room for.
  */
 export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
-  const { color, highlight, outline, shadow, glow, ...rest } = format;
+  const { color, underlineColor, highlight, outline, shadow, glow, ...rest } = format;
   const outlineColor = outline?.color === undefined ? null : asColor(outline.color);
   const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
   const glowColor = glow == null ? null : asColor(glow.color);
   return {
     ...rest,
     ...(color == null ? {} : { color: asColor(color) }),
+    ...(underlineColor === undefined
+      ? {}
+      : { underlineColor: underlineColor === null ? null : asColor(underlineColor) }),
     ...(highlight == null ? {} : { highlight: asColor(highlight) }),
     ...(outline == null
       ? {}
@@ -275,6 +287,32 @@ const setSolidFill = (rPr: XmlElement, value: string | null): void => {
       ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
       : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
   const fill = elem(NAME_SOLID_FILL, { children: [inner] });
+  insertChildByRank(rPr, fill, rprChildRank);
+};
+
+const setUnderlineFill = (rPr: XmlElement, value: string | null): void => {
+  rPr.children = rPr.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        (c.name.localName === 'uFillTx' || c.name.localName === 'uFill')
+      ),
+  );
+  const fill =
+    value === null
+      ? elem(NAME_U_FILL_TX)
+      : (() => {
+          const parsed = parseColor(value);
+          if (parsed === null) throw new Error(`unrecognized underline color: ${value}`);
+          const inner =
+            parsed.kind === 'srgb'
+              ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
+              : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
+          return elem(NAME_U_FILL, {
+            children: [elem(NAME_SOLID_FILL, { children: [inner] })],
+          });
+        })();
   insertChildByRank(rPr, fill, rprChildRank);
 };
 
@@ -384,6 +422,7 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
   if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
   if (format.color !== undefined) setSolidFill(rPr, format.color);
+  if (format.underlineColor !== undefined) setUnderlineFill(rPr, format.underlineColor);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
   if (format.outline !== undefined) setRunOutline(rPr, format.outline);
   if (format.shadow !== undefined) {

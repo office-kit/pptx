@@ -85,6 +85,7 @@ function validFormat(value: unknown): value is TextFormat {
         return typeof v === 'string' && v.length <= 256;
       case 'color':
       case 'highlight':
+      case 'underlineColor':
         return v === null || (typeof v === 'string' && asColor(v) !== null);
       case 'bold':
       case 'italic':

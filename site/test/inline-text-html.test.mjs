@@ -24,10 +24,18 @@ test('table editing resolves scheme run colors through the slide color map', () 
   });
   const cell = getTableCells(table)[0][0];
   setPresentationTheme(pres, { dark1: '#123456' });
-  setTableCellTextFormat(cell, { color: 'scheme:tx1', underline: 'dotted' });
+  setTableCellTextFormat(cell, {
+    color: 'scheme:tx1',
+    underline: 'dotted',
+    underlineColor: 'scheme:accent1',
+  });
 
   const rawColor = getTableCellParagraphs(cell)[0].elements[0].format.color;
   assert.equal(rawColor, 'tx1');
   assert.equal(resolveEditingTextColor(pres, table, rawColor), '#123456');
+  const rawUnderlineColor = getTableCellParagraphs(cell)[0].elements[0].format.underlineColor;
+  assert.equal(rawUnderlineColor, 'accent1');
+  setPresentationTheme(pres, { accent1: '#654321' });
+  assert.equal(resolveEditingTextColor(pres, table, rawUnderlineColor), '#654321');
   assert.equal(resolveEditingTextColor(pres, table, '#123456'), '#123456');
 });

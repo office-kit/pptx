@@ -91,8 +91,18 @@ export function inlineTextHtml(
       const rawFormat =
         element.kind === 'r' ? (resolve?.(index, runIndex++) ?? element.format) : element.format;
       const editingFormat =
-        cell && rawFormat?.color
-          ? { ...rawFormat, color: resolveEditingTextColor(pres, shape, rawFormat.color) }
+        cell && rawFormat
+          ? {
+              ...rawFormat,
+              ...(rawFormat.color
+                ? { color: resolveEditingTextColor(pres, shape, rawFormat.color) }
+                : {}),
+              ...(rawFormat.underlineColor !== undefined && rawFormat.underlineColor !== null
+                ? {
+                    underlineColor: resolveEditingTextColor(pres, shape, rawFormat.underlineColor),
+                  }
+                : {}),
+            }
           : rawFormat;
       // The reader widens colors to strings; the HTML exporter takes what a
       // writer would.

@@ -1236,6 +1236,7 @@ export const ja: Record<string, string> = {
   'Color & Underline': '色と下線',
   'Font color': 'フォントの色',
   'Underline style': '下線のスタイル',
+  'Underline color': '下線の色',
   'Words only': '単語のみ',
   Heavy: '太線',
   Dotted: '点線',
