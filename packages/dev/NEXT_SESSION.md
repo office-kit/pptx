@@ -1,3 +1,13 @@
+## 2026-10-02: 表の段落既定文字書式
+
+- `getTableCellRunFormatEffective` を追加。セル内のrun、段落既定、アウトラインレベル既定とテーマを共通の読取り経路で解決する。通常描画・inline編集・Fontダイアログ・コピーで同じ実効書式を使う。
+- 修正前は段落で指定したCourier Newが編集開始時にCalibriへ変わることをブラウザーで再現。修正後はフォント、28pt、太字、色を保持し、内部clipboardとFontダイアログにも反映されることを確認。
+- 検証: core3266成功/109skip、site135成功、dev19成功、最終ビルドの関連browser5件成功。format/lint/root・preview・DSL・dev型検査、core/preview/DSL/dev build、Svelte 0 errors/warnings。
+- 残件: `tableStyles.xml` の `tcTxStyle` と条件領域の継承、組み込みGUIDのスタイル定義、空段落/fieldの実効書式。新APIの現時点の対応範囲はセル内の文字書式とテーマであり、完全な表スタイル対応ではない。
+- 次の実装は既存APIを拡張する。TableCellDataには既にCELL_ROW/CELL_COL/CELL_TABLEがあるため、行列引数の追加は不要。スタイルpartをリレーションから取得し、wholeTbl/帯/端/角の優先順位を仕様と実機で確認する。GUIDのみで定義がない組み込みスタイルも残件として扱う。
+- PowerPointは起動検出されるがcgWindowNotFoundで画面取得不可。今回ネイティブ文書の変更は行っていない。以前の記録ではreference.pptxはUndo disabled・復元済みだが、現在画面での再確認はできていない。
+- 全操作一致は未完了。4173のユーザー編集と.pnpm-storeは引き続き保持する。
+
 ## 2026-10-02: 下線色の独立編集
 
 - Mac Font ダイアログで、下線なし時の色選択無効化と、下線あり時の「Automatic」を実機確認。ダイアログを Cancel し、reference.pptx の Undo disabled を確認。参照文書の未復元変更なし。

@@ -6,6 +6,7 @@ import {
   getShapeParagraphElements,
   getTableCells,
   getTableCellParagraphs,
+  getTableCellRunFormatEffective,
   type SlideShapeData,
   type TextFormat,
   toWritableTextFormat,
@@ -20,8 +21,9 @@ export function textFormatsInRange(
 ): TextFormat[] {
   const formats: TextFormat[] = [];
   let offset = 0;
-  const paragraphs = cell
-    ? getTableCellParagraphs(getTableCells(shape)[cell.row]![cell.col]!)
+  const tableCell = cell ? getTableCells(shape)[cell.row]![cell.col]! : undefined;
+  const paragraphs = tableCell
+    ? getTableCellParagraphs(tableCell)
     : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => ({
         elements: getShapeParagraphElements(shape, i),
         endFormat: getParagraphEndFormat(shape, i),
@@ -36,10 +38,12 @@ export function textFormatsInRange(
       // straight back into writers, so it is converted once here.
       const format = (): TextFormat =>
         toWritableTextFormat(
-          context && !cell && element.kind === 'r'
-            ? getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
-                inheritanceSource: context.source ?? shape,
-              })
+          context && element.kind === 'r'
+            ? tableCell
+              ? getTableCellRunFormatEffective(context.pres, tableCell, paragraphIndex, currentRun)
+              : getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
+                  inheritanceSource: context.source ?? shape,
+                })
             : (element.format ?? {}),
         );
       const length = element.kind === 'br' ? 1 : element.text.length;

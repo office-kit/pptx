@@ -414,7 +414,10 @@ export const parseEffectList = (
 // behavior callers round-trip against.
 const colorOfFill = (
   solidFill: XmlElement,
-  ctx?: { readonly theme: PresentationTheme | null },
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
 ): string | null => {
   // CT_SolidColorFillProperties holds exactly one EG_ColorChoice child
   // (srgbClr / schemeClr / sysClr / prstClr).
@@ -427,7 +430,7 @@ const colorOfFill = (
   if (colorChild === null) return null;
   const token = getAttrValue(colorChild, qname('', 'val', ''));
   if (ctx) {
-    const hex = resolveDrawingColor(colorChild, ctx.theme);
+    const hex = resolveDrawingColor(colorChild, ctx.theme, ctx.colorMap);
     if (hex !== null) return hex;
     // Theme not provided / token not in scheme — surface the raw token.
     return colorChild.name.localName === 'schemeClr' ? token : null;
@@ -449,7 +452,10 @@ const colorOfFill = (
 // verbatim — this preserves the legacy `getShapeRunFormat` behavior.
 export const parseRPrLikeElement = (
   rPr: XmlElement,
-  ctx?: { readonly theme: PresentationTheme | null },
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
 ): Partial<ReadTextFormat> => {
   const out: Partial<ReadTextFormat> = {};
   const sz = getAttrValue(rPr, qname('', 'sz', ''));
@@ -510,7 +516,7 @@ export const parseRPrLikeElement = (
     }
     if (hlChild) {
       if (ctx) {
-        const hex = resolveDrawingColor(hlChild, ctx.theme);
+        const hex = resolveDrawingColor(hlChild, ctx.theme, ctx.colorMap);
         if (hex !== null) out.highlight = hex;
       } else if (hlChild.name.localName === 'srgbClr') {
         const v = getAttrValue(hlChild, qname('', 'val', ''));

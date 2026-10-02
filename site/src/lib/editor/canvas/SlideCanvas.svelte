@@ -41,6 +41,9 @@
     setParagraphTabs,
     setParagraphBullet,
     getTableCells,
+    getTableCellRunFormatEffective,
+    getShapeRunFormatEffective,
+    toWritableTextFormat,
     getTableCellMargins,
     getTableCellAnchor,
     getShapeBodyPrEffective,
@@ -752,7 +755,14 @@
     if (!editing || !pendingTextShape || !textInput || !event.clipboardData) return;
     const { start, end } = textInput.getSelection();
     if (start === end) return;
-    const copied = copyTextRange(pendingTextShape, start, end, editing.cell);
+    const shape = pendingTextShape;
+    const cell = editing.cell ? getTableCells(shape)[editing.cell.row]![editing.cell.col]! : undefined;
+    const source = boxes.find(b => b.id === editing?.id)?.shape ?? shape;
+    const copied = copyTextRange(shape, start, end, editing.cell, (paragraph, run) =>
+      toWritableTextFormat(cell
+        ? getTableCellRunFormatEffective(doc.pres, cell, paragraph, run)
+        : getShapeRunFormatEffective(doc.pres, shape, paragraph, run, { inheritanceSource: source })),
+    );
     event.clipboardData.setData('text/plain', copied.text);
     event.clipboardData.setData('text/html', textClipboardHtml(copied));
     event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify(copied));
