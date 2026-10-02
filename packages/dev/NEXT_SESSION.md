@@ -1279,3 +1279,12 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - After the direct compact Arrange fix, image-crop (1), reorder-objects (1), and selection-pane (3) pass. Japanese selection-pane reopening now targets the visible Arrange trigger, avoiding a strict locator collision with the hidden wide-ribbon trigger.
 - Format-painter now selects object borders and uses the existing Ctrl/Cmd+Alt+C/V shortcuts for text-range formatting. All three tests pass with saved shape/text format and fill-preservation assertions (`/tmp/format-painter-shortcuts.log`).
 - Native PowerPoint retry again fails at pipe startup; no native changes were made and reference restoration remains pending.
+
+## 2026-10-03: Links, replace, and audio playback regressions
+
+- Find/replace opens through the compact Home Editing menu; the full bilingual test passes (`/tmp/find-replace-compact.log`).
+- Inline link editing expands the visible floating formatting disclosure before using Edit link. All seven link tests pass, preserving saved destinations, selected text, table-cell links, Undo and reload (`/tmp/links-current.log`).
+- Audio bookmark testing waits for actual playback progress instead of assuming playback starts immediately within a fixed 1.2-second wall-clock interval. Both bookmark and trim/loop/fade cases pass (`/tmp/media-bookmarks-progress.log`).
+- Scoped format/lint pass for these three test files. CI 37028531188 remains running Chromium; static checks and OOXML validation have passed. No claim of full parity.
+- Native PowerPoint retry still fails at native pipe startup. No further native mutations; reference restoration remains pending.
+- Uncommitted agent work on font-dialog-table, line-spacing, inline-paragraphs and FontRibbon remains under investigation. Verify table header inherited bold before treating unspecified run bold as normal; do not retain speculative FontRibbon changes without a reproduced regression and passing checks.
