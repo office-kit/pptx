@@ -84,7 +84,9 @@ test('custom tab alignment uses painted browser font widths', { timeout: 90000 }
             range.setEnd(node, index + 5);
             const rect = range.getBoundingClientRect();
             range.setEnd(node, index + 2);
-            const zoom = Number(getComputedStyle(element).getPropertyValue('--text-zoom'));
+            const style = getComputedStyle(element);
+            const canvasScale = element.getBoundingClientRect().width / parseFloat(style.width);
+            const zoom = canvasScale * Number(style.getPropertyValue('--text-zoom'));
             return {
               start: (rect.left - element.getBoundingClientRect().left) / zoom,
               width: rect.width / zoom,

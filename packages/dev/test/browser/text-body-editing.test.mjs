@@ -84,10 +84,16 @@ for (const table of [false, true])
               box = node.getBoundingClientRect();
             const paragraph = node.querySelector('[data-text-paragraph]').getBoundingClientRect();
             const zoom = Number(css.getPropertyValue('--text-zoom'));
+            // The input is laid out in the slide's CSS-pixel coordinate space
+            // and then transformed by the canvas fit zoom.  Computed padding
+            // is pre-transform CSS geometry, while the box and paragraph
+            // rectangles are viewport geometry.
+            const transformScale = box.width / node.offsetWidth;
             return {
               zoom,
+              scale: transformScale,
               padding: [css.paddingLeft, css.paddingRight, css.paddingTop, css.paddingBottom].map(
-                parseFloat,
+                (value) => parseFloat(value) * transformScale,
               ),
               top: paragraph.top - box.top,
               height: paragraph.height,
@@ -96,7 +102,7 @@ for (const table of [false, true])
           });
           [0.3, 0.2, 0.4, 0.1].forEach((inch, i) =>
             assert.ok(
-              Math.abs(layout.padding[i] - inch * 96 * layout.zoom) < 0.1,
+              Math.abs(layout.padding[i] - inch * 96 * layout.scale) < 0.1,
               JSON.stringify(layout),
             ),
           );
@@ -114,16 +120,20 @@ for (const table of [false, true])
           await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
           await editor.locator('.hit').dblclick();
           assert.equal(await input.innerText(), '編集済み Edited');
-          const saved = await input.evaluate((node) => ({
-            padding: parseFloat(getComputedStyle(node).paddingLeft),
-            zoom: Number(getComputedStyle(node).getPropertyValue('--text-zoom')),
-            anchor: getComputedStyle(node).alignContent,
-          }));
+          const saved = await input.evaluate((node) => {
+            const box = node.getBoundingClientRect();
+            return {
+              padding:
+                parseFloat(getComputedStyle(node).paddingLeft) * (box.width / node.offsetWidth),
+              scale: box.width / node.offsetWidth,
+              anchor: getComputedStyle(node).alignContent,
+            };
+          });
           assert.equal(
             saved.anchor,
             { top: 'start', center: 'safe center', bottom: 'safe end' }[anchor],
           );
-          assert.ok(Math.abs(saved.padding - 0.3 * 96 * saved.zoom) < 0.1);
+          assert.ok(Math.abs(saved.padding - 0.3 * 96 * saved.scale) < 0.1);
         } finally {
           await browser?.close();
           await preview?.close();

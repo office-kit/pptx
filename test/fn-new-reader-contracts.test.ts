@@ -153,7 +153,17 @@ describe('getParagraphPropertiesEffective bullet cascade', () => {
 
     // python-pptx's master authors bodyStyle lvl1 buChar="•" (normalised to
     // the 'bullet' token) and an explicit <a:buNone> in titleStyle.
-    expect(getParagraphPropertiesEffective(pres, body, 0).bullet).toBe('bullet');
+    const bodyProperties = getParagraphPropertiesEffective(pres, body, 0);
+    expect(bodyProperties.bullet).toBe('bullet');
+    // This is read from the imported master bodyStyle lvl1pPr, rather than
+    // authored on the slide paragraph itself.
+    expect(bodyProperties.bulletDetail).toMatchObject({
+      font: 'Arial',
+      fontFollowText: false,
+      color: null,
+      sizePct: null,
+      sizePts: null,
+    });
     expect(getParagraphPropertiesEffective(pres, title, 0).bullet).toBe('none');
   });
 

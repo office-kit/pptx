@@ -680,7 +680,12 @@ export type {
   TextFormat,
   TextOutline,
 } from '../internal/drawingml/index.ts';
-export type { ParagraphProperties, ParagraphTabStop, ShapeParagraphElement } from './fn.ts';
+export type {
+  ParagraphBulletDetail,
+  ParagraphProperties,
+  ParagraphTabStop,
+  ShapeParagraphElement,
+} from './fn.ts';
 export type { TextCase } from './fn/shape-text.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type {

@@ -24,7 +24,11 @@ import { paragraphNumberLabels } from './paragraph-number-labels.ts';
 // placeholder → master → theme), and custom geometry stay as labelled
 // placeholders — proper handling needs a real renderer.
 
-import type { getParagraphLineSpacing, getShapeEffects } from '@office-kit/pptx';
+import type {
+  getParagraphLineSpacing,
+  getShapeEffects,
+  ParagraphBulletDetail,
+} from '@office-kit/pptx';
 import {
   getParagraphAlignment,
   getParagraphBullet,
@@ -2259,6 +2263,7 @@ const renderRun = (
   defaultColor: string,
   /* unused but kept for forward compatibility */ _wasDefault = false,
   suppressLineHeight = false,
+  lineHeightOverride: string | undefined = undefined,
 ): string => {
   if (text === '') return '';
   void _wasDefault;
@@ -2267,7 +2272,13 @@ const renderRun = (
   // PowerPoint uses tight line-height (~1.0) by default for placeholders;
   // the previous 1.2 left enough vertical slack to push the top/bottom of
   // glyphs outside short placeholders.
-  styles.push(suppressLineHeight ? 'line-height:0;vertical-align:top' : 'line-height:1.05');
+  styles.push(
+    suppressLineHeight
+      ? 'line-height:0;vertical-align:top'
+      : lineHeightOverride !== undefined
+        ? `line-height:${lineHeightOverride}`
+        : 'line-height:1.05',
+  );
   if (format?.font) styles.push(`font-family:${escapeXml(format.font)}, ${DEFAULT_FONT}`);
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
@@ -2392,7 +2403,7 @@ interface ParaData {
   readonly align: string;
   readonly level: number;
   readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
-  readonly bulletDetail: ReturnType<typeof getParagraphBulletStyle>;
+  readonly bulletDetail: ParagraphBulletDetail;
   readonly bulletIsPicture: boolean;
   // Data URL for a picture bullet (`<a:buBlip>`) whose bytes resolved,
   // else null — null falls back to the "■" glyph.
@@ -2744,9 +2755,12 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
         ? para.bulletDetail.sizePts * PX_PER_PT * a.autoFitScale
         : baseSizePx;
   const fillHex = bulletFillOf(para, a.theme, a.defaultColor);
+  const bulletFont = para.bulletDetail.fontFollowText
+    ? (para.runs.find((r) => r.text !== '\n' && r.text !== '')?.fmt?.font ?? DEFAULT_BULLET_FONT)
+    : (para.bulletDetail.font ?? DEFAULT_BULLET_FONT);
   return {
     text: char,
-    family: (a.resolveFamily ?? substituteFamily)(para.bulletDetail.font ?? DEFAULT_BULLET_FONT),
+    family: (a.resolveFamily ?? substituteFamily)(bulletFont),
     sizePx,
     fillHex,
     ...(para.bulletImageHref ? { imageHref: para.bulletImageHref } : {}),
@@ -2934,15 +2948,12 @@ export const resolveTextBodyModel = (
     // The literal slide-level bullet wins; otherwise the cascade supplies the
     // inherited one (master bodyStyle authors "•" for body placeholders).
     const bulletStyle = getParagraphBullet(shape, p) ?? effective.bullet;
-    let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {
-      color: null,
-      sizePct: null,
-      sizePts: null,
-      font: null,
+    const bulletDetail: ParagraphBulletDetail = effective.bulletDetail ?? {
+      ...getParagraphBulletStyle(pres, shape, p),
+      colorFollowText: false,
+      sizeFollowText: false,
+      fontFollowText: false,
     };
-    try {
-      bulletDetail = getParagraphBulletStyle(pres, shape, p);
-    } catch {}
     let bulletIsPicture = false;
     try {
       bulletIsPicture = isParagraphBulletPicture(shape, p);
@@ -3239,6 +3250,11 @@ const renderHtmlParagraphs = (
         defaultColor,
         run.fmt?.size === undefined,
         run.text === '\n' && /[^\n]$/.test(para.runs[runIndex - 1]?.text ?? ''),
+        para.lineSpacing?.kind === 'pct'
+          ? para.lineSpacing.value.toFixed(3)
+          : para.lineSpacing?.kind === 'pts'
+            ? '0'
+            : undefined,
       );
       if (!run.href) return span;
       const isInPage = run.href.startsWith('#');
@@ -3249,6 +3265,8 @@ const renderHtmlParagraphs = (
     // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
     // sets a fixed point value. CSS line-height accepts both forms;
     // we project pts to px at the run's authored size.
+    const firstRunPt =
+      para.runs.find((run) => run.text !== '\n' && run.text !== '')?.sizePt ?? defaultPt;
     let lineHeightCss = para.emptySizePt !== undefined ? `line-height:${LINE_HEIGHT}` : '';
     if (para.lineSpacing?.kind === 'pct') {
       lineHeightCss = `line-height:${para.lineSpacing.value.toFixed(3)}`;
@@ -3281,6 +3299,14 @@ const renderHtmlParagraphs = (
         : 0;
     const pStyles: string[] = [
       'margin:0',
+      // Fixed leading needs the first run's font strut to place its baseline.
+      // Otherwise an inherited fallback must not enlarge smaller runs.
+      para.lineSpacing?.kind === 'pts'
+        ? `font-size:${(firstRunPt * PX_PER_PT * autoFitScale).toFixed(2)}px`
+        : 'font-size:0',
+      ...(para.lineSpacing?.kind === 'pts' && para.runs[0]?.fmt?.font
+        ? [`font-family:${escapeXml(para.runs[0].fmt.font)}, ${DEFAULT_FONT}`]
+        : []),
       ...(para.emptySizePt !== undefined
         ? [`font-size:${(para.emptySizePt * PX_PER_PT * autoFitScale).toFixed(2)}px`]
         : []),
@@ -3319,8 +3345,7 @@ const renderHtmlParagraphs = (
     // An un-sized bullet is 100% of the paragraph's first-run size (not the
     // placeholder default) — must match buildBullet on the SVG path so the
     // browser preview and the rasterized SVG agree.
-    const firstRunBulletPt =
-      para.runs.find((r) => r.text !== '\n' && r.text !== '')?.sizePt ?? defaultPt;
+    const firstRunBulletPt = firstRunPt;
     const baseBulletPx = firstRunBulletPt * PX_PER_PT * autoFitScale;
     if (showBullet && para.bulletImageHref) {
       // Picture bullet with resolved bytes — inline it as an <img> sized
@@ -3351,7 +3376,10 @@ const renderHtmlParagraphs = (
       ];
       bulletStyles.push(`color:${bulletFillOf(para, theme, defaultColor)}`);
       if (para.bulletDetail.sizePct !== null) {
-        bulletStyles.push(`font-size:${(para.bulletDetail.sizePct * 100).toFixed(1)}%`);
+        // Keep HTML preview sizing identical to the SVG path. A percentage
+        // bullet is relative to the first run's size, not the paragraph's
+        // inherited browser font size.
+        bulletStyles.push(`font-size:${(baseBulletPx * para.bulletDetail.sizePct).toFixed(2)}px`);
       } else if (para.bulletDetail.sizePts !== null) {
         bulletStyles.push(
           `font-size:${(para.bulletDetail.sizePts * PX_PER_PT * autoFitScale).toFixed(2)}px`,
@@ -3360,11 +3388,11 @@ const renderHtmlParagraphs = (
         // No authored size → the first-run size, matching the SVG path.
         bulletStyles.push(`font-size:${baseBulletPx.toFixed(2)}px`);
       }
-      bulletStyles.push(
-        para.bulletDetail.font
-          ? `font-family:${escapeXml(para.bulletDetail.font)}, ${DEFAULT_FONT}`
-          : `font-family:${DEFAULT_BULLET_FONT}, ${DEFAULT_FONT}`,
-      );
+      const bulletFont = para.bulletDetail.fontFollowText
+        ? (para.runs.find((r) => r.text !== '\n' && r.text !== '')?.fmt?.font ??
+          DEFAULT_BULLET_FONT)
+        : (para.bulletDetail.font ?? DEFAULT_BULLET_FONT);
+      bulletStyles.push(`font-family:${escapeXml(bulletFont)}, ${DEFAULT_FONT}`);
       prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     // The index is the one `<p:bldP build="p">` counts in: a paragraph build
@@ -6153,7 +6181,12 @@ const cellParaData = (
       align: properties.align ?? 'left',
       level: properties.level,
       bulletStyle: properties.bullet,
-      bulletDetail: getParagraphBulletStyle(pres, cell, index),
+      bulletDetail: properties.bulletDetail ?? {
+        ...getParagraphBulletStyle(pres, cell, index),
+        colorFollowText: false,
+        sizeFollowText: false,
+        fontFollowText: false,
+      },
       bulletIsPicture,
       bulletImageHref: bulletImageBytes ? bytesToDataUrl(bulletImageBytes) : null,
       runs,

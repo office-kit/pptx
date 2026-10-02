@@ -59,6 +59,18 @@ for (const direction of ['vert', 'vert270']) {
               };
               return Math.abs(point('12.34').y - point('A').y);
             });
+          // The SVG viewBox is in the preview's CSS-pixel-at-96-DPI units,
+          // while the stage is fitted to the available canvas.  The inline
+          // editor intentionally keeps --text-zoom at the text-layout scale;
+          // the stage fit is applied by its transform.  Convert the native
+          // two-inch tab distance into that same screen coordinate space.
+          const canvasZoom = await editor.locator('.stage').evaluate((stage) => {
+            const svg = stage.querySelector('svg');
+            if (!svg) throw new Error('Missing preview SVG');
+            const viewBoxWidth = svg.viewBox.baseVal.width;
+            if (!viewBoxWidth) throw new Error('Missing preview SVG viewBox');
+            return stage.getBoundingClientRect().width / viewBoxWidth;
+          });
           await editor.locator('.hit').dblclick();
           const input = editor.locator('.inline-edit');
           await input.waitFor();
@@ -94,8 +106,8 @@ for (const direction of ['vert', 'vert270']) {
             );
           const editing = await measureEditing();
           assert.ok(
-            Math.abs((editing.distance + editing.shift) / editing.zoom - 192) < 1,
-            JSON.stringify(editing),
+            Math.abs((editing.distance + editing.shift) / editing.zoom - 192 * canvasZoom) < 1,
+            JSON.stringify({ editing, canvasZoom }),
           );
           assert.ok(Math.abs(editing.distance - painted) < 2, JSON.stringify({ editing, painted }));
           await input.evaluate((element) => {
@@ -117,8 +129,8 @@ for (const direction of ['vert', 'vert270']) {
           await input.filter({ hasText: /^AB\t12\.34$/ }).waitFor();
           const reflowed = await measureEditing();
           assert.ok(
-            Math.abs((reflowed.distance + reflowed.shift) / reflowed.zoom - 192) < 1,
-            JSON.stringify(reflowed),
+            Math.abs((reflowed.distance + reflowed.shift) / reflowed.zoom - 192 * canvasZoom) < 1,
+            JSON.stringify({ reflowed, canvasZoom }),
           );
           await input.press('ControlOrMeta+z');
           await input.filter({ hasText: /^A\t12\.34$/ }).waitFor();

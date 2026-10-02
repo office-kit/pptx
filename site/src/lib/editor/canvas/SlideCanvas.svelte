@@ -904,7 +904,7 @@
     } });
     // This translation is local to the text box, before shape/group rotation.
     const sign = textBodyTurn ? -1 : 1;
-    return `translate(${offset.x * editor.zoom * sign}px,${offset.y * editor.zoom * sign}px)`;
+    return `translate(${offset.x * sign}px,${offset.y * sign}px)`;
   });
 
   $effect(() => {
@@ -923,18 +923,23 @@
   const textInputStyle = $derived.by(() => {
     const box = editBox;
     if (!box || !scope) return '';
-    const base = `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${box.rotation + textBodyTurn}deg) ${textAnchorTranslation};`;
+    const zoom = editor.zoom;
+    // Lay out glyphs at the same size as the preview's foreignObject, then
+    // scale the entire box. Scaling font sizes instead changes font metrics
+    // and accumulates baseline differences on wrapped and mixed-font lines.
+    const layoutBox = (sx: number, sy: number) => `left:${box.left + box.width * (1 - sx / zoom) / 2}%; top:${box.top + box.height * (1 - sy / zoom) / 2}%; width:${box.width * sx / zoom}%; height:${box.height * sy / zoom}%;`;
+    const base = `${layoutBox(1, 1)} transform:rotate(${box.rotation + textBodyTurn}deg) scale(${zoom}) ${textAnchorTranslation}; transform-origin:center;`;
 
     const [a, b, c, d] = scope.matrix;
     const reflected = a * d - b * c < 0;
     const rotation = box.rotation + textBodyTurn + (getShapeFlip(box.shape)?.vertical ? 180 : 0);
     // Table glyphs follow ancestor scaling; only their reflection is cancelled.
-    if (editing?.cell) return `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${rotation}deg) scale(${reflected ? -1 : 1},1); transform-origin:center;`;
+    if (editing?.cell) return `${layoutBox(1, 1)} transform:rotate(${rotation}deg) scale(${reflected ? -zoom : zoom},${zoom}); transform-origin:center;`;
     const { x: sx, y: sy } = scope.textScale;
     if (!sx || !sy) return base;
     // Match the preview's text layout: expand the layout box, cancel ancestor
     // scale on glyphs, and cancel reflection before the shape's text rotation.
-    return `left:${box.left + box.width * (1 - sx) / 2}%; top:${box.top + box.height * (1 - sy) / 2}%; width:${box.width * sx}%; height:${box.height * sy}%; transform:rotate(${rotation}deg) scale(${(reflected ? -1 : 1) / sx},${1 / sy}) ${textAnchorTranslation}; transform-origin:center;`;
+    return `${layoutBox(sx, sy)} transform:rotate(${rotation}deg) scale(${(reflected ? -zoom : zoom) / sx},${zoom / sy}) ${textAnchorTranslation}; transform-origin:center;`;
   });
 
   const textBodyStyle = $derived.by(() => {
@@ -963,7 +968,7 @@
     // whole editing box, so counter-rotate its insets to keep that rectangle in place.
     if (textBodyTurn) insets = { top: insets.bottom, right: insets.left, bottom: insets.top, left: insets.right };
     const padding = [insets.top, insets.right, insets.bottom, insets.left]
-      .map(value => `${value / 9525 * editor.zoom}px`).join(' ');
+      .map(value => `${value / 9525}px`).join(' ');
     // Vertical writing and multi-column bodies are the renderer's own CSS, so
     // the caret follows the same reading direction as the painted glyphs. The
     // half turn `vert270` needs travels with the box transform instead, which
@@ -1446,7 +1451,7 @@
               style={`${textInputStyle} ${textBodyStyle}`}
               value={editing.text}
               html={pendingTextHtml}
-              textZoom={editor.zoom * editAutoFit}
+              textZoom={editAutoFit}
               busy={restoringEditing}
               onbeforeinput={(range) => { textRange = range; }}
               oninput={updateEditing}

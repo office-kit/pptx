@@ -4,6 +4,7 @@ import {
 } from '../../internal/drawingml/text-body-edit.ts';
 import { textBodyText } from '../../internal/drawingml/text-body.ts';
 import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 // rPr and pPr cascade resolution.
 
 import {
@@ -16,7 +17,7 @@ import {
   requireRun,
   runsOf,
 } from './shape-runs.ts';
-import { parseRPrLikeElement } from './shape-color.ts';
+import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
 import {
   getShapePlaceholderIdx,
   getShapePlaceholderType,
@@ -43,6 +44,7 @@ import {
 } from '../../internal/xml/index.ts';
 import {
   CELL_ELEMENT,
+  CELL_TABLE,
   type TableCellData,
   INTERNAL_PACKAGE,
   LAYOUT_PART,
@@ -57,6 +59,7 @@ import {
 import { commitAndRefresh, decode, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 import { getPresentationFonts, getPresentationTheme } from './theme.ts';
 import { getEffectiveColorMap } from './color-map.ts';
+import { readBulletStyleLayer, type BulletStyleLayer } from './bullet-style.ts';
 // -- Effective rPr cascade (ECMA-376 §21.1.2.4.7) ---------------------------
 //
 // A run's effective character properties are resolved by walking the
@@ -473,6 +476,17 @@ export interface ParagraphTabStop {
   alignment: 'left' | 'center' | 'right' | 'decimal';
 }
 
+/** Effective bullet detail returned by `getParagraphPropertiesEffective`. */
+export interface ParagraphBulletDetail {
+  color: string | null;
+  colorFollowText: boolean;
+  sizePct: number | null;
+  sizePts: number | null;
+  sizeFollowText: boolean;
+  font: string | null;
+  fontFollowText: boolean;
+}
+
 /** Effective paragraph properties returned by `getParagraphPropertiesEffective`. */
 export interface ParagraphProperties {
   /** Custom tab stops; an empty list explicitly clears inherited stops. */
@@ -515,6 +529,8 @@ export interface ParagraphProperties {
    * slide-level `<a:pPr>` carries one.
    */
   bullet: BulletStyle | null;
+  /** Bullet color, size, and font after paragraph/layout/master inheritance. */
+  bulletDetail?: ParagraphBulletDetail;
 }
 
 /**
@@ -605,9 +621,8 @@ const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
     if (pct) {
       const v = getAttrValue(pct, qname('', 'val', ''));
       if (v !== null) {
-        let n = Number.parseFloat(v);
+        const n = readDrawingmlPercentage(v, Number.NaN);
         if (Number.isFinite(n)) {
-          if (Math.abs(n) > 1) n = n / 100000;
           out.lineSpacing = { kind: 'pct', value: n };
         }
       }
@@ -685,6 +700,25 @@ const mergePPrLayer = (
   if (base.bullet === undefined && layer.bullet !== undefined) base.bullet = layer.bullet;
 };
 
+const mergeBulletDetailLayer = (
+  base: Partial<ParagraphBulletDetail>,
+  layer: BulletStyleLayer,
+): void => {
+  if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
+  if (base.colorFollowText === undefined && layer.colorFollowText !== undefined) {
+    base.colorFollowText = layer.colorFollowText;
+  }
+  if (base.sizePct === undefined && layer.sizePct !== undefined) base.sizePct = layer.sizePct;
+  if (base.sizePts === undefined && layer.sizePts !== undefined) base.sizePts = layer.sizePts;
+  if (base.sizeFollowText === undefined && layer.sizeFollowText !== undefined) {
+    base.sizeFollowText = layer.sizeFollowText;
+  }
+  if (base.font === undefined && layer.font !== undefined) base.font = layer.font;
+  if (base.fontFollowText === undefined && layer.fontFollowText !== undefined) {
+    base.fontFollowText = layer.fontFollowText;
+  }
+};
+
 /**
  * Resolves a paragraph's effective properties by walking the same
  * inheritance chain `getShapeRunFormatEffective` uses, but for the
@@ -722,9 +756,22 @@ export const getParagraphPropertiesEffective = (
   }
 
   const result: Partial<ParagraphProperties> = {};
+  const bulletDetail: Partial<ParagraphBulletDetail> = {};
+  const colorSource = CELL_ELEMENT in shape ? shape[CELL_TABLE] : shape;
+  const inheritanceSource = options.inheritanceSource ?? colorSource;
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(inheritanceSource[SHAPE_SLIDE]);
+  const mergeParagraphLayer = (element: XmlElement | null): void => {
+    if (!element) return;
+    mergePPrLayer(result, parsePPrLikeElement(element));
+    mergeBulletDetailLayer(
+      bulletDetail,
+      readBulletStyleLayer(element, (color) => resolveDrawingColor(color, theme, colorMap)),
+    );
+  };
 
   // 1. Paragraph's own pPr.
-  if (pPr) mergePPrLayer(result, parsePPrLikeElement(pPr));
+  mergeParagraphLayer(pPr);
 
   // 2. Text-body lstStyle at the paragraph's level.
   const shapeLstStyle =
@@ -732,7 +779,7 @@ export const getParagraphPropertiesEffective = (
       ? firstChildElement(requireParagraphTextBody(shape), NAME_A_LST_STYLE)
       : findShapeLstStyleElement(shape);
   const shapeLvlPPr = lstStyleLevelPPr(shapeLstStyle, level);
-  if (shapeLvlPPr) mergePPrLayer(result, parsePPrLikeElement(shapeLvlPPr));
+  mergeParagraphLayer(shapeLvlPPr);
 
   if (!(CELL_ELEMENT in shape)) {
     const inheritanceSource = options.inheritanceSource ?? shape;
@@ -750,7 +797,7 @@ export const getParagraphPropertiesEffective = (
       if (layoutPh) {
         const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
         const layoutLvlPPr = lstStyleLevelPPr(layoutLst, level);
-        if (layoutLvlPPr) mergePPrLayer(result, parsePPrLikeElement(layoutLvlPPr));
+        mergeParagraphLayer(layoutLvlPPr);
       }
 
       // 4. Master placeholder lstStyle + master txStyles.
@@ -768,11 +815,11 @@ export const getParagraphPropertiesEffective = (
             if (masterPh) {
               const masterLst = extractPlaceholderLstStyle(masterPh.element);
               const masterLvlPPr = lstStyleLevelPPr(masterLst, level);
-              if (masterLvlPPr) mergePPrLayer(result, parsePPrLikeElement(masterLvlPPr));
+              mergeParagraphLayer(masterLvlPPr);
             }
             const txStyle = masterTxStyleFor(masterRoot, phType);
             const txLvlPPr = lstStyleLevelPPr(txStyle, level);
-            if (txLvlPPr) mergePPrLayer(result, parsePPrLikeElement(txLvlPPr));
+            mergeParagraphLayer(txLvlPPr);
           }
         }
       }
@@ -790,6 +837,15 @@ export const getParagraphPropertiesEffective = (
     spcAftPts: result.spcAftPts ?? null,
     rtl: result.rtl ?? null,
     bullet: result.bullet ?? null,
+    bulletDetail: {
+      color: bulletDetail.color ?? null,
+      colorFollowText: bulletDetail.colorFollowText ?? false,
+      sizePct: bulletDetail.sizePct ?? null,
+      sizePts: bulletDetail.sizePts ?? null,
+      sizeFollowText: bulletDetail.sizeFollowText ?? false,
+      font: bulletDetail.font ?? null,
+      fontFollowText: bulletDetail.fontFollowText ?? false,
+    },
     ...(result.tabStops === undefined ? {} : { tabStops: result.tabStops }),
     ...(result.defaultTabSizeEmu === undefined
       ? {}
