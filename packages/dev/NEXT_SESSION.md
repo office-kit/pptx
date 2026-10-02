@@ -1,3 +1,11 @@
+## 2026-10-02: 同一スライドのタイトル→本文の範囲削除を修正
+
+- Mac PowerPoint で Outline title / Body の tline title + 改行 + Bo を選択し Backspace → タイトル Oudy、本文は空。後続段落 Following がある場合は本文 Following を維持。保存 XML を title-body-delete-native.pptx / title-body-delete-paragraphs-native.pptx（/tmp/pptx-outline-audit）に保持。
+- deleteOutlineTitleBodyRange がタイトルと本文の残りを結合し、後続本文を分配。OutlineText の複数欄 Backspace/Delete に接続し、同一トランザクションでドラフト確定・選択・カーソルを復元。
+- ブラウザー回帰はタイトル末尾→本文 Bo の逆方向選択。修正前は Heading のまま（期待 Headingdy）で失敗、修正後は保存結果・Undo とも成功。全 cross-selection 12 件成功。outline / outline-selection 単体 35 件成功。既存 outline 単体の DOM モック不足も補修。型検査 0 errors / warnings、lint、エディタービルド成功。
+- reference.pptx は閉じて reference-before-table-style.pptx から復元し再表示済み（1 枚、Outline title、保存済み）。4173 と .pnpm-store は保持。
+- 次: 同じ範囲の Cut / 通常入力 / Paste / IME も現在は独立欄置換なので実機比較が必要。複数スライド削除は確認ダイアログを含む構造編集が未対応。非隣接 Enter、本文→タイトルの範囲も残る。全面一致は未達成。
+
 ## 2026-10-02: Shift+Up で逆方向に選択を拡張する不具合を修正
 
 - Next の末尾から Shift+Up を連続 5 回押して Heading / Body / Next を選択する回帰ケースを追加。実装前はコピー文字列が空で失敗。既存の逆方向テストはプログラムによる範囲設定のため、このキー操作をカバーしていなかった。

@@ -34,6 +34,38 @@ export function outlineShapes(slide: SlideData) {
   });
 }
 
+/** Mac PowerPoint joins the final body paragraph suffix onto the surviving title. */
+export function deleteOutlineTitleBodyRange(
+  slide: SlideData,
+  start: { id: number; offset: number },
+  end: { id: number; offset: number },
+): boolean {
+  const shapes = outlineShapes(slide);
+  const from = shapes.findIndex((item) => item.id === start.id && item.title);
+  const to = shapes.findIndex((item) => item.id === end.id && !item.title);
+  if (from < 0 || to <= from) return false;
+  const title = findShapeById(slide, start.id)!;
+  const body = findShapeById(slide, end.id)!;
+  const titleLength = getShapeText(title).length;
+  setShapeParagraphs(title, { sources: [title, body] });
+  setShapeText(title, '', { range: { start: start.offset, end: titleLength + 1 + end.offset } });
+  const text = getShapeText(title);
+  const first = getShapeParagraphElements(title)[0]!;
+  const boundary = first.reduce(
+    (length, element) => length + (element.kind === 'br' ? 1 : element.text.length),
+    0,
+  );
+  setShapeParagraphs([title, body], {
+    source: title,
+    ranges: [
+      { start: 0, end: boundary },
+      { start: Math.min(boundary + 1, text.length), end: text.length },
+    ],
+  });
+  for (const item of shapes.slice(from + 1, to)) setShapeText(findShapeById(slide, item.id)!, '');
+  return true;
+}
+
 /** Preserve PowerPoint's slide boundary when replacing an outline title range. */
 export function splitOutlineTitleRange(
   pres: PresentationData,
