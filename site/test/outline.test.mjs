@@ -34,8 +34,14 @@ import {
 } from '../src/lib/editor/core/outline.ts';
 import { OutlineSelectionModel } from '../src/lib/editor/core/outline-selection.ts';
 
+globalThis.Node = { TEXT_NODE: 3 };
+globalThis.HTMLElement = class {};
+globalThis.HTMLBRElement = class extends HTMLElement {};
+
 test('outline selection retains its anchor across fields and replaces as one transaction', () => {
   const roots = [0, 1, 2].map((order) => ({
+    ownerDocument: { getSelection: () => null },
+    childNodes: [],
     compareDocumentPosition(other) {
       return order < other.order ? 4 : 2;
     },
@@ -78,6 +84,8 @@ test('outline selection retains its anchor across fields and replaces as one tra
 
 test('outline selection extends backward across fields', () => {
   const roots = [0, 1, 2].map((order) => ({
+    ownerDocument: { getSelection: () => null },
+    childNodes: [],
     order,
     compareDocumentPosition(other) {
       return order < other.order ? 4 : 2;
@@ -549,3 +557,40 @@ test('Enter across adjacent outline titles retains both slides and the remaining
     'https://example.com/title',
   );
 });
+
+for (const bodyText of ['Body', 'Body\nFollowing']) {
+  test(`outline deletion joins a body suffix to its title (${JSON.stringify(bodyText)})`, async () => {
+    const { deleteOutlineTitleBodyRange } = await import('../src/lib/editor/core/outline.ts');
+    const pres = createPresentation();
+    const layout = getSlideLayouts(pres).find(
+      (item) => getSlideLayoutName(item) === 'Title and Content',
+    );
+    const slide = addSlide(pres, { layout });
+    const [title, body] = getSlideShapes(slide);
+    setShapeText(title, 'Outline title');
+    setShapeText(body, bodyText);
+    setShapeRunHyperlink(body, 0, 0, 'https://example.com/body');
+    if (bodyText.includes('\n')) {
+      setParagraphLevel(body, 1, 2);
+      setShapeRunHyperlink(body, 1, 0, 'https://example.com/following');
+    }
+    assert.equal(
+      deleteOutlineTitleBodyRange(
+        slide,
+        { id: getShapeId(title), offset: 2 },
+        { id: getShapeId(body), offset: 2 },
+      ),
+      true,
+    );
+    const slides = getSlides(await loadPresentation(await savePresentation(pres)));
+    assert.equal(slides.length, 1);
+    const [savedTitle, savedBody] = getSlideShapes(slides[0]);
+    assert.equal(getShapeText(savedTitle), 'Oudy');
+    assert.equal(getShapeRunHyperlink(savedTitle, 0, 1), 'https://example.com/body');
+    assert.equal(getShapeText(savedBody), bodyText.includes('\n') ? 'Following' : '');
+    if (bodyText.includes('\n')) {
+      assert.equal(getParagraphLevel(savedBody, 0), 2);
+      assert.equal(getShapeRunHyperlink(savedBody, 0, 0), 'https://example.com/following');
+    }
+  });
+}

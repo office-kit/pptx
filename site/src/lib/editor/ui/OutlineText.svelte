@@ -2,7 +2,7 @@
   import { onDestroy, onMount, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { splitOutlineTitleRange, outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
+  import { deleteOutlineTitleBodyRange, splitOutlineTitleRange, outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
@@ -269,7 +269,31 @@
     }
     else if ((event.key === 'Backspace' || event.key === 'Delete') && selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
-      selection.replace('', [], t('Delete'));
+      const selected = selection.current()!;
+      const slots = getSlides(doc.pres).flatMap((sourceSlide, index) =>
+        outlineShapes(sourceSlide).map(item => ({ ...item, slide: sourceSlide, index,
+          key: `${getSlidePartName(sourceSlide)}:${item.id}` })));
+      const start = slots.find(item => item.key === selected.start.key && item.title);
+      const end = slots.find(item => item.key === selected.end.key && !item.title);
+      if (start && end && start.slide === end.slide) {
+        const key = start.key;
+        doc.transact(t('Delete'), () => {
+          for (const field of selection.fields()) {
+            if (field.key.startsWith(`${getSlidePartName(start.slide)}:`)) field.apply(field.flush());
+          }
+          deleteOutlineTitleBodyRange(start.slide,
+            { id: start.id, offset: selected.start.offset },
+            { id: end.id, offset: selected.end.offset });
+          doc.selectShape(start.index, start.id);
+        });
+        selection.clear();
+        await tick();
+        const field = selection.fields().find(item => item.key === key);
+        if (field) {
+          field.focus(selected.start.offset);
+          selection.setCaret(field, selected.start.offset);
+        }
+      } else selection.replace('', [], t('Delete'));
     }
     else if (!mod && !event.altKey && event.key.length === 1 &&
       selection.current()?.start.key !== selection.current()?.end.key) {
