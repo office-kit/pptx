@@ -6,6 +6,12 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
+import {
+  getSlides,
+  getSlideShapes,
+  getShapeParagraphElements,
+  loadPresentation,
+} from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
 const styles = [
@@ -189,3 +195,71 @@ test('table editing uses the resolved theme color for text and patterned underli
     await browser.close();
   }
 });
+
+test(
+  'custom script offsets keep glyph geometry when entering text editing',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-inline-baseline-'));
+    let browser;
+    let preview;
+    try {
+      const cases = [0.1, 0.5, -0.1, -0.5];
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation>${cases.map((baseline) => `<Slide><Text x={1} y={1} width={7} height={1} paragraphs={[{runs:[{text:'Plain ',format:{font:'Arial',size:36}},{text:'Script',format:{font:'Arial',size:24,baseline:${baseline},underline:'dbl'}}]}]}/></Slide>`).join('')}</Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      for (const [index, baseline] of cases.entries()) {
+        await editor.locator(`.thumb-row[data-slide-index="${index}"]`).click();
+        const glyph = editor
+          .locator('.paint foreignObject span')
+          .filter({ hasText: /^Script$/ })
+          .first();
+        const before = await geometry(glyph);
+        const hit = editor.locator('.hit').first();
+        const position = await hit.evaluate((node, point) => {
+          const rect = node.getBoundingClientRect();
+          return { x: point.x + point.width / 2 - rect.x, y: point.y + point.height / 2 - rect.y };
+        }, before);
+        await hit.click({ position });
+        const input = editor.locator('.inline-edit').first();
+        await input.waitFor();
+        const after = await geometry(
+          input
+            .locator('span')
+            .filter({ hasText: /^Script$/ })
+            .first(),
+        );
+        for (const dimension of ['x', 'y', 'width', 'height'])
+          assert.ok(
+            Math.abs(before[dimension] - after[dimension]) < 2,
+            `${baseline}: ${dimension} shifted from ${before[dimension]} to ${after[dimension]}`,
+          );
+        await input.press('End');
+        await input.press('!');
+        await input.press('Control+Enter');
+        await input.waitFor({ state: 'hidden' });
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        const pres = await loadPresentation(
+          new Uint8Array(await (await fetch(`${preview.url}/deck.pptx`)).arrayBuffer()),
+        );
+        const runs = getShapeParagraphElements(getSlideShapes(getSlides(pres)[index])[0], 0);
+        assert.equal(runs.map((run) => run.text).join(''), 'Plain Script!');
+        assert.equal(runs.at(-1).format.baseline, baseline);
+        assert.equal(runs.at(-1).format.size, 24);
+      }
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

@@ -17,6 +17,8 @@ type CssUnderlineStyle = keyof typeof cssUnderlineStyles;
 const maxHtmlLength = 4_000_000;
 const maxNodes = 50_000;
 const maxDepth = 128;
+// Match the preview's script-size approximation; authored sizes stay in the model.
+const scriptSizeRatio = 0.65;
 const blocks = new Set(['P', 'DIV', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'PRE']);
 const excluded = new Set([
   'SCRIPT',
@@ -263,6 +265,14 @@ export function textClipboardHtml(
     const underline = format.underline;
     const strikeStyle = format.strike === 'dblStrike' ? 'double' : 'solid';
     const editing = options.editing === true;
+    if (format.baseline) {
+      if (editing && format.size !== undefined) {
+        style.fontSize = `${format.size * scriptSizeRatio}pt`;
+        // em follows canvas zoom and uses the reduced font size, whereas CSS
+        // percentages use line height rather than OOXML's authored font size.
+        style.verticalAlign = `${format.baseline / scriptSizeRatio}em`;
+      } else style.verticalAlign = `${format.baseline * 100}%`;
+    }
     const explicitUnderlineColor =
       format.underlineColor !== undefined && format.underlineColor !== null;
     const underlineColor = cssColor(format.underlineColor ?? format.color ?? '#000000');
@@ -286,7 +296,6 @@ export function textClipboardHtml(
       }
       span.replaceChildren(underlineNodes);
       if (strike) style.textDecorationStyle = strikeStyle;
-      if (format.baseline) style.verticalAlign = `${format.baseline * 100}%`;
       container.append(span);
       continue;
     }
@@ -333,7 +342,6 @@ export function textClipboardHtml(
       if (explicitUnderlineColor && underline && underline !== 'none')
         style.textDecorationColor = underlineColor;
     }
-    if (format.baseline) style.verticalAlign = `${format.baseline * 100}%`;
     container.append(span);
   }
   return container.outerHTML;
