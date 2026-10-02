@@ -25,6 +25,33 @@ import {
   stepTableCellFontSize,
 } from '../src/lib/editor/core/font-size.ts';
 
+import { textFormatsInRange } from '../src/lib/editor/core/text-format-selection.ts';
+
+test('selection sizes match rendering defaults without masking mixed sizes or writing them', () => {
+  const pres = createPresentation();
+  const shape = addSlideTextBox(addBlankSlide(pres), {
+    x: 0,
+    y: 0,
+    w: 4000000,
+    h: 2000000,
+    text: '',
+  });
+  setShapeParagraphs(shape, [
+    { runs: [{ text: 'Default' }, { text: 'Explicit', format: { size: 24 } }] },
+  ]);
+  const before = getShapeParagraphElements(shape, 0);
+  const range = { start: 0, end: getShapeText(shape).length };
+  assert.deepEqual(
+    textFormatsInRange(shape, range, undefined, { pres }).map((f) => f.size),
+    [18, 24],
+  );
+  assert.deepEqual(
+    textFormatsInRange(shape, range).map((f) => f.size),
+    [undefined, 24],
+  );
+  assert.deepEqual(getShapeParagraphElements(shape, 0), before);
+});
+
 test('empty paragraphs step their own end formats and respect a selection', () => {
   const pres = createPresentation();
   const shape = addSlideTextBox(addBlankSlide(pres), {

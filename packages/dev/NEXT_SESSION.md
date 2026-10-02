@@ -1202,3 +1202,10 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Reproduced a 7px vertical jump when clicking into custom superscript text. Inline editing used unshrunk glyphs and CSS line-height-relative offsets. Editing HTML now shrinks glyphs to match preview and expresses offsets in em relative to that reduced size, so canvas zoom scales both consistently.
 - Real editor regression covers positive/negative 10% and 50% offsets mixed with larger plain text; glyph bounds remain within 2px on edit entry. Typing and saving retains 24pt authored size and the original offset.
 - Eight underline/HTML clipboard browser tests pass (`/tmp/baseline-entry-after.log`), plus the expanded typing/save regression (`/tmp/baseline-entry-save.log`). Scoped lint, Svelte check (zero errors/warnings), editor build pass. Native script-size calibration and reference restoration remain outstanding.
+
+## 2026-10-02: Default font size in editing controls
+
+- Reproduced the Home font-size field showing blank for plain text rendered at the default 18pt. Selection formats now resolve absent sizes through the same fallback metrics as rendering; explicit and inherited sizes still win.
+- Regression test fails before the fix (`/tmp/font-size-default-before.log`) and passes afterward. Eleven browser cases covering edit entry, font stepping, mixed selections, empty paragraphs and inherited table/shape fonts pass (`/tmp/font-size-default-browser.log`). Site unit suite: 144 passed, then the expanded font-size unit file: 9 passed. Svelte check: zero errors/warnings; scoped format/lint and editor build passed.
+- Native connection retry still reports `Sky Computer Use native pipe startup failed`; pending reference restoration remains unresolved. Full parity is not achieved.
+- Prior commit f22021b7 CI run 37016600889 has passed static checks, Node 22/26, preview fidelity and OOXML validation; Node 24 still running at last inspection. Wait for that run before pushing this change to avoid cancelling its full browser coverage.
