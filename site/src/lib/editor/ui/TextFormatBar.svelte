@@ -4,6 +4,7 @@
   import ColorPicker from './ColorPicker.svelte';
   import FontSizeInput from './FontSizeInput.svelte';
   import FontFamilyInput from './FontFamilyInput.svelte';
+  import CharacterSpacingMenu from './CharacterSpacingMenu.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
@@ -64,6 +65,7 @@
   {/each}
   <div class="color-field"><span>{t('Text color')}</span><ColorPicker label={t('Text color')} value={color ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
   <label><span>{t('Highlight color')}</span><input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
+  {#if ribbon}<CharacterSpacingMenu {formats} disabled={!(selected || typing)} {onformat} />{/if}
   {#snippet highlightActions()}
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
