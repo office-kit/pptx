@@ -957,8 +957,8 @@
       insets = { left: rect.x, top: rect.y, right: w - rect.x - rect.w, bottom: h - rect.y - rect.h };
     }
     // The preview turns the inner text rectangle; the edit overlay turns the
-    // whole cell, so counter-rotate its insets to keep that rectangle in place.
-    if (target && textBodyTurn) insets = { top: insets.bottom, right: insets.left, bottom: insets.top, left: insets.right };
+    // whole editing box, so counter-rotate its insets to keep that rectangle in place.
+    if (textBodyTurn) insets = { top: insets.bottom, right: insets.left, bottom: insets.top, left: insets.right };
     const padding = [insets.top, insets.right, insets.bottom, insets.left]
       .map(value => `${value / 9525 * editor.zoom}px`).join(' ');
     // Vertical writing and multi-column bodies are the renderer's own CSS, so

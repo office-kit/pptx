@@ -1216,3 +1216,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Reproduced upright RTL text shifting on entry and fixed physical paragraph width to logical inline size. Reproduced bottom-to-top text shifting with asymmetric cell margins and counter-rotated those insets with the overlay.
 - New browser tests cover all six directions, character bounds within 2px, asymmetric margins and edited PPTX retention. Pure SVG round-trip tests cover clockwise/counterclockwise output. Existing direction approximations in the shared SVG engine remain; native comparison is still blocked.
 - Site unit suite 145 passed; preview targeted tests 6 passed; preview typecheck/build, Svelte check (0 errors/warnings), scoped format/lint and editor build passed. Browser run `/tmp/table-direction-final-browser.log`: all 21 passed, including existing table rotation/flip/group and text margins/edit entry.
+
+## 2026-10-02: Vertical shape margins on edit entry
+
+- Extended the six-direction table regression to ordinary text boxes. Bottom-to-top shape text also shifted approximately 15px with asymmetric margins (`/tmp/shape-direction-before.log`: 5 passed, 1 failed).
+- Apply the same counter-rotation of resolved insets to both shapes and cells. Browser coverage of all six directions for both targets, edited PPTX retention, and existing body-margin/anchor cases: 18 passed (`/tmp/shape-direction-after.log`). Editor build, scoped formatting/lint, and Svelte check (zero errors/warnings) passed.
+- Native connection still fails at startup; reference restoration is pending. Run 37016600889 remains live on Node 24; the other five jobs passed. Local commits after f22021b7 have not yet been pushed to avoid cancelling this run.
