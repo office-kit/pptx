@@ -1,6 +1,6 @@
 // Shape mutation: shadow + glow effects.
 
-import { parseEffectList } from './shape-color.ts';
+import { parseEffectList, resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
@@ -114,19 +114,18 @@ export const getShapeEffect = (shape: SlideShapeData): ShapeEffect | null => {
   if (!effectLst) return null;
 
   const readColor = (host: XmlElement): { color: string; opacity?: number } => {
-    const srgb = firstChildElement(host, qname('a', 'srgbClr', NS.dml));
-    if (!srgb) return { color: '' };
-    const val = getAttrValue(srgb, qname('', 'val', ''));
-    const color = val !== null ? `#${val.toUpperCase()}` : '';
-    const alpha = firstChildElement(srgb, qname('a', 'alpha', NS.dml));
-    if (alpha) {
-      const a = getAttrValue(alpha, qname('', 'val', ''));
-      if (a !== null) {
-        const n = Number.parseInt(a, 10);
-        if (Number.isFinite(n)) return { color, opacity: n / 100000 };
-      }
-    }
-    return { color };
+    const colorEl = host.children.find(
+      (child): child is XmlElement =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['srgbClr', 'scrgbClr', 'hslClr', 'schemeClr', 'sysClr', 'prstClr'].includes(
+          child.name.localName,
+        ),
+    );
+    if (!colorEl) return { color: '' };
+    const color = resolveDrawingColor(colorEl, null) ?? '';
+    const opacity = resolveDrawingColorOpacity(colorEl);
+    return { color, ...(opacity !== null ? { opacity } : {}) };
   };
 
   const outerShdw = firstChildElement(effectLst, qname('a', 'outerShdw', NS.dml));

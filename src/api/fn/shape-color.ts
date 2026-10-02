@@ -356,6 +356,8 @@ export const parseEffectList = (
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
       if (
         c.name.localName === 'srgbClr' ||
+        c.name.localName === 'scrgbClr' ||
+        c.name.localName === 'hslClr' ||
         c.name.localName === 'schemeClr' ||
         c.name.localName === 'sysClr' ||
         c.name.localName === 'prstClr'
@@ -365,17 +367,9 @@ export const parseEffectList = (
       }
     }
     if (!inner) return { color: '' };
-    let opacity: number | undefined;
-    const alphaEl = firstChildElement(inner, qname('a', 'alpha', NS.dml));
-    if (alphaEl) {
-      const a = getAttrValue(alphaEl, qname('', 'val', ''));
-      if (a !== null) {
-        const n = readColorPercentage(a);
-        if (Number.isFinite(n)) opacity = n;
-      }
-    }
+    const opacity = resolveDrawingColorOpacity(inner);
     const hex = resolveDrawingColor(inner, theme);
-    return { color: hex ?? '', ...(opacity !== undefined ? { opacity } : {}) };
+    return { color: hex ?? '', ...(opacity !== null ? { opacity } : {}) };
   };
 
   const out: ShapeEffectAny[] = [];

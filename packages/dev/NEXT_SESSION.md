@@ -1438,3 +1438,13 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Evidence: ECMA Part 1 20.1.8.23 specifies linear interpolation, and [Microsoft's implementation note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/c4fb5e6e-431f-4152-91d2-3b48831d77af) specifies pixel luminance. [LibreOffice's primary implementation](https://raw.githubusercontent.com/LibreOffice/core/master/vcl/source/bitmap/BitmapDuoToneFilter.cxx) interpolates sRGB byte values. [SVG filter specification](https://www.w3.org/TR/filter-effects-1/) documents the default linearRGB space. This supports the repair but is not native Mac verification; saturated-input luminance weights and combined-effect ordering still need native comparison.
 - Root verification: 70 tests across 11 files, scoped formatting, root lint/typecheck/build, preview typecheck/build all pass (`/tmp/alternate-colors-final-root.log`).
 - Native connection remains unavailable at pipe startup. No native edits were made in this turn. Reference restoration remains pending; do not overwrite the open reference document. Full PowerPoint parity is incomplete.
+
+## 2026-10-03: Imported effect colors and opacity
+
+- Commit e8daa53d is pushed to PR #287. Latest observed CI has Static checks, Preview fidelity and OOXML validator successful; Node 22/24/26 tests are still running. Do not report full CI success yet.
+- Effect parsing now accepts scRGB/HSL colors. The legacy first-effect reader uses the same color resolver. Public imported-PPTX tests distinguish scRGB 50% gray (BCBCBC) and HSL green, retaining both glow and shadow after save/reload.
+- Review caught an ineffective initial round-trip test: directly editing a shape XML node without committing did not persist the new color. Replaced it with ZIP-entry mutation before import; do not use the initial test as persistence evidence.
+- Root reproduced four opacity failures on actual imported/saved XML (`/tmp/effect-opacity-before.log`): alphaMod/alphaOff were ignored, and legacy percent-form alpha was divided incorrectly. Both effect readers now use the existing opacity-transform resolver.
+- Root verification: 40 tests in four files (effect colors, opacity, percentage lexical forms, preview effects/fills) pass; scoped formatting/lint, root typecheck/build and diff checks pass. This is reader/render-path coverage, not a native pixel match claim.
+- Latest native retry still fails at `Sky Computer Use native pipe startup failed`. No native edits were made. Reference restoration remains pending; never overwrite the open reference document.
+- Ruler/inline audit passed 15 existing browser cases. Mixed-selection marker semantics and rotated/vertical ruler support still require native comparison; no speculative UI change was made.

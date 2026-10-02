@@ -47,6 +47,22 @@ describe('DrawingML color transform percentage lexical forms', () => {
     ]);
   });
 
+  it('resolves non-sRGB effect colors in the effect parser', () => {
+    const effects = parseXml(
+      `<a:effectLst xmlns:a="${A}"><a:glow rad="100"><a:scrgbClr r="100%" g="0%" b="0%"/></a:glow><a:outerShdw blurRad="0" dist="0" dir="0"><a:hslClr hue="7200000" sat="100%" lum="50%"/></a:outerShdw></a:effectLst>`,
+    ).root;
+    expect(parseEffectList(effects, null)).toEqual([
+      { kind: 'glow', color: '#FF0000', radiusEmu: 100 },
+      {
+        kind: 'outerShdw',
+        color: '#00FF00',
+        blurEmu: 0,
+        distEmu: 0,
+        angleDeg: 0,
+      },
+    ]);
+  });
+
   it('reads percent-suffixed reflection opacity', () => {
     const effects = parseXml(
       `<a:effectLst xmlns:a="${A}"><a:reflection blurRad="0" dist="0" dir="0" endA="50%"/></a:effectLst>`,
