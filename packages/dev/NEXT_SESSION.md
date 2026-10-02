@@ -1239,6 +1239,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Ordinary pictures still exposed four raw crop percentages while video used picture/frame position fields. Reused the numeric crop component for pictures and removed the percentage form. Renamed VideoCropSection to PictureCropSection; video keeps its existing location and no duplicate controls.
 - Reproduced the missing Offset X field before implementation (`/tmp/picture-crop-before.log`). Image adjustment/mask browser tests now exercise the position control; the adjustment test checks frame retention, source shift, reset to full picture, Undo, and persisted crop with original bytes retained. Both pass (`/tmp/picture-crop-after.log`). Video regression initially exposed duplicate fields because video is also a picture shape; restricted the image section to non-media pictures. Video crop/history/validation passes (`/tmp/shared-crop-video.log`). Svelte check: zero errors/warnings; editor build and scoped lint/format pass.
 - Native picture pane placement/geometry and inline crop handles remain unverified/incomplete; this shares the previously implemented numeric model, not proof of full native picture UI parity.
+
 ## 2026-10-03: Full CI failures and crop boundary verification
 
 - CI run 37016600889 (f22021b7) finished: Static checks, Preview fidelity, Node 22, Node 26 and OOXML validator passed; Node 24 Chromium failed (292 passed, 65 failed). Full log: `/tmp/pr287-ci-failed.log`; readable failure details: `/tmp/pr287-ci-failures-readable.log`. Do not report full CI success.
