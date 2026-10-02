@@ -487,3 +487,31 @@ test('title-to-body outline split promotes the suffix and preserves links throug
     '',
   );
 });
+
+test('outline split keeps later paragraphs in the new body as in Mac PowerPoint', async () => {
+  const pres = createPresentation();
+  const layout = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  const slide = addSlide(pres, { layout });
+  const title = getSlideShapes(slide).find((shape) => getShapePlaceholderType(shape) === 'title');
+  const body = getSlideShapes(slide).find((shape) => getShapePlaceholderType(shape) !== 'title');
+  setShapeText(title, 'Outline title');
+  setShapeText(body, 'Body\nFollowing');
+  setParagraphLevel(body, 1, 2);
+  setShapeRunHyperlink(body, 1, 0, 'https://example.com/following');
+  splitOutlineTitleRange(
+    pres,
+    slide,
+    { id: getShapeId(title), offset: 2 },
+    { id: getShapeId(body), offset: 2 },
+  );
+  const slides = getSlides(await loadPresentation(await savePresentation(pres)));
+  assert.deepEqual(slides.map(getSlideTitle), ['Ou', 'dy']);
+  const nextBody = getSlideShapes(slides[1]).find(
+    (shape) => getShapePlaceholderType(shape) !== 'title',
+  );
+  assert.equal(getShapeText(nextBody), 'Following');
+  assert.equal(getParagraphLevel(nextBody, 0), 2);
+  assert.equal(getShapeRunHyperlink(nextBody, 0, 0), 'https://example.com/following');
+});

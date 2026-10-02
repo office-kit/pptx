@@ -1,3 +1,10 @@
+## 2026-10-02: 分割後の後続本文段落を実機確認
+
+- Mac PowerPoint で Outline title / Body / Following の 1 枚を作成し、tline title + 改行 + Bo を選択して Shift+Enter。保存 XML は slide1 title=Ou / body=空、slide2 title=dy / body=Following。前回の splitOutlineTitleRange の後続段落の扱いと一致。
+- 実機保存ファイルを /tmp/pptx-outline-audit/title-body-multiparagraph-native.pptx に保持。site/test/outline.test.mjs に回帰ケースを追加し、保存・再読込後の本文、段落レベル、リンク保持も検証。全 18 件成功。
+- ネイティブ Undo は今回も履歴を失い通常の取り消しができなかったため、参照文書を閉じ、確認済み reference-before-table-style.pptx を reference.pptx へ復元して再度開いた。現在 1 枚の Outline title、保存済み、Undo disabled。実機比較用の追加変更は残っていない。
+- 次: 複数スライドをまたぐ改行・削除の実機比較と修正。逆方向選択の回帰も未確認。全面一致は未達成。4173 と .pnpm-store を保持。
+
 ## 2026-10-02: 同一スライドのタイトル→本文の改行分割を修正
 
 - splitOutlineTitleRange を OutlineText の Enter / Shift+Enter に接続。同一スライドのタイトルから本文まで選択して改行すると、新しいスライドが作られ、未選択の本文末尾がタイトルへ移る。ドラフトを同じトランザクションで確定する。
