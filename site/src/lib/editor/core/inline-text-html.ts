@@ -6,12 +6,51 @@ import {
   getShapeRunFormatEffective,
   getTableCellParagraphs,
   getTableCells,
+  getEffectiveColorMap,
+  getPresentationTheme,
+  getShapeSlide,
   type PresentationData,
   type SlideShapeData,
 } from '@office-kit/pptx';
 import { paragraphNumberLabels } from '@office-kit/pptx-preview';
 import { defaultTextMetrics, shapeTextDefaults } from './text-layout-defaults.ts';
 import { textClipboardHtml } from './html-text-clipboard.ts';
+
+const themeKeyByToken: Record<string, keyof NonNullable<ReturnType<typeof getPresentationTheme>>> =
+  {
+    dk1: 'dark1',
+    tx1: 'dark1',
+    lt1: 'light1',
+    bg1: 'light1',
+    dk2: 'dark2',
+    tx2: 'dark2',
+    lt2: 'light2',
+    bg2: 'light2',
+    accent1: 'accent1',
+    accent2: 'accent2',
+    accent3: 'accent3',
+    accent4: 'accent4',
+    accent5: 'accent5',
+    accent6: 'accent6',
+    hlink: 'hyperlink',
+    folHlink: 'followedHyperlink',
+  };
+
+/** Resolve a table run's literal scheme color using the slide's effective map. */
+export function resolveEditingTextColor(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  value: string | null | undefined,
+): string | undefined {
+  if (!value) return undefined;
+  const token = value.startsWith('scheme:') ? value.slice('scheme:'.length) : value;
+  if (!themeKeyByToken[token]) return value;
+  const theme = getPresentationTheme(pres);
+  if (!theme) return undefined;
+  const mapped = getEffectiveColorMap(getShapeSlide(shape))[token] ?? token;
+  const key = themeKeyByToken[mapped] ?? themeKeyByToken[token];
+  return key ? theme[key] : undefined;
+}
 
 /** Keep literal UTF-16 paragraph separators for editing and clipboard offsets. */
 export function inlineTextHtml(
@@ -49,11 +88,15 @@ export function inlineTextHtml(
     const formats = elements.map((element) => {
       const start = text.length;
       text += element.kind === 'br' ? '\n' : element.text;
-      const format =
+      const rawFormat =
         element.kind === 'r' ? (resolve?.(index, runIndex++) ?? element.format) : element.format;
+      const editingFormat =
+        cell && rawFormat?.color
+          ? { ...rawFormat, color: resolveEditingTextColor(pres, shape, rawFormat.color) }
+          : rawFormat;
       // The reader widens colors to strings; the HTML exporter takes what a
       // writer would.
-      return { start, end: text.length, format: toWritableTextFormat(format ?? {}) };
+      return { start, end: text.length, format: toWritableTextFormat(editingFormat ?? {}) };
     });
     const paragraph = document.createElement('section');
     paragraph.setAttribute('data-text-paragraph', '');
@@ -106,7 +149,13 @@ export function inlineTextHtml(
     if (props.rtl !== null) style.direction = props.rtl ? 'rtl' : 'ltr';
     const formatted = document.createElement('div');
     // The exporter only emits escaped text and allowlisted styles.
-    formatted.innerHTML = textClipboardHtml({ text, formats });
+    formatted.innerHTML = textClipboardHtml(
+      {
+        text,
+        formats,
+      },
+      { editing: true },
+    );
     for (const span of formatted.querySelectorAll('span')) {
       if (!span.style.fontSize) span.style.fontSize = `${defaults.size}pt`;
       if (!span.style.fontFamily) span.style.fontFamily = defaults.family;

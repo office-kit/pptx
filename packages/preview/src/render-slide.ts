@@ -1,5 +1,6 @@
 import { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
 import { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
+import { textUnderlineStyle } from './text-underline-style.ts';
 import { paragraphNumberLabels } from './paragraph-number-labels.ts';
 // Per-slide SVG renderer for the playground.
 //
@@ -2258,54 +2259,6 @@ const cssColorWithOpacity = (hex: string, opacity: number | undefined): string =
   return `rgba(${r},${g},${b},${Math.max(0, opacity).toFixed(3)})`;
 };
 
-// CSS has no long-dash, dash-dot, or double-wave decoration, and Chromium
-// ignores thickness on dashed decorations. Repeated SVG backgrounds preserve
-// these patterns without adding boxes that change wrapping.
-const htmlUnderlineCss = (underline: string | boolean, color: string): string => {
-  const heavy = underline === 'heavy' || String(underline).endsWith('Heavy');
-  const thickness = heavy ? ';text-decoration-thickness:0.1em' : '';
-  if (underline === 'dbl') return 'text-decoration:underline;text-decoration-style:double';
-  if (underline === 'wavy' || underline === 'wavyHeavy')
-    return `text-decoration:underline;text-decoration-style:wavy${thickness}`;
-  const custom =
-    typeof underline === 'string' &&
-    (underline.startsWith('dash') ||
-      underline.startsWith('dotted') ||
-      underline.startsWith('dotDash') ||
-      underline.startsWith('dotDotDash') ||
-      underline === 'wavyDbl');
-  if (!custom) return `text-decoration:underline${thickness}`;
-  const stroke = heavy ? 2 : 1;
-  const dash = underline.startsWith('dotted')
-    ? '1 2'
-    : underline === 'dash' || underline === 'dashHeavy'
-      ? '4 2'
-      : underline.startsWith('dashLong')
-        ? '8 3'
-        : underline.startsWith('dotDotDash')
-          ? '5 2 1 2 1 2'
-          : '5 2 1 2';
-  const width =
-    underline === 'wavyDbl'
-      ? 8
-      : underline.startsWith('dotted')
-        ? 3
-        : underline === 'dash' || underline === 'dashHeavy'
-          ? 6
-          : underline.startsWith('dashLong')
-            ? 11
-            : underline.startsWith('dotDotDash')
-              ? 13
-              : 10;
-  const path =
-    underline === 'wavyDbl'
-      ? '<path d="M0 1 Q2 -1 4 1 T8 1 M0 4 Q2 2 4 4 T8 4"/>'
-      : `<path d="M0 3 H${width}" stroke-dasharray="${dash}"/>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="6" viewBox="0 0 ${width} 6"><g fill="none" stroke="${escapeXml(color)}" stroke-width="${stroke}">${path}</g></svg>`;
-  const url = encodeURIComponent(svg).replaceAll("'", '%27');
-  return `background-image:url('data:image/svg+xml,${url}');background-repeat:repeat-x;background-size:${width / 20}em 0.3em;background-position:0 100%;box-decoration-break:clone;-webkit-box-decoration-break:clone`;
-};
-
 // `effectivePt` is the post-autofit font size in points. Callers pass
 // `format.size` (the authored size, if any) scaled by the body's
 // autofit factor, or the placeholder default scaled the same way.
@@ -2334,7 +2287,7 @@ const renderRun = (
   // Keep strike on the outer span so underline patterns never alter its style.
   if (hasStrike) styles.push('text-decoration:line-through');
   const underlineCss = hasUnderline
-    ? htmlUnderlineCss(underline, resolveColor(format?.color ?? '#000000', theme, '#000000'))
+    ? textUnderlineStyle(underline, resolveColor(format?.color ?? '#000000', theme, '#000000'))
     : '';
   if (format?.color !== undefined && format.color !== null) {
     styles.push(`color:${resolveColor(format.color, theme, '#000000')}`);

@@ -1,3 +1,12 @@
+## 2026-10-02: 全下線スタイルの編集表示
+
+- 通常表示とinline編集で共通の `textUnderlineStyle` を使用。太線、長破線、鎖線、二重波線、単語のみの下線を編集開始後も維持する。外部HTML clipboardは従来のCSS書式を維持。
+- 本番エディターで全18設定の編集開始前後を検証。文字矩形の差は各軸2px未満、下線の相対寸法とパターン一致、strikeは実線。修正前にheavyがauto厚へ変化する失敗を再現済み。空白のみの通常下線も維持。
+- 表セルの明示的なscheme色はスライドのカラーマップとテーマで解決して編集HTMLへ渡す。表スタイル継承と色変換の完全な解決は引き続き残件。
+- アウトラインはUI前景色を継承するため、SVG背景の固定色を導入していない。特殊下線の完全な表示は残件。Mac全フォントでの線幅・波形の一致、normalizeHeight描画、全操作一致も未完了。
+- 検証: core3250成功/109skip、site134成功、関連browser7件成功。format/lint/root・DSL型検査、core・preview・editor build、Svelte 0 errors/warnings。
+- PowerPoint接続と画面取得は復旧。reference.pptxのUndo無効、Outline title表示を確認。今回ネイティブ文書は変更していない。
+
 ## 2026-10-02: 編集開始時とHTML貼り付けの下線保持
 
 - `textClipboardHtml`が下線を単線へ丸め、inline編集開始時にdbl/wavy等が変わることを本番エディタのブラウザー回帰で再現して修正。CSSで表現できるdouble/dotted/dashed/wavyを出力・再取り込みする。pattern付き下線とstrikeは外側spanの実線strike、内側uの下線へ分離し、親のstrikeをパーサーで保持。
