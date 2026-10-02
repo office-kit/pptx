@@ -76,6 +76,12 @@ export const readColorFromContainer = (parent: XmlElement): string | null => {
       const last = getAttrValue(c, qname('', 'lastClr', ''));
       if (last !== null) return `#${last.toUpperCase()}`;
     }
+    if (c.name.localName === 'scrgbClr' || c.name.localName === 'hslClr') {
+      // The stop reader exposes the base color separately from transforms.
+      // Strip transform children before using the shared model conversion so
+      // parseGradFill can report those transforms exactly once below.
+      return resolveDrawingColor({ ...c, children: [] }, null);
+    }
   }
   return null;
 };

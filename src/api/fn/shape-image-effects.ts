@@ -359,6 +359,8 @@ export const getShapeImageDuotone = (
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
     if (
       c.name.localName === 'srgbClr' ||
+      c.name.localName === 'scrgbClr' ||
+      c.name.localName === 'hslClr' ||
       c.name.localName === 'schemeClr' ||
       c.name.localName === 'sysClr' ||
       c.name.localName === 'prstClr'

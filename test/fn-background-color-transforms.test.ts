@@ -22,6 +22,8 @@ const withBackground = (xml: string, background: string): string =>
 it.each([
   ['sRGB', '<a:srgbClr val="336699"><a:tint val="50000"/></a:srgbClr>', '#BEC6D4'],
   ['theme', '<a:schemeClr val="accent1"><a:tint val="50000"/></a:schemeClr>', '#C2CDE1'],
+  ['scRGB', '<a:scrgbClr r="50%" g="50%" b="50%"/>', '#BCBCBC'],
+  ['HSL', '<a:hslClr hue="0" sat="100%" lum="50%"/>', '#FF0000'],
 ] as const)(
   'applies %s color transforms to a solid slide background',
   async (_, color, expected) => {
@@ -85,6 +87,33 @@ it('applies a slide color-map override before transforming a scheme background',
   expect(getSlideBackground(getSlides(presentation)[0]!)).toEqual({
     kind: 'solid',
     color: '#E2C2C2',
+  });
+});
+
+it('resolves alternate color models in a theme-referenced background', async () => {
+  const zip = unzipSync(await readFile(fixture));
+  const slideName = 'ppt/slides/slide1.xml';
+  zip[slideName] = strToU8(
+    withBackground(
+      strFromU8(zip[slideName]!),
+      '<p:bg><p:bgRef idx="1001"><a:scrgbClr r="50%" g="50%" b="50%"/></p:bgRef></p:bg>',
+    ),
+  );
+  zip['ppt/theme/theme1.xml'] = strToU8(
+    strFromU8(zip['ppt/theme/theme1.xml']!).replace(
+      /<a:bgFillStyleLst>[\s\S]*?<\/a:bgFillStyleLst>/,
+      '<a:bgFillStyleLst>' +
+        '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'.repeat(3) +
+        '</a:bgFillStyleLst>',
+    ),
+  );
+  const presentation = await loadPresentation(zipSync(zip));
+  const slide = getSlides(presentation)[0]!;
+  expect(getSlideBackground(slide)).toEqual({ kind: 'solid', color: '#BCBCBC' });
+  const reloaded = await loadPresentation(await savePresentation(presentation));
+  expect(getSlideBackground(getSlides(reloaded)[0]!)).toEqual({
+    kind: 'solid',
+    color: '#BCBCBC',
   });
 });
 
