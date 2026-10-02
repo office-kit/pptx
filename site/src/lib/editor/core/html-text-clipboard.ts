@@ -6,6 +6,13 @@ type CapsState = {
   textTransform?: 'uppercase' | 'none';
   fontVariantCaps?: 'small-caps' | 'normal';
 };
+const cssUnderlineStyles = {
+  double: 'dbl',
+  dotted: 'dotted',
+  dashed: 'dash',
+  wavy: 'wavy',
+} as const;
+type CssUnderlineStyle = keyof typeof cssUnderlineStyles;
 const maxHtmlLength = 4_000_000;
 const maxNodes = 50_000;
 const maxDepth = 128;
@@ -58,13 +65,16 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     const format = { ...parent };
     const caps = { ...inheritedCaps };
     const tag = element.tagName;
+    const style = element.style;
     if (tag === 'B' || tag === 'STRONG') format.bold = true;
     if (tag === 'I' || tag === 'EM') format.italic = true;
-    if (tag === 'U') format.underline = true;
-    if (tag === 'S' || tag === 'STRIKE' || tag === 'DEL') format.strike = true;
+    // A present text-decoration-line (including `none`, normalized from the
+    // shorthand) overrides the semantic HTML element's default decoration.
+    if (tag === 'U' && !style.textDecorationLine) format.underline = true;
+    if ((tag === 'S' || tag === 'STRIKE' || tag === 'DEL') && !style.textDecorationLine)
+      format.strike = true;
     if (tag === 'SUP') format.baseline = 0.3;
     if (tag === 'SUB') format.baseline = -0.25;
-    const style = element.style;
     // PowerPoint's capitalization is represented by one DrawingML `cap`
     // value, while CSS exposes two properties. Resolve their representable
     // combination without letting `font-variant-caps: normal` erase an
@@ -124,8 +134,11 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     if (background) format.highlight = background;
     const decoration = style.textDecorationLine || style.textDecoration;
     if (decoration && !/^(inherit|initial|unset|revert)$/.test(decoration)) {
-      format.underline = decoration.includes('underline');
-      format.strike = decoration.includes('line-through');
+      if (decoration.includes('underline')) {
+        const decorationStyle = style.textDecorationStyle.toLowerCase() as CssUnderlineStyle;
+        format.underline = cssUnderlineStyles[decorationStyle] ?? true;
+      }
+      if (decoration.includes('line-through')) format.strike = true;
     }
     if (style.verticalAlign === 'super') format.baseline = 0.3;
     if (style.verticalAlign === 'sub') format.baseline = -0.25;
@@ -227,9 +240,34 @@ export function textClipboardHtml(copied: FormattedText): string {
     if (format.kern !== undefined && format.size !== undefined)
       style.fontKerning = format.kern > 0 && format.size >= format.kern / 100 ? 'normal' : 'none';
     const decorations = [];
-    if (format.underline && format.underline !== 'none') decorations.push('underline');
-    if (format.strike && format.strike !== 'noStrike') decorations.push('line-through');
-    if (decorations.length) style.textDecorationLine = decorations.join(' ');
+    const underline = format.underline;
+    const patternedUnderline =
+      underline && underline !== 'none' && underline !== true && underline !== 'sng';
+    const underlineStyle =
+      underline === 'dbl'
+        ? 'double'
+        : underline === 'dotted' || underline === 'dottedHeavy'
+          ? 'dotted'
+          : underline === 'dash' || underline === 'dashHeavy'
+            ? 'dashed'
+            : underline === 'wavy' || underline === 'wavyHeavy'
+              ? 'wavy'
+              : undefined;
+    if (patternedUnderline && format.strike && format.strike !== 'noStrike') {
+      // CSS applies text-decoration-style to every line on the element. Keep
+      // a patterned underline and a solid strike on separate inline boxes.
+      style.textDecorationLine = 'line-through';
+      const underlineSpan = document.createElement('u');
+      underlineSpan.textContent = span.textContent;
+      underlineSpan.style.textDecorationLine = 'underline';
+      if (underlineStyle) underlineSpan.style.textDecorationStyle = underlineStyle;
+      span.replaceChildren(underlineSpan);
+    } else {
+      if (underline && underline !== 'none') decorations.push('underline');
+      if (format.strike && format.strike !== 'noStrike') decorations.push('line-through');
+      if (decorations.length) style.textDecorationLine = decorations.join(' ');
+      if (underlineStyle) style.textDecorationStyle = underlineStyle;
+    }
     if (format.baseline) style.verticalAlign = `${format.baseline * 100}%`;
     container.append(span);
   }

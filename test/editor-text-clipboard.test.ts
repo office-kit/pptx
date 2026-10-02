@@ -52,6 +52,26 @@ describe('formatted text clipboard', () => {
     expect(parseTextClipboard(JSON.stringify(copied), copied.text)).toEqual(copied);
     expect(getShapeText(shape)).toBe('English日本語');
   });
+  it.each([true, false])(
+    'preserves equalized character height %s through copy and paste',
+    (normalizeHeight) => {
+      const { shape } = fixture();
+      setShapeParagraphs(shape, [
+        { runs: [{ text: 'Abc', format: { normalizeHeight, bold: true, size: 24 } }] },
+      ]);
+      const copied = copyTextRange(shape, 0, 3);
+      const parsed = parseTextClipboard(JSON.stringify(copied), copied.text);
+      expect(parsed).toEqual(copied);
+      const pasted = projectTextEdits(shape, [
+        { start: 0, end: 3, text: copied.text, formats: parsed!.formats },
+      ]);
+      expect(getShapeParagraphElements(pasted, 0)[0]!.format).toMatchObject({
+        normalizeHeight,
+        bold: true,
+        size: 24,
+      });
+    },
+  );
   it('replaces selected text with separate formats and preserves surrounding characters', () => {
     const { shape } = fixture();
     const copied = copyTextRange(shape, 5, 10);
