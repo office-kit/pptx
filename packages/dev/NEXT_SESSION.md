@@ -1,3 +1,11 @@
+## 2026-10-02: 先頭改行の高さと編集開始位置
+
+- Mac PowerPoint の先頭 Shift+Enter のみを 40pt → 80pt に変更すると、後続 After が下へ移動することを画面で確認。文字の直後の改行とは挙動が異なる。接続復旧後に Font Size / Typing を Undo disabled まで取り消し、Outline title / Ordinary text box に戻して保存済み。
+- 先頭改行のサイズを通常表示が無視することで、図形・表とも編集開始時に約 63px ずれるケースをブラウザーで再現。描画でも a:br の実効書式を解決し、空行の高さに反映。文字のある行は改行のサイズで広げない。SVG の空行にも改行のフォントメトリクスを使用する。
+- 大きな改行を X に置き換えた際、80pt と通常の行高を保持し、BeforeXAfter になることを図形・表で検証。
+- 検証: format/lint/core typecheck/build、preview/DSL/dev typecheck、依存パッケージを含む dev build 成功。core 3300 成功 / 109 skip、関連 browser 12 成功。先頭改行の修正前の約 63px のずれは、修正後に 2px 未満。
+- 全操作一致は未完了。連続改行・末尾改行、空文字 run、空段落の箇条書き、表スタイル等の残件を継続。4173 と .pnpm-store を保持。PR #287 に集約。
+
 ## 2026-10-02: 改行だけが大きい場合の編集時レイアウトシフト
 
 - Mac PowerPoint の reference.pptx で Before / Shift+Enter / After を入力し、改行のみ選択して 40pt → 80pt に変更。前後の文字・行の画面位置は不変。保存 XML で a:br/rPr sz=8900 と normAutofit fontScale=90000 を確認（UI は 80pt）。リボンのサイズ欄は AX click ではフォーカスが移らず、Font メニューを開いた直後の Tab でサイズ欄へ移動できた。

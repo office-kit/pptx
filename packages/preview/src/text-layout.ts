@@ -558,6 +558,15 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           if (m.d > descent) descent = m.d;
           if (m.g > lineGap) lineGap = m.g;
         }
+        // PowerPoint uses a break's font metrics for an otherwise empty line,
+        // but a formatted break does not enlarge a line that already has text.
+        const emptyLineBreak = toks.find((token) => token.isBreak && token.piece.sizePx > 0);
+        if (ascent === 0 && emptyLineBreak) {
+          const metrics = mMetrics(emptyLineBreak.piece);
+          ascent = metrics.a;
+          descent = metrics.d;
+          lineGap = metrics.g;
+        }
         if (ascent === 0) {
           ascent = para.fallbackSizePx * FALLBACK_ASCENT;
           descent = para.fallbackSizePx * FALLBACK_DESCENT;
@@ -1173,7 +1182,9 @@ const wrapTokens = (
     }
   };
   const close = (): void => {
+    const endingBreak = cur[cur.length - 1];
     trimTrailing();
+    if (cur.length === 0 && endingBreak?.isBreak) cur.push(endingBreak);
     lines.push(cur);
     cur = [];
     lineW = 0;
