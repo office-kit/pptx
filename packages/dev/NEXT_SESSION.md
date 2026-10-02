@@ -1,3 +1,8 @@
+## 2026-10-02: Double strikethrough edit-entry geometry
+
+- Extended the real inline-edit browser regression to both single and double strike across all 18 underline options. Click-to-edit preserves decoration styles and text bounds within the existing 2px tolerance; all three browser tests pass, including table theme-color coverage. Log: `/tmp/inline-double-strike-layout.log`.
+- Native connection retried and still fails at startup; no native mutations performed. This establishes preview/editor consistency, not Mac visual parity.
+
 ## 2026-10-02: Double strikethrough editing and clipboard
 
 - HTML parsing now retains CSS double line-through as `dblStrike`. Editing and clipboard HTML emit the double strike separately from underline styles.
