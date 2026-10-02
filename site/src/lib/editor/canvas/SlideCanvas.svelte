@@ -760,8 +760,7 @@
     const source = boxes.find(b => b.id === editing?.id)?.shape ?? shape;
     const copied = copyTextRange(shape, start, end, editing.cell, (paragraph, run) => {
       if (cell) return toWritableTextFormat(getTableCellRunFormatEffective(doc.pres, cell, paragraph, run));
-      if (typeof run === 'number') return toWritableTextFormat(getShapeRunFormatEffective(doc.pres, shape, paragraph, run, { inheritanceSource: source }));
-      return undefined;
+      return toWritableTextFormat(getShapeRunFormatEffective(doc.pres, shape, paragraph, run, { inheritanceSource: source }));
     });
     event.clipboardData.setData('text/plain', copied.text);
     event.clipboardData.setData('text/html', textClipboardHtml(copied));

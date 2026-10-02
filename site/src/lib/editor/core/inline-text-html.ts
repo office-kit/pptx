@@ -71,9 +71,9 @@ export function inlineTextHtml(
   const container = document.createElement('div');
   const scaled = (value: number, unit: string) => `calc(${value}${unit} * var(--text-zoom))`;
   const resolve = tableCell
-    ? (paragraph: number, run: number) =>
+    ? (paragraph: number, run: number | { readonly fieldIndex: number }) =>
         getTableCellRunFormatEffective(pres, tableCell, paragraph, run)
-    : (paragraph: number, run: number) =>
+    : (paragraph: number, run: number | { readonly fieldIndex: number }) =>
         getShapeRunFormatEffective(pres, shape, paragraph, run, { inheritanceSource: source });
   const properties = paragraphs.map((_, index) =>
     getParagraphPropertiesEffective(pres, target, index, { inheritanceSource: source }),
@@ -94,8 +94,8 @@ export function inlineTextHtml(
       const rawFormat =
         element.kind === 'r'
           ? resolve(index, runIndex++)
-          : element.kind === 'fld' && tableCell
-            ? getTableCellRunFormatEffective(pres, tableCell, index, { fieldIndex: fieldIndex++ })
+          : element.kind === 'fld'
+            ? resolve(index, { fieldIndex: fieldIndex++ })
             : element.format;
       const editingFormat =
         cell && rawFormat

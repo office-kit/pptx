@@ -2990,6 +2990,7 @@ export const resolveTextBodyModel = (
       elements = [];
     }
     let rIdx = 0;
+    let fieldIndex = 0;
     for (const el of elements) {
       if (el.kind === 'br') {
         runs.push({ text: '\n', fmt: null, sizePt: defaultPt });
@@ -3005,9 +3006,6 @@ export const resolveTextBodyModel = (
       let href: string | undefined;
       let hrefTip: string | undefined;
       if (el.kind === 'r') {
-        // The cascade only makes sense for actual <a:r> runs; field
-        // text is opaque cached content and shouldn't pretend to be a
-        // specific run index.
         try {
           fmt = getShapeRunFormatEffective(pres, shape, p, rIdx);
         } catch {
@@ -3027,6 +3025,8 @@ export const resolveTextBodyModel = (
           href = undefined;
         }
         rIdx++;
+      } else {
+        fmt = getShapeRunFormatEffective(pres, shape, p, { fieldIndex: fieldIndex++ });
       }
       const sizePt = fmt?.size ?? defaultPt;
       if (txt) hasAnyText = true;

@@ -41,7 +41,7 @@ export function textFormatsInRange(
       // straight back into writers, so it is converted once here.
       const format = (): TextFormat =>
         toWritableTextFormat(
-          context && element.kind !== 'br' && (tableCell || element.kind === 'r')
+          context && element.kind !== 'br'
             ? tableCell
               ? getTableCellRunFormatEffective(
                   context.pres,
@@ -49,9 +49,13 @@ export function textFormatsInRange(
                   paragraphIndex,
                   element.kind === 'fld' ? { fieldIndex: currentField } : currentRun,
                 )
-              : getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
-                  inheritanceSource: context.source ?? shape,
-                })
+              : getShapeRunFormatEffective(
+                  context.pres,
+                  shape,
+                  paragraphIndex,
+                  element.kind === 'fld' ? { fieldIndex: currentField } : currentRun,
+                  { inheritanceSource: context.source ?? shape },
+                )
             : (element.format ?? {}),
         );
       const length = element.kind === 'br' ? 1 : element.text.length;
