@@ -882,3 +882,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - The Adjust group now exposes Reset as one Undo action. This is separate from Video pane color reset and Poster Frame reset.
 
 - Browser regression covers reset, one-step Undo/Redo, save/reload and preservation of playback settings and media bytes. Core coverage checks unknown XML preservation and rejects non-video input without mutation; the command registry disables reset for unsupported selections.
+
+## Video Crop picture and frame position
+
+- The Video pane exposes picture width/height and center offsets separately from crop-frame width/height and absolute left/top, in centimeters. Picture edits hold the frame fixed; frame edits preserve the picture rectangle. Crop Reset expands the frame to the full picture.
+- Mac PowerPoint saved XML verified both axes and Reset. Browser regression covers all eight fields, negative offsets, signed-percentage overflow rejection, undo/redo, save/reload and media/poster/playback preservation. Locked selections disable the controls.
+- Rotated/grouped native coordinate behavior, crop drag handles, the ribbon crop menu and complete Video Format geometry remain unverified or incomplete. This is numeric Crop-pane coverage, not complete video UI parity.

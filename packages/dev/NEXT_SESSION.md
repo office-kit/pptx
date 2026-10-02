@@ -1,3 +1,10 @@
+## 2026-10-02: 動画 Crop の数値位置・サイズ
+
+- VideoペインにPicture position（幅・高さ・X/Y offset）とCrop position（幅・高さ・左・上）、Resetを追加。画像と切り抜き枠を独立編集し、Resetは画像全体へ枠を拡張する。
+- nativeで横・縦の全項目とResetの保存XMLを比較。Crop height4cm/top3cmはt=1708/b=31625、枠y=1080000/h=1440000。参照trim-reset.pptxはUndo/保存後、`/tmp/pptx-video-ribbon-reset-baseline.xml`とslide XMLがバイト一致。復元待ちなし。
+- ブラウザーで8項目、負offset、範囲外入力のエラーと入力復元、Undo/Redo、保存再読込、動画・ポスター・再生設定保持を確認。画像 `/tmp/pptx-video-crop-pane.png`。core3204件成功/109skip、format/lint/typecheck/core・editor build、Svelteチェック成功。
+- 未検証: 回転・グループ内のnative Crop座標、ドラッグハンドル・リボンCropメニュー、動画スタイルギャラリーなど。完全一致は未達成。同一PR #287を使用。4173の未保存編集と.pnpm-storeは触らない。
+
 ## 2026-10-02: 動画リボン Reset
 
 - Video Format > Adjust に Reset を追加。色補正・塗り・線・効果・3D書式を除去し矩形へ戻す。動画本体・ポスター・crop・寸法・再生設定は保持し、1回のUndo/Redoに対応。色補正のみを戻すペインのResetとは別操作。

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import VideoCropSection from './VideoCropSection.svelte';
   import { getShapeImageBrightness, getShapeImageContrast, getShapeMedia, resetShapeImageColorEffects, setShapeImageBrightness, setShapeImageContrast, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -88,6 +89,7 @@
       </div>
     </details>
   </section>
+  <VideoCropSection {video} />
 {/if}
 
 <style>
