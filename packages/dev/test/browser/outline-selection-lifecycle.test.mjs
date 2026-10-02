@@ -104,7 +104,9 @@ test('canvas selection releases the outline ribbon range', { timeout: 60000 }, a
       .first();
     await title.focus();
     await title.evaluate((input) => window.selectEditorText(input, 2, input.textContent.length));
-    await editor.locator('.hit').nth(1).click();
+    const bodyHit = await editor.locator('.hit').nth(1).boundingBox();
+    assert.ok(bodyHit, 'the body shape is visible');
+    await page.mouse.click(bodyHit.x + 2, bodyHit.y + 2);
     const before = (await waitForState(preview.url, () => true)).revision;
     await editor
       .locator('.ribbon .font-ribbon')
