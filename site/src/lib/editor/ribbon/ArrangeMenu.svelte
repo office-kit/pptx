@@ -6,6 +6,7 @@
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
+  let { compact = false }: { compact?: boolean } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   let open = $state(false);
@@ -66,7 +67,7 @@
   }
 </script>
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} />
-<button class="trigger" bind:this={trigger} aria-label={t('Arrange')} aria-haspopup="menu" aria-expanded={open} onclick={show}><Icon name="front" /><span>{t('Arrange')} ▾</span></button>
+<button class="trigger" class:compact bind:this={trigger} aria-label={t('Arrange')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if !compact}<Icon name="front" />{/if}<span>{t('Arrange')} ▾</span></button>
 {#if open}
   <div class="menu" role="menu" aria-label={t('Arrange')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="heading">{t('Reorder Objects')}</div>
@@ -102,6 +103,8 @@
 <style>
   .trigger { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); color: var(--ok-text); font: inherit; font-size: 11px; cursor: pointer; }
   .trigger:hover { background: var(--ok-hover); border-color: var(--ok-border); }
+  .trigger.compact { flex-direction: row; justify-content: center; min-width: 76px; padding: 8px 7px; border-color: var(--ok-border); background: var(--ok-panel); }
+  .trigger.compact:hover, .trigger.compact[aria-expanded='true'] { background: var(--ok-hover); border-color: var(--ok-accent); }
   .menu { position: fixed; z-index: 400; min-width: 210px; max-height: calc(100dvh - 16px); overflow-y: auto; padding: 5px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); color: var(--ok-text); box-shadow: var(--ok-shadow-lg); }
   .menu button { display: flex; justify-content: space-between; gap: 16px; width: 100%; border: 0; border-radius: 4px; padding: 5px 10px; background: transparent; color: inherit; font: inherit; font-size: 12px; text-align: left; white-space: nowrap; }
   .menu button:hover:not(:disabled), .menu button:focus-visible { background: var(--ok-accent); color: white; outline: none; }
