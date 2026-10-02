@@ -22,6 +22,25 @@ const run = (value: string, properties: XmlElement | null): XmlElement =>
     ],
   });
 
+/** Replace a run's text without discarding extension or hyperlink children. */
+const textFragment = (source: XmlElement, value: string, materializeField = false): XmlElement => {
+  const result = copy(source);
+  if (materializeField) {
+    result.name = name('r');
+    // Field identity attributes are only valid on a:fld, not a:r.
+    result.attrs = result.attrs.filter(
+      (attr) => attr.name.namespaceURI !== '' || !['id', 'type'].includes(attr.name.localName),
+    );
+    // a:fld permits paragraph properties that are not valid children of a:r.
+    result.children = result.children.filter(
+      (child) => child.kind !== 'element' || !is(child, 'pPr'),
+    );
+  }
+  const t = firstChildElement(result, name('t'));
+  if (t) t.children = [text(value)];
+  return result;
+};
+
 /** Slice visible characters while retaining untouched fields, breaks and run XML. */
 function slice(paragraph: XmlElement, start: number, end: number): XmlElement[] {
   const result: XmlElement[] = [];
@@ -39,7 +58,9 @@ function slice(paragraph: XmlElement, start: number, end: number): XmlElement[] 
       result.push(
         from === offset && to === next
           ? copy(child)
-          : run(content.slice(from - offset, to - offset), firstChildElement(child, name('rPr'))),
+          : is(child, 'r') || is(child, 'fld')
+            ? textFragment(child, content.slice(from - offset, to - offset), is(child, 'fld'))
+            : run(content.slice(from - offset, to - offset), firstChildElement(child, name('rPr'))),
       );
     }
     offset = next;
@@ -272,12 +293,8 @@ export function mutateTextBodyRangeProperties(
       const fragment = (a: number, b: number) => {
         if (a === 0 && b === content.length) return copy(child);
         // Editing part of a generated field makes those characters literal text.
-        if (is(child, 'fld'))
-          return run(content.slice(a, b), firstChildElement(child, name('rPr')));
-        const result = copy(child);
-        const t = firstChildElement(result, name('t'));
-        if (t) t.children = [text(content.slice(a, b))];
-        return result;
+        if (is(child, 'fld')) return textFragment(child, content.slice(a, b), true);
+        return textFragment(child, content.slice(a, b));
       };
       if (from > 0) children.push(fragment(0, from));
       const selected = fragment(from, to);

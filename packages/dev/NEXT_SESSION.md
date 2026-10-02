@@ -1,3 +1,12 @@
+## 2026-10-02: 文字範囲編集の未知XML保持
+
+- setShapeText/setTableCellTextの範囲置換で、境界runの変更しない部分から未知属性・子要素が消える問題を修正。元runを複製しa:tのみ更新する。部分fieldは従来どおりliteral run化し、field専用id/type/pPrを除去、未知属性・rPr等は保持。範囲書式変更も共通化。
+- 回帰: shape/tableの保存再読込、実際の外部hyperlink relationship、mc:Ignorableな未知属性、rPr/extLst、fieldのpPr除去を検証。core3210件成功/109skip、format/lint/typecheck、core/editor build成功。ログ `/tmp/partial-run-{gates,tests,build,editor-build}.log`。
+- ブラウザー8件成功（文字・表セルclipboard 2件、図形/表セルのtop/center/bottom余白・位置6件）。旧ヘッダー構造を参照していたtext-body-editingテストを現行の折りたたみパネル操作へ更新。clipboardログ `/tmp/partial-run-clipboard.log`。
+- Mac Change CaseをcaretのみでUPPERCASEにすると、現在単語だけが変換された（Outline title → OUTLINE title）。Undo済み・Undo disabled確認、reference.pptxとreference-before-font.pptxも一致。復元待ちなし。
+- Change Case UIは未実装。現在のreplayTextEdits + TextFormat spansでは置換された部分の未知run XML/field情報を保持できないため、そのまま実装しない。既存setShapeText/setTableCellTextの正規経路で文字変換を扱う設計が次の課題。Unicode文脈（Greek sigma）と長さ変化（ß→SS）、混在書式、paragraph properties保持、caret単語境界、outline/tableも必要。
+- 同一PR #287を継続。4173の未保存編集と.pnpm-storeには触らない。Mac版との全操作一致は未完了。
+
 ## 2026-10-02: 空段落の文字サイズ変更
 
 - 図形全体のIncrease/Decrease Font Sizeで複数空段落の書式が残る不具合を修正。表セル・ゼロ長runにも対応。通常runや未知XMLを作り直さず、既存setShapeTextFormat/setTableCellTextFormatのparagraphEndオプションで段落末を更新する。
