@@ -12,6 +12,8 @@ import {
   loadPresentation,
   savePresentation,
   setTableStyleFlags,
+  setTableStyleId,
+  getTableStyleId,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 
@@ -76,4 +78,46 @@ it('resolves the built-in Medium Style 2 when tableStyles.xml only has its defau
   expect(header.fill).toEqual({ kind: 'solid', color: '#4F81BD' });
   expect(band.fill).toEqual({ kind: 'solid', color: '#D0D8E8' });
   expect(header.borders.bottom).toMatchObject({ color: '#FFFFFF', widthEmu: 38100 });
+});
+
+it('retains the built-in No Style, Table Grid appearance across flags and saving', async () => {
+  const pres = createPresentation();
+  const table = addSlideTable(addBlankSlide(pres), {
+    x: inches(1),
+    y: inches(1),
+    w: inches(6),
+    h: inches(3),
+    rows: [
+      ['A', 'B', 'C'],
+      ['D', 'E', 'F'],
+      ['G', 'H', 'I'],
+    ],
+  });
+  const styleId = '{5940675A-B579-460E-94D1-54222C63F5DA}';
+  setTableStyleId(table, styleId);
+  const cells = getTableCells(table);
+  for (let flags = 0; flags < 64; flags++) {
+    setTableStyleFlags(table, {
+      firstRow: Boolean(flags & 1),
+      lastRow: Boolean(flags & 2),
+      firstCol: Boolean(flags & 4),
+      lastCol: Boolean(flags & 8),
+      bandRow: Boolean(flags & 16),
+      bandCol: Boolean(flags & 32),
+    });
+    for (const cell of cells.flat()) {
+      const appearance = getTableCellAppearanceEffective(pres, cell);
+      expect(appearance.fill).toEqual({ kind: 'none' });
+      for (const side of ['left', 'right', 'top', 'bottom'] as const)
+        expect(appearance.borders[side]).toMatchObject({ color: '#000000', widthEmu: 12700 });
+      expect(appearance.borders.tlToBr).toBeNull();
+      expect(appearance.borders.blToTr).toBeNull();
+    }
+  }
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const loadedTable = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+  expect(getTableStyleId(loadedTable)).toBe(styleId);
+  expect(getTableCellAppearanceEffective(loaded, getTableCells(loadedTable)[1]![1]!)).toEqual(
+    getTableCellAppearanceEffective(pres, cells[1]![1]!),
+  );
 });

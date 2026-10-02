@@ -1,3 +1,11 @@
+## 2026-10-02: No Style, Table Grid の組み込み定義
+
+- GUID `{5940675A-B579-460E-94D1-54222C63F5DA}` のみの表で、塗りなし・tx1 色の 1pt 外周/内部罫線を解決。定義は Microsoft SDK TableStyle remarks の ISO/IEC 29500 例が根拠。空の条件領域は省略している。
+- 6 個のスタイルオプション全 64 組み合わせ、全セルの四辺、対角線なし、保存再読込を回帰テストで確認。追加前は fill=inherit の失敗を再現した。
+- 検証: core 3282 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査・build、Svelte check 0 errors/warnings。
+- この GUID の Mac 実機比較は未実施。他の組み込み GUID、結合・共有辺、非単色塗り、tblBg は未完了。全操作一致は未完了。
+- ネイティブ文書には今回変更を加えていない。ユーザーの 4173 と .pnpm-store は保持。
+
 ## 2026-10-02: 帯スタイルの罫線
 
 - band1H/band2H/band1V/band2V の明示した辺を、表内部でもそのセルの辺として解決。辺が未指定の場合は insideH/insideV を維持する。明示辺と内部罫線の共存を回帰テストに追加。
