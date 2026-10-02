@@ -8,6 +8,7 @@ import {
   getSlideShapes,
   getTableCellRunFormatEffective,
   getTableCells,
+  setTableStyleFlags,
   inches,
   loadPresentation,
   savePresentation,
@@ -139,6 +140,66 @@ describe('fn API: getTableCellRunFormatEffective', () => {
     expect(getTableCellRunFormatEffective(loaded, cell, 0, 0)).toMatchObject({
       size: 28,
       bold: true,
+    });
+  });
+
+  it('resolves custom tableStyles.xml tcTxStyle after the cell text cascade', async () => {
+    const original = createPresentation();
+    addSlideTable(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
+      rows: [
+        ['Header', 'Body'],
+        ['Body', 'Body'],
+      ],
+    });
+    const { entries } = readZip(await savePresentation(original));
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    const styleId = '{11111111-2222-3333-4444-555555555555}';
+    const loaded = await loadPresentation(
+      writeZip(
+        entries.map((entry) => {
+          if (entry.name === 'ppt/tableStyles.xml') {
+            return {
+              ...entry,
+              data: encoder.encode(
+                `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${styleId}"><a:tblStyle styleId="${styleId}" styleName="Test"><a:wholeTbl><a:tcTxStyle b="on"><a:fontRef idx="major"><a:schemeClr val="accent1"/></a:fontRef><a:srgbClr val="00FF00"/></a:tcTxStyle></a:wholeTbl><a:band1H><a:tcTxStyle i="off"/></a:band1H><a:firstCol><a:tcTxStyle b="off"/></a:firstCol><a:firstRow><a:tcTxStyle b="on" i="on"><a:font><a:latin typeface="Courier New"/><a:ea typeface="MS Gothic"/><a:cs typeface="Arial"/></a:font></a:tcTxStyle></a:firstRow></a:tblStyle></a:tblStyleLst>`,
+              ),
+            };
+          }
+          if (entry.name !== 'ppt/slides/slide1.xml') return entry;
+          return {
+            ...entry,
+            data: encoder.encode(
+              decoder
+                .decode(entry.data)
+                .replace(/<a:solidFill><a:srgbClr val="000000"\/><\/a:solidFill>/g, '')
+                .replace(
+                  /<a:tableStyleId>[^<]*<\/a:tableStyleId>/,
+                  `<a:tableStyleId>${styleId}</a:tableStyleId>`,
+                ),
+            ),
+          };
+        }),
+      ),
+    );
+    const table = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+    setTableStyleFlags(table, { firstRow: true, firstCol: true, bandRow: true });
+    const cells = getTableCells(table);
+    expect(getTableCellRunFormatEffective(loaded, cells[0]![0]!, 0, 0)).toMatchObject({
+      bold: true,
+      font: 'Courier New',
+      color: '#00FF00',
+      italic: true,
+    });
+    expect(getTableCellRunFormatEffective(loaded, cells[1]![0]!, 0, 0)).toMatchObject({
+      bold: false,
+      font: getPresentationFonts(loaded)!.majorLatin,
+      color: '#00FF00',
+      italic: false,
     });
   });
 });
