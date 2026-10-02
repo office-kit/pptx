@@ -86,11 +86,16 @@ export function inlineTextHtml(
     }
     let text = '';
     let runIndex = 0;
+    let fieldIndex = 0;
     const formats = elements.map((element) => {
       const start = text.length;
       text += element.kind === 'br' ? '\n' : element.text;
       const rawFormat =
-        element.kind === 'r' ? (resolve?.(index, runIndex++) ?? element.format) : element.format;
+        element.kind === 'r'
+          ? resolve(index, runIndex++)
+          : element.kind === 'fld' && tableCell
+            ? getTableCellRunFormatEffective(pres, tableCell, index, { fieldIndex: fieldIndex++ })
+            : element.format;
       const editingFormat =
         cell && rawFormat
           ? {

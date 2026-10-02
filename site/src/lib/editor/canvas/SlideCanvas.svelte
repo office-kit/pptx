@@ -758,11 +758,11 @@
     const shape = pendingTextShape;
     const cell = editing.cell ? getTableCells(shape)[editing.cell.row]![editing.cell.col]! : undefined;
     const source = boxes.find(b => b.id === editing?.id)?.shape ?? shape;
-    const copied = copyTextRange(shape, start, end, editing.cell, (paragraph, run) =>
-      toWritableTextFormat(cell
-        ? getTableCellRunFormatEffective(doc.pres, cell, paragraph, run)
-        : getShapeRunFormatEffective(doc.pres, shape, paragraph, run, { inheritanceSource: source })),
-    );
+    const copied = copyTextRange(shape, start, end, editing.cell, (paragraph, run) => {
+      if (cell) return toWritableTextFormat(getTableCellRunFormatEffective(doc.pres, cell, paragraph, run));
+      if (typeof run === 'number') return toWritableTextFormat(getShapeRunFormatEffective(doc.pres, shape, paragraph, run, { inheritanceSource: source }));
+      return undefined;
+    });
     event.clipboardData.setData('text/plain', copied.text);
     event.clipboardData.setData('text/html', textClipboardHtml(copied));
     event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify(copied));

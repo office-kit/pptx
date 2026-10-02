@@ -47,6 +47,49 @@ const blankSlide = async () => {
 };
 
 describe('table cell text rendering', () => {
+  it.each(['svg', 'foreignObject'] as const)(
+    'fields inherit the same cell text defaults as regular text (%s)',
+    async (textLayout) => {
+      const { pres, slide } = await blankSlide();
+      addSlideTable(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(2),
+        rows: [['7']],
+      });
+      const { entries } = readZip(await savePresentation(pres));
+      const load = (field: boolean) =>
+        loadPresentation(
+          writeZip(
+            entries.map((entry) => {
+              if (!entry.name.startsWith('ppt/slides/slide') || !entry.name.endsWith('.xml'))
+                return entry;
+              let xml = new TextDecoder()
+                .decode(entry.data)
+                .replace(
+                  '</a:pPr>',
+                  '<a:defRPr sz="2800" b="1"><a:latin typeface="Courier New"/></a:defRPr></a:pPr>',
+                );
+              if (field)
+                xml = xml
+                  .replace(
+                    '<a:r>',
+                    '<a:fld id="{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}" type="slidenum">',
+                  )
+                  .replace('</a:r>', '</a:fld>');
+              return { ...entry, data: new TextEncoder().encode(xml) };
+            }),
+          ),
+        );
+      const regular = await load(false);
+      const field = await load(true);
+      expect(renderSlideToSvg(field, getSlides(field).at(-1)!, { textLayout })).toBe(
+        renderSlideToSvg(regular, getSlides(regular).at(-1)!, { textLayout }),
+      );
+    },
+  );
+
   for (const textLayout of ['svg', 'foreignObject'] as const) {
     it.each([false, true])(
       `${textLayout}: omitted cell margins match OOXML defaults (zero left: %s)`,
