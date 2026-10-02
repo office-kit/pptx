@@ -151,14 +151,17 @@ test('editing tab widths follow capitalization and kerning', async () => {
         URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
       );
       return [
-        { text: 'av av av', transform: 'uppercase', kerning: 'normal' },
-        { text: 'AVAVAVAV', transform: 'none', kerning: 'none' },
+        { text: 'av av av', transform: 'uppercase', kerning: 'normal', caps: 'normal' },
+        { text: 'AVAVAVAV', transform: 'none', kerning: 'none', caps: 'normal' },
+        { text: 'Small Capitals', transform: 'none', kerning: 'normal', caps: 'small-caps' },
+        { text: 'Spaced', transform: 'none', kerning: 'normal', caps: 'normal', spacing: 4 },
+        { text: 'Tight', transform: 'none', kerning: 'normal', caps: 'normal', spacing: -2 },
       ].map((item) => {
         const root = document.createElement('div');
         root.style.cssText = `font:80px Arial;white-space:pre;`;
         const paragraph = document.createElement('section');
         paragraph.dataset.tabStops = '600:right';
-        paragraph.style.cssText = `text-transform:${item.transform};font-kerning:${item.kerning};tab-size:96px`;
+        paragraph.style.cssText = `text-transform:${item.transform};font-kerning:${item.kerning};font-variant-caps:${item.caps};letter-spacing:${item.spacing ?? 0}px;tab-size:96px`;
         paragraph.textContent = '\t' + item.text;
         root.append(paragraph);
         document.body.append(root);
