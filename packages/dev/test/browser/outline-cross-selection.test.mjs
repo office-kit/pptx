@@ -818,3 +818,45 @@ for (const action of ['Backspace', 'Z']) {
     },
   );
 }
+
+test('outline merge confirmation applies pending text drafts', { timeout: 60000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-outline-confirm-draft-'));
+  let preview, browser;
+  try {
+    await writeOutlineDeck(dir, 'Heading', true);
+    const opened = await openOutline(dir);
+    ({ preview, browser } = opened);
+    const { page, outline } = opened;
+    const title = outline.getByRole('textbox').nth(0);
+    const initial = (await waitForState(preview.url, () => true)).revision;
+    await title.focus();
+    await title.evaluate((input) => {
+      window.selectEditorText(input, input.textContent.length, input.textContent.length);
+      input.dispatchEvent(
+        new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: 'X' }),
+      );
+      input.textContent += 'X';
+      window.selectEditorText(input, input.textContent.length, input.textContent.length);
+      input.dispatchEvent(
+        new InputEvent('input', { bubbles: true, inputType: 'insertText', data: 'X' }),
+      );
+    });
+    await extendForward(page, title);
+    await page.keyboard.press('Backspace');
+    const dialog = page
+      .frameLocator('#editor-frame')
+      .getByRole('dialog', { name: 'Delete', exact: true });
+    await dialog.waitFor({ state: 'visible' });
+    await waitForState(preview.url, (state) => state.revision !== initial);
+    const before = (await waitForState(preview.url, () => true)).revision;
+    await dialog.getByRole('button', { name: 'Yes', exact: true }).click();
+    await waitForState(preview.url, (state) => state.revision !== before);
+    const slides = getSlides(await readDeck(preview));
+    assert.equal(slides.length, 1);
+    assert.equal(getShapeText(getSlideShapes(slides[0])[0]), 'He');
+  } finally {
+    await browser?.close();
+    await preview?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
