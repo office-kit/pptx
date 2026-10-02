@@ -1178,3 +1178,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - HTML script text also keeps its own effective font size when shrinking, instead of using the parent's size through em.
 - Scoped formatting/lint, preview typecheck/build and 76 text-layout/character-effect tests pass. The existing 65% script-size approximation remains uncalibrated against native PowerPoint; inline-editor baseline geometry still needs comparison. This does not establish native parity.
 - Latest native retry still fails at connection startup. Pending reference restoration below remains unresolved.
+
+## 2026-10-02: Script text edit-entry geometry
+
+- Reproduced a 7px vertical jump when clicking into custom superscript text. Inline editing used unshrunk glyphs and CSS line-height-relative offsets. Editing HTML now shrinks glyphs to match preview and expresses offsets in em relative to that reduced size, so canvas zoom scales both consistently.
+- Real editor regression covers positive/negative 10% and 50% offsets mixed with larger plain text; glyph bounds remain within 2px on edit entry. Typing and saving retains 24pt authored size and the original offset.
+- Eight underline/HTML clipboard browser tests pass (`/tmp/baseline-entry-after.log`), plus the expanded typing/save regression (`/tmp/baseline-entry-save.log`). Scoped lint, Svelte check (zero errors/warnings), editor build pass. Native script-size calibration and reference restoration remain outstanding.
