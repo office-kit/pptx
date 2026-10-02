@@ -39,7 +39,7 @@ export function rememberShapeFill(
   remembered: RememberedFill,
 ): void {
   const current = getShapeFillEffective(pres, target);
-  if (current.kind === 'image') remembered.image = readRememberedImageFill(target);
+  if (current.kind === 'image') remembered.image = readRememberedImageFill(pres, target);
   if (current.kind === 'pattern')
     remembered.pattern = getShapePatternFill(pres, target, { preserveTheme: true }) ?? undefined;
   if (current.kind === 'solid')

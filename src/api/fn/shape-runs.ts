@@ -2,6 +2,7 @@ import { paragraphText, textBodyText } from '../../internal/drawingml/text-body.
 import { validateTextRange } from '../../internal/drawingml/text-body-edit.ts';
 import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
 import { boundedInt } from '../../internal/bounds.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
@@ -947,11 +948,8 @@ export const getParagraphBulletStyle = (
   if (buSzPct) {
     const v = getAttrValue(buSzPct, qname('', 'val', ''));
     if (v !== null) {
-      let n = Number.parseFloat(v);
-      if (Number.isFinite(n)) {
-        if (Math.abs(n) > 1) n = n / 100000;
-        sizePct = n;
-      }
+      const n = readDrawingmlPercentage(v, Number.NaN);
+      if (Number.isFinite(n)) sizePct = n;
     }
   }
   const buSzPts = firstChildElement(pPr, qname('a', 'buSzPts', NS.dml));

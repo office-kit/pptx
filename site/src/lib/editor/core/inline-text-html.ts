@@ -1,6 +1,7 @@
 import {
   toWritableTextFormat,
   getParagraphPropertiesEffective,
+  getParagraphBulletStyle,
   getShapeParagraphCount,
   getShapeParagraphElements,
   getShapeRunFormatEffective,
@@ -8,6 +9,7 @@ import {
   getTableCellRunFormatEffective,
   getTableCells,
   getEffectiveColorMap,
+  getPresentationFonts,
   getPresentationTheme,
   getShapeSlide,
   type PresentationData,
@@ -63,6 +65,7 @@ export function inlineTextHtml(
   const tableCell = cell ? getTableCells(shape)[cell.row]![cell.col]! : undefined;
   const target = tableCell ?? shape;
   const defaults = defaultTextMetrics(pres, shape);
+  const themeFonts = getPresentationFonts(pres);
   const paragraphs = tableCell
     ? getTableCellParagraphs(tableCell).map((p) => p.elements)
     : Array.from({ length: getShapeParagraphCount(shape) }, (_, index) =>
@@ -197,11 +200,25 @@ export function inlineTextHtml(
     }
     const firstRun = formatted.querySelector('span');
     if (marker && firstRun) {
-      if (firstRun.style.fontSize)
+      const bulletStyle = getParagraphBulletStyle(pres, target, index);
+      const firstFormat = formats[0]?.format;
+      const firstSize = firstFormat?.size ?? defaults.size;
+      const markerSize =
+        bulletStyle.sizePct !== null ? firstSize * bulletStyle.sizePct : bulletStyle.sizePts;
+      if (markerSize !== null && markerSize !== undefined) {
+        style.setProperty('--marker-size', `calc(${markerSize}pt * var(--text-zoom))`);
+      } else if (firstRun.style.fontSize) {
         style.setProperty('--marker-size', `calc(${firstRun.style.fontSize} * var(--text-zoom))`);
-      if (firstRun.style.fontFamily)
-        style.setProperty('--marker-font', `${firstRun.style.fontFamily}, var(--ok-font)`);
-      if (firstRun.style.color) style.setProperty('--marker-color', firstRun.style.color);
+      }
+      const markerFont =
+        bulletStyle.font === '+mj-lt'
+          ? (themeFonts?.majorLatin ?? firstRun.style.fontFamily)
+          : bulletStyle.font === '+mn-lt'
+            ? (themeFonts?.minorLatin ?? firstRun.style.fontFamily)
+            : (bulletStyle.font ?? firstRun.style.fontFamily);
+      if (markerFont) style.setProperty('--marker-font', `${markerFont}, var(--ok-font)`);
+      const markerColor = bulletStyle.color ?? firstRun.style.color;
+      if (markerColor) style.setProperty('--marker-color', markerColor);
     }
     paragraph.append(...formatted.firstElementChild!.childNodes);
     if (!text || text.endsWith('\n')) {

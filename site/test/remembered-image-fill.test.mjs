@@ -18,6 +18,7 @@ import {
   getShapeImageCrop,
   isShapeImageGrayscale,
   getShapeImageBiLevelThreshold,
+  getShapeImageDuotone,
   setShapeImageRecolor,
   getShapeImageFillBytes,
   setShapeFill,
@@ -60,12 +61,12 @@ test('switching away from a picture fill and back restores its media, placement,
   setShapeImageBrightness(shape, 0.2);
   setShapeImageContrast(shape, -0.3);
   setShapeImageCrop(shape, { left: 0.2, top: -0.25, bottom: 0.1 });
-  const remembered = readRememberedImageFill(shape);
+  const remembered = readRememberedImageFill(pres, shape);
   assert.ok(remembered);
   const layout = getShapeImageFillLayout(shape);
   const crop = getShapeImageCrop(shape);
   setShapeFill(shape, { color: 'accent1' });
-  assert.equal(readRememberedImageFill(shape), undefined);
+  assert.equal(readRememberedImageFill(pres, shape), undefined);
   restoreRememberedImageFill(shape, remembered);
   const loaded = await loadPresentation(await savePresentation(pres));
   const restored = getSlideShapes(getSlides(loaded)[0])[0];
@@ -89,7 +90,7 @@ test('restoring remembered stretch fills preserves empty effects and offsets', (
   });
   setShapeImageFill(shape, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
   setShapeImageFillLayout(shape, { mode: 'stretch', left: 0.25, right: -0.2 });
-  const remembered = readRememberedImageFill(shape);
+  const remembered = readRememberedImageFill(pres, shape);
   setShapeFill(shape, { color: 'accent2' });
   restoreRememberedImageFill(shape, remembered);
   assert.deepEqual(getShapeImageFillLayout(shape), remembered.layout);
@@ -108,7 +109,7 @@ test('switching away from an image fill remembers its recolor correction', async
   });
   setShapeImageFill(shape, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
   setShapeImageRecolor(shape, { kind: 'threshold', threshold: 42 });
-  const remembered = readRememberedImageFill(shape);
+  const remembered = readRememberedImageFill(pres, shape);
   assert.ok(remembered);
   setShapeFill(shape, { color: 'accent1' });
   restoreRememberedImageFill(shape, remembered);
@@ -120,8 +121,34 @@ test('switching away from an image fill remembers its recolor correction', async
     42,
   );
 
+  setShapeImageRecolor(shape, {
+    kind: 'duotone',
+    colors: [
+      { color: 'accent1', colorTransforms: [{ kind: 'tint', value: 0.45 }] },
+      { color: '#D9C3A5', colorTransforms: [{ kind: 'satMod', value: 1.8 }] },
+    ],
+  });
+  const duotone = readRememberedImageFill(pres, shape);
+  assert.deepEqual(duotone?.recolor, {
+    kind: 'duotone',
+    colors: [
+      { color: 'scheme:accent1', colorTransforms: [{ kind: 'tint', value: 0.45 }] },
+      { color: '#D9C3A5', colorTransforms: [{ kind: 'satMod', value: 1.8 }] },
+    ],
+  });
+  setShapeFill(shape, { color: 'accent1' });
+  restoreRememberedImageFill(shape, duotone);
+  assert.deepEqual(getShapeImageDuotone(pres, shape, { resolveColors: false }), duotone.recolor);
+  const reloadedDuotone = await loadPresentation(await savePresentation(pres));
+  assert.deepEqual(
+    getShapeImageDuotone(reloadedDuotone, getSlideShapes(getSlides(reloadedDuotone)[0])[0], {
+      resolveColors: false,
+    }),
+    duotone.recolor,
+  );
+
   setShapeImageRecolor(shape, { kind: 'grayscale' });
-  const grayscale = readRememberedImageFill(shape);
+  const grayscale = readRememberedImageFill(pres, shape);
   assert.deepEqual(grayscale?.recolor, { kind: 'grayscale' });
   setShapeFill(shape, { color: 'accent1' });
   restoreRememberedImageFill(shape, grayscale);
