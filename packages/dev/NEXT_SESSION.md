@@ -1310,3 +1310,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Line-spacing passes (1 case, `/tmp/line-spacing-final-root.log`): use the visible compact Paragraph group when its direct trigger is absent and select the full text after reload before checking mixed paragraph settings. Paragraph selection, pending edits, saved data, and atomic Undo assertions remain.
 - Scoped format/lint and diff checks pass. Inline-paragraphs remains owned by table_theme_refs and is not included in this commit.
 - Native PowerPoint retry still fails at native pipe startup; no native mutations were performed and reference restoration remains pending. CI 37030970978 on 788e754b passed static checks and OOXML validation; other checks were still running when observed.
+
+## 2026-10-03: New-slide and outline selection regressions
+
+- New-slide-layout reproduced a removed direct ribbon button lookup; its ribbon path now opens Home > Slides. Both tests pass (`/tmp/new-slide-compact.log`), preserving layout selection/cancellation, editable placeholders, bilingual save/reload, Undo/Redo and generic-new-slide layout advancement.
+- Outline-selection-lifecycle reproduced a text-center click entering caret editing instead of selecting the body shape. The shape-formatting case now clicks its border. All three cases pass (`/tmp/outline-lifecycle-border.log`), retaining queued-event lifecycle coverage and saved assertions that body formatting does not affect the outline heading.
+- Scoped format/lint passed. Root view-modes is running in exec session 85152 with `/tmp/view-modes-current.log`; poll it before restarting. Agents continue inline-paragraphs and media-playback; do not include their work until verified.

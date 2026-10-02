@@ -60,9 +60,10 @@ test(
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.equal(await thumbs.count(), 2);
       // The ribbon reaches the same picker, independently of the slide navigator.
+      await editor.getByRole('button', { name: 'Slides', exact: true }).click();
       await editor
-        .locator('.ribbon')
-        .getByRole('button', { name: 'New slide from layout', exact: true })
+        .getByRole('menu', { name: 'Slides', exact: true })
+        .getByRole('menuitem', { name: 'New slide from layout', exact: true })
         .click();
       await dialog
         .getByLabel('Slide layout', { exact: true })
