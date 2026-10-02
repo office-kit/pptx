@@ -7,13 +7,14 @@
   import CharacterSpacingMenu from './CharacterSpacingMenu.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
+  let { formats, selected, typing = false, onformat, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
     formats: TextFormat[];
     selected: boolean;
     typing?: boolean;
     hideFont?: boolean;
     ribbon?: boolean;
     onformat: (format: TextFormat, reset?: boolean) => void;
+    onfontsize?: (direction: 1 | -1) => void;
     ontoggle?: (property: TextFormatToggle) => void;
     ondone?: () => void;
     onlink?: () => void;
@@ -45,6 +46,8 @@
   <div class="font-fields">
   <label><span>{t('Font')}</span><FontFamilyInput {ribbon} families={fontChoices} value={font} disabled={!(selected || typing)} choose={font => onformat({font, fontEastAsian: font, fontComplexScript: font})} /></label>
   {#if ribbon}<FontSizeInput value={size} disabled={!(selected || typing)} choose={size => onformat({ size })} />
+    <button class="ok-btn font-size-step" aria-label={t('Increase Font Size')} title={t('Increase Font Size')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onfontsize?.(1)}>A<sup>↑</sup></button>
+    <button class="ok-btn font-size-step" aria-label={t('Decrease Font Size')} title={t('Decrease Font Size')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onfontsize?.(-1)}>A<sup>↓</sup></button>
   {:else}
   <label><span>{t('Font size')}</span><input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
   {/if}
@@ -118,6 +121,7 @@
   .font-ribbon .font-fields, .font-ribbon .font-buttons { display: flex; align-items: center; gap: 2px; }
   .font-ribbon label > span, .font-ribbon .color-field > span { display: none; }
   .font-ribbon .ok-btn { min-width: 23px; padding: 3px; }
+  .font-ribbon .font-size-step { font-size: 12px; }
   .highlight-menu summary { cursor: pointer; list-style: none; }
   .highlight-options { position: fixed; z-index: 50; padding: 6px; display: grid; background: var(--ok-panel); border: 1px solid var(--ok-border); box-shadow: var(--ok-shadow); }
 </style>

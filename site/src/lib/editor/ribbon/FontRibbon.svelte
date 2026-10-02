@@ -3,6 +3,8 @@
   import { getEditor } from '../core/context.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
+  import { stepShapeFontSize } from '../core/font-size.ts';
+  import { t } from '../i18n/i18n.svelte.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
 
   const editor = getEditor();
@@ -29,6 +31,17 @@
     if (editor.inlineTextFormat) editor.inlineTextFormat.toggle(property);
     else apply(toggleTextFormat(formats, property));
   }
+  function stepFontSize(direction: 1 | -1) {
+    if (editor.inlineTextFormat?.fontSize) {
+      editor.inlineTextFormat.fontSize(direction);
+      return;
+    }
+    const shapes = editor.selectedShapes();
+    if (!shapes.length) return;
+    editor.doc.transact(t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size'), () => {
+      for (const shape of shapes) if (getShapeKind(shape) === 'shape') stepShapeFontSize(editor.doc.pres, shape, direction);
+    });
+  }
 </script>
 
-<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || !!objectFormats} onformat={apply} ontoggle={toggle} />
+<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || !!objectFormats} onformat={apply} onfontsize={stepFontSize} ontoggle={toggle} />

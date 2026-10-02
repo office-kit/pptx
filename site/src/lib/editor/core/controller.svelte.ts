@@ -122,6 +122,7 @@ export class EditorController {
     alignment: string;
     align: (alignment: string) => void;
     apply: (format: TextFormat, reset?: boolean) => void;
+    fontSize?: (direction: 1 | -1) => void;
     toggle: (property: TextFormatToggle) => void;
   } | null>(null);
   ribbonVisible = $state(true);

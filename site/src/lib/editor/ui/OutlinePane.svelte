@@ -90,6 +90,7 @@
           selection.editParagraphs((shape, index) => setParagraphAlignment(shape, index, value), t('Format paragraphs'));
       },
       apply: (format: TextFormat, reset = false) => selection.format(format, reset, t('Format selected text')),
+      fontSize: (direction: 1 | -1) => selection.fontSize(direction, t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size')),
       toggle: (property: TextFormatToggle) => selection.format(formats => toggleTextFormat(formats, property), false, t('Format selected text')),
     };
     editor.inlineTextFormat = api;

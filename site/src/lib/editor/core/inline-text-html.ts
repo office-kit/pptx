@@ -4,41 +4,14 @@ import {
   getShapeParagraphCount,
   getShapeParagraphElements,
   getShapeRunFormatEffective,
-  getShapePlaceholderType,
-  getPresentationFonts,
   getTableCellParagraphs,
   getTableCells,
   type PresentationData,
   type SlideShapeData,
 } from '@office-kit/pptx';
 import { paragraphNumberLabels } from '@office-kit/pptx-preview';
-import { shapeTextDefaults } from './text-layout-defaults.ts';
+import { defaultTextMetrics, shapeTextDefaults } from './text-layout-defaults.ts';
 import { textClipboardHtml } from './html-text-clipboard.ts';
-
-// Keep the editing overlay's inherited text metrics aligned with the preview
-// renderer when a run has no authored rPr size or font. These are the same
-// stock master defaults used by packages/preview/src/render-slide.ts.
-const DEFAULT_BODY_PT = 18;
-const DEFAULT_TITLE_PT = 44;
-const DEFAULT_SUBTITLE_PT = 32;
-const DEFAULT_FOOTER_PT = 12;
-const DEFAULT_FONT = `Calibri, "Helvetica Neue", Arial, sans-serif`;
-
-function defaultTextMetrics(pres: PresentationData, shape: SlideShapeData) {
-  const placeholder = getShapePlaceholderType(shape);
-  const size =
-    placeholder === 'title' || placeholder === 'ctrTitle'
-      ? DEFAULT_TITLE_PT
-      : placeholder === 'subTitle'
-        ? DEFAULT_SUBTITLE_PT
-        : placeholder === 'ftr' || placeholder === 'dt' || placeholder === 'sldNum'
-          ? DEFAULT_FOOTER_PT
-          : DEFAULT_BODY_PT;
-  const fonts = getPresentationFonts(pres);
-  const face =
-    placeholder === 'title' || placeholder === 'ctrTitle' ? fonts?.majorLatin : fonts?.minorLatin;
-  return { size, family: face ? `${JSON.stringify(face)}, ${DEFAULT_FONT}` : DEFAULT_FONT };
-}
 
 /** Keep literal UTF-16 paragraph separators for editing and clipboard offsets. */
 export function inlineTextHtml(

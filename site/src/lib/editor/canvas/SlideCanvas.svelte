@@ -13,6 +13,8 @@
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
+  import { stepFontSize, stepShapeFontSize, stepTableCellFontSize } from '../core/font-size.ts';
+  import { defaultTextMetrics } from '../core/text-layout-defaults.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { richTextValue } from '../core/rich-text-dom.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
@@ -977,6 +979,7 @@
       alignment: inlineParagraph.align,
       align: (value: string) => applyInlineParagraph('align', value),
       apply: applyInlineFormat,
+      fontSize: stepInlineFontSize,
       toggle: toggleInlineFormat,
     };
     editor.inlineTextFormat = api;
@@ -1116,6 +1119,29 @@
   function toggleInlineFormat(property: TextFormatToggle) {
     applyInlineFormat(formats => toggleTextFormat(formats, property));
   }
+  function stepInlineFontSize(direction: 1 | -1) {
+    if (!editing || restoringEditing) return;
+    if (textRange.start === textRange.end) {
+      const source = boxes.find(item => item.id === editing?.id)?.shape;
+      const current = editing.typing?.format.size ?? rangeFormats[0]?.size ?? (source ? defaultTextMetrics(doc.pres, source).size : 18);
+      editing.typing = { format: { ...(editing.typing?.format ?? {}), size: stepFontSize(current, direction) }, reset: editing.typing?.reset ?? false };
+      return;
+    }
+    const cur = editing;
+    const box = boxes.find(item => item.id === cur.id);
+    if (!box) return;
+    const range = { ...textRange };
+    doc.transact(t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size'), () => {
+      replayEdits(box, cur);
+      if (cur.cell) {
+        const cell = getTableCells(box.shape)[cur.cell.row]![cur.cell.col]!;
+        stepTableCellFontSize(cell, direction, range);
+      } else stepShapeFontSize(doc.pres, box.shape, direction, box.shape, range);
+    });
+    cur.changes = [];
+    editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
+    void tick().then(() => { if (editing === cur) textInput?.setSelectionRange(range.start, range.end); });
+  }
   /** Picks up the format at the caret or selection, paragraph included. */
   function copyInlineFormat() {
     const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
@@ -1226,7 +1252,7 @@
 {#if editing}
   <details class="floating-text-format-bar">
     <summary class="ok-btn">{t('Selected text formatting')}</summary>
-    <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
+    <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} onfontsize={stepInlineFontSize} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
   </details>
 {/if}
 {#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} ontabs={applyRulerTabs} />{/if}

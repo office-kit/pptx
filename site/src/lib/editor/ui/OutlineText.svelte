@@ -12,6 +12,8 @@
   import { richTextValue, selectRichText } from '../core/rich-text-dom.ts';
   import { OutlineSelectionModel, type OutlineSelectionField } from '../core/outline-selection.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
+  import { stepFontSize, stepShapeFontSize } from '../core/font-size.ts';
+  import { defaultTextMetrics } from '../core/text-layout-defaults.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -378,6 +380,21 @@
           typingFormat = undefined;
           setShapeTextFormat(shape, format, { range: { start, end }, reset });
         }
+      },
+      applyFontSize: (start, end, direction) => {
+        const source = doc.shapeById(slideIndex, shapeId);
+        if (!source) return;
+        if (start === end) {
+          const current = typingFormat?.format.size
+            ?? textFormatsInRange(source, { start, end }, undefined, { pres: doc.pres, source })[0]?.size
+            ?? defaultTextMetrics(doc.pres, source).size;
+          typingFormat = { format: { ...(typingFormat?.format ?? {}), size: stepFontSize(current, direction) }, reset: typingFormat?.reset ?? false };
+          draftVersion++;
+          return;
+        }
+        typingFormat = undefined;
+        stepShapeFontSize(doc.pres, source, direction, source, { start, end });
+        draftVersion++;
       },
       paragraphs: (start, end) => {
         const shape = doc.shapeById(slideIndex, shapeId);
