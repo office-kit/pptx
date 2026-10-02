@@ -1374,3 +1374,12 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Replaced the bi-level getter's magnitude heuristic with the existing DrawingML percentage parser. Integer `1` means 0.001%, whereas `1%` means 1%; previously both were read as 100%.
 - Tests load real ZIP XML lexical values and exercise the public setter at 0.001 through immediate read and save/reload. Numeric assertions use six-digit precision. An earlier internal-tree-only test failed to commit XML; its reload-null result was a test setup error, not an additional production bug.
 - Brightness, contrast and preview-effects tests pass 36/36 (`/tmp/image-threshold-final-root.log`); core build passes (`/tmp/image-threshold-build.log`). Agent typecheck/lint and root format/diff checks passed. Changeset updated.
+
+## 2026-10-03: Image percentage parsing and current environment
+
+- Fixed brightness/contrast and shared image/background opacity readers that interpreted `50%` as 0.0005 instead of 0.5. The checked-in ECMA Transitional schema defines fixed/positive percentage unions; `alphaModFix/@amt` is ST_PositivePercentage, not ST_PositiveFixedPercentage. Existing shared percentage parsing handles both lexical forms.
+- Before-fix failures: `/tmp/image-percentage-before.log`. ZIP-loaded lexical tests cover signed corrections and picture/background opacity, including save/reload. Root verification: 44 tests pass (`/tmp/image-percentage-root-final.log`), format and core build pass (`/tmp/image-percentage-root-build.log`); agent lint/typecheck pass.
+- The user preview had no listener. Restarted the existing `/tmp/pptx-user-preview/deck.tsx` on http://127.0.0.1:4173/ and verified HTTP 200. Existing source and saved editor state were retained; no browser reload or user edit was performed. Server session: 50865.
+- Native retry still failed with native pipe startup failure. Reference-file restoration remains pending; do not overwrite an open reference document.
+- Corrected an audit claim: OutlinePane already implements slide drag/reorder (see parity notes at 719 onward). Pointer text selection across fields remains unverified. Ruler evidence only establishes the observed simultaneous toggle and cm display; separate vertical preference is documented by Microsoft but its Mac UI has not been inspected here. Do not implement guessed settings placement.
+- CI run 37035075036 remains live on 6bdd9276, with Node 24 Chromium tests running and the other five jobs successful. Local image fixes are not yet pushed; batch after the live run finishes to avoid cancelling its browser coverage.

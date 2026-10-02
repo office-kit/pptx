@@ -33,6 +33,35 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: setShapeImageBrightness', () => {
+  it('reads fixed-point and percent lexical lum values', async () => {
+    for (const [bright, contrast, expectedBright, expectedContrast] of [
+      ['50000', '-50000', 0.5, -0.5],
+      ['50%', '-50%', 0.5, -0.5],
+    ] as const) {
+      const parts = unzipSync(await readFile(fixture('one-image-slide.pptx')));
+      const slidePart = 'ppt/slides/slide1.xml';
+      parts[slidePart] = strToU8(
+        strFromU8(parts[slidePart]!).replace(
+          '<a:blip r:embed="rId2"/>',
+          `<a:blip r:embed="rId2"><a:lum bright="${bright}" contrast="${contrast}"/></a:blip>`,
+        ),
+      );
+      const pres = await loadPresentation(zipSync(parts));
+      const picture = getSlideShapes(getSlides(pres)[0]!).find(
+        (s) => getShapeKind(s) === 'picture',
+      )!;
+      expect(getShapeImageBrightness(picture)).toBeCloseTo(expectedBright, 6);
+      expect(getShapeImageContrast(picture)).toBeCloseTo(expectedContrast, 6);
+
+      const roundTripped = await loadPresentation(await savePresentation(pres));
+      const roundTrippedPicture = getSlideShapes(getSlides(roundTripped)[0]!).find(
+        (s) => getShapeKind(s) === 'picture',
+      )!;
+      expect(getShapeImageBrightness(roundTrippedPicture)).toBeCloseTo(expectedBright, 6);
+      expect(getShapeImageContrast(roundTrippedPicture)).toBeCloseTo(expectedContrast, 6);
+    }
+  });
+
   it('supports image-filled shapes, preserves one correction when clearing the other, and round-trips', async () => {
     const pres = createPresentation();
     const shape = addSlideShape(addBlankSlide(pres), {
