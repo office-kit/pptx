@@ -473,6 +473,9 @@ const tableStylePartsForCell = (pres: PresentationData, cell: TableCellData): Xm
   const flags = getTableStyleFlags(table);
   const row = cell[CELL_ROW];
   const col = cell[CELL_COL];
+  // Mac PowerPoint applies Total Row to a merged cell reaching the bottom edge,
+  // even when its anchor is in the first row (Header Row disabled).
+  const rowEnd = row + getTableCellSpan(cell).rowSpan - 1;
   const layers: XmlElement[] = [];
   const add = (name: string, enabled = true): void => {
     if (!enabled) return;
@@ -506,9 +509,9 @@ const tableStylePartsForCell = (pres: PresentationData, cell: TableCellData): Xm
   );
   add('lastCol', flags.lastCol && col === colCount - 1);
   add('firstCol', flags.firstCol && col === 0);
-  add('lastRow', flags.lastRow && row === rowCount - 1);
-  add('seCell', flags.lastRow && flags.lastCol && row === rowCount - 1 && col === colCount - 1);
-  add('swCell', flags.lastRow && flags.firstCol && row === rowCount - 1 && col === 0);
+  add('lastRow', flags.lastRow && rowEnd === rowCount - 1);
+  add('seCell', flags.lastRow && flags.lastCol && rowEnd === rowCount - 1 && col === colCount - 1);
+  add('swCell', flags.lastRow && flags.firstCol && rowEnd === rowCount - 1 && col === 0);
   add('firstRow', flags.firstRow && row === 0);
   add('neCell', flags.firstRow && flags.lastCol && row === 0 && col === colCount - 1);
   add('nwCell', flags.firstRow && flags.firstCol && row === 0 && col === 0);

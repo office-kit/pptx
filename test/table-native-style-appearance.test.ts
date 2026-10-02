@@ -9,6 +9,7 @@ import {
   getTableCells,
   getTableCellAppearanceEffective,
   inches,
+  mergeTableCells,
   loadPresentation,
   savePresentation,
   setTableStyleFlags,
@@ -120,4 +121,38 @@ it('retains the built-in No Style, Table Grid appearance across flags and saving
   expect(getTableCellAppearanceEffective(loaded, getTableCells(loadedTable)[1]![1]!)).toEqual(
     getTableCellAppearanceEffective(pres, cells[1]![1]!),
   );
+});
+
+it('applies Total Row to a vertical merge ending at the last row, as in Mac PowerPoint', async () => {
+  const pres = createPresentation();
+  const table = addSlideTable(addBlankSlide(pres), {
+    x: inches(1),
+    y: inches(1),
+    w: inches(6),
+    h: inches(3),
+    rows: [
+      ['A', 'B'],
+      ['C', 'D'],
+      ['E', 'F'],
+    ],
+  });
+  mergeTableCells(table, { row: 0, col: 0, rowSpan: 3, colSpan: 1 });
+  setTableStyleFlags(table, { firstRow: false, bandRow: true, lastRow: true });
+  const cell = getTableCells(table)[0]![0]!;
+  expect(getTableCellAppearanceEffective(pres, cell).fill).toEqual({
+    kind: 'solid',
+    color: '#4F81BD',
+  });
+  setTableStyleFlags(table, { lastRow: false });
+  expect(getTableCellAppearanceEffective(pres, cell).fill).toEqual({
+    kind: 'solid',
+    color: '#D0D8E8',
+  });
+  setTableStyleFlags(table, { lastRow: true });
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const loadedCell = getTableCells(getSlideShapes(getSlides(loaded)[0]!)[0]!)[0]![0]!;
+  expect(getTableCellAppearanceEffective(loaded, loadedCell).fill).toEqual({
+    kind: 'solid',
+    color: '#4F81BD',
+  });
 });

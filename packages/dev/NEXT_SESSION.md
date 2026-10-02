@@ -1,3 +1,11 @@
+## 2026-10-02: 縦結合セルの集計行を Mac 実機に合わせる
+
+- Mac PowerPoint の reference.pptx で 3×3 表の第 1 列を Table Layout > Table > Select Column > Merge Cells により縦結合。Header Row を外し、Total Row の on/off を比較。on では結合セル全体が accent1 の青、off では帯の淡色になることを画面で確認した。結合セルの開始行ではなく終端が最終行に達することが集計行の条件。
+- `tableStylePartsForCell` の lastRow および下隅の行判定を rowSpan の終端へ変更。lastCol は未確認のため変更していない。回帰テストは変更前に淡色の誤表示で失敗、変更後は on/off と保存再読込に成功。
+- 検証: core 3283 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査と build も成功。
+- 一時変更は表挿入・結合・Header Row・Total Row の on/off の計 5 操作を Undo し、Undo disabled / Redo Table を確認して保存済み。未復元変更なし。
+- 残件: 横結合の lastCol、結合セルの帯・共有辺、他の組み込み GUID、非単色塗り、tblBg。全操作一致は未完了。ユーザーの 4173 と .pnpm-store は保持。
+
 ## 2026-10-02: No Style, Table Grid の組み込み定義
 
 - GUID `{5940675A-B579-460E-94D1-54222C63F5DA}` のみの表で、塗りなし・tx1 色の 1pt 外周/内部罫線を解決。定義は Microsoft SDK TableStyle remarks の ISO/IEC 29500 例が根拠。空の条件領域は省略している。
