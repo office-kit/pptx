@@ -122,7 +122,13 @@ describe('pending text formatting preview', () => {
     const literal = copyTextRange(projected, 0, 11);
     expect(literal.formats.every((span) => span.format.size === undefined)).toBe(true);
     const display = copyTextRange(projected, 0, 11, undefined, (paragraph, run) =>
-      getShapeRunFormatEffective(pres, projected, paragraph, run, { inheritanceSource: shape }),
+      typeof run === 'number'
+        ? toWritableTextFormat(
+            getShapeRunFormatEffective(pres, projected, paragraph, run, {
+              inheritanceSource: shape,
+            }),
+          )
+        : undefined,
     );
     expect(display.text).toBe('English\n日本語');
     const originalParagraph = getParagraphPropertiesEffective(pres, shape, 0);

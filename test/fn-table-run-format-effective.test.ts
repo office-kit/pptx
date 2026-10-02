@@ -297,3 +297,48 @@ it('resolves an empty cell paragraph end mark through paragraph and table defaul
   });
   expect(() => getTableCellRunFormatEffective(loaded, cell, 0, 0)).toThrow(RangeError);
 });
+
+it('separates existing table runs and fields from the paragraph insertion format', async () => {
+  const original = createPresentation();
+  addSlideTable(addBlankSlide(original), {
+    x: inches(0),
+    y: inches(0),
+    w: inches(4),
+    h: inches(2),
+    rows: [['Text']],
+  });
+  const { entries } = readZip(await savePresentation(original));
+  const loaded = await loadPresentation(
+    writeZip(
+      entries.map((entry) =>
+        entry.name === 'ppt/slides/slide1.xml'
+          ? {
+              ...entry,
+              data: new TextEncoder().encode(
+                new TextDecoder()
+                  .decode(entry.data)
+                  .replace(
+                    /<a:p>[\s\S]*?<\/a:p>/,
+                    '<a:p><a:pPr><a:defRPr sz="2400" b="0"/></a:pPr><a:r><a:t>Text</a:t></a:r><a:fld id="{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}" type="slidenum"><a:t>7</a:t></a:fld><a:endParaRPr sz="4800" b="1"/></a:p>',
+                  ),
+              ),
+            }
+          : entry,
+      ),
+    ),
+  );
+  const roundTrip = await loadPresentation(await savePresentation(loaded));
+  const cell = getTableCells(getSlideShapes(getSlides(roundTrip)[0]!)[0]!)[0]![0]!;
+  expect(getTableCellRunFormatEffective(roundTrip, cell, 0, 0)).toMatchObject({
+    size: 24,
+    bold: false,
+  });
+  expect(getTableCellRunFormatEffective(roundTrip, cell, 0, { fieldIndex: 0 })).toMatchObject({
+    size: 24,
+    bold: false,
+  });
+  expect(getTableCellRunFormatEffective(roundTrip, cell, 0, null)).toMatchObject({
+    size: 48,
+    bold: true,
+  });
+});

@@ -1,5 +1,5 @@
 // `getShapeRunFormatEffective` — resolves a run's character properties by
-// walking the ECMA-376 §21.1.2.4.7 inheritance chain (run → endParaRPr →
+// walking the ECMA-376 §21.1.2.4.7 inheritance chain (run →
 // defRPr → lstStyle → layout placeholder → master placeholder → master
 // txStyles → theme fontScheme). The literal `getShapeRunFormat` only
 // reports what's authored on the run itself, so any deck that relies on
@@ -25,6 +25,7 @@ import {
   savePresentation,
   setPresentationFonts,
   setShapeRunFormat,
+  setShapeParagraphs,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 
@@ -344,4 +345,28 @@ describe('fn API: getShapeRunFormatEffective', () => {
     // inheritance), so this stays defined.
     expect(fmt.font).toBe('Calibri');
   });
+});
+
+it('keeps paragraph end formatting separate from existing shape text after round-trip', async () => {
+  const original = createPresentation();
+  const box = addSlideTextBox(addBlankSlide(original), {
+    x: inches(0),
+    y: inches(0),
+    w: inches(3),
+    h: inches(2),
+    text: 'Text',
+  });
+  setShapeParagraphs(box, [
+    {
+      runs: [{ text: 'Text' }],
+      endFormat: { size: 48, bold: true, font: 'Courier New', color: '#AA2244' },
+    },
+  ]);
+  const loaded = await loadPresentation(await savePresentation(original));
+  const shape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+  const format = getShapeRunFormatEffective(loaded, shape, 0, 0);
+  expect(format.size).not.toBe(48);
+  expect(format.bold).not.toBe(true);
+  expect(format.font).not.toBe('Courier New');
+  expect(format.color).not.toBe('#AA2244');
 });

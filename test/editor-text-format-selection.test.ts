@@ -69,7 +69,7 @@ it('uses inherited placeholder styles for toolbar selections after pending edits
   );
   const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Title and Content')! });
   const shape = findSlidePlaceholder(slide, 'body')!;
-  setShapeParagraphs(shape, [{ runs: [{ text: 'English' }], endFormat: { bold: true } }]);
+  setShapeParagraphs(shape, [{ runs: [{ text: 'English', format: { bold: true } }] }]);
   const xml = getShapeXmlString(shape);
   const inherited = getShapeRunFormatEffective(pres, shape, 0, 0);
   expect(inherited.size).toBeGreaterThan(18);
