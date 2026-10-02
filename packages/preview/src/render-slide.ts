@@ -2269,6 +2269,7 @@ const renderRun = (
   effectivePt: number,
   defaultColor: string,
   /* unused but kept for forward compatibility */ _wasDefault = false,
+  suppressLineHeight = false,
 ): string => {
   if (text === '') return '';
   void _wasDefault;
@@ -2277,7 +2278,7 @@ const renderRun = (
   // PowerPoint uses tight line-height (~1.0) by default for placeholders;
   // the previous 1.2 left enough vertical slack to push the top/bottom of
   // glyphs outside short placeholders.
-  styles.push(`line-height:1.05`);
+  styles.push(suppressLineHeight ? 'line-height:0;vertical-align:top' : 'line-height:1.05');
   if (format?.font) styles.push(`font-family:${escapeXml(format.font)}, ${DEFAULT_FONT}`);
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
@@ -2555,8 +2556,14 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
     const pieces: PieceInput[] = [];
     for (const run of para.runs) {
       // <a:br> marker.
-      if (run.text === '\n' && run.fmt === null) {
-        pieces.push(breakPiece());
+      if (run.text === '\n') {
+        pieces.push({
+          ...breakPiece(),
+          family: (a.resolveFamily ?? substituteFamily)(run.fmt?.font ?? a.themeFace),
+          sizePx: run.sizePt * scale * PX_PER_PT,
+          bold: run.fmt?.bold ?? false,
+          italic: run.fmt?.italic ?? false,
+        });
         continue;
       }
       let fmt = run.fmt;
@@ -2992,9 +2999,11 @@ export const resolveTextBodyModel = (
     }
     let rIdx = 0;
     let fieldIndex = 0;
+    let breakIndex = 0;
     for (const el of elements) {
       if (el.kind === 'br') {
-        runs.push({ text: '\n', fmt: null, sizePt: defaultPt });
+        const fmt = getShapeRunFormatEffective(pres, shape, p, { breakIndex: breakIndex++ });
+        runs.push({ text: '\n', fmt, sizePt: fmt.size ?? defaultPt });
         continue;
       }
       // A `slidenum` field shows the slide's own number, which PowerPoint
@@ -3218,7 +3227,7 @@ const renderHtmlParagraphs = (
   const paragraphs: string[] = [];
   for (let pi = 0; pi < paraData.length; pi++) {
     const para = paraData[pi]!;
-    const runHtmls = para.runs.map((run) => {
+    const runHtmls = para.runs.map((run, runIndex) => {
       // Per-run hyperlinks render the text in the theme's hyperlink
       // color (with underline) and wrap the span in an <a href> so the
       // preview is clickable.
@@ -3240,6 +3249,7 @@ const renderHtmlParagraphs = (
         run.sizePt * autoFitScale,
         defaultColor,
         run.fmt?.size === undefined,
+        run.text === '\n' && /[^\n]$/.test(para.runs[runIndex - 1]?.text ?? ''),
       );
       if (!run.href) return span;
       const isInPage = run.href.startsWith('#');
@@ -6113,9 +6123,11 @@ const cellParaData = (
     const runs: RunData[] = [];
     let rIdx = 0;
     let fieldIndex = 0;
+    let breakIndex = 0;
     for (const el of para.elements) {
       if (el.kind === 'br') {
-        runs.push({ text: '\n', fmt: null, sizePt: DEFAULT_BODY_PT });
+        const fmt = getTableCellRunFormatEffective(pres, cell, index, { breakIndex: breakIndex++ });
+        runs.push({ text: '\n', fmt, sizePt: fmt.size ?? DEFAULT_BODY_PT });
         continue;
       }
       if (el.text.trim()) hasText = true;

@@ -489,3 +489,48 @@ it.each(['svg', 'foreignObject'] as const)(
     expect(textContentOf(outputs[1]!)).toContain('After');
   },
 );
+
+it.each(['svg', 'foreignObject'] as const)(
+  'retains the height of a sized leading table line break (%s)',
+  async (textLayout) => {
+    const { pres, slide } = await blankSlide();
+    addSlideTable(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(5),
+      h: inches(3),
+      rows: [['After']],
+    });
+    const { entries } = readZip(await savePresentation(pres));
+    const outputs: string[] = [];
+    for (const size of [1800, 3600]) {
+      const loaded = await loadPresentation(
+        writeZip(
+          entries.map((entry) =>
+            entry.name === 'ppt/slides/slide1.xml'
+              ? {
+                  ...entry,
+                  data: new TextEncoder().encode(
+                    new TextDecoder()
+                      .decode(entry.data)
+                      .replace('<a:p>', `<a:p><a:br><a:rPr sz="${size}"/></a:br>`),
+                  ),
+                }
+              : entry,
+          ),
+        ),
+      );
+      outputs.push(renderSlideToSvg(loaded, getSlides(loaded)[0]!, { textLayout }));
+    }
+    if (textLayout === 'svg') {
+      const beforeY = Number(attrsOf(outputs[0]!, 'text')[0]!.y);
+      const afterY = Number(attrsOf(outputs[1]!, 'text')[0]!.y);
+      expect(afterY - beforeY).toBeGreaterThan(20);
+    } else {
+      expect(attrsOf(outputs[0]!, 'span')[0]!.style).toContain('font-size:24.00px');
+      expect(attrsOf(outputs[1]!, 'span')[0]!.style).toContain('font-size:48.00px');
+    }
+    expect(textContentOf(outputs[0]!)).toContain('After');
+    expect(textContentOf(outputs[1]!)).toContain('After');
+  },
+);
