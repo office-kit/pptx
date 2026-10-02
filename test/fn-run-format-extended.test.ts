@@ -14,12 +14,49 @@ import {
   inches,
   loadPresentation,
   setShapeRunFormat,
+  savePresentation,
+  getSlideShapes,
 } from '../src/api/index.ts';
+import { parseRPrLikeElement } from '../src/api/fn/shape-color.ts';
+import { parseXml } from '../src/internal/xml/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: extended run-format properties', () => {
+  it.each([true, false])(
+    'preserves equalized character height (%s) through save and reload',
+    async (enabled) => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const slide = getSlides(pres)[0]!;
+      const tb = addSlideTextBox(slide, {
+        x: inches(0),
+        y: inches(0),
+        w: inches(4),
+        h: inches(2),
+        text: 'AaBb',
+      });
+      setShapeRunFormat(tb, 0, 0, { normalizeHeight: enabled });
+      setShapeRunFormat(tb, 0, 0, { bold: true });
+      const loaded = await loadPresentation(await savePresentation(pres));
+      const shape = getSlideShapes(getSlides(loaded)[0]!).at(-1)!;
+      expect(getShapeRunFormat(shape, 0, 0)).toMatchObject({
+        normalizeHeight: enabled,
+        bold: true,
+      });
+    },
+  );
+  it.each([
+    ['1', true],
+    ['true', true],
+    ['0', false],
+    ['false', false],
+  ])('reads normalizeH="%s"', (value, enabled) => {
+    const xml = parseXml(
+      `<a:rPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" normalizeH="${value}"/>`,
+    );
+    expect(parseRPrLikeElement(xml.root).normalizeHeight).toBe(enabled);
+  });
   it('round-trips strike, spc, kern, baseline, cap, highlight', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

@@ -37,6 +37,7 @@ const decorated = {
   baseline: 0.3,
   spc: 100,
   kern: 1200,
+  normalizeHeight: true,
   cap: 'all' as const,
 };
 

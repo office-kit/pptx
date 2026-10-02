@@ -100,6 +100,9 @@ const mergeRPrLayer = (base: Partial<ReadTextFormat>, layer: Partial<ReadTextFor
   if (base.strike === undefined && layer.strike !== undefined) base.strike = layer.strike;
   if (base.spc === undefined && layer.spc !== undefined) base.spc = layer.spc;
   if (base.kern === undefined && layer.kern !== undefined) base.kern = layer.kern;
+  if (base.normalizeHeight === undefined && layer.normalizeHeight !== undefined) {
+    base.normalizeHeight = layer.normalizeHeight;
+  }
   if (base.baseline === undefined && layer.baseline !== undefined) base.baseline = layer.baseline;
   if (base.cap === undefined && layer.cap !== undefined) base.cap = layer.cap;
   if (base.highlight === undefined && layer.highlight !== undefined) {

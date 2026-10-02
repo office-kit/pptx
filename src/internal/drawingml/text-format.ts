@@ -55,6 +55,7 @@ const ATTR_U = qname('', 'u', '');
 const ATTR_STRIKE = qname('', 'strike', '');
 const ATTR_SPC = qname('', 'spc', '');
 const ATTR_KERN = qname('', 'kern', '');
+const ATTR_NORMALIZE_H = qname('', 'normalizeH', '');
 const ATTR_BASELINE = qname('', 'baseline', '');
 const ATTR_CAP = qname('', 'cap', '');
 const ATTR_TYPEFACE = qname('', 'typeface', '');
@@ -140,6 +141,8 @@ export interface TextFormat {
    * save the value as `kern="0"` when its Use kerning checkbox is cleared.
    */
   kern?: number;
+  /** Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height). */
+  normalizeHeight?: boolean;
   /**
    * Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,
    * `-0.25` = subscript). PowerPoint emits ST_Percentage; this getter
@@ -306,6 +309,9 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   }
   if (format.kern !== undefined) {
     attrs = setOrRemoveAttr(attrs, ATTR_KERN, String(Math.round(format.kern)));
+  }
+  if (format.normalizeHeight !== undefined) {
+    attrs = setOrRemoveAttr(attrs, ATTR_NORMALIZE_H, format.normalizeHeight ? '1' : '0');
   }
   if (format.baseline !== undefined) {
     // ST_Percentage; we accept the unit-fraction form on the public API
