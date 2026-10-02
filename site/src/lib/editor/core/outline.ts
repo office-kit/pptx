@@ -34,16 +34,35 @@ export function outlineShapes(slide: SlideData) {
   });
 }
 
-/** Split a title selection ending in the same slide's outline body. */
+/** Preserve PowerPoint's slide boundary when replacing an outline title range. */
 export function splitOutlineTitleRange(
   pres: PresentationData,
   slide: SlideData,
   start: { id: number; offset: number },
-  end: { id: number; offset: number },
+  end: { id: number; offset: number; slide?: SlideData },
 ): number | null {
+  const endSlide = end.slide ?? slide;
+  const shapes = outlineShapes(slide);
+  if (endSlide !== slide) {
+    const slides = getSlides(pres);
+    const index = slides.indexOf(slide) + 1;
+    if (
+      slides[index] !== endSlide ||
+      !shapes.some((item) => item.id === start.id && item.title) ||
+      !outlineShapes(endSlide).some((item) => item.id === end.id && item.title)
+    )
+      return null;
+    // Enter across adjacent titles retains both slides and their title boundary.
+    const title = findShapeById(slide, start.id)!;
+    setShapeText(title, '', { range: { start: start.offset, end: getShapeText(title).length } });
+    for (const item of shapes) {
+      if (!item.title) setShapeText(findShapeById(slide, item.id)!, '');
+    }
+    setShapeText(findShapeById(endSlide, end.id)!, '', { range: { start: 0, end: end.offset } });
+    return index;
+  }
   const layout = getSlideLayout(slide);
   if (!layout) return null;
-  const shapes = outlineShapes(slide);
   const from = shapes.findIndex((item) => item.id === start.id && item.title);
   const to = shapes.findIndex((item) => item.id === end.id && !item.title);
   if (from < 0 || to <= from) return null;

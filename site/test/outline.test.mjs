@@ -515,3 +515,37 @@ test('outline split keeps later paragraphs in the new body as in Mac PowerPoint'
   assert.equal(getParagraphLevel(nextBody, 0), 2);
   assert.equal(getShapeRunHyperlink(nextBody, 0, 0), 'https://example.com/following');
 });
+
+test('Enter across adjacent outline titles retains both slides and the remaining title runs', async () => {
+  const pres = createPresentation();
+  const layout = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  const first = addSlide(pres, { layout });
+  const second = addSlide(pres, { layout });
+  const [title, body] = getSlideShapes(first);
+  const [nextTitle, nextBody] = getSlideShapes(second);
+  setShapeText(title, 'Outline title');
+  setShapeText(body, 'Body');
+  setShapeText(nextTitle, 'Next');
+  setShapeText(nextBody, 'Following');
+  setShapeRunHyperlink(nextTitle, 0, 0, 'https://example.com/title');
+  addSlideTextBox(first, { x: 0, y: 0, w: 914400, h: 914400, text: 'Ordinary text' });
+  assert.equal(
+    splitOutlineTitleRange(
+      pres,
+      first,
+      { id: getShapeId(title), offset: 2 },
+      { id: getShapeId(nextTitle), offset: 2, slide: second },
+    ),
+    1,
+  );
+  const slides = getSlides(await loadPresentation(await savePresentation(pres)));
+  assert.deepEqual(slides.map(getSlideTitle), ['Ou', 'xt']);
+  assert.deepEqual(getSlideShapes(slides[0]).map(getShapeText), ['Ou', '', 'Ordinary text']);
+  assert.deepEqual(getSlideShapes(slides[1]).map(getShapeText), ['xt', 'Following']);
+  assert.equal(
+    getShapeRunHyperlink(getSlideShapes(slides[1])[0], 0, 0),
+    'https://example.com/title',
+  );
+});

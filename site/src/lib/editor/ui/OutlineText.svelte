@@ -319,20 +319,24 @@
       selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
       const selected = selection.current()!;
-      const slots = outlineShapes(slide);
-      const prefix = `${getSlidePartName(slide)}:`;
-      const start = slots.find(item => `${prefix}${item.id}` === selected.start.key && item.title);
-      const end = slots.find(item => `${prefix}${item.id}` === selected.end.key && !item.title);
-      if (start && end && getSlideLayout(slide)) {
+      const slots = getSlides(doc.pres).flatMap((sourceSlide, index) =>
+        outlineShapes(sourceSlide).map(item => ({ ...item, slide: sourceSlide, index,
+          key: `${getSlidePartName(sourceSlide)}:${item.id}` })));
+      const start = slots.find(item => item.key === selected.start.key && item.title);
+      const end = slots.find(item => item.key === selected.end.key);
+      const sameSlideBody = start && end && start.slide === end.slide && !end.title && getSlideLayout(start.slide);
+      const adjacentTitle = start && end && end.index === start.index + 1 && end.title;
+      if (start && end && (sameSlideBody || adjacentTitle)) {
         const ownerDocument = input.getElement()!.ownerDocument;
         let index: number | null = null;
         doc.transact(t('New slide'), () => {
           for (const field of selection.fields()) {
-            if (field.key.startsWith(prefix)) field.apply(field.flush());
+            if (field.key.startsWith(`${getSlidePartName(start.slide)}:`) ||
+              field.key.startsWith(`${getSlidePartName(end.slide)}:`)) field.apply(field.flush());
           }
-          index = splitOutlineTitleRange(doc.pres, slide,
+          index = splitOutlineTitleRange(doc.pres, start.slide,
             { id: start.id, offset: selected.start.offset },
-            { id: end.id, offset: selected.end.offset });
+            { id: end.id, offset: selected.end.offset, slide: end.slide });
           if (index !== null) doc.selectSlide(index);
         });
         selection.clear();
