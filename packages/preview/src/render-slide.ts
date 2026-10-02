@@ -2323,6 +2323,10 @@ const renderRun = (
   }
   if (format?.cap === 'all') styles.push('text-transform:uppercase');
   else if (format?.cap === 'small') styles.push('font-variant:small-caps');
+  if (format?.kern !== undefined)
+    styles.push(
+      `font-kerning:${format.kern > 0 && effectivePt >= format.kern / 100 ? 'normal' : 'none'}`,
+    );
   if (format?.highlight !== undefined && format.highlight !== null) {
     styles.push(`background-color:${resolveColor(format.highlight, theme, '#FFFF00')}`);
   }
@@ -2523,6 +2527,11 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         fmt?.baseline !== undefined && fmt.baseline !== 0 ? (fmt.baseline > 0 ? 1 : -1) : 0;
       const letterSpacingPx =
         fmt?.spc !== undefined && fmt.spc !== 0 ? (fmt.spc / 100) * PX_PER_PT : 0;
+      // OOXML's kern is a 1/100-point size threshold. An omitted threshold
+      // keeps the renderer's existing font-kerning default; zero explicitly
+      // disables kerning.
+      const kerning =
+        fmt?.kern === undefined ? true : fmt.kern > 0 && sizePx / PX_PER_PT >= fmt.kern / 100;
       const caps = fmt?.cap === 'all' || fmt?.cap === 'small';
       const base: Omit<PieceInput, 'text' | 'isBreak'> = {
         family,
@@ -2530,6 +2539,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         bold: fmt?.bold ?? false,
         italic: fmt?.italic ?? false,
         letterSpacingPx,
+        kerning,
         fillHex,
         underline: underlineStyleOf(fmt),
         strike: hasStrikeFmt(fmt),

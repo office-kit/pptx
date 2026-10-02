@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { transform } from 'esbuild';
+import { build, transform } from 'esbuild';
 import { chromium } from 'playwright';
 import {
   getSlides,
@@ -29,103 +30,158 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
       ),
       { loader: 'ts', format: 'esm' },
     );
-    const result = await page.evaluate(async (source) => {
-      const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
-      const { parseHtmlTextClipboard: parse, textClipboardHtml: serialize } = await import(url);
-      URL.revokeObjectURL(url);
-      const mixed = parse(
-        '<b style="font-weight:normal"><span style="font-weight:700;font-size:24px;color:rgb(255,0,0);font-family:Arial">English</span><i style="background-color:yellow;text-decoration:underline line-through">日本語</i></b>',
-        'English日本語',
-      );
-      const multiline = parse(
-        '<p><strong>A</strong></p><p></p><p><sub>日本語</sub><br>End</p>',
-        'A\n\n日本語\nEnd',
-      );
-      const spacing = parse('<span style="letter-spacing:4px">Wide</span>', 'Wide');
-      const negativeSpacing = parse('<span style="letter-spacing:-2px">Tight</span>', 'Tight');
-      const zeroSpacing = parse('<span style="letter-spacing:0px">Default</span>', 'Default');
-      const resetSpacing = parse(
-        '<span style="letter-spacing:4px">Wide<span style="letter-spacing:normal">Reset</span></span>',
-        'WideReset',
-      );
-      const allCaps = parse(
-        '<span style="text-transform:uppercase">Mixed Case</span>',
-        'Mixed Case',
-      );
-      const allCapsWithNormalVariant = parse(
-        '<span style="text-transform:uppercase;font-variant-caps:normal">Mixed Case</span>',
-        'Mixed Case',
-      );
-      const smallCaps = parse(
-        '<span style="font-variant-caps:small-caps">Mixed Case</span>',
-        'Mixed Case',
-      );
-      const smallCapsWithNoneTransform = parse(
-        '<span style="text-transform:none;font-variant-caps:small-caps">Mixed Case</span>',
-        'Mixed Case',
-      );
-      const resetCaps = parse(
-        '<span style="text-transform:uppercase">LOUD<span style="text-transform:none">Quiet</span></span>',
-        'LOUDQuiet',
-      );
-      const inheritedAllCaps = parse(
-        '<span style="text-transform:uppercase">LOUD<span style="font-variant-caps:normal">Still Loud</span></span>',
-        'LOUDStill Loud',
-      );
-      const inheritedSmallCaps = parse(
-        '<span style="font-variant-caps:small-caps">Small<span style="text-transform:none">Still Small</span></span>',
-        'SmallStill Small',
-      );
-      const hostile = parse(
-        '<script>globalThis.clipboardExecuted=true</script><img src="https://clipboard.invalid/image" onerror="globalThis.clipboardExecuted=true"><iframe src="https://clipboard.invalid/frame"></iframe><style>@import "https://clipboard.invalid/style";</style><b>Safe</b>',
-        'Safe',
-      );
-      const hostileFont = {
-        text: '<script>&日本語',
-        formats: [
-          {
-            start: 0,
-            end: 12,
-            format: { font: '";background:url(https://clipboard.invalid/font)', bold: true },
-          },
-        ],
-      };
-      const exported = serialize(hostileFont);
-      const markup = document.createElement('template');
-      markup.innerHTML = exported;
-      return {
-        inherited: parse(
-          '<b><i><span style="font-weight:inherit;font-style:inherit">A</span></i></b>',
-          'A',
+    const measurer = await build({
+      stdin: {
+        contents: await readFile(
+          new URL('../../../../packages/preview/src/browser-measure.ts', import.meta.url),
+          'utf8',
         ),
-        mixed,
-        multiline,
-        spacing,
-        negativeSpacing,
-        zeroSpacing,
-        resetSpacing,
-        allCaps,
-        allCapsWithNormalVariant,
-        smallCaps,
-        smallCapsWithNoneTransform,
-        resetCaps,
-        inheritedAllCaps,
-        inheritedSmallCaps,
-        spacingRoundtrip: parse(serialize(spacing), spacing.text),
-        allCapsRoundtrip: parse(serialize(allCaps), allCaps.text),
-        smallCapsRoundtrip: parse(serialize(smallCaps), smallCaps.text),
-        zeroSpacingRoundtrip: parse(serialize(zeroSpacing), zeroSpacing.text),
-        hostile,
-        executed: !!globalThis.clipboardExecuted,
-        mismatch: parse('<b>wrong</b>', 'right'),
-        table: parse('<table><tr><td>A</td></tr></table>', 'A'),
-        deep: parse('<span>'.repeat(150) + 'A' + '</span>'.repeat(150), 'A'),
-        pre: parse('<div style="white-space:pre-wrap"><b>A  B\n日本語</b></div>', 'A  B\n日本語'),
-        roundtrip: parse(serialize(mixed), mixed.text),
-        exportedText: markup.content.textContent,
-        exportedScript: !!markup.content.querySelector('script'),
-      };
-    }, module.code);
+        loader: 'ts',
+        resolveDir: fileURLToPath(new URL('../../../../packages/preview/src/', import.meta.url)),
+      },
+      bundle: true,
+      format: 'esm',
+      platform: 'browser',
+      write: false,
+    });
+    const measurerCode = measurer.outputFiles[0]?.text;
+    if (!measurerCode) throw new Error('browser text measurer bundle is empty');
+    const result = await page.evaluate(
+      async ({ clipboardSource, measurerSource }) => {
+        const importSource = async (source) => {
+          const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+          try {
+            return await import(url);
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        };
+        const { parseHtmlTextClipboard: parse, textClipboardHtml: serialize } =
+          await importSource(clipboardSource);
+        const { browserTextMeasurer } = await importSource(measurerSource);
+        const measureText = browserTextMeasurer();
+        if (!measureText) throw new Error('browser text measurer unavailable');
+        const measureSpec = {
+          family: 'Arial',
+          sizePx: 48,
+          bold: false,
+          italic: false,
+          letterSpacingPx: 0,
+        };
+        const browserMeasureKerning = [true, false, true].map(
+          (kerning) => measureText('AV', { ...measureSpec, kerning }).widthPx,
+        );
+        const mixed = parse(
+          '<b style="font-weight:normal"><span style="font-weight:700;font-size:24px;color:rgb(255,0,0);font-family:Arial">English</span><i style="background-color:yellow;text-decoration:underline line-through">日本語</i></b>',
+          'English日本語',
+        );
+        const multiline = parse(
+          '<p><strong>A</strong></p><p></p><p><sub>日本語</sub><br>End</p>',
+          'A\n\n日本語\nEnd',
+        );
+        const spacing = parse('<span style="letter-spacing:4px">Wide</span>', 'Wide');
+        const negativeSpacing = parse('<span style="letter-spacing:-2px">Tight</span>', 'Tight');
+        const zeroSpacing = parse('<span style="letter-spacing:0px">Default</span>', 'Default');
+        const kerningOffHtml = serialize({
+          text: 'AV',
+          formats: [{ start: 0, end: 2, format: { size: 10, kern: 1200 } }],
+        });
+        const kerningOnHtml = serialize({
+          text: 'AV',
+          formats: [{ start: 0, end: 2, format: { size: 24, kern: 1200 } }],
+        });
+        const resetSpacing = parse(
+          '<span style="letter-spacing:4px">Wide<span style="letter-spacing:normal">Reset</span></span>',
+          'WideReset',
+        );
+        const allCaps = parse(
+          '<span style="text-transform:uppercase">Mixed Case</span>',
+          'Mixed Case',
+        );
+        const allCapsWithNormalVariant = parse(
+          '<span style="text-transform:uppercase;font-variant-caps:normal">Mixed Case</span>',
+          'Mixed Case',
+        );
+        const smallCaps = parse(
+          '<span style="font-variant-caps:small-caps">Mixed Case</span>',
+          'Mixed Case',
+        );
+        const smallCapsWithNoneTransform = parse(
+          '<span style="text-transform:none;font-variant-caps:small-caps">Mixed Case</span>',
+          'Mixed Case',
+        );
+        const resetCaps = parse(
+          '<span style="text-transform:uppercase">LOUD<span style="text-transform:none">Quiet</span></span>',
+          'LOUDQuiet',
+        );
+        const inheritedAllCaps = parse(
+          '<span style="text-transform:uppercase">LOUD<span style="font-variant-caps:normal">Still Loud</span></span>',
+          'LOUDStill Loud',
+        );
+        const inheritedSmallCaps = parse(
+          '<span style="font-variant-caps:small-caps">Small<span style="text-transform:none">Still Small</span></span>',
+          'SmallStill Small',
+        );
+        const hostile = parse(
+          '<script>globalThis.clipboardExecuted=true</script><img src="https://clipboard.invalid/image" onerror="globalThis.clipboardExecuted=true"><iframe src="https://clipboard.invalid/frame"></iframe><style>@import "https://clipboard.invalid/style";</style><b>Safe</b>',
+          'Safe',
+        );
+        const hostileFont = {
+          text: '<script>&日本語',
+          formats: [
+            {
+              start: 0,
+              end: 12,
+              format: { font: '";background:url(https://clipboard.invalid/font)', bold: true },
+            },
+          ],
+        };
+        const exported = serialize(hostileFont);
+        const markup = document.createElement('template');
+        markup.innerHTML = exported;
+        const kerningMount = document.createElement('div');
+        kerningMount.innerHTML = `${kerningOnHtml}${kerningOffHtml}${kerningOnHtml}`;
+        document.body.append(kerningMount);
+        const kerningSpans = [...kerningMount.querySelectorAll('span')];
+        return {
+          inherited: parse(
+            '<b><i><span style="font-weight:inherit;font-style:inherit">A</span></i></b>',
+            'A',
+          ),
+          mixed,
+          multiline,
+          spacing,
+          negativeSpacing,
+          zeroSpacing,
+          resetSpacing,
+          allCaps,
+          allCapsWithNormalVariant,
+          smallCaps,
+          smallCapsWithNoneTransform,
+          resetCaps,
+          inheritedAllCaps,
+          inheritedSmallCaps,
+          spacingRoundtrip: parse(serialize(spacing), spacing.text),
+          allCapsRoundtrip: parse(serialize(allCaps), allCaps.text),
+          smallCapsRoundtrip: parse(serialize(smallCaps), smallCaps.text),
+          zeroSpacingRoundtrip: parse(serialize(zeroSpacing), zeroSpacing.text),
+          kerningOffHtml,
+          kerningOnHtml,
+          inlineKerning: kerningSpans.map((span) => getComputedStyle(span).fontKerning),
+          browserMeasureKerning,
+          hostile,
+          executed: !!globalThis.clipboardExecuted,
+          mismatch: parse('<b>wrong</b>', 'right'),
+          table: parse('<table><tr><td>A</td></tr></table>', 'A'),
+          deep: parse('<span>'.repeat(150) + 'A' + '</span>'.repeat(150), 'A'),
+          pre: parse('<div style="white-space:pre-wrap"><b>A  B\n日本語</b></div>', 'A  B\n日本語'),
+          roundtrip: parse(serialize(mixed), mixed.text),
+          exportedText: markup.content.textContent,
+          exportedScript: !!markup.content.querySelector('script'),
+        };
+      },
+      { clipboardSource: module.code, measurerSource: measurerCode },
+    );
     assert.equal(result.inherited.formats[0].format.bold, true);
     assert.equal(result.inherited.formats[0].format.italic, true);
     assert.equal(result.mixed.formats[0].format.bold, true);
@@ -142,6 +198,11 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.equal(result.spacing.formats[0].format.spc, 300);
     assert.equal(result.negativeSpacing.formats[0].format.spc, -150);
     assert.equal(result.zeroSpacing.formats[0].format.spc, 0);
+    assert.match(result.kerningOffHtml, /font-kerning:\s*none/);
+    assert.match(result.kerningOnHtml, /font-kerning:\s*normal/);
+    assert.deepEqual(result.inlineKerning, ['normal', 'none', 'normal']);
+    assert.ok(result.browserMeasureKerning[0] < result.browserMeasureKerning[1]);
+    assert.ok(Math.abs(result.browserMeasureKerning[0] - result.browserMeasureKerning[2]) < 1e-9);
     assert.equal(result.resetSpacing.formats[1].format.spc, 0);
     assert.equal(result.allCaps.formats[0].format.cap, 'all');
     assert.equal(result.allCapsWithNormalVariant.formats[0].format.cap, 'all');

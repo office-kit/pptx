@@ -221,7 +221,7 @@ test(
         window.selectEditorText(input, input.textContent.length, input.textContent.length),
       );
       revision = (await waitForState(preview.url, () => true)).revision;
-      await increase.click();
+      await page.keyboard.press('Control+Shift+Period');
       await waitForState(preview.url, (state) => state.revision !== revision);
       revision = (await waitForState(preview.url, () => true)).revision;
       await increase.click();

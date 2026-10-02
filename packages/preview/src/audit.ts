@@ -248,7 +248,7 @@ const detectApproximate = (
   for (const para of paragraphs) {
     for (const piece of para.pieces) {
       if (piece.isBreak || piece.text === '') continue;
-      const key = `${piece.family}|${piece.sizePx}|${piece.bold}|${piece.italic}|${piece.text}`;
+      const key = `${piece.family}|${piece.sizePx}|${piece.bold}|${piece.italic}|${piece.kerning ?? true}|${piece.text}`;
       if (seen.has(key)) continue;
       seen.add(key);
       const spec: FontSpec = {
@@ -257,6 +257,7 @@ const detectApproximate = (
         bold: piece.bold,
         italic: piece.italic,
         letterSpacingPx: piece.letterSpacingPx,
+        kerning: piece.kerning ?? true,
       };
       const r = measure(piece.text, spec);
       if (r.approximate === true || r.ascentPx === undefined) return true;

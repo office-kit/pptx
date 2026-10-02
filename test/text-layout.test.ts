@@ -59,6 +59,27 @@ describe('defaultMeasurer', () => {
   });
 });
 
+describe('kerning propagation', () => {
+  it('keeps kerning mode in the layout measurer spec and cache key', () => {
+    const seen: boolean[] = [];
+    const measure: TextMeasurer = (text, s) => {
+      seen.push(s.kerning !== false);
+      return {
+        widthPx: [...text].length * (s.kerning === false ? 10 : 11),
+        ascentPx: 8,
+        descentPx: 2,
+        lineGapPx: 0,
+      };
+    };
+    layoutCore(
+      body([para([piece('AV', { kerning: false }), piece('AV', { kerning: true })])]),
+      measure,
+    );
+    expect(seen).toContain(false);
+    expect(seen).toContain(true);
+  });
+});
+
 // A deterministic measurer: every glyph is `sizePx` wide; fixed vertical metrics.
 const stubMeasurer: TextMeasurer = (text, s) => ({
   widthPx: [...text].length * s.sizePx,

@@ -7,6 +7,7 @@ export function browserTextMeasurer(): TextMeasurer | undefined {
   if (!context) return undefined;
   return (text, spec) => {
     context.font = `${spec.italic ? 'italic' : 'normal'} ${spec.bold ? 'bold' : 'normal'} ${spec.sizePx}px ${spec.family}`;
+    context.fontKerning = spec.kerning === false ? 'none' : 'normal';
     const metrics = context.measureText(text);
     return {
       widthPx: metrics.width + Math.max(0, [...text].length - 1) * spec.letterSpacingPx,

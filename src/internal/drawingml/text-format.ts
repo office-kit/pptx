@@ -136,7 +136,8 @@ export interface TextFormat {
   /**
    * Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same
    * unit as `spc`): `0` disables kerning, `1200` = apply kerning for runs
-   * ≥12pt. Mirrors `<a:rPr kern="…"/>`.
+   * ≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to
+   * save the value as `kern="0"` when its Use kerning checkbox is cleared.
    */
   kern?: number;
   /**

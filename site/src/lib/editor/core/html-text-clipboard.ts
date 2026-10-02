@@ -221,6 +221,8 @@ export function textClipboardHtml(copied: FormattedText): string {
       style.textTransform = 'none';
       style.fontVariantCaps = 'normal';
     }
+    if (format.kern !== undefined && format.size !== undefined)
+      style.fontKerning = format.kern > 0 && format.size >= format.kern / 100 ? 'normal' : 'none';
     const decorations = [];
     if (format.underline && format.underline !== 'none') decorations.push('underline');
     if (format.strike && format.strike !== 'noStrike') decorations.push('line-through');
