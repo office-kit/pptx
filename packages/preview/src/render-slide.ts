@@ -2259,6 +2259,54 @@ const cssColorWithOpacity = (hex: string, opacity: number | undefined): string =
   return `rgba(${r},${g},${b},${Math.max(0, opacity).toFixed(3)})`;
 };
 
+// CSS has no long-dash, dash-dot, or double-wave decoration, and Chromium
+// ignores thickness on dashed decorations. Repeated SVG backgrounds preserve
+// these patterns without adding boxes that change wrapping.
+const htmlUnderlineCss = (underline: string | boolean, color: string): string => {
+  const heavy = underline === 'heavy' || String(underline).endsWith('Heavy');
+  const thickness = heavy ? ';text-decoration-thickness:0.1em' : '';
+  if (underline === 'dbl') return 'text-decoration:underline;text-decoration-style:double';
+  if (underline === 'wavy' || underline === 'wavyHeavy')
+    return `text-decoration:underline;text-decoration-style:wavy${thickness}`;
+  const custom =
+    typeof underline === 'string' &&
+    (underline.startsWith('dash') ||
+      underline.startsWith('dotted') ||
+      underline.startsWith('dotDash') ||
+      underline.startsWith('dotDotDash') ||
+      underline === 'wavyDbl');
+  if (!custom) return `text-decoration:underline${thickness}`;
+  const stroke = heavy ? 2 : 1;
+  const dash = underline.startsWith('dotted')
+    ? '1 2'
+    : underline === 'dash' || underline === 'dashHeavy'
+      ? '4 2'
+      : underline.startsWith('dashLong')
+        ? '8 3'
+        : underline.startsWith('dotDotDash')
+          ? '5 2 1 2 1 2'
+          : '5 2 1 2';
+  const width =
+    underline === 'wavyDbl'
+      ? 8
+      : underline.startsWith('dotted')
+        ? 3
+        : underline === 'dash' || underline === 'dashHeavy'
+          ? 6
+          : underline.startsWith('dashLong')
+            ? 11
+            : underline.startsWith('dotDotDash')
+              ? 13
+              : 10;
+  const path =
+    underline === 'wavyDbl'
+      ? '<path d="M0 1 Q2 -1 4 1 T8 1 M0 4 Q2 2 4 4 T8 4"/>'
+      : `<path d="M0 3 H${width}" stroke-dasharray="${dash}"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="6" viewBox="0 0 ${width} 6"><g fill="none" stroke="${escapeXml(color)}" stroke-width="${stroke}">${path}</g></svg>`;
+  const url = encodeURIComponent(svg).replaceAll("'", '%27');
+  return `background-image:url('data:image/svg+xml,${url}');background-repeat:repeat-x;background-size:${width / 20}em 0.3em;background-position:0 100%;box-decoration-break:clone;-webkit-box-decoration-break:clone`;
+};
+
 // `effectivePt` is the post-autofit font size in points. Callers pass
 // `format.size` (the authored size, if any) scaled by the body's
 // autofit factor, or the placeholder default scaled the same way.
@@ -2284,27 +2332,11 @@ const renderRun = (
   const strike = format?.strike;
   const hasUnderline = underline !== undefined && underline !== false && underline !== 'none';
   const hasStrike = strike !== undefined && strike !== false && strike !== 'noStrike';
-  // Unlike the SVG path (no text-decoration-style support in resvg), real
-  // browsers render `text-decoration-style:wavy` fine, so the foreignObject
-  // path can use CSS directly instead of a hand-drawn path.
-  const isWavyUnderline = typeof underline === 'string' && underline.startsWith('wavy');
-  // text-decoration-style is a single value for the whole underline+
-  // line-through shorthand, so a wavy underline combined with a strikethrough
-  // on the same run would wave the strikethrough too — PowerPoint always
-  // draws strikethrough solid regardless of the underline style. Nest a nowrap
-  // inner span carrying just the wavy underline so each element's decoration
-  // lines render independently.
-  const nestedWavyUnderline = hasUnderline && hasStrike && isWavyUnderline;
-  if (nestedWavyUnderline) {
-    styles.push('text-decoration:line-through');
-  } else if (hasUnderline && hasStrike) {
-    styles.push('text-decoration:underline line-through');
-  } else if (hasUnderline) {
-    styles.push('text-decoration:underline');
-    if (isWavyUnderline) styles.push('text-decoration-style:wavy');
-  } else if (hasStrike) {
-    styles.push('text-decoration:line-through');
-  }
+  // Keep strike on the outer span so underline patterns never alter its style.
+  if (hasStrike) styles.push('text-decoration:line-through');
+  const underlineCss = hasUnderline
+    ? htmlUnderlineCss(underline, resolveColor(format?.color ?? '#000000', theme, '#000000'))
+    : '';
   if (format?.color !== undefined && format.color !== null) {
     styles.push(`color:${resolveColor(format.color, theme, '#000000')}`);
   }
@@ -2370,9 +2402,20 @@ const renderRun = (
     .split('\n')
     .map((part) => escapeXml(part))
     .join('<br/>');
-  const content = nestedWavyUnderline
-    ? `<span style="text-decoration:underline;text-decoration-style:wavy">${html}</span>`
-    : html;
+  const content = !hasUnderline
+    ? html
+    : underline === 'words'
+      ? text
+          .split(/(\s+)/u)
+          .map((part) =>
+            /^\s+$/u.test(part)
+              ? escapeXml(part).replaceAll('\n', '<br/>')
+              : part === ''
+                ? ''
+                : `<span style="${underlineCss}">${escapeXml(part)}</span>`,
+          )
+          .join('')
+      : `<span style="${underlineCss}">${html}</span>`;
   return `<span style="${styles.join(';')}">${content}</span>`;
 };
 
@@ -2413,16 +2456,31 @@ interface ParaData {
   readonly indent: ReturnType<typeof getParagraphIndent>;
 }
 
-// Collapses every ST_TextUnderlineType token onto the 3 styles the SVG text
-// engine actually distinguishes (see PieceInput.underline): the wavy family
-// (wavy/wavyDbl/wavyHeavy) needs a hand-drawn path since SVG has no
-// text-decoration-style, so it can't share a bucket with plain/dashed/dotted
-// styles, which all render fine as a single line.
-const underlineStyleOf = (fmt: ReadTextFormat | null): 'none' | 'single' | 'wavy' => {
+const underlineStyleOf = (fmt: ReadTextFormat | null): PieceInput['underline'] => {
   const u = fmt?.underline;
   if (u === undefined || u === false || u === 'none') return 'none';
-  if (typeof u === 'string' && u.startsWith('wavy')) return 'wavy';
-  return 'single';
+  switch (u) {
+    case 'words':
+    case 'sng':
+    case 'dbl':
+    case 'heavy':
+    case 'dotted':
+    case 'dottedHeavy':
+    case 'dash':
+    case 'dashHeavy':
+    case 'dashLong':
+    case 'dashLongHeavy':
+    case 'dotDash':
+    case 'dotDashHeavy':
+    case 'dotDotDash':
+    case 'dotDotDashHeavy':
+    case 'wavy':
+    case 'wavyHeavy':
+    case 'wavyDbl':
+      return u;
+    default:
+      return 'sng';
+  }
 };
 const hasStrikeFmt = (fmt: ReadTextFormat | null): boolean => {
   const s = fmt?.strike;

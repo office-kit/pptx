@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { getPresentationFonts, getShapeKind, getShapeText, setShapeText, type TextCase, type TextFormat } from '@office-kit/pptx';
+  import { getPresentationFonts, getShapeKind, getShapeText, getTableCells, getTableCellText, isTableShape, setShapeText, setTableCellText, setTableCellTextFormat, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
-  import { stepShapeFontSize } from '../core/font-size.ts';
+  import { stepShapeFontSize, stepTableCellFontSize } from '../core/font-size.ts';
+  import { tableCellsInRange, tableSelectionBlock } from '../core/table-selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
 
@@ -17,7 +18,24 @@
       return formats.length ? formats : [{}];
     });
   });
-  const formats = $derived(editor.inlineTextFormat?.formats ?? objectFormats ?? []);
+  const cellFormats = $derived.by(() => {
+    const selection = editor.doc.selection;
+    editor.doc.version;
+    if (selection.kind !== 'cell') return null;
+    const table = editor.doc.shapeById(selection.slideIndex, selection.shapeId);
+    if (!table) return null;
+    const tableCells = getTableCells(table);
+    const block = tableSelectionBlock(selection);
+    const result: TextFormat[] = [];
+    for (let row = block.row; row < block.row + block.rowSpan; row++) {
+      for (let col = block.col; col < block.col + block.colSpan; col++) {
+        const cell = tableCells[row]?.[col];
+        if (cell) result.push(...textFormatsInRange(table, { start: 0, end: getTableCellText(cell).length }, { row, col }, { pres: editor.doc.pres }));
+      }
+    }
+    return result;
+  });
+  const formats = $derived(editor.inlineTextFormat?.formats ?? cellFormats ?? objectFormats ?? []);
   const themeFonts = $derived.by(() => {
     editor.doc.version;
     const fonts = getPresentationFonts(editor.doc.pres);
@@ -25,7 +43,15 @@
   });
   function apply(format: TextFormat, reset = false) {
     if (editor.inlineTextFormat) editor.inlineTextFormat.apply(format, reset);
-    else editor.invoke('setShapeTextFormat', { format, options: { reset } });
+    else if (editor.doc.selection.kind === 'cell') {
+      const selection = editor.doc.selection;
+      const table = editor.doc.shapeById(selection.slideIndex, selection.shapeId);
+      if (!table) return;
+      const cells = tableCellsInRange(getTableCells(table), tableSelectionBlock(selection));
+      editor.doc.transact(t(reset ? 'Clear text formatting' : 'Format selected cells'), () => {
+        for (const cell of cells) setTableCellTextFormat(cell, format, { reset });
+      });
+    } else editor.invoke('setShapeTextFormat', { format, options: { reset } });
   }
   function toggle(property: TextFormatToggle) {
     if (editor.inlineTextFormat) editor.inlineTextFormat.toggle(property);
@@ -33,6 +59,14 @@
   }
   function changeCase(value: TextCase) {
     if (editor.inlineTextFormat) { editor.inlineTextFormat.changeCase?.(value); return; }
+    if (editor.doc.selection.kind === 'cell') {
+      const selection = editor.doc.selection;
+      const table = editor.doc.shapeById(selection.slideIndex, selection.shapeId);
+      if (!table) return;
+      const cells = tableCellsInRange(getTableCells(table), tableSelectionBlock(selection));
+      editor.doc.transact(t('Change Case'), () => { for (const cell of cells) setTableCellText(cell, { case: value }); });
+      return;
+    }
     editor.doc.transact(t('Change Case'), () => {
       for (const shape of editor.selectedShapes()) if (getShapeKind(shape) === 'shape') setShapeText(shape, { case: value });
     });
@@ -40,6 +74,16 @@
   function stepFontSize(direction: 1 | -1) {
     if (editor.inlineTextFormat?.fontSize) {
       editor.inlineTextFormat.fontSize(direction);
+      return;
+    }
+    if (editor.doc.selection.kind === 'cell') {
+      const selection = editor.doc.selection;
+      const table = editor.doc.shapeById(selection.slideIndex, selection.shapeId);
+      if (!table) return;
+      const cells = tableCellsInRange(getTableCells(table), tableSelectionBlock(selection));
+      editor.doc.transact(t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size'), () => {
+        for (const cell of cells) stepTableCellFontSize(cell, direction, { start: 0, end: getTableCellText(cell).length });
+      });
       return;
     }
     const shapes = editor.selectedShapes();
@@ -50,4 +94,4 @@
   }
 </script>
 
-<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || !!objectFormats} onformat={apply} oncase={changeCase} onfontsize={stepFontSize} ontoggle={toggle} />
+<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || editor.doc.selection.kind === 'cell' || editor.selectedShapes().some(isTableShape) || !!objectFormats} onformat={apply} oncase={changeCase} onfontsize={stepFontSize} ontoggle={toggle} />
