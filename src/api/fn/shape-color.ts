@@ -13,6 +13,7 @@ import {
 } from '../../internal/xml/index.ts';
 import { type SlideShapeData } from '../_internal-symbols.ts';
 import { type PresentationTheme } from './theme.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 // -- Color transforms (ECMA-376 §20.1.2.3.x) --------------------------------
 //
 // DrawingML color elements (`<a:srgbClr>`, `<a:schemeClr>`, `<a:sysClr>`,
@@ -494,12 +495,8 @@ export const parseRPrLikeElement = (
   if (normalizeHeight !== null)
     out.normalizeHeight = normalizeHeight === '1' || normalizeHeight === 'true';
   if (baselineAttr !== null) {
-    // ST_Percentage: 100000 = 100%; tolerate bare floats.
-    let n = Number.parseFloat(baselineAttr);
-    if (Number.isFinite(n)) {
-      if (Math.abs(n) > 1) n = n / 100000;
-      out.baseline = n;
-    }
+    const baseline = readDrawingmlPercentage(baselineAttr, Number.NaN);
+    if (Number.isFinite(baseline)) out.baseline = baseline;
   }
   const cap = getAttrValue(rPr, qname('', 'cap', ''));
   if (cap === 'none' || cap === 'small' || cap === 'all') {
