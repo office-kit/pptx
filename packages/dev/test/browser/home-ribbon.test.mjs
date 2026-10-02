@@ -21,7 +21,7 @@ test(
     try {
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
-      for (const width of [900, 1500, 1900]) {
+      for (const width of [900, 1500, 1601, 1900, 2100]) {
         const page = await browser.newPage({ viewport: { width, height: 900 } });
         try {
           await page.goto(preview.url);
@@ -51,7 +51,7 @@ test(
               `${width}px ${locale} ribbon scrolls: ${JSON.stringify(groupMetrics)}`,
             );
             const compact = editor.locator('.compact-groups');
-            if (width > 1600) {
+            if (width > 2000) {
               assert.equal(await compact.isVisible(), false);
               continue;
             }

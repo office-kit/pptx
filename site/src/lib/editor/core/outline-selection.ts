@@ -1,6 +1,7 @@
 import type { TextEdit } from './text-edit-preview.ts';
-import type { ParagraphProperties, SlideShapeData, TextFormat } from '@office-kit/pptx';
+import type { ParagraphProperties, SlideShapeData, TextCase, TextFormat } from '@office-kit/pptx';
 import { richTextPoint } from './rich-text-dom.ts';
+import { textCaseRange } from './text-case.ts';
 
 export type OutlinePoint = { key: string; offset: number };
 export type OutlineRange = { start: OutlinePoint; end: OutlinePoint };
@@ -19,6 +20,7 @@ export type OutlineSelectionField = {
   formats: (start: number, end: number) => TextFormat[];
   applyFormat: (start: number, end: number, format: TextFormat, reset: boolean) => void;
   applyFontSize?: (start: number, end: number, direction: 1 | -1) => void;
+  changeCase: (start: number, end: number, value: TextCase, caret?: number) => number;
   paragraphs: (start: number, end: number) => ParagraphProperties[];
   editParagraphs: (
     start: number,
@@ -411,6 +413,76 @@ export class OutlineSelectionModel {
       if (activeElement !== activeElementAtSchedule) return;
       first.field.setRange(destination.end);
       first.field.focus(destination.end);
+    };
+    if (view?.requestAnimationFrame) view.requestAnimationFrame(restoreCaret);
+    else setTimeout(restoreCaret, 0);
+    return true;
+  }
+
+  changeCase(value: TextCase, label = 'Change Case'): boolean {
+    const current = this.current();
+    if (!current) return false;
+    const fields = this.fields();
+    const from = fields.findIndex((field) => field.key === current.start.key);
+    const to = fields.findIndex((field) => field.key === current.end.key);
+    if (from < 0 || to < from) return false;
+    const edits = fields.slice(from, to + 1).map((field, index) => {
+      let start = index === 0 ? current.start.offset : 0;
+      let end = index === to - from ? current.end.offset : field.text().length;
+      const caret =
+        from === to && current.start.offset === current.end.offset
+          ? current.start.offset
+          : undefined;
+      if (start === end && from === to) {
+        const expanded = textCaseRange(field.text(), { start, end });
+        start = expanded.start;
+        end = expanded.end;
+      }
+      return { field, start, end, caret };
+    });
+    const first = edits[0]!;
+    const last = edits.at(-1)!;
+    const collapsed = current.start.offset === current.end.offset && from === to;
+    let destination = first.start;
+    let finalEnd = last.end;
+    first.field.transact(label, () => {
+      for (const edit of edits) edit.field.apply(edit.field.flush());
+      for (const edit of edits) {
+        const nextEnd =
+          edit.caret === undefined
+            ? edit.field.changeCase(edit.start, edit.end, value)
+            : edit.field.changeCase(edit.start, edit.end, value, edit.caret);
+        if (edit === first) destination = nextEnd;
+        if (edit === last) finalEnd = nextEnd;
+      }
+    });
+    this.#anchor = collapsed
+      ? { key: first.field.key, offset: destination }
+      : { key: first.field.key, offset: first.start };
+    this.#focus = collapsed
+      ? { key: first.field.key, offset: destination }
+      : { key: last.field.key, offset: finalEnd };
+    this.#preserveAnchor = false;
+    this.#changed();
+    const ownerDocument = first.field.root.ownerDocument;
+    const activeElementAtSchedule = ownerDocument?.activeElement;
+    const view = ownerDocument?.defaultView;
+    const generation = ++this.#caretGeneration;
+    const restoreCaret = () => {
+      if (
+        generation !== this.#caretGeneration ||
+        !this.#fields.has(first.field.key) ||
+        !first.field.root.isConnected
+      )
+        return;
+      if (ownerDocument?.activeElement !== activeElementAtSchedule) return;
+      if (collapsed) {
+        first.field.setRange(destination);
+        first.field.focus(destination);
+      } else {
+        first.field.focus(first.start);
+        this.#selectNative();
+      }
     };
     if (view?.requestAnimationFrame) view.requestAnimationFrame(restoreCaret);
     else setTimeout(restoreCaret, 0);

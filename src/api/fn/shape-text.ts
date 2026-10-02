@@ -11,6 +11,8 @@ import {
   editTextBody,
   formatTextBodyParagraphEnd,
   formatTextBodyRange,
+  transformTextBodyCase,
+  type TextCase,
 } from '../../internal/drawingml/text-body-edit.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS } from '../../internal/enum-values.ts';
 import {
@@ -69,6 +71,8 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 // ---------------------------------------------------------------------------
 // Shape mutation — text.
 
+export type { TextCase };
+
 /**
  * Replaces the shape's visible text with `value`. Newlines start a new
  * paragraph. By default, new paragraphs inherit the first existing run and
@@ -79,10 +83,12 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
  * format. Multiple disjoint changes should be applied separately to retain the
  * formatting between them. With `range`, `value` replaces exactly that UTF-16
  * selection and unaffected formatting is always preserved.
+ * Pass `{ case: 'upper' | 'lower' | 'sentence' | 'title' | 'toggle' }` to apply
+ * PowerPoint-style Change Case to the whole text or to `options.range`.
  */
 export const setShapeText = (
   shape: SlideShapeData,
-  value: string,
+  value: string | { case: TextCase },
   options: {
     bullets?: BulletStyle;
     preserveFormatting?: boolean;
@@ -93,7 +99,10 @@ export const setShapeText = (
   // so a shape authored without text is still editable. Throws only for
   // non-text-bearing kinds (picture / table / …).
   const txBody = ensureTxBody(shape);
-  if (options.preserveFormatting || options.range) {
+  if (typeof value === 'object') {
+    transformTextBodyCase(txBody, value.case, options.range);
+    if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
+  } else if (options.preserveFormatting || options.range) {
     editTextBody(txBody, value, options.range);
     if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
   } else setTextBody(txBody, value, options.bullets);

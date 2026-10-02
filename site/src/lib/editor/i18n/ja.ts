@@ -2,6 +2,12 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Change Case': '文字種の変換',
+  'Sentence case.': '文の先頭文字を大文字にする',
+  lowercase: 'すべて小文字にする',
+  UPPERCASE: 'すべて大文字にする',
+  'Capitalize Each Word': '各単語の先頭文字を大文字にする',
+  'tOGGLE cASE': '大文字と小文字を入れ替える',
   'Video Format': 'ビデオの書式',
   'Format Video': 'ビデオの書式',
   'Close Format Video': 'ビデオの書式設定を閉じる',

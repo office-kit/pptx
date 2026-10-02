@@ -1,3 +1,13 @@
+## 2026-10-02: Homeの文字種変換
+
+- HomeにChange Case（sentence/lower/upper/title/toggle）を追加。選択文字、caretの現在単語、図形全体、アウトラインから操作可能。setShapeText/setTableCellTextの既存APIへ `{ case: ... }` を追加し、元run/fieldのa:tだけを変更して書式・hyperlink・未知XMLを保持。Unicode展開（ß/İ）、Greek sigmaの文脈、改行位置を検証。
+- Homeのcompact切替境界を2000pxへ調整。日英900/1500/1601/1900/2100pxで横スクロールなしのブラウザー回帰成功。
+- 検証: core3220件成功/109skip、site133件成功、format/lint/typecheck/core build/editor build成功、Svelte 0 errors/warnings。アウトラインの選択範囲・caret単語・Undo/Redo・保存ブラウザー回帰成功。
+- Canvasブラウザー回帰も成功。Unicode選択範囲、周辺文字・italic書式保持、caret現在単語、図形全体、Undo/Redo、保存再読込を確認。今回のブラウザー回帰はHome/Outline/Canvasの計3件成功。
+- Mac参照reference.pptxへの一時入力はUndo済み。Outline titleへ復元、Undo disabledを確認。reference-before-font.pptxとバイト一致。画面0×0の失敗が断続したが、最後の再取得では正常なスクリーンショットを確認。復元待ちなし。
+- 実機で確認済みのChange Case仕様はメニュー5種類とcaret時の現在単語UPPERCASE。sentence/titleの句読点・Unicode細部まで実機一致を確認したわけではない。Fontダイアログ、文字サイズショートカット、カーニング描画など残件あり。全操作一致は未完了。
+- 同一PR #287を継続。確認用4175 HTTP200。4173の未保存編集と.pnpm-storeには触らない。
+
 ## 2026-10-02: 文字範囲編集の未知XML保持
 
 - setShapeText/setTableCellTextの範囲置換で、境界runの変更しない部分から未知属性・子要素が消える問題を修正。元runを複製しa:tのみ更新する。部分fieldは従来どおりliteral run化し、field専用id/type/pPrを除去、未知属性・rPr等は保持。範囲書式変更も共通化。

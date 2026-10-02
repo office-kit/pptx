@@ -17,6 +17,7 @@
   import { defaultTextMetrics } from '../core/text-layout-defaults.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { richTextValue } from '../core/rich-text-dom.ts';
+  import { textCaseRange, textCaseSelection } from '../core/text-case.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { applyTextFormat, readTextFormat } from '../core/format-clipboard.ts';
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
@@ -62,6 +63,9 @@
     getShapeParagraphCount,
     getShapeParagraphElements,
     setShapeTextFormat,
+    setShapeText,
+    setTableCellText,
+    type TextCase,
     type TextFormat,
     setShapeBounds,
     setShapeRotation,
@@ -980,6 +984,7 @@
       align: (value: string) => applyInlineParagraph('align', value),
       apply: applyInlineFormat,
       fontSize: stepInlineFontSize,
+      changeCase: changeInlineCase,
       toggle: toggleInlineFormat,
     };
     editor.inlineTextFormat = api;
@@ -1115,6 +1120,32 @@
     void tick().then(() => {
       if (editing === cur) textInput?.setSelectionRange(range.start, range.end);
     });
+  }
+  function changeInlineCase(value: TextCase) {
+    if (!editing || restoringEditing) return;
+    const cur = editing;
+    const box = boxes.find(item => item.id === cur.id);
+    if (!box) return;
+    const selection = { ...textRange };
+    const before = cur.text;
+    const range = textCaseRange(before, selection);
+    if (range.start === range.end) return;
+    doc.transact(t('Change Case'), () => {
+      replayEdits(box, cur);
+      if (cur.cell) {
+        const cell = getTableCells(box.shape)[cur.cell.row]![cur.cell.col]!;
+        setTableCellText(cell, { case: value }, { range });
+        cur.text = getTableCellText(cell);
+      } else {
+        setShapeText(box.shape, { case: value }, { range });
+        cur.text = getShapeText(box.shape);
+      }
+    });
+    cur.changes = [];
+    delete cur.typing;
+    editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
+    textRange = textCaseSelection(before, cur.text, selection, range);
+    void tick().then(() => { if (editing === cur) textInput?.setSelectionRange(textRange.start, textRange.end); });
   }
   function toggleInlineFormat(property: TextFormatToggle) {
     applyInlineFormat(formats => toggleTextFormat(formats, property));

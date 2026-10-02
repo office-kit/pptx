@@ -231,7 +231,7 @@
     overflow-x: auto;
   }
   .compact-groups, .group-menu { display: none; }
-  @media (max-width: 1600px) {
+  @media (max-width: 2000px) {
     .groups.home-groups { position: relative; overflow: visible; }
     .groups.home-groups > .group { display: none; }
     .groups.home-groups > .group.font-group { display: flex; }
@@ -241,7 +241,7 @@
     .group-menu { position: absolute; z-index: 400; display: block; left: 6px; right: 6px; top: calc(100% - 2px); padding: 7px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
     .group-menu-items { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
   }
-  @media (min-width: 1100px) and (max-width: 1600px) {
+  @media (min-width: 1100px) and (max-width: 2000px) {
     .groups.home-groups > .group.paragraph-group { display: flex; }
     .paragraph-trigger { display: none; }
   }
