@@ -2,6 +2,10 @@ import type { TextFormat } from '@office-kit/pptx';
 import type { TextEdit } from './text-edit-preview.ts';
 
 type FormattedText = { text: string; formats: NonNullable<TextEdit['formats']> };
+type CapsState = {
+  textTransform?: 'uppercase' | 'none';
+  fontVariantCaps?: 'small-caps' | 'normal';
+};
 const maxHtmlLength = 4_000_000;
 const maxNodes = 50_000;
 const maxDepth = 128;
@@ -43,8 +47,13 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     const resolved = colorContext.fillStyle;
     return /^#[\da-f]{6}$/i.test(resolved) ? resolved : undefined;
   }
-  function formatFor(element: HTMLElement, parent: TextFormat): TextFormat {
+  function formatFor(
+    element: HTMLElement,
+    parent: TextFormat,
+    inheritedCaps: CapsState,
+  ): { format: TextFormat; caps: CapsState } {
     const format = { ...parent };
+    const caps = { ...inheritedCaps };
     const tag = element.tagName;
     if (tag === 'B' || tag === 'STRONG') format.bold = true;
     if (tag === 'I' || tag === 'EM') format.italic = true;
@@ -53,6 +62,24 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     if (tag === 'SUP') format.baseline = 0.3;
     if (tag === 'SUB') format.baseline = -0.25;
     const style = element.style;
+    // PowerPoint's capitalization is represented by one DrawingML `cap`
+    // value, while CSS exposes two properties. Resolve their representable
+    // combination without letting `font-variant-caps: normal` erase an
+    // explicit `text-transform: uppercase`.
+    if (style.textTransform && style.textTransform !== 'inherit') {
+      caps.textTransform = style.textTransform.toLowerCase().includes('uppercase')
+        ? 'uppercase'
+        : 'none';
+    }
+    if (style.fontVariantCaps && style.fontVariantCaps !== 'inherit') {
+      caps.fontVariantCaps = style.fontVariantCaps.toLowerCase().includes('small-caps')
+        ? 'small-caps'
+        : 'normal';
+    }
+    if (caps.textTransform === 'uppercase') format.cap = 'all';
+    else if (caps.fontVariantCaps === 'small-caps') format.cap = 'small';
+    else if (caps.textTransform === 'none' || caps.fontVariantCaps === 'normal')
+      format.cap = 'none';
     if (/^(bold|bolder|normal|lighter|[0-9]+)$/.test(style.fontWeight))
       format.bold = /^(bold|bolder)$/.test(style.fontWeight) || Number(style.fontWeight) >= 600;
     if (/^(normal|italic|oblique)/.test(style.fontStyle))
@@ -102,7 +129,7 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     if (style.verticalAlign === 'baseline') format.baseline = 0;
     if (/^-?\d+(?:\.\d+)?%$/.test(style.verticalAlign))
       format.baseline = Number.parseFloat(style.verticalAlign) / 100;
-    return format;
+    return { format, caps };
   }
   const formats: FormattedText['formats'] = [];
   let text = '';
@@ -115,12 +142,15 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
   type Visit = {
     node: Node;
     format: TextFormat;
+    caps: CapsState;
     preserve: boolean;
     depth: number;
     exit?: boolean;
     start?: number;
   };
-  const stack: Visit[] = [{ node: template.content, format: {}, preserve: false, depth: 0 }];
+  const stack: Visit[] = [
+    { node: template.content, format: {}, caps: {}, preserve: false, depth: 0 },
+  ];
   let visited = 0;
   while (stack.length) {
     const item = stack.pop()!;
@@ -139,14 +169,14 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
       append(value, item.format);
       continue;
     }
-    let { format, preserve } = item;
+    let { format, caps, preserve } = item;
     if (node instanceof HTMLElement) {
       if (excluded.has(node.tagName) || node.hidden || node.style.display === 'none') continue;
       if (node.tagName === 'BR') {
         append('\n', format);
         continue;
       }
-      format = formatFor(node, format);
+      ({ format, caps } = formatFor(node, format, caps));
       preserve =
         node.tagName === 'PRE' ||
         /^(pre|pre-wrap|break-spaces)$/.test(node.style.whiteSpace) ||
@@ -157,7 +187,7 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
       }
     } else if (node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) continue;
     for (let i = node.childNodes.length - 1; i >= 0; i--)
-      stack.push({ node: node.childNodes[i]!, format, preserve, depth: item.depth + 1 });
+      stack.push({ node: node.childNodes[i]!, format, caps, preserve, depth: item.depth + 1 });
   }
   // Plain text is authoritative: unfamiliar HTML layout must not change the copied words.
   const normalizedPlain = plain.replace(/\r\n?/g, '\n');
@@ -185,6 +215,12 @@ export function textClipboardHtml(copied: FormattedText): string {
     if (families.length) style.fontFamily = families.map((font) => JSON.stringify(font)).join(', ');
     if (format.color) style.color = cssColor(format.color);
     if (format.highlight) style.backgroundColor = cssColor(format.highlight);
+    if (format.cap === 'all') style.textTransform = 'uppercase';
+    else if (format.cap === 'small') style.fontVariantCaps = 'small-caps';
+    else if (format.cap === 'none') {
+      style.textTransform = 'none';
+      style.fontVariantCaps = 'normal';
+    }
     const decorations = [];
     if (format.underline && format.underline !== 'none') decorations.push('underline');
     if (format.strike && format.strike !== 'noStrike') decorations.push('line-through');
