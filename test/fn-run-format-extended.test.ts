@@ -25,6 +25,36 @@ const fixture = (name: string): string =>
 
 describe('fn API: extended run-format properties', () => {
   it.each([
+    ['1', 0.00001],
+    ['-1', -0.00001],
+    ['1%', 0.01],
+    ['-25%', -0.25],
+    ['30000', 0.3],
+  ])('reads baseline="%s" as a DrawingML percentage', (value, expected) => {
+    const xml = parseXml(
+      `<a:rPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" baseline="${value}"/>`,
+    );
+    expect(parseRPrLikeElement(xml.root).baseline).toBeCloseTo(expected, 8);
+  });
+
+  it('retains a small baseline offset through save and reload', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const shape = addSlideTextBox(getSlides(pres)[0]!, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
+      text: 'offset',
+    });
+    setShapeRunFormat(shape, 0, 0, { baseline: 0.00001 });
+    expect(getShapeRunFormat(shape, 0, 0)!.baseline).toBeCloseTo(0.00001, 8);
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(
+      getShapeRunFormat(getSlideShapes(getSlides(loaded)[0]!).at(-1)!, 0, 0)!.baseline,
+    ).toBeCloseTo(0.00001, 8);
+  });
+
+  it.each([
     ['1', true],
     ['true', true],
     ['0', false],
