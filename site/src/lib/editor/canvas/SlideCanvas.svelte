@@ -309,7 +309,9 @@
         return;
       }
     }
-    if (editing) return;
+    // A shape press must finish the draft before selecting its new target;
+    // focusout happens after pointerdown and would otherwise discard this press.
+    if (editing) commitEditing();
     e.stopPropagation();
     const already = selectedIds.has(box.id);
     if (e.shiftKey) {
