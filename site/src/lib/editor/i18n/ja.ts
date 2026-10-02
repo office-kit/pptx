@@ -189,6 +189,7 @@ export const ja: Record<string, string> = {
   'Tile picture as texture': '図をテクスチャとして並べる',
   'These crop dimensions exceed the supported range.': 'トリミング寸法が対応範囲を超えています。',
   'Picture position': '画像の位置',
+  Crop: 'トリミング',
   'Crop position': 'トリミング位置',
   'Picture width': '画像の幅',
   'Picture height': '画像の高さ',
