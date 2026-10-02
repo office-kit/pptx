@@ -3318,12 +3318,15 @@ const renderHtmlParagraphs = (
         ? para.bulletStyle.char
         : null;
     const numberLabel = numberLabels[pi];
+    // PowerPoint retains an empty paragraph's bullet settings but hides its
+    // marker outside text editing. Match the SVG layout's empty-line behavior.
     const showBullet =
-      para.bulletStyle === 'bullet' ||
-      explicitChar !== null ||
-      numberLabel !== null ||
-      para.bulletIsPicture ||
-      (para.bulletStyle !== 'none' && para.level > 0);
+      para.runs.some((run) => run.text.length > 0) &&
+      (para.bulletStyle === 'bullet' ||
+        explicitChar !== null ||
+        numberLabel !== null ||
+        para.bulletIsPicture ||
+        (para.bulletStyle !== 'none' && para.level > 0));
     // An un-sized bullet is 100% of the paragraph's first-run size (not the
     // placeholder default) — must match buildBullet on the SVG path so the
     // browser preview and the rasterized SVG agree.
