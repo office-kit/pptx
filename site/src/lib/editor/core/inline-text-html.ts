@@ -187,6 +187,12 @@ export function inlineTextHtml(
       if (!span.style.fontSize) span.style.fontSize = `${defaults.size}pt`;
       if (!span.style.fontFamily) span.style.fontFamily = defaults.family;
       if (!props.lineSpacing) span.style.lineHeight = '1.05';
+      // PowerPoint keeps a break's insertion format without enlarging the
+      // preceding text line when only that break's font size changes.
+      if (span.textContent === '\n' && /[^\n]$/.test(span.previousSibling?.textContent ?? '')) {
+        span.style.lineHeight = '0';
+        span.style.verticalAlign = 'top';
+      }
     }
     const firstRun = formatted.querySelector('span');
     if (marker && firstRun) {
