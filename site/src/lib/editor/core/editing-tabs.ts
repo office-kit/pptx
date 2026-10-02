@@ -4,6 +4,16 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
   if (!paragraphs.length) return;
   const context = document.createElement('canvas').getContext('2d')!;
   for (const paragraph of paragraphs) {
+    const paragraphStyle = getComputedStyle(paragraph);
+    const vertical = paragraphStyle.writingMode.startsWith('vertical');
+    // Upright glyph advances differ from horizontal canvas widths. Measure in
+    // an untransformed vertical box so shape rotation and zoom aren't applied twice.
+    const verticalMeasure = vertical ? document.createElement('span') : null;
+    if (verticalMeasure) {
+      verticalMeasure.style.cssText =
+        'position:fixed;visibility:hidden;white-space:pre;width:max-content;height:max-content;';
+      document.body.append(verticalMeasure);
+    }
     const stops = paragraph.dataset.tabStops!.split(';').map((entry) => {
       const [position, alignment] = entry.split(':');
       return { position: Number(position) * zoom, alignment };
@@ -22,7 +32,19 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
         style.fontKerning === 'normal' || style.fontKerning === 'none' ? style.fontKerning : 'auto';
       // Canvas applies tracking to shaped glyphs, including the trailing spacing in CSS layout.
       context.letterSpacing = `${parseFloat(style.letterSpacing) || 0}px`;
+      if (verticalMeasure) {
+        verticalMeasure.style.font = context.font;
+        verticalMeasure.style.fontKerning = style.fontKerning;
+        verticalMeasure.style.letterSpacing = style.letterSpacing;
+        verticalMeasure.style.writingMode = style.writingMode;
+        verticalMeasure.style.textOrientation = style.textOrientation;
+        verticalMeasure.style.textTransform = style.textTransform;
+      }
       const measure = (text: string) => {
+        if (verticalMeasure) {
+          verticalMeasure.textContent = text;
+          return verticalMeasure.getBoundingClientRect().height;
+        }
         // The model retains original case, but tab alignment follows painted glyphs.
         const displayed = style.textTransform === 'uppercase' ? text.toUpperCase() : text;
         return context.measureText(displayed).width;
@@ -34,7 +56,7 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
           tab.textContent = text;
           tab.style.display = 'inline-block';
           tab.style.whiteSpace = 'pre';
-          tab.style.width = '0px';
+          tab.style.inlineSize = '0px';
           tab.style.tabSize = '0';
           fragment.append(tab);
           parts.push({ text, width: 0, decimal: 0, tab });
@@ -50,6 +72,7 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
       }
       node.replaceWith(fragment);
     }
+    verticalMeasure?.remove();
     let fieldWidth = 0;
     let decimalWidth = 0;
     const fields = new Map<HTMLElement, { width: number; decimal: number }>();
@@ -64,12 +87,12 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
       }
     }
     const style = getComputedStyle(paragraph);
-    const margin = parseFloat(style.paddingLeft) || 0;
+    const margin = parseFloat(vertical ? style.paddingTop : style.paddingLeft) || 0;
     const interval = parseFloat(style.tabSize);
     for (const part of parts) {
       if (!part.tab) continue;
-      // offsetLeft is in layout coordinates, so rotated shapes need no screen-space correction.
-      const position = part.tab.offsetLeft - margin;
+      // Offsets are layout coordinates, so rotated shapes need no screen-space correction.
+      const position = (vertical ? part.tab.offsetTop : part.tab.offsetLeft) - margin;
       let low = 0;
       let high = stops.length;
       while (low < high) {
@@ -90,7 +113,7 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
             : stop?.alignment === 'decimal'
               ? field.decimal
               : 0;
-      part.tab.style.width = `${Math.max(0, next - position - shift)}px`;
+      part.tab.style.inlineSize = `${Math.max(0, next - position - shift)}px`;
     }
   }
 }

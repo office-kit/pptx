@@ -180,6 +180,70 @@ test('editing tab widths follow capitalization and kerning', async () => {
   }
 });
 
+test('vertical editing tabs align along the inline axis', async () => {
+  const { build } = await import('esbuild');
+  const { fileURLToPath } = await import('node:url');
+  const bundle = await build({
+    stdin: {
+      contents: `export {layoutEditingTabs} from './editing-tabs.ts';`,
+      loader: 'ts',
+      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+    },
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    write: false,
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const results = await page.evaluate(async (code) => {
+      const module = await import(
+        URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+      );
+      return [
+        { mode: 'vertical-rl', orientation: 'mixed', text: 'AV 12.34' },
+        { mode: 'vertical-lr', orientation: 'mixed', text: 'AV 12.34' },
+        { mode: 'vertical-rl', orientation: 'upright', text: '日本語 12.34' },
+      ].flatMap((item) =>
+        ['left', 'center', 'right', 'decimal'].map((alignment) => {
+          const root = document.createElement('div');
+          root.style.cssText = `font:40px Arial;white-space:pre;writing-mode:${item.mode};text-orientation:${item.orientation};height:800px;`;
+          const paragraph = document.createElement('section');
+          paragraph.dataset.tabStops = `600:${alignment}`;
+          paragraph.style.cssText = 'tab-size:96px;';
+          paragraph.textContent = 'A\t' + item.text;
+          root.append(paragraph);
+          document.body.append(root);
+          module.layoutEditingTabs(root, 1);
+          const range = document.createRange();
+          range.selectNodeContents(paragraph.lastChild);
+          const bounds = range.getBoundingClientRect();
+          const top = paragraph.getBoundingClientRect().top;
+          range.setEnd(paragraph.lastChild, item.text.indexOf('.'));
+          const decimal = range.getBoundingClientRect().height;
+          const right =
+            bounds.top -
+            top +
+            (alignment === 'left'
+              ? 0
+              : alignment === 'center'
+                ? bounds.height / 2
+                : alignment === 'decimal'
+                  ? decimal
+                  : bounds.height);
+          root.remove();
+          return { ...item, alignment, right };
+        }),
+      );
+    }, bundle.outputFiles[0].text);
+    for (const result of results)
+      assert.ok(Math.abs(result.right - 600) < 1, JSON.stringify(result));
+  } finally {
+    await browser.close();
+  }
+});
+
 test('browser preview measures tracked SVG text at its painted width', async () => {
   const { build } = await import('esbuild');
   const { fileURLToPath } = await import('node:url');
