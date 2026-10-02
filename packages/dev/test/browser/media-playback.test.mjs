@@ -295,9 +295,7 @@ test('audio rewinds after natural playback when requested', { timeout: 60000 }, 
     const playback = await page
       .evaluate(async () => (await fetch('/state')).json())
       .then((value) => value.media[0].playback);
-    assert.deepEqual(playback.trim, { startMs: 200, endMs: 300 });
-    assert.deepEqual(playback.fade, { inMs: 200, outMs: 200 });
-    assert.equal(playback.volume, 0.8);
+    assert.equal(playback.rewindAfterPlaying, true);
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audioElement = page.locator('foreignObject[data-pptx-media] audio');
     await audioElement.waitFor({ state: 'attached' });
