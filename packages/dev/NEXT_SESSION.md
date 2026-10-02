@@ -1,3 +1,11 @@
+## 2026-10-02: Homeの文字間隔メニュー
+
+- HomeにCharacter Spacingを追加。Very Tight=-3pt、Tight=-1.5pt、Normal=0、Loose=3pt、Very Loose=6pt。More SpacingでExpanded/Condensedの数値を指定。混在選択の未変更値は保持し、既存kernも変更しない。
+- Mac参照 `/tmp/pptx-outline-audit/reference.pptx` で全プリセットを確認。一時変更は全てUndo済み。ディスク上も `/tmp/pptx-outline-audit/reference-before-font.pptx` と一致、復元待ちなし。この参照文書への一時変更と取り消しはユーザー明示許可済み。
+- カーニングはOOXMLで読み書きできるがpreview/inline描画が未対応のため、今回のメニューには追加していない。後続では閾値を含む描画・編集・計測を揃えてからUIを追加する。文字拡大・縮小、Change Case、Fontダイアログの完全一致も未完了。
+- 検証: 文字間隔（選択範囲・混在未変更・混在からNormal・既存kern保持・Cancel・Undo/Redo・再読込・キーボード）、Home日英900/1500/1900px、編集位置関連3件のブラウザー計5件成功。site121件、format/lint/typecheck、Svelte 0 errors/warnings、editor build成功。詳細ダイアログ画像 `/tmp/pptx-character-spacing-dialog.png`、最終回帰ログ `/tmp/character-spacing-final-browser.log`。プレビュー4175 HTTP200。
+- 同一PR #287を継続。4173の未保存編集と.pnpm-storeは触らない。Mac版との全操作完全一致は未達成。
+
 ## 2026-10-02: 編集開始時の文字間隔保持
 
 - 正負の文字間隔が編集開始時に消えて文字幅が変わる不具合を再現（Wide:65.57px→53.77px）。HTMLへの書式変換でletter-spacingを保持し、編集ビューでズーム倍率を適用する修正。
