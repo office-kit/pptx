@@ -11,6 +11,7 @@ import {
   type TextFormat,
   toWritableTextFormat,
 } from '@office-kit/pptx';
+import { defaultTextMetrics } from './text-layout-defaults.ts';
 
 /** Character formats at a caret or intersecting a selected text range. */
 export function textFormatsInRange(
@@ -20,6 +21,16 @@ export function textFormatsInRange(
   context?: { pres: PresentationData; source?: SlideShapeData },
 ): TextFormat[] {
   const formats: TextFormat[] = [];
+  const defaultSize = context
+    ? defaultTextMetrics(context.pres, context.source ?? shape).size
+    : undefined;
+  function selectionFormat(format: Parameters<typeof toWritableTextFormat>[0]): TextFormat {
+    const writable = toWritableTextFormat(format);
+    // The controls must show the size painted by the editor even when XML omits it.
+    return defaultSize === undefined
+      ? writable
+      : { ...writable, size: writable.size ?? defaultSize };
+  }
   let offset = 0;
   const tableCell = cell ? getTableCells(shape)[cell.row]![cell.col]! : undefined;
   const paragraphs = tableCell
@@ -43,7 +54,7 @@ export function textFormatsInRange(
       // Readers widen colors to plain strings; the selection's format is fed
       // straight back into writers, so it is converted once here.
       const format = (): TextFormat =>
-        toWritableTextFormat(
+        selectionFormat(
           context
             ? tableCell
               ? getTableCellRunFormatEffective(
@@ -86,7 +97,7 @@ export function textFormatsInRange(
     // the format inherited by the next typed character.
     if (offset === paragraphStart && range.start === offset && range.end === offset) {
       return [
-        toWritableTextFormat(
+        selectionFormat(
           context && elements.length === 0
             ? tableCell
               ? getTableCellRunFormatEffective(context.pres, tableCell, paragraphIndex, null)
