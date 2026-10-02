@@ -1354,3 +1354,11 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Reproduced setShapeImageBrightness rejecting an ordinary shape with an image fill. The existing brightness/contrast accessors now use the shared image blip lookup, preserving independent correction clearing and rejecting shapes without images. The editor remembers both corrections when switching fill types.
 - Core brightness/contrast tests pass 11/11; remembered-image-fill tests pass 5/5 against rebuilt ordinary core dist. Core build/typecheck, scoped lint/format, and Svelte check (zero errors/warnings) pass. Changeset covers core and the bundled editor.
 - This does not establish corrected shape-fill preview rendering or full native parity. table_band_edges is independently reproducing/auditing that renderer path; do not include its work before review and verification. Native reference restoration remains pending.
+
+## 2026-10-03: Image-fill preview verification
+
+- Ordinary image fills already share renderPicture. The brightness/contrast accessor fix in fdeb1689 also enables their existing preview correction pipeline; no renderer rewrite is required.
+- Reviewed and discarded a proposed relocation of tile filters: its initial failure only checked SVG attribute placement. A corrected pixel test passed with the original renderer (`/tmp/preview-image-corrections-before-pixel.log`). Do not treat that markup assertion as a visual regression.
+- Final regression covers both stretch and tile after save/reload: picture and ordinary image-fill center pixels agree, and the uncorrected control differs. Sample coordinates derive from the actual slide dimensions. All 23 preview-effects-fills tests pass; scoped lint, format and diff checks pass.
+- CI 37035075036 on 6bdd9276 still runs the Chromium step. Static checks, Node 22/26, Preview fidelity and OOXML validation passed; the Node 24 unit/authoring/history steps also passed. Avoid cancelling this whole-browser run with repeated pushes. fdeb1689 and this regression are local, awaiting the next batched push to the same PR #287.
+- Latest user-requested native retry failed at native pipe startup. Reference restoration remains pending; full PowerPoint parity is incomplete.
