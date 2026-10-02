@@ -46,6 +46,7 @@ import {
   insertChildByRank,
   qname,
   qnameEquals,
+  parseXml,
   text,
 } from '../../internal/xml/index.ts';
 import {
@@ -53,6 +54,7 @@ import {
   CELL_ELEMENT,
   CELL_ROW,
   CELL_TABLE,
+  INTERNAL_PACKAGE,
   type PresentationData,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
@@ -75,6 +77,9 @@ import { getEffectiveColorMap } from './color-map.ts';
 import { getPresentationFonts } from './theme.ts';
 import { resolveDrawingColor } from './shapes.ts';
 import { getSlides } from './slide-query.ts';
+import { partName, resolveTarget } from '../../internal/opc/index.ts';
+import { REL_TYPES } from '../../internal/presentationml/index.ts';
+import { decode } from './_helpers.ts';
 
 // ---------------------------------------------------------------------------
 // Table cell access.
@@ -91,6 +96,60 @@ const NAME_A_GRAPHIC_DATA_TBL = qname('a', 'graphicData', NS.dml);
 const NAME_A_TBL = qname('a', 'tbl', NS.dml);
 const NAME_A_TC_PR = qname('a', 'tcPr', NS.dml);
 const NAME_A_TX_BODY_TBL = qname('a', 'txBody', NS.dml);
+const NAME_A_TBL_STYLE = qname('a', 'tblStyle', NS.dml);
+const NAME_A_TC_TX_STYLE = qname('a', 'tcTxStyle', NS.dml);
+const NAME_A_FONT = qname('a', 'font', NS.dml);
+const NAME_A_FONT_REF = qname('a', 'fontRef', NS.dml);
+const NAME_A_LATIN = qname('a', 'latin', NS.dml);
+const NAME_A_EA = qname('a', 'ea', NS.dml);
+const NAME_A_CS = qname('a', 'cs', NS.dml);
+const NAME_A_PRES = partName('/ppt/presentation.xml');
+
+// Table styles are package-level and immutable during normal reads. Keeping
+// the parsed root per package avoids reparsing the style part for every run
+// while still allowing independent presentations to carry different styles.
+type TableStyleInfo = {
+  readonly data: Uint8Array;
+  readonly styles: ReadonlyMap<string, XmlElement>;
+  readonly defaultId: string | null;
+};
+
+const tableStyleInfoCache = new WeakMap<object, TableStyleInfo>();
+
+const tableStyleInfoFor = (pres: PresentationData): TableStyleInfo | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const rel = pkg
+    .getRels(NAME_A_PRES)
+    ?.items.find((item) => item.type === REL_TYPES.tableStyles && item.targetMode === 'Internal');
+  if (!rel) {
+    return null;
+  }
+  const name = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(NAME_A_PRES, rel.target);
+  const part = pkg.getPart(name);
+  if (!part) return null;
+  const cached = tableStyleInfoCache.get(pkg);
+  if (cached?.data === part.data) return cached;
+  const root = parseXml(decode(part.data)).root;
+  if (root.name.namespaceURI !== NS.dml || root.name.localName !== 'tblStyleLst') {
+    return null;
+  }
+  const styles = new Map<string, XmlElement>();
+  for (const style of allChildElements(root, NAME_A_TBL_STYLE)) {
+    const id = getAttrValue(style, qname('', 'styleId', ''))
+      ?.trim()
+      .toUpperCase();
+    if (id) styles.set(id, style);
+  }
+  const defaultId =
+    getAttrValue(root, qname('', 'def', ''))
+      ?.trim()
+      .toUpperCase() ?? null;
+  const info = { data: part.data, styles, defaultId };
+  tableStyleInfoCache.set(pkg, info);
+  return info;
+};
 
 const findTblElement = (shape: SlideShapeData): XmlElement | null => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'graphicFrame') return null;
@@ -304,6 +363,141 @@ const TABLE_STYLE_FLAG_KEYS = [
   'bandRow',
   'bandCol',
 ] as const;
+
+const tableStylePart = (style: XmlElement, localName: string): XmlElement | null =>
+  firstChildElement(style, qname('a', localName, NS.dml));
+
+const tableStyleColor = (
+  node: XmlElement,
+  theme: ReturnType<typeof getPresentationTheme>,
+  colorMap: Readonly<Record<string, string>> | null,
+): string | null => {
+  const child = node.children.find(
+    (candidate): candidate is XmlElement =>
+      candidate.kind === 'element' &&
+      candidate.name.namespaceURI === NS.dml &&
+      ['srgbClr', 'schemeClr', 'sysClr', 'prstClr'].includes(candidate.name.localName),
+  );
+  return child ? resolveDrawingColor(child, theme, colorMap) : null;
+};
+
+const tableStyleTextFormat = (
+  node: XmlElement,
+  theme: ReturnType<typeof getPresentationTheme>,
+  colorMap: Readonly<Record<string, string>> | null,
+): Partial<ReadTextFormat> => {
+  const out: Partial<ReadTextFormat> = {};
+  const onOff = (name: 'b' | 'i'): boolean | undefined => {
+    const value = getAttrValue(node, qname('', name, ''));
+    return value === 'on' ? true : value === 'off' ? false : undefined;
+  };
+  const bold = onOff('b');
+  const italic = onOff('i');
+  if (bold !== undefined) out.bold = bold;
+  if (italic !== undefined) out.italic = italic;
+
+  const font = firstChildElement(node, NAME_A_FONT);
+  if (font) {
+    const latin = firstChildElement(font, NAME_A_LATIN);
+    const eastAsian = firstChildElement(font, NAME_A_EA);
+    const complexScript = firstChildElement(font, NAME_A_CS);
+    const typeface = (element: XmlElement | null): string | undefined =>
+      element ? (getAttrValue(element, qname('', 'typeface', '')) ?? undefined) : undefined;
+    const latinTypeface = typeface(latin);
+    const eastAsianTypeface = typeface(eastAsian);
+    const complexScriptTypeface = typeface(complexScript);
+    if (latinTypeface !== undefined) out.font = latinTypeface;
+    if (eastAsianTypeface !== undefined) out.fontEastAsian = eastAsianTypeface;
+    if (complexScriptTypeface !== undefined) out.fontComplexScript = complexScriptTypeface;
+  } else {
+    const fontRef = firstChildElement(node, NAME_A_FONT_REF);
+    if (fontRef) {
+      const idx = getAttrValue(fontRef, qname('', 'idx', ''));
+      if (idx === 'major' || idx === 'minor') {
+        out.font = idx === 'major' ? '+mj-lt' : '+mn-lt';
+        out.fontEastAsian = idx === 'major' ? '+mj-ea' : '+mn-ea';
+        out.fontComplexScript = idx === 'major' ? '+mj-cs' : '+mn-cs';
+      }
+      const refColor = tableStyleColor(fontRef, theme, colorMap);
+      if (refColor !== null) out.color = refColor;
+    }
+  }
+  // CT_TableStyleTextStyle permits a direct color choice alongside its font
+  // choice. It wins over the fontRef color when both are present.
+  const directColor = tableStyleColor(node, theme, colorMap);
+  if (directColor !== null) out.color = directColor;
+  return out;
+};
+
+const tableStyleFormatForCell = (
+  pres: PresentationData,
+  cell: TableCellData,
+): Partial<ReadTextFormat> => {
+  const info = tableStyleInfoFor(pres);
+  if (!info) return {};
+  const table = cell[CELL_TABLE];
+  const styleId = (getTableStyleId(table) ?? info.defaultId)?.trim().toUpperCase();
+  if (!styleId) return {};
+  const style = info.styles.get(styleId);
+  const tbl = findTblElement(table);
+  if (!style || !tbl) return {};
+  const rows = tableRows(tbl);
+  const rowCount = rows.length;
+  const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  const gridColumns = grid ? allChildElements(grid, NAME_A_GRID_COL).length : 0;
+  const colCount = gridColumns > 0 ? gridColumns : rows.length > 0 ? rowCells(rows[0]!).length : 0;
+  if (rowCount === 0 || colCount === 0) return {};
+  const flags = getTableStyleFlags(table);
+  const row = cell[CELL_ROW];
+  const col = cell[CELL_COL];
+  const layers: XmlElement[] = [];
+  const add = (name: string, enabled = true): void => {
+    if (!enabled) return;
+    const part = tableStylePart(style, name);
+    const textStyle = part && firstChildElement(part, NAME_A_TC_TX_STYLE);
+    if (textStyle) layers.push(textStyle);
+  };
+
+  add('wholeTbl');
+  // MS-OI29500 §2.1.1265 applies these regions in this order; the later,
+  // more-specific region wins. This is the DrawingML table-style priority,
+  // rather than the similarly named Word table-style priority.
+  const bodyRow = row - (flags.firstRow ? 1 : 0);
+  const bodyCol = col - (flags.firstCol ? 1 : 0);
+  const bodyRows = rowCount - (flags.firstRow ? 1 : 0) - (flags.lastRow ? 1 : 0);
+  const bodyCols = colCount - (flags.firstCol ? 1 : 0) - (flags.lastCol ? 1 : 0);
+  add(
+    'band1H',
+    flags.bandRow && bodyRows > 0 && bodyRow >= 0 && bodyRow < bodyRows && bodyRow % 2 === 0,
+  );
+  add(
+    'band2H',
+    flags.bandRow && bodyRows > 0 && bodyRow >= 0 && bodyRow < bodyRows && bodyRow % 2 === 1,
+  );
+  add(
+    'band1V',
+    flags.bandCol && bodyCols > 0 && bodyCol >= 0 && bodyCol < bodyCols && bodyCol % 2 === 0,
+  );
+  add(
+    'band2V',
+    flags.bandCol && bodyCols > 0 && bodyCol >= 0 && bodyCol < bodyCols && bodyCol % 2 === 1,
+  );
+  add('lastCol', flags.lastCol && col === colCount - 1);
+  add('firstCol', flags.firstCol && col === 0);
+  add('lastRow', flags.lastRow && row === rowCount - 1);
+  add('seCell', flags.lastRow && flags.lastCol && row === rowCount - 1 && col === colCount - 1);
+  add('swCell', flags.lastRow && flags.firstCol && row === rowCount - 1 && col === 0);
+  add('firstRow', flags.firstRow && row === 0);
+  add('neCell', flags.firstRow && flags.lastCol && row === 0 && col === colCount - 1);
+  add('nwCell', flags.firstRow && flags.firstCol && row === 0 && col === 0);
+
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(table[SHAPE_SLIDE]);
+  return layers.reduce<Partial<ReadTextFormat>>(
+    (format, layer) => ({ ...format, ...tableStyleTextFormat(layer, theme, colorMap) }),
+    {},
+  );
+};
 
 /**
  * Sets one or more boolean style flags on `<a:tblPr>`. Only the keys
@@ -1207,7 +1401,7 @@ export const getTableCellRunFormatEffective = (
 ): ReadTextFormat => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
   if (!txBody) throw new Error('table cell has no <a:txBody>');
-  const format = resolveTextBodyRunFormatEffective(
+  const localFormat = resolveTextBodyRunFormatEffective(
     {
       theme: getPresentationTheme(pres),
       colorMap: getEffectiveColorMap(cell[CELL_TABLE][SHAPE_SLIDE]),
@@ -1216,6 +1410,10 @@ export const getTableCellRunFormatEffective = (
     paragraphIndex,
     runIndex,
   );
+  // Table-style text is a default layer. The cell's paragraph/run cascade
+  // remains last so an authored false is not accidentally replaced by a
+  // style-level on/off value.
+  const format = { ...tableStyleFormatForCell(pres, cell), ...localFormat };
   const fonts = getPresentationFonts(pres);
   if (fonts) {
     const resolveToken = (

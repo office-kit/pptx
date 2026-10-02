@@ -1,3 +1,11 @@
+## 2026-10-02: 埋め込み表スタイルの文字書式
+
+- 既存 `getTableCellRunFormatEffective` に `tableStyles.xml` の `tcTxStyle` 継承を統合。wholeTbl・帯・行列端・四隅の順序、直接フォント・テーマフォント・色・太字・斜体を扱う。セル側の明示書式を優先する。
+- 通常表示（SVG / foreignObject）と編集・内部コピーの回帰テストを追加。行・列の書式重複、明示 off、テーマフォントも確認。core3269成功/109skip、site135成功、dev19成功、関連browser4成功。format/lint/root・preview・DSL・dev型検査、core/preview/DSL/dev build、Svelte 0 errors/warnings。
+- PowerPoint 接続が復旧し、reference.pptx の画面と保存状態を再確認。一時挿入した表を保存した検証用コピーは `/tmp/pptx-outline-audit/native-table-style.pptx`。Mac が既定 GUID のスタイル定義を tableStyles.xml に保存することを確認した。参照元は表を Undo して保存済み、文字は Outline title / Ordinary text box、未復元変更なし。
+- 残件: 定義のない組み込み GUID、tcStyle の塗り・罫線、空段落 / field の文字書式。今回の文字継承は完全な表スタイル対応を意味しない。全 PowerPoint 操作一致も未完了。
+- 4173 のユーザー編集と .pnpm-store は保持。PR は引き続き #287 のみ。
+
 ## 2026-10-02: 表の段落既定文字書式
 
 - `getTableCellRunFormatEffective` を追加。セル内のrun、段落既定、アウトラインレベル既定とテーマを共通の読取り経路で解決する。通常描画・inline編集・Fontダイアログ・コピーで同じ実効書式を使う。

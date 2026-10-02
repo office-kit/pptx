@@ -23,6 +23,7 @@ import {
   savePresentation,
   setTableCellAlignment,
   setTableCellMargins,
+  setTableStyleFlags,
   setSlideSize,
   getSlideSize,
   getSlides,
@@ -260,6 +261,77 @@ describe('table cell text rendering', () => {
       // Explicit b=0 overrides the paragraph default in both output modes.
       expect(output).not.toMatch(/font-weight(?:=|:)\s*700/);
       expect(textContentOf(output)).toContain('Inherited');
+    },
+  );
+
+  it.each(['svg', 'foreignObject'] as const)(
+    'tableStyles.xml wholeTbl and firstRow text styles are inherited (%s)',
+    async (textLayout) => {
+      const { pres, slide } = await blankSlide();
+      addSlideTable(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(2),
+        rows: [['Header'], ['Body']],
+      });
+      const tableShape = getSlideShapes(slide).find(isTableShape)!;
+      setTableStyleFlags(tableShape, { firstRow: true });
+
+      const { entries } = readZip(await savePresentation(pres));
+      const decoder = new TextDecoder();
+      const encoder = new TextEncoder();
+      const styleId = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}';
+      const stylesXml = `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${styleId}"><a:tblStyle styleId="${styleId}" styleName="Regression"><a:wholeTbl><a:tcTxStyle b="on"><a:font><a:latin typeface="Arial"/><a:ea typeface="Arial"/><a:cs typeface="Arial"/></a:font><a:srgbClr val="008800"/></a:tcTxStyle></a:wholeTbl><a:firstRow><a:tcTxStyle b="off"><a:font><a:latin typeface="Courier New"/><a:ea typeface="Courier New"/><a:cs typeface="Courier New"/></a:font><a:srgbClr val="CC0000"/></a:tcTxStyle></a:firstRow></a:tblStyle></a:tblStyleLst>`;
+      const mutated = writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/tableStyles.xml'
+            ? { ...entry, data: encoder.encode(stylesXml) }
+            : entry.name === 'ppt/slides/slide1.xml'
+              ? {
+                  ...entry,
+                  // The generated table run carries an explicit black fill;
+                  // remove it so the table-style text color is observable.
+                  data: encoder.encode(
+                    decoder
+                      .decode(entry.data)
+                      .replace(/(<a:r><a:rPr[^>]*>)<a:solidFill>[\s\S]*?<\/a:solidFill>/g, '$1'),
+                  ),
+                }
+              : entry,
+        ),
+      );
+      const loaded = await loadPresentation(mutated);
+      const loadedSlide = getSlides(loaded)[0]!;
+      const loadedTable = getSlideShapes(loadedSlide).find(isTableShape)!;
+      expect(
+        getTableCellRunFormatEffective(loaded, getTableCell(loadedTable, 0, 0), 0, 0),
+      ).toMatchObject({
+        font: 'Courier New',
+        bold: false,
+        color: '#CC0000',
+      });
+      expect(
+        getTableCellRunFormatEffective(loaded, getTableCell(loadedTable, 1, 0), 0, 0),
+      ).toMatchObject({
+        font: 'Arial',
+        bold: true,
+        color: '#008800',
+      });
+
+      const output = renderSlideToSvg(loaded, loadedSlide, { textLayout });
+      expect(textContentOf(output)).toContain('Header');
+      expect(textContentOf(output)).toContain('Body');
+      expect(output).toMatch(
+        textLayout === 'svg'
+          ? /font-family="(?:Courier New|Liberation Mono)"/
+          : /font-family:Courier New/,
+      );
+      expect(output).toMatch(
+        textLayout === 'svg' ? /font-family="(?:Arial|Liberation Sans)"/ : /font-family:Arial/,
+      );
+      expect(output).toMatch(textLayout === 'svg' ? /fill="#CC0000"/ : /color:#CC0000/);
+      expect(output).toMatch(textLayout === 'svg' ? /fill="#008800"/ : /color:#008800/);
     },
   );
 });
