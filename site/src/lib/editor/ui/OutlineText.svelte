@@ -38,6 +38,7 @@
   let range = { start: 0, end: 0 };
   let timer: ReturnType<typeof setTimeout> | undefined;
   let composing = false;
+  let titleBodyComposition = false;
   let demotionDialog = $state<HTMLDialogElement>();
   let demotionVersion = 0;
   let selectionField: OutlineSelectionField;
@@ -70,6 +71,7 @@
   }
   function rememberRange() { range = input.getSelection(); }
   function changed(next: string) {
+    if (titleBodyComposition) return;
     const change = textEditDiff(value, next, range, input.getSelection().start);
     if (change) {
       if (typingFormat && change.text.length) change.typing = typingFormat;
@@ -510,7 +512,7 @@
 </script>
 
 <RichTextInput bind:this={input} {value} {html} layout="outline" label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style={editor.outlineShowFormatting ? "line-height: normal; min-height: 0" : ""} textZoom={1}
-  onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) { typingFormat = undefined; selection.clear(); } }} onbeforeinput={(next, event) => { range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); selection.replace(event.data, [], t('Edit text')); } }} onselect={next => { const element = input.getElement(); if (!element || element.ownerDocument.activeElement !== element || doc.selection.kind !== 'shape' || doc.selection.slideIndex !== slideIndex || !doc.selection.shapeIds.includes(shapeId)) return; if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
+  onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) { typingFormat = undefined; selection.clear(); } }} onbeforeinput={(next, event) => { if (titleBodyComposition) return; range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); void replaceTitleBodyRange(event.data, t('Edit text')); } }} onselect={next => { if (titleBodyComposition) return; const element = input.getElement(); if (!element || element.ownerDocument.activeElement !== element || doc.selection.kind !== 'shape' || doc.selection.slideIndex !== slideIndex || !doc.selection.shapeIds.includes(shapeId)) return; if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}
   onnewline={() => {
@@ -518,7 +520,22 @@
     if (selection.current()?.start.key !== selection.current()?.end.key) selection.replace('\n', [], t('Edit text'));
     else replaceSelection('\n');
   }}
-  oncomposition={active => { composing = active; if (active) clearTimeout(timer); else timer = setTimeout(commit, 600); }}
+  oncomposition={(active, text) => {
+    composing = active;
+    if (active) {
+      clearTimeout(timer);
+      const selected = selection.current();
+      const part = `${getSlidePartName(slide)}:`;
+      titleBodyComposition = !!selected && selected.start.key !== selected.end.key
+        && selected.end.key.startsWith(part)
+        && outlineShapes(slide).some(item => item.title && selected.start.key === `${part}${item.id}`);
+    } else if (titleBodyComposition) {
+      titleBodyComposition = false;
+      // The IME owns the temporary DOM; commit only its final text against the original range.
+      draftVersion++;
+      if (text) void replaceTitleBodyRange(text, t('Edit text'));
+    } else timer = setTimeout(commit, 600);
+  }}
   onhistory={backward => { commit(); void (backward ? doc.undo() : doc.redo()); }}
 />
 

@@ -627,9 +627,9 @@ test(
   },
 );
 
-for (const action of ['cut', 'type'])
+for (const action of ['cut', 'type', 'beforeinput', 'ime', 'ime-cancel'])
   test(
-    `outline title-to-body ${action} joins the suffix like PowerPoint`,
+    `outline title-to-body ${action} ${action === 'ime-cancel' ? 'preserves the original text' : 'joins the suffix like PowerPoint'}`,
     { timeout: 60000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));
@@ -652,7 +652,34 @@ for (const action of ['cut', 'type'])
         assert.equal(copied, '\nBo');
         const before = (await waitForState(preview.url, () => true)).revision;
         if (action === 'type') await page.keyboard.press('X');
-        else
+        else if (action === 'beforeinput' || action.startsWith('ime')) {
+          const cdp = await page.context().newCDPSession(page);
+          if (action.startsWith('ime')) {
+            await cdp.send('Input.imeSetComposition', {
+              text: 'か',
+              selectionStart: 1,
+              selectionEnd: 1,
+            });
+            await cdp.send('Input.imeSetComposition', {
+              text: '漢',
+              selectionStart: 1,
+              selectionEnd: 1,
+            });
+          }
+          if (action === 'ime-cancel') {
+            await cdp.send('Input.imeSetComposition', {
+              text: '',
+              selectionStart: 0,
+              selectionEnd: 0,
+            });
+            await page.waitForTimeout(800);
+            assert.equal((await waitForState(preview.url, () => true)).revision, before);
+            assert.equal(await outline.getByRole('textbox').nth(0).textContent(), 'Heading');
+            assert.equal(await body.textContent(), 'Body');
+            return;
+          }
+          await cdp.send('Input.insertText', { text: action === 'ime' ? '漢' : 'X' });
+        } else
           await body.evaluate((input) =>
             input.dispatchEvent(
               new ClipboardEvent('cut', {
@@ -667,7 +694,7 @@ for (const action of ['cut', 'type'])
         assert.equal(slides.length, 2);
         assert.equal(
           getShapeText(getSlideShapes(slides[0])[0]),
-          action === 'type' ? 'HeadingXdy' : 'Headingdy',
+          action === 'cut' ? 'Headingdy' : action === 'ime' ? 'Heading漢dy' : 'HeadingXdy',
         );
         assert.equal(getShapeText(getSlideShapes(slides[0])[1]), '');
         assert.equal(getShapeText(getSlideShapes(slides[1])[0]), 'Next');
@@ -730,7 +757,9 @@ for (const action of ['paste', 'multiline', 'rich'])
         assert.equal(paragraphs.length, action === 'multiline' ? 2 : 1);
         if (action === 'rich')
           assert.ok(
-            paragraphs.flat().some((run) => run.kind !== 'br' && run.text === 'X' && run.format.bold),
+            paragraphs
+              .flat()
+              .some((run) => run.kind !== 'br' && run.text === 'X' && run.format.bold),
           );
 
         assert.equal(getShapeText(getSlideShapes(slides[1])[0]), 'Next');
