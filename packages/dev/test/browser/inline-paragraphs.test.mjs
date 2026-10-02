@@ -44,6 +44,10 @@ async function fillPreservingText(input, value) {
     await input.page().keyboard.insertText(value.slice(start, newEnd));
 }
 
+async function commitInlineEditing(input) {
+  await input.press('Control+Enter');
+}
+
 test(
   'inline paragraph formatting follows caret and selection with pending text edits',
   { timeout: 60000 },
@@ -103,7 +107,8 @@ test(
           { start, end },
         );
       };
-      const bar = editor.locator('.text-format-bar');
+      await editor.locator('details.floating-text-format-bar > summary').click();
+      const bar = editor.locator('details.floating-text-format-bar[open] .text-format-bar');
       await select(9);
       await editor
         .locator('.paragraph-alignment')
@@ -147,7 +152,7 @@ test(
       assert.notEqual(getParagraphAlignment(await shape(), 2), 'r');
       assert.equal(getShapeParagraphElements(await shape(), 0)[0].format.bold, true);
       assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, true);
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await commitInlineEditing(input);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal(getShapeText(await shape()), 'English\n日本語\nThird paragraph');
@@ -156,6 +161,7 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       locale = 'ja';
       await editor.locator('.hit').first().dblclick();
+      await editor.locator('details.floating-text-format-bar > summary').click();
       await fillPreservingText(input, '\n日本語\nThird paragraph\nNew paragraph');
       await select(2);
       assert.equal(await bar.getByLabel('段落の配置', { exact: true }).inputValue(), 'center');
@@ -179,8 +185,8 @@ test(
         .getByRole('button', { name: '均等割り付け', exact: true })
         .click();
       await saved();
-      assert.equal(getParagraphAlignment(await shape(), 1), 'dist');
       assert.equal(await bar.getByLabel('段落の配置', { exact: true }).inputValue(), 'distribute');
+      assert.equal(getParagraphAlignment(await shape(), 1), 'dist');
       assert.equal(getParagraphAlignment(await shape(), 2), 'dist');
       assert.equal(getParagraphAlignment(await shape(), 3), 'r');
       assert.equal(
@@ -193,7 +199,7 @@ test(
       await input.press('Control+z');
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 1), 'just');
-      await bar.getByRole('button', { name: '完了', exact: true }).click();
+      await commitInlineEditing(input);
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
@@ -263,6 +269,7 @@ test(
         window.selectEditorText(node, 8, 8);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
+      await editor.locator('details.floating-text-format-bar > summary').click();
       const bar = editor.getByRole('group', { name: 'Selected text formatting', exact: true });
       await editor
         .locator('.paragraph-alignment')
@@ -291,10 +298,12 @@ test(
         .getByLabel('List level', { exact: true })
         .locator('option:checked[value="3"]')
         .waitFor({ state: 'attached' });
-      await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pct');
-      await bar.getByLabel('Line spacing value', { exact: true }).fill('2');
-      await bar.getByLabel('Line spacing value', { exact: true }).press('Tab');
+      await editor.getByRole('button', { name: 'Line spacing', exact: true }).click();
+      await editor.getByRole('menuitemradio', { name: '2.0', exact: true }).click();
       await saved();
+      assert.equal(await bar.getByLabel('List style', { exact: true }).inputValue(), 'number');
+      assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '3');
+      assert.equal(await bar.getByLabel('Line spacing value', { exact: true }).inputValue(), '2');
       let cells = getTableCells(await shape());
       assert.equal(getParagraphAlignment(cells[0][0], 1), 'r');
       assert.equal(getParagraphBullet(cells[0][0], 1), 'number');
@@ -340,7 +349,7 @@ test(
       await saved();
       await bar.getByRole('button', { name: 'Superscript', exact: true }).click();
       await saved();
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await commitInlineEditing(input);
       await page.reload();
       await saved();
       cells = getTableCells(await shape());
@@ -361,7 +370,7 @@ test(
       cells = getTableCells(await shape());
       assert.deepEqual(getTableCellParagraphs(cells[0][0])[1].elements[0].format ?? {}, {});
       assert.equal(getTableCellParagraphs(cells[0][0])[1].elements[1].format.strike, true);
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await commitInlineEditing(input);
       await editor.getByRole('button', { name: 'Cell 1, 1', exact: true }).click();
       await editor
         .getByRole('group', { name: 'Format selected cells', exact: true })
@@ -432,6 +441,8 @@ test(
       await saved();
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.inline-edit');
+      await editor.locator('details.floating-text-format-bar > summary').click();
+      const bar = editor.locator('details.floating-text-format-bar[open] .text-format-bar');
       const select = async (start, end = start) => {
         await input.focus();
         await input.evaluate(
@@ -442,49 +453,55 @@ test(
           { start, end },
         );
       };
-      const bar = editor.locator('.text-format-bar');
+
+      await select(9);
+      await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pct');
       const change = async (name, value) => {
         const control = bar.getByLabel(name, { exact: true });
         await control.fill(value);
         await control.press('Tab');
         await saved();
       };
-      await select(9);
-      await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pct');
       await change('Line spacing value', '1.5');
       await change('Before paragraph (pt)', '6');
       await change('After paragraph (pt)', '12');
+      await saved();
       let props = await properties();
       assert.deepEqual(props[1].lineSpacing, { kind: 'pct', value: 1.5 });
       assert.equal(props[1].spcBefPts, 6);
       assert.equal(props[1].spcAftPts, 12);
+      await editor.locator('details.floating-text-format-bar > summary').click();
       const spacing = await input
         .locator('[data-text-paragraph]')
         .nth(1)
         .evaluate((n) => {
           const css = getComputedStyle(n);
+          const span = n.querySelector('span');
+          const spanCss = span ? getComputedStyle(span) : null;
           return {
-            line: parseFloat(css.lineHeight) / parseFloat(css.fontSize),
+            line: spanCss ? parseFloat(spanCss.lineHeight) / parseFloat(spanCss.fontSize) : NaN,
             before: parseFloat(css.marginTop),
             after: parseFloat(css.marginBottom),
             zoom: Number(css.getPropertyValue('--text-zoom')),
           };
         });
-      assert.ok(Math.abs(spacing.line - 1.5) < 0.01);
+      assert.ok(Math.abs(spacing.line - 1.5) < 0.01, JSON.stringify(spacing));
       assert.ok(Math.abs(spacing.before - 8 * spacing.zoom) < 0.01);
       assert.ok(Math.abs(spacing.after - 16 * spacing.zoom) < 0.01);
       assert.notDeepEqual(props[0].lineSpacing, props[1].lineSpacing);
       assert.notEqual(props[2].spcAftPts, 12);
       await select(0, 12);
+      await editor.locator('details.floating-text-format-bar > summary').click();
       assert.equal(await bar.getByLabel('Line spacing mode', { exact: true }).inputValue(), '');
       assert.equal(await bar.getByLabel('Before paragraph (pt)', { exact: true }).inputValue(), '');
       await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pts');
       await change('Line spacing value', '24');
+      await saved();
       props = await properties();
       assert.deepEqual(props[0].lineSpacing, { kind: 'pts', value: 24 });
       assert.deepEqual(props[1].lineSpacing, props[0].lineSpacing);
       assert.notDeepEqual(props[2].lineSpacing, props[0].lineSpacing);
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await commitInlineEditing(input);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual((await properties())[0].lineSpacing, { kind: 'pts', value: 18 });
@@ -493,10 +510,12 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       locale = 'ja';
       await editor.locator('.hit').first().dblclick();
+      await editor.locator('details.floating-text-format-bar > summary').click();
       await select(9);
       await bar.getByLabel('行間の指定方法', { exact: true }).selectOption('inherit');
       await change('段落前（pt）', '');
       await change('段落後（pt）', '0');
+      await saved();
       await page.reload();
       await saved();
       props = await properties();
@@ -561,6 +580,8 @@ for (const control of ['keyboard', 'toolbar'])
           window.selectEditorText(node, 7, 14);
           node.dispatchEvent(new Event('select', { bubbles: true }));
         });
+        await editor.locator('details.floating-text-format-bar > summary').click();
+        const bar = editor.locator('.ribbon .font-ribbon:visible');
         if (control === 'toolbar') {
           assert.equal(
             await editor
@@ -580,13 +601,13 @@ for (const control of ['keyboard', 'toolbar'])
           if (control === 'keyboard') await input.press(key);
           else
             await editor
-              .locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar')
+              .locator('.ribbon .font-ribbon:visible')
               .getByRole('button', { name: label, exact: true })
               .click();
         };
         assert.equal(
           await editor
-            .locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar')
+            .locator('.ribbon .font-ribbon:visible')
             .getByRole('button', { name: 'Bold', exact: true })
             .getAttribute('aria-pressed'),
           'true',
@@ -597,7 +618,6 @@ for (const control of ['keyboard', 'toolbar'])
         let text = await shape();
         assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
         assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
-        const bar = editor.locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar');
         assert.equal(
           await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
           'false',
@@ -639,7 +659,7 @@ for (const control of ['keyboard', 'toolbar'])
         await toggle('Meta+u', 'Underline');
         await saved();
         assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.underline, true);
-        await bar.getByRole('button', { name: 'Done', exact: true }).click();
+        await commitInlineEditing(input);
         await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
         await saved();
         assert.notEqual(getShapeParagraphElements(await shape(), 1)[0].format.underline, true);
@@ -648,6 +668,7 @@ for (const control of ['keyboard', 'toolbar'])
         await editor.locator('.lang select').selectOption('ja');
         locale = 'ja';
         await editor.locator('.hit').first().dblclick();
+        await editor.locator('details.floating-text-format-bar > summary').click();
         await input.focus();
         await input.evaluate((node) => {
           window.selectEditorText(node, 7, 14);
@@ -691,7 +712,7 @@ for (const control of ['keyboard', 'toolbar'])
         await toggle('Control+Backslash', '文字の書式を解除');
         await saved();
         assert.deepEqual(getShapeParagraphElements(await shape(), 1)[0].format ?? {}, {});
-        await bar.getByRole('button', { name: '完了', exact: true }).click();
+        await commitInlineEditing(input);
         await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
         await saved();
         assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.underline, false);
@@ -744,7 +765,8 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.inline-edit');
-      const bar = editor.locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar');
+      await editor.locator('details.floating-text-format-bar > summary').click();
+      const bar = editor.locator('details.floating-text-format-bar[open] .text-format-bar');
       const select = async (start, end = start) => {
         await input.focus();
         await input.evaluate(
@@ -774,15 +796,17 @@ test(
       await input.press('Tab');
       await expectLabels(['1.', '1.', '2.']);
       assert.equal(await input.evaluate((n) => n === document.activeElement), true);
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await commitInlineEditing(input);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
+      await editor.locator('details.floating-text-format-bar > summary').click();
       await expectLabels(['1.', '2.', '3.']);
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await commitInlineEditing(input);
       await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
+      await editor.locator('details.floating-text-format-bar > summary').click();
       await expectLabels(['1.', '1.', '2.']);
       await select(8, 17);
       await input.press('Control+BracketRight');
@@ -835,10 +859,11 @@ test(
       await input.pressSequentially('Nested');
       await expectLabels(['1.', '1.', '2.', '2.']);
       assert.equal(await input.textContent(), 'English\n日本語\nNested\nThird');
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await commitInlineEditing(input);
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.lang select').selectOption('ja');
       await editor.locator('.hit').first().dblclick();
+      await editor.locator('details.floating-text-format-bar > summary').click();
       await expectLabels(['1.', '1.', '2.', '2.']);
       await select(0, 7);
       await bar.getByLabel('リストの種類', { exact: true }).selectOption('bullet');
