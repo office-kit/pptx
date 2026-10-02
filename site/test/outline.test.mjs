@@ -13,6 +13,7 @@ import {
   getSlideShapes,
   getShapeId,
   getShapePlaceholderType,
+  isShapePlaceholder,
   setShapeText,
   savePresentation,
   loadPresentation,
@@ -629,5 +630,52 @@ for (const bodyText of ['Body', 'Body\nFollowing']) {
       assert.equal(getParagraphLevel(savedBody, 0), 2);
       assert.equal(getShapeRunHyperlink(savedBody, 0, 0), 'https://example.com/following');
     }
+  });
+}
+
+for (const withBody of [false, true]) {
+  test(`outline cross-slide title deletion joins titles and transfers body (${withBody})`, async () => {
+    const { deleteOutlineTitleRange } = await import('../src/lib/editor/core/outline.ts');
+    const pres = createPresentation();
+    const layout = getSlideLayouts(pres).find(
+      (item) => getSlideLayoutName(item) === 'Title and Content',
+    );
+    const first = addSlide(pres, { layout });
+    const last = addSlide(pres, { layout });
+    const [title, body] = getSlideShapes(first);
+    const [next, following] = getSlideShapes(last);
+    setShapeText(title, 'Outline title');
+    if (withBody) setShapeText(body, 'Body');
+    else removeShape(body);
+    setShapeText(next, 'Next');
+    setShapeRunHyperlink(next, 0, 0, 'https://example.com/title');
+    setShapeText(following, 'Following');
+    setShapeRunHyperlink(following, 0, 0, 'https://example.com/body');
+    setParagraphLevel(following, 0, 2);
+    addSlideTextBox(first, { text: 'Keep graphic', x: 0, y: 0, w: 914400, h: 914400 });
+    assert.equal(
+      deleteOutlineTitleRange(
+        pres,
+        first,
+        { id: getShapeId(title), offset: 2 },
+        { slide: last, id: getShapeId(next), offset: 2 },
+      ),
+      true,
+    );
+    const saved = getSlides(await loadPresentation(await savePresentation(pres)));
+    assert.equal(saved.length, 1);
+    const shapes = getSlideShapes(saved[0]);
+    const savedTitle = shapes.find((shape) => getShapePlaceholderType(shape) === 'title');
+    const savedBody = shapes.find(
+      (shape) =>
+        isShapePlaceholder(shape) &&
+        ['body', 'obj'].includes(getShapePlaceholderType(shape) ?? 'obj'),
+    );
+    assert.equal(getShapeText(savedTitle), 'Ouxt');
+    assert.equal(getShapeRunHyperlink(savedTitle, 0, 1), 'https://example.com/title');
+    assert.equal(getShapeText(savedBody), 'Following');
+    assert.equal(getShapeRunHyperlink(savedBody, 0, 0), 'https://example.com/body');
+    assert.equal(getParagraphLevel(savedBody, 0), 2);
+    assert.ok(shapes.some((shape) => getShapeText(shape) === 'Keep graphic'));
   });
 }

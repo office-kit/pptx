@@ -2,7 +2,7 @@
   import { onDestroy, onMount, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { deleteOutlineTitleBodyRange, splitOutlineTitleRange, outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
+  import { deleteOutlineTitleRange, deleteOutlineTitleBodyRange, splitOutlineTitleRange, outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
@@ -39,6 +39,8 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
   let composing = false;
   let titleBodyComposition = false;
+  let deletionDialog = $state<HTMLDialogElement>();
+  let pendingDeletion: (() => void) | undefined;
   let demotionDialog = $state<HTMLDialogElement>();
   let demotionVersion = 0;
   let selectionField: OutlineSelectionField;
@@ -94,7 +96,7 @@
     clearTimeout(timer);
     timer = setTimeout(commit, 600);
   }
-  async function replaceTitleBodyRange(text: string, label: string, formats: OutlineClipboard['formats'] = []) {
+  async function replaceOutlineRange(text: string, label: string, formats: OutlineClipboard['formats'] = [], confirmed = false) {
     const selected = selection.current();
     if (!selected || selected.start.key === selected.end.key) {
       selection.replace(text, formats, label);
@@ -104,14 +106,29 @@
       outlineShapes(sourceSlide).map(item => ({ ...item, slide: sourceSlide, index,
         key: `${getSlidePartName(sourceSlide)}:${item.id}` })));
     const start = slots.find(item => item.key === selected.start.key && item.title);
-    const end = slots.find(item => item.key === selected.end.key && !item.title);
-    if (start && end && start.slide === end.slide) {
+    const end = slots.find(item => item.key === selected.end.key);
+    const joinsSlides = start && end && end.title && end.index > start.index;
+    if (start && end && ((start.slide === end.slide && !end.title) || joinsSlides)) {
+      const affected = getSlides(doc.pres).slice(start.index, end.index + 1);
+      if (joinsSlides && !confirmed && affected.slice(1).some(outlineDemotionNeedsConfirmation)) {
+        const version = doc.version;
+        pendingDeletion = () => {
+          if (doc.pres === presentation && doc.version === version) void replaceOutlineRange(text, label, formats, true);
+        };
+        deletionDialog?.showModal();
+        return;
+      }
+      const parts = new Set(affected.map(source => getSlidePartName(source)));
+
       const key = start.key;
       doc.transact(label, () => {
         for (const field of selection.fields()) {
-          if (field.key.startsWith(`${getSlidePartName(start.slide)}:`)) field.apply(field.flush());
+          if (parts.has(field.key.slice(0, field.key.lastIndexOf(':')))) field.apply(field.flush());
         }
-        deleteOutlineTitleBodyRange(start.slide,
+        if (joinsSlides) deleteOutlineTitleRange(doc.pres, start.slide,
+          { id: start.id, offset: selected.start.offset },
+          { id: end.id, offset: selected.end.offset, slide: end.slide });
+        else deleteOutlineTitleBodyRange(start.slide,
           { id: start.id, offset: selected.start.offset },
           { id: end.id, offset: selected.end.offset });
         if (text) replayTextEdits(findShapeById(start.slide, start.id)!,
@@ -120,11 +137,19 @@
       });
       selection.clear();
       await tick();
-      const field = selection.fields().find(item => item.key === key);
-      if (field) {
-        field.focus(selected.start.offset + text.length);
-        selection.setCaret(field, selected.start.offset + text.length);
-      }
+      const owner = input.getElement()?.ownerDocument;
+      const active = owner?.activeElement;
+      const version = doc.version;
+      const restore = () => {
+        if (doc.version !== version || owner?.activeElement !== active) return;
+        const field = selection.fields().find(item => item.key === key);
+        if (field) {
+          field.focus(selected.start.offset + text.length);
+          selection.setCaret(field, selected.start.offset + text.length);
+        }
+      };
+      if (owner?.defaultView) owner.defaultView.requestAnimationFrame(restore);
+      else restore();
     } else selection.replace(text, formats, label);
   }
   function copy(event: ClipboardEvent, cut = false) {
@@ -135,7 +160,7 @@
     event.clipboardData.setData('text/html', textClipboardHtml(copied));
     event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify({ version: 1, ...copied }));
     event.preventDefault(); event.stopPropagation();
-    if (cut) void replaceTitleBodyRange('', t('Cut'));
+    if (cut) void replaceOutlineRange('', t('Cut'));
   }
   function paste(event: ClipboardEvent) {
     if (!event.clipboardData || composing) return;
@@ -143,7 +168,7 @@
     const copied = parseTextClipboard(event.clipboardData.getData(TEXT_CLIPBOARD_TYPE), plain)
       ?? parseHtmlTextClipboard(event.clipboardData.getData('text/html'), plain);
     event.preventDefault(); event.stopPropagation();
-    void replaceTitleBodyRange(copied?.text ?? plain, t('Paste'), copied?.formats);
+    void replaceOutlineRange(copied?.text ?? plain, t('Paste'), copied?.formats);
   }
   async function menuClipboard(action: 'copy' | 'cut' | 'paste') {
     if (composing) return;
@@ -164,7 +189,7 @@
           item.types.includes(mimeType) ? (await item.getType(mimeType)).text() : ''));
         if (!current()) return;
         const copied = parseHtmlTextClipboard(html!, plain!);
-        await replaceTitleBodyRange(copied?.text ?? plain!, t('Paste'), copied?.formats);
+        await replaceOutlineRange(copied?.text ?? plain!, t('Paste'), copied?.formats);
       } else {
         if (selectedRange.start === selectedRange.end && !selection.current()) return;
         const copied = selection.copy();
@@ -173,7 +198,7 @@
           'text/plain': new Blob([copied.text], { type: 'text/plain' }),
           'text/html': new Blob([textClipboardHtml(copied)], { type: 'text/html' }),
         })]);
-        if (action === 'cut' && current()) await replaceTitleBodyRange('', t('Cut'));
+        if (action === 'cut' && current()) await replaceOutlineRange('', t('Cut'));
       }
     } catch (error) { editor.toast('error', error instanceof Error ? error.message : String(error)); }
   }
@@ -302,7 +327,7 @@
     }
     else if ((event.key === 'Backspace' || event.key === 'Delete') && selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
-      await replaceTitleBodyRange('', t('Delete'));
+      await replaceOutlineRange('', t('Delete'));
     }
     else if (!mod && !event.altKey && event.key.length === 1 &&
       selection.current()?.start.key !== selection.current()?.end.key) {
@@ -310,7 +335,7 @@
       // cross-field replacement through the shared transaction instead of
       // letting it insert into whichever field happens to own focus.
       event.preventDefault(); event.stopPropagation();
-      await replaceTitleBodyRange(event.key, t('Edit text'));
+      await replaceOutlineRange(event.key, t('Edit text'));
     }
     else if (event.shiftKey && !mod && !event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       const current = input.getSelection();
@@ -512,7 +537,7 @@
 </script>
 
 <RichTextInput bind:this={input} {value} {html} layout="outline" label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style={editor.outlineShowFormatting ? "line-height: normal; min-height: 0" : ""} textZoom={1}
-  onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) { typingFormat = undefined; selection.clear(); } }} onbeforeinput={(next, event) => { if (titleBodyComposition) return; range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); void replaceTitleBodyRange(event.data, t('Edit text')); } }} onselect={next => { if (titleBodyComposition) return; const element = input.getElement(); if (!element || element.ownerDocument.activeElement !== element || doc.selection.kind !== 'shape' || doc.selection.slideIndex !== slideIndex || !doc.selection.shapeIds.includes(shapeId)) return; if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
+  onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) { typingFormat = undefined; selection.clear(); } }} onbeforeinput={(next, event) => { if (titleBodyComposition) return; range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); void replaceOutlineRange(event.data, t('Edit text')); } }} onselect={next => { if (titleBodyComposition) return; const element = input.getElement(); if (!element || element.ownerDocument.activeElement !== element || doc.selection.kind !== 'shape' || doc.selection.slideIndex !== slideIndex || !doc.selection.shapeIds.includes(shapeId)) return; if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}
   onnewline={() => {
@@ -525,21 +550,29 @@
     if (active) {
       clearTimeout(timer);
       const selected = selection.current();
-      const part = `${getSlidePartName(slide)}:`;
-      titleBodyComposition = !!selected && selected.start.key !== selected.end.key
-        && selected.end.key.startsWith(part)
-        && outlineShapes(slide).some(item => item.title && selected.start.key === `${part}${item.id}`);
+      const slots = getSlides(doc.pres).flatMap((source, index) => outlineShapes(source).map(item =>
+        ({ ...item, index, key: `${getSlidePartName(source)}:${item.id}` })));
+      const start = slots.find(item => item.key === selected?.start.key);
+      const end = slots.find(item => item.key === selected?.end.key);
+      titleBodyComposition = !!start && !!end && start.key !== end.key && start.title
+        && ((start.index === end.index && !end.title) || (end.index > start.index && end.title));
+      // Keep the IME inside one editable root; native cross-root deletion can cancel composition.
+      if (titleBodyComposition) input.setSelectionRange(range.start, range.start);
     } else if (titleBodyComposition) {
       titleBodyComposition = false;
       // The IME owns the temporary DOM; commit only its final text against the original range.
       draftVersion++;
-      if (text) void replaceTitleBodyRange(text, t('Edit text'));
+      if (text) void replaceOutlineRange(text, t('Edit text'));
     } else timer = setTimeout(commit, 600);
   }}
   onhistory={backward => { commit(); void (backward ? doc.undo() : doc.redo()); }}
 />
 
 
+<dialog bind:this={deletionDialog} aria-label={t('Delete')} onclose={() => { pendingDeletion = undefined; }}>
+  <p>{t('This will delete the slide, its notes page and any graphics or media. Do you want to continue?')}</p>
+  <footer><button onclick={() => deletionDialog?.close()}>{t('No')}</button><button class="confirm" onclick={() => { const action = pendingDeletion; deletionDialog?.close(); action?.(); }}>{t('Yes')}</button></footer>
+</dialog>
 {#if title}
   <dialog bind:this={demotionDialog} aria-label={t('Demote')}>
     <p>{t('This will delete the slide, its notes page and any graphics or media. Do you want to continue?')}</p>
