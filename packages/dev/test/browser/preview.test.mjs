@@ -366,6 +366,10 @@ process.stdin.on('data',async data=>{
       await page.keyboard.press('ArrowLeft');
       await page.locator('#toggle-chat').click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
+      await page.waitForFunction(slideSvg, 'Slide 0');
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction(slideSvg, 'Slide 2');
       await writeFile(file, source('Presenting'));
       await page.waitForFunction(slideSvg, 'Presenting');
       assert.ok(await page.locator('body').evaluate((el) => el.classList.contains('presenting')));
