@@ -3,10 +3,14 @@ import {
   getShapeImageFormat,
   getShapeImageFillLayout,
   getShapeImageOpacity,
+  getShapeImageBrightness,
+  getShapeImageContrast,
   getShapeImageCrop,
   setShapeImageFill,
   setShapeImageFillLayout,
   setShapeImageOpacity,
+  setShapeImageBrightness,
+  setShapeImageContrast,
   setShapeImageCrop,
   type ImageFormat,
   type ImageFillLayout,
@@ -19,6 +23,8 @@ export interface RememberedImageFill {
   format: ImageFormat;
   layout: ImageFillLayout | null;
   opacity: number | null;
+  brightness: number | null;
+  contrast: number | null;
   crop: ImageCrop | null;
 }
 
@@ -33,6 +39,8 @@ export function readRememberedImageFill(shape: SlideShapeData): RememberedImageF
     format,
     layout: getShapeImageFillLayout(shape),
     opacity: getShapeImageOpacity(shape),
+    brightness: getShapeImageBrightness(shape),
+    contrast: getShapeImageContrast(shape),
     crop,
   };
 }
@@ -41,6 +49,8 @@ export function restoreRememberedImageFill(shape: SlideShapeData, fill: Remember
   setShapeImageFill(shape, fill.bytes, { format: fill.format });
   if (fill.layout) setShapeImageFillLayout(shape, fill.layout);
   setShapeImageOpacity(shape, fill.opacity);
+  setShapeImageBrightness(shape, fill.brightness);
+  setShapeImageContrast(shape, fill.contrast);
   setShapeImageCrop(shape, fill.crop);
 }
 
