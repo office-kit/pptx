@@ -156,3 +156,42 @@ it('applies Total Row to a vertical merge ending at the last row, as in Mac Powe
     color: '#4F81BD',
   });
 });
+
+it('applies Last Column to a horizontal merge reaching the right edge, as in Mac PowerPoint', async () => {
+  const pres = createPresentation();
+  const table = addSlideTable(addBlankSlide(pres), {
+    x: inches(1),
+    y: inches(1),
+    w: inches(6),
+    h: inches(3),
+    rows: [
+      ['A', 'B', 'C'],
+      ['D', 'E', 'F'],
+      ['G', 'H', 'I'],
+    ],
+  });
+  mergeTableCells(table, { row: 0, col: 0, rowSpan: 1, colSpan: 3 });
+  mergeTableCells(table, { row: 2, col: 0, rowSpan: 1, colSpan: 2 });
+  setTableStyleFlags(table, { firstRow: false, firstCol: false, bandRow: true, lastCol: true });
+  const cells = getTableCells(table);
+  expect(getTableCellAppearanceEffective(pres, cells[0]![0]!).fill).toEqual({
+    kind: 'solid',
+    color: '#4F81BD',
+  });
+  expect(getTableCellAppearanceEffective(pres, cells[2]![0]!).fill).toEqual({
+    kind: 'solid',
+    color: '#D0D8E8',
+  });
+  setTableStyleFlags(table, { lastCol: false });
+  expect(getTableCellAppearanceEffective(pres, cells[0]![0]!).fill).toEqual({
+    kind: 'solid',
+    color: '#D0D8E8',
+  });
+  setTableStyleFlags(table, { lastCol: true });
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const loadedCell = getTableCells(getSlideShapes(getSlides(loaded)[0]!)[0]!)[0]![0]!;
+  expect(getTableCellAppearanceEffective(loaded, loadedCell).fill).toEqual({
+    kind: 'solid',
+    color: '#4F81BD',
+  });
+});
