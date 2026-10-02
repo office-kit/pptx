@@ -1253,3 +1253,10 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Reproduced two full-CI failures: while editing text, beginMove returned before handling a second shape press, so Shift-click silently failed to extend selection. Commit the draft before handling that press. No extra click is required.
 - Both background-fill and gradient-multiple regressions now pass; background-fill also types a draft and verifies its persisted text after Shift-click. Multi-resize passes. Gesture-cancel and multi-rotate tests now select the shape border for object-only operations, and both pass. Logs: `/tmp/edit-switch-before.log`, `/tmp/edit-switch-after.log`, `/tmp/edit-switch-draft.log`, `/tmp/edit-switch-gestures-fixed.log`.
 - Svelte diagnostics: zero errors/warnings; editor build passes. Svelte files are excluded from root oxfmt/oxlint; changed browser tests pass scoped checks. Other full-CI failures and native restoration remain outstanding.
+
+## 2026-10-03: End text editing on an empty slide press
+
+- Reproduced a remaining selection lifecycle bug: an empty slide click ended editing through blur but retained the shape selection. Commit the edit before processing the stage press so one click also clears selection or starts a marquee.
+- Background-fill now covers editing to blank-area deselection, followed by selecting multiple shapes again. This and gesture cancellation pass (`/tmp/blank-edit-after.log`: 2 passed). Editor build, Svelte check, scoped format/lint, and diff checks pass.
+- CI 37024457579 on 87af64e1 had passed Static checks, OOXML validator, Preview fidelity, Node 22 and Node 26 when checked; Node 24 was still running. This does not cover the subsequent local selection fixes.
+- Native connection retry still fails at pipe startup; reference restoration remains pending.

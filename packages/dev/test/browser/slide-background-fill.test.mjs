@@ -61,6 +61,17 @@ test(
         new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
       );
       assert.equal(getShapeText(getSlideShapes(getSlides(edited)[0])[0]), 'Edited first');
+      await page.keyboard.press('Escape');
+      await editor.locator('.hit').first().click();
+      await editor.locator('.inline-edit').waitFor();
+      await editor.locator('.stage').click({ position: { x: 8, y: 8 } });
+      assert.equal(await editor.locator('.inline-edit').count(), 0);
+      assert.equal(await editor.locator('.hit.selected').count(), 0);
+      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
       await editor.getByRole('radio', { name: 'Slide background fill', exact: true }).check();
       await saved();
       assert.deepEqual(await read(), [{ kind: 'background' }, { kind: 'background' }]);

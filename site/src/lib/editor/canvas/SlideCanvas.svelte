@@ -360,7 +360,8 @@
   }
 
   function onStagePointerDown(e: PointerEvent) {
-    if (editing || e.button !== 0 || cancelling) return;
+    if (e.button !== 0 || cancelling) return;
+    if (editing) commitEditing();
     gestureSelection = doc.selection;
     // Empty-area press → marquee select.
     if (!stageEl) return;
