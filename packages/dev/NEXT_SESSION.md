@@ -1296,3 +1296,10 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Reproduced both failures (`/tmp/group-current.log`): initial text-center clicks entered inline editing, so Ctrl+A selected text instead of group children or slide objects.
 - Rotated-ungroup now starts with a border click. Group-editing exits the clicked child's text edit with Escape before Ctrl+A. Both pass (`/tmp/group-object-selection.log`), preserving group geometry, snapping/alignment, duplicate/delete, bilingual Undo/Redo, nested grouping and reload assertions. Scoped format/lint pass.
 - Agent font-dialog-table has a passing focused run (`/tmp/font-dialog-table-current.log`); its fixture explicitly marks the non-bold header run bold:false because table header bold is inherited. Speculative FontRibbon modifications were removed. Await final agent review before committing its file. Line-spacing and inline-paragraphs work remain active.
+
+## 2026-10-03: Placeholder reset compact menus
+
+- All four reset-placeholder-geometry cases reproduced obsolete Japanese direct Home-button lookups. Open Home > Layout and use its visible menu items, reopening the menu for the restore-idempotence check.
+- Four tests pass (`/tmp/reset-placeholder-menu.log`), preserving selected-slide isolation, geometry, text format, missing-slot restoration, Undo/Redo and saved/reloaded data. Scoped format/lint pass.
+- Root selection-appearance investigation is still running inside exec session 43278, log `/tmp/selection-reset-current.log`. That run began with the four old reset tests (all failed before the fixes above), then selection-appearance; first group-child paint case passed. Poll the live handle before deciding whether to restart. Current selection-appearance file is unchanged.
+- Agents table_band_edges (font-dialog-table + line-spacing) and table_theme_refs (inline-paragraphs) remain active. Do not commit their in-progress files without reviewing final results.
