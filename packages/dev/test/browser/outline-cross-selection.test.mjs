@@ -376,7 +376,7 @@ test(
 );
 
 test(
-  'outline cross-field selection handles Shift+Enter as one replacement',
+  'outline cross-slide Shift+Enter preserves the title boundary like PowerPoint',
   { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-outline-shift-enter-'));
@@ -392,10 +392,21 @@ test(
       const texts = getSlideShapes(getSlides(await readDeck(preview))[0]).map((shape) =>
         getShapeText(shape),
       );
-      assert.ok(
-        texts.includes('He\n'),
-        `expected one cross-field line-break replacement: ${texts.join('|')}`,
-      );
+      assert.equal(texts[0], 'He');
+      assert.equal(texts[1], '');
+      const slides = getSlides(await readDeck(preview));
+      assert.equal(slides.length, 2);
+      assert.equal(getShapeText(getSlideShapes(slides[1])[0]), '');
+      assert.equal(getShapeText(getSlideShapes(slides[1])[1]), 'Following');
+      const revision = (await waitForState(preview.url, () => true)).revision;
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+      await waitForState(preview.url, (state) => state.revision !== revision);
+      const restored = getSlides(await readDeck(preview));
+      assert.equal(restored.length, 2);
+      assert.equal(getShapeText(getSlideShapes(restored[0])[0]), 'Heading');
+      assert.equal(getShapeText(getSlideShapes(restored[0])[1]), 'Body');
+      assert.equal(getShapeText(getSlideShapes(restored[1])[0]), 'Next');
+      assert.equal(getShapeText(getSlideShapes(restored[1])[1]), 'Following');
     } finally {
       await browser?.close();
       await preview?.close();

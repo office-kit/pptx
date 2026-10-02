@@ -1,3 +1,10 @@
+## 2026-10-02: 隣接スライドのタイトルをまたぐ改行
+
+- Mac PowerPoint の Outline title / Next / Following で tline title + 改行 + Ne を選択し Shift+Enter。2 枚を維持し、タイトルは Ou / xt、次の本文 Following は維持。保存 XML を /tmp/pptx-outline-audit/cross-title-native.pptx に保持。終了側タイトル全体を選択しても同じスライド境界を維持。
+- 既存ブラウザテストの He + 改行という期待値を実機に合わせて修正し、実装前の失敗を確認。隣接タイトル間の改行を構造編集として処理し、保存・再読込後のリンク保持を単体テストで検証。
+- 参照文書は閉じて reference-before-table-style.pptx から復元済み。再表示した reference.pptx は Outline title の 1 枚、保存済み。ファイル一覧のクリックが違う行を開くため、Go to Folder → Return → 状態取得 → Return で正しいファイルを開いた。
+- 次: 非隣接範囲、本文からタイトルへの範囲、削除・入力置換、逆方向選択の実機確認。全面一致は未達成。4173 と .pnpm-store は保持。
+
 ## 2026-10-02: 分割後の後続本文段落を実機確認
 
 - Mac PowerPoint で Outline title / Body / Following の 1 枚を作成し、tline title + 改行 + Bo を選択して Shift+Enter。保存 XML は slide1 title=Ou / body=空、slide2 title=dy / body=Following。前回の splitOutlineTitleRange の後続段落の扱いと一致。
