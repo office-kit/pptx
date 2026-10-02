@@ -11,6 +11,8 @@ import {
   addSlideTable,
   addSlideTextBox,
   setShapeParagraphs,
+  setShapeTextAnchor,
+  setTableCellAnchor,
   getTableCells,
   setTableCellParagraphs,
   inches,
@@ -19,7 +21,7 @@ import {
 import { startPreview } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
-for (const placement of ['middle', 'leading', 'consecutive', 'empty-run'])
+for (const placement of ['middle', 'leading', 'consecutive', 'empty-run', 'trailing'])
   for (const kind of ['table', 'shape'])
     test(
       `oversized ${placement} ${kind} line break does not shift surrounding text when editing`,
@@ -46,14 +48,20 @@ for (const placement of ['middle', 'leading', 'consecutive', 'empty-run'])
           ];
           if (kind === 'table') setTableCellParagraphs(getTableCells(shape)[0][0], paragraphs);
           else setShapeParagraphs(shape, paragraphs);
+          if (placement === 'trailing') {
+            if (kind === 'table') setTableCellAnchor(getTableCells(shape)[0][0], 'center');
+            else setShapeTextAnchor(shape, 'center');
+          }
           const parts = unzipSync(await savePresentation(pres));
           const name = 'ppt/slides/slide1.xml';
           parts[name] = strToU8(
             strFromU8(parts[name]).replace(
-              leading ? '<a:r>' : '</a:r>',
-              leading
-                ? '<a:br><a:rPr sz="8000"/></a:br><a:r>'
-                : '</a:r>' +
+              placement === 'trailing' ? '</a:p>' : leading ? '<a:r>' : '</a:r>',
+              placement === 'trailing'
+                ? '<a:br><a:rPr sz="8000"/></a:br></a:p>'
+                : leading
+                  ? '<a:br><a:rPr sz="8000"/></a:br><a:r>'
+                  : '</a:r>' +
                     (placement === 'empty-run' ? '<a:r><a:rPr sz="8000"/><a:t></a:t></a:r>' : '') +
                     '<a:br><a:rPr sz="8000"/></a:br>'.repeat(placement === 'consecutive' ? 2 : 1),
             ),
