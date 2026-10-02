@@ -1,3 +1,11 @@
+## 2026-10-02: 帯スタイルの罫線
+
+- band1H/band2H/band1V/band2V の明示した辺を、表内部でもそのセルの辺として解決。辺が未指定の場合は insideH/insideV を維持する。明示辺と内部罫線の共存を回帰テストに追加。
+- 根拠: LibreOffice `oox/source/drawingml/table/tablecell.cxx` の applyTableStylePart と pushToXCell（https://github.com/LibreOffice/core/blob/master/oox/source/drawingml/table/tablecell.cxx）。これは他実装との照合であり、PowerPoint 実機の帯罫線一致は未検証。完全一致の証拠とはしない。
+- PowerPoint 画面取得成功。reference.pptx は Outline title / Ordinary text box、保存済み、Undo 無効。結合操作の試行で生じた表挿入・Total Row・サイズ変更は全て取り消し済み。結合セルの条件領域がアンカー基準か端基準かは未確定。
+- 検証: core 3281 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査と build、site Svelte check 成功。
+- 未完了項目は下記の表外観記録を参照。全操作一致は未完了。
+
 ## 2026-10-02: 埋め込み表スタイルの外観
 
 - `getTableCellAppearanceEffective` で tcStyle の単色塗り、明示 noFill、外周・内部罫線を解決し、プレビューに統合。推測アクセント塗り、強制白背景、未指定の灰色グリッドを除去。

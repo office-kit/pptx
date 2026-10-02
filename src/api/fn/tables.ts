@@ -1731,13 +1731,7 @@ export const getTableCellAppearanceEffective = (
     if (region === 'neCell' && rowStart === 0 && colEnd === colCount - 1) return side;
     if (region === 'swCell' && rowEnd === rowCount - 1 && colStart === 0) return side;
     if (region === 'seCell' && rowEnd === rowCount - 1 && colEnd === colCount - 1) return side;
-    if (region.startsWith('band')) {
-      if (side === 'left' || side === 'right')
-        return boundary('wholeTbl', side) === side ? side : 'insideV';
-      if (side === 'top' || side === 'bottom')
-        return boundary('wholeTbl', side) === side ? side : 'insideH';
-      return side;
-    }
+    if (region.startsWith('band')) return side;
     if (side === 'tlToBr' || side === 'blToTr') return side;
     return null;
   };
@@ -1755,7 +1749,14 @@ export const getTableCellAppearanceEffective = (
           local in STYLE_INSIDE_LOCALS
             ? local
             : TABLE_STYLE_BORDER_LOCALS[local as keyof typeof TABLE_STYLE_BORDER_LOCALS];
-        const line = firstChildElement(bdr, qname('a', styleLocal, NS.dml));
+        let line = firstChildElement(bdr, qname('a', styleLocal, NS.dml));
+        // A band can specify a cell side even within the table. Interior
+        // borders remain the fallback when that side has no explicit entry.
+        if (!line && part.name.localName.startsWith('band')) {
+          const interior = boundary('wholeTbl', side);
+          if (interior === 'insideH' || interior === 'insideV')
+            line = firstChildElement(bdr, qname('a', interior, NS.dml));
+        }
         if (line) borders[side] = readTableStyleBorder(line, pres, theme, colorMap);
       }
     }
