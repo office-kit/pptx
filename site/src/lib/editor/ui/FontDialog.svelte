@@ -27,6 +27,7 @@
   let offsetText = $state('');
   let lastValidOffsetText = $state('');
   let offsetEdited = $state(false);
+  let lastValidOffsetEdited = $state(false);
   let offsetError = $state<string>();
   let offsetInput = $state<HTMLInputElement>();
   let offsetErrorDialog: HTMLDialogElement;
@@ -84,6 +85,7 @@
     offsetText = offset === undefined ? '' : `${offset}%`;
     lastValidOffsetText = offsetText;
     offsetEdited = false;
+    lastValidOffsetEdited = false;
     normalizeHeight = common(f => f.normalizeHeight ?? false);
     const spc = common(f => f.spc ?? 0);
     spacingMode = spc === undefined ? '' : spc === 0 ? 'normal' : spc > 0 ? 'expanded' : 'condensed';
@@ -109,6 +111,7 @@
     offsetText = value === undefined ? '' : `${value}%`;
     lastValidOffsetText = offsetText;
     offsetEdited = true;
+    lastValidOffsetEdited = true;
     offsetError = undefined;
     if (value !== undefined) patch.baseline = value / 100;
   }
@@ -144,6 +147,7 @@
   function closeOffsetError(discard: boolean) {
     if (discard) {
       offsetText = lastValidOffsetText;
+      offsetEdited = lastValidOffsetEdited;
     } else {
       offsetText = '';
     }
