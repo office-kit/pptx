@@ -223,10 +223,14 @@ test(
           // Suppress the pending select event so the shortcut runs against a
           // deliberately stale reactive textRange while the native selection
           // is already current.
-          document.addEventListener('selectionchange', (event) => event.stopImmediatePropagation(), {
-            capture: true,
-            once: true,
-          });
+          document.addEventListener(
+            'selectionchange',
+            (event) => event.stopImmediatePropagation(),
+            {
+              capture: true,
+              once: true,
+            },
+          );
           const range = document.createRange();
           range.selectNodeContents(node);
           const selection = window.getSelection();
