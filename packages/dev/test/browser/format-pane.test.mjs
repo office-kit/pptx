@@ -1,3 +1,4 @@
+import { openArrange } from '../helpers/ribbon.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -22,7 +23,9 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
-      page.on('pageerror', (error) => errors.push(error.message));
+      page.on('pageerror', (error) => {
+        errors.push(error.message);
+      });
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -85,13 +88,14 @@ test(
       await paint.press('ArrowLeft');
       assert.equal(await size.getAttribute('aria-selected'), 'true');
       await editor.getByRole('button', { name: 'Close Format Shape', exact: true }).click();
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
+      assert.equal(await editor.getByRole('menu', { name: 'Drawing', exact: true }).count(), 0);
       await editor.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
       assert.equal(await tabs.isVisible(), false);
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'More Rotation Options...', exact: true }).click();
       assert.equal(await size.getAttribute('aria-selected'), 'true');

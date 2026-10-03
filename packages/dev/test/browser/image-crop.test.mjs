@@ -1,3 +1,4 @@
+import { openArrange } from '../helpers/ribbon.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -241,7 +242,7 @@ test(
       await editor.locator('.lang select').selectOption('en');
       ja = false;
       await editor.getByRole('tab', { name: 'Home', exact: true }).click();
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();

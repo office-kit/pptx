@@ -6,7 +6,7 @@
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
-  let { compact = false }: { compact?: boolean } = $props();
+  let { compact = false, onchoose }: { compact?: boolean; onchoose?: () => void } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   let open = $state(false);
@@ -19,7 +19,7 @@
   const order = [{ id: 'bringShapeToFront', label: 'Bring to Front' }, { id: 'sendShapeToBack', label: 'Send to Back' }, { id: 'bringShapeForward', label: 'Bring Forward' }, { id: 'sendShapeBackward', label: 'Send Backward' }];
   const alignment = [{ value: 'left', label: 'Align Left' }, { value: 'center', label: 'Align Center' }, { value: 'right', label: 'Align Right' }, { value: 'top', label: 'Align Top' }, { value: 'middle', label: 'Align Middle' }, { value: 'bottom', label: 'Align Bottom' }] as const;
   function close(restore = true) { open = false; branch = null; if (restore) trigger.focus(); }
-  function choose(action: () => void) { close(); action(); }
+  function choose(action: () => void) { close(); onchoose?.(); action(); }
   async function show() { open = !open; branch = null; if (open) { await tick(); menu?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus(); } }
   function place(node: HTMLElement, nested = false) {
     function position() {

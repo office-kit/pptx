@@ -49,7 +49,7 @@ const openEditor = async (build, dir) => {
 for (const { vert, writingMode } of [
   { vert: 'vert', writingMode: 'vertical-rl' },
   { vert: 'wordArtVert', writingMode: 'vertical-rl' },
-  { vert: 'vert270', writingMode: 'vertical-lr' },
+  { vert: 'vert270', writingMode: 'vertical-rl' },
 ]) {
   test(
     `inline editing reads ${vert} the way the preview paints it`,

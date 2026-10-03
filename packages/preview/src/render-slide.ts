@@ -2932,23 +2932,16 @@ export const resolveTextBodyModel = (
   );
   if (innerW <= 0 || innerH <= 0) return null;
 
-  // The rect the pure-SVG path lays text into for a given vertical layout.
-  // Horizontal and `upright` (wordArtVert) text use the shared inner rect; the
-  // true ±90° rotations (cw90/cw270) swap the box extents and rotate the insets
-  // with the glyphs — the reading/wrap dimension takes the L/R insets, the
-  // column-stack dimension the T/B insets. Shared by the normAutofit shrink
-  // search and the SVG render so the shrink is measured against the SAME box the
-  // text is rendered into (with PowerPoint's asymmetric default insets the two
-  // rects differ by ~9.6px/axis, which would otherwise mis-size the fit).
-  const svgTextRect = (v: VerticalLayout): { x: number; y: number; w: number; h: number } =>
-    v === 'none' || v === 'upright'
-      ? { x: innerX, y: innerY, w: innerW, h: innerH }
-      : {
-          x: bounds.x + tIns,
-          y: bounds.y + lIns,
-          w: Math.max(0, bounds.w - tIns - bIns),
-          h: Math.max(0, bounds.h - lIns - rIns),
-        };
+  // Keep vertical text in the same inner rectangle as the browser editing
+  // surface. CSS writing-mode rotates glyph flow without rotating the box;
+  // sharing this rectangle keeps static glyphs, live effects, and the caret on
+  // one pivot when margins are asymmetric.
+  const svgTextRect = (_v: VerticalLayout): { x: number; y: number; w: number; h: number } => ({
+    x: innerX,
+    y: innerY,
+    w: innerW,
+    h: innerH,
+  });
 
   // First pass — collect every run's text + format so we can both
   // (a) compute an autofit scale and (b) emit each run with the
@@ -3150,8 +3143,8 @@ export const resolveTextBodyModel = (
             gapPx: fitCols.gapEmu !== undefined ? fitCols.gapEmu / EMU_PER_PX : 0,
           }
         : null;
-    // Measure against the SAME rect the SVG path renders into (rotated text uses
-    // the inset-swapped box). For cw90/cw270 the engine swaps the box extents, so
+    // Measure against the same inner rect the SVG path renders into.
+    // For cw90/cw270 the engine swaps the layout axes, so
     // the measured `requiredH` (stacking dimension) fills the box WIDTH, not its
     // height — compare against the rect's w there, its h otherwise.
     const fitRect = svgTextRect(fitVert);
@@ -3448,6 +3441,7 @@ const renderTextBody = (
   theme: PresentationTheme | null,
   phType: string | null,
   ctx: LayoutCtx,
+  output: 'body' | 'effects' = 'body',
 ): string => {
   const model = resolveTextBodyModel(
     pres,
@@ -3515,19 +3509,9 @@ const renderTextBody = (
             gapPx: svgCols.gapEmu !== undefined ? svgCols.gapEmu / EMU_PER_PX : 0,
           }
         : null;
-    // Horizontal text uses the shared inner rect (already preset-rect- and
-    // inset-adjusted above). Vertical text is special to THIS path: it rotates a
-    // horizontal layout ±90°, so the engine swaps the box EXTENTS and the insets
-    // must rotate with the glyphs (the reading/wrap dimension takes the L/R
-    // insets, the column-stack dimension the T/B insets) — otherwise the rotated
-    // frame lands ~7px off diagonally from LibreOffice. The foreignObject path
-    // does NOT swap: it lays vertical text out with CSS `writing-mode`, which
-    // works in box orientation, so the two paths derive the vertical rect
-    // differently BY DESIGN. (Symmetric insets keep the box center, so the
-    // per-edge cw90/cw270 origin mapping only matters for asymmetric insets,
-    // which this path does not distinguish.)
-    // `upright` (wordArtVert) does not rotate, so it uses the box-oriented inner
-    // rect like horizontal text; only the true ±90° rotations swap extents.
+    // SVG and CSS writing-mode share the authored inner rectangle. The SVG
+    // engine rotates the layout axes inside it; rotating the insets as well
+    // would displace effects from the editable glyphs with asymmetric margins.
     const { x: vInnerX, y: vInnerY, w: vInnerW, h: vInnerH } = svgTextRect(svgVert);
     if (vInnerW <= 0 || vInnerH <= 0) return '';
     const svgArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {
@@ -3552,6 +3536,29 @@ const renderTextBody = (
       vert: svgVert,
       columns: svgColumns,
     };
+    if (output === 'effects') {
+      const effectArgs: SvgTextArgs = {
+        ...svgArgsBase,
+        autoFitScale: authoredAutofit ? autoFitScale : 1,
+        effectsOnly: true,
+        resolveFamily: browserFontFamily,
+      };
+      const effects = [
+        paraData.some((para) => para.runs.some((run) => run.fmt?.reflection != null))
+          ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'reflection' })
+          : '',
+        paraData.some((para) => para.runs.some((run) => run.fmt?.innerShadow != null))
+          ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'innerShadow' })
+          : '',
+      ].join('');
+      const bodyRotDegSvg = getShapeTextBodyRotationDeg(shape);
+      if (bodyRotDegSvg !== null && bodyRotDegSvg !== 0) {
+        const pivotX = vInnerX + vInnerW / 2;
+        const pivotY = vInnerY + vInnerH / 2;
+        return `<g transform="rotate(${bodyRotDegSvg} ${E(pivotX)} ${E(pivotY)})">${effects}</g>`;
+      }
+      return effects;
+    }
     // Autofit scale is decided once above (shared with the foreignObject path):
     // for any authored autofit — a baked `fontScale` or the bare-normAutofit
     // shrink — `autoFitScale` already holds the final factor. The `!authoredAutofit`
@@ -3657,9 +3664,105 @@ const renderTextBody = (
   if (bodyRotDeg !== null && bodyRotDeg !== 0) {
     const pivotX = innerX + innerW / 2;
     const pivotY = innerY + innerH / 2;
-    return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${reflectionOverlay}${foreign}${innerShadowOverlay}</g>`;
+    const content =
+      output === 'effects'
+        ? `${reflectionOverlay}${innerShadowOverlay}`
+        : `${reflectionOverlay}${foreign}${innerShadowOverlay}`;
+    return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${content}</g>`;
   }
-  return reflectionOverlay + foreign + innerShadowOverlay;
+  return output === 'effects'
+    ? reflectionOverlay + innerShadowOverlay
+    : reflectionOverlay + foreign + innerShadowOverlay;
+};
+
+/**
+ * Paint only character reflection/inner-shadow effects for an editable text
+ * body. The caller supplies the local bounds of the editable box in EMUs. For
+ * a table, `cell` selects a zero-based row/column and bounds describe that cell.
+ * Body rotation and vertical text handling remain canonical here; the editor only
+ * supplies the outer shape/group transform around this SVG.
+ */
+export const renderTextEffectsSvg = (
+  pres: PresentationData,
+  slide: SlideData,
+  shape: SlideShapeData,
+  bounds: { w: number; h: number },
+  opts: Pick<RenderSlideOptions, 'measureText'> & { cell?: { row: number; col: number } } = {},
+): string => {
+  if (opts.cell)
+    return renderTableCellEffectsSvgInternal(pres, slide, shape, opts.cell, bounds, opts);
+  activeColorMap = getEffectiveColorMap(slide);
+  activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
+  const theme = getPresentationTheme(pres);
+  const localBounds = { x: 0, y: 0, w: bounds.w, h: bounds.h };
+  const ctx: LayoutCtx = {
+    groupScale: { sx: 1, sy: 1 },
+    groupReflected: false,
+    mode: 'foreignObject',
+    measure: opts.measureText ?? browserTextMeasurer() ?? defaultMeasurer,
+    ownShapes: true,
+    background: { id: '', width: localBounds.w / EMU_PER_PX, height: localBounds.h / EMU_PER_PX },
+    inverseGroupTransform: '',
+  };
+  const body = renderTextBody(
+    pres,
+    shape,
+    localBounds,
+    theme,
+    getShapePlaceholderType(shape),
+    ctx,
+    'effects',
+  );
+  if (!body) return '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${E(localBounds.w)} ${E(localBounds.h)}" width="100%" height="100%" overflow="visible" aria-hidden="true">${body}</svg>`;
+};
+
+/** Paint only character effects for an editable table cell. */
+const renderTableCellEffectsSvgInternal = (
+  pres: PresentationData,
+  slide: SlideData,
+  shape: SlideShapeData,
+  cellPosition: { row: number; col: number },
+  bounds: { w: number; h: number },
+  opts: Pick<RenderSlideOptions, 'measureText'> = {},
+): string => {
+  activeColorMap = getEffectiveColorMap(slide);
+  activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
+  const cell = getTableCells(shape)[cellPosition.row]?.[cellPosition.col];
+  if (!cell) return '';
+  const paragraphs = getTableCellParagraphs(cell);
+  const theme = getPresentationTheme(pres);
+  const margins = getTableCellMargins(cell);
+  const anchor = getTableCellAnchor(cell) ?? 'top';
+  const localBounds = { x: 0, y: 0, w: bounds.w, h: bounds.h };
+  const ctx: LayoutCtx = {
+    groupScale: { sx: 1, sy: 1 },
+    groupReflected: false,
+    mode: 'foreignObject',
+    measure: opts.measureText ?? browserTextMeasurer() ?? defaultMeasurer,
+    ownShapes: true,
+    background: { id: '', width: localBounds.w / EMU_PER_PX, height: localBounds.h / EMU_PER_PX },
+    inverseGroupTransform: '',
+  };
+  const body = renderTableCellText(
+    cell,
+    paragraphs,
+    0,
+    0,
+    localBounds.w,
+    localBounds.h,
+    activeDeckTextColor,
+    pres,
+    shape,
+    theme,
+    getPresentationFonts(pres)?.minorLatin ?? null,
+    ctx,
+    anchor,
+    margins,
+    true,
+  );
+  if (!body) return '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${E(localBounds.w)} ${E(localBounds.h)}" width="100%" height="100%" overflow="visible" aria-hidden="true">${body}</svg>`;
 };
 
 // ---------------------------------------------------------------------------
@@ -6311,6 +6414,7 @@ const renderTableCellText = (
     top: number | null;
     bottom: number | null;
   },
+  effectsOnly = false,
 ): string => {
   const { paraData, hasText } = cellParaData(paragraphs, cell, pres);
   if (!hasText) return '';
@@ -6333,8 +6437,8 @@ const renderTableCellText = (
   const customTabs = paraData.some(
     (para) => para.tabStops?.length && para.runs.some((run) => run.text.includes('\t')),
   );
-  if (ctx.mode === 'svg' || customTabs) {
-    return buildAndLayoutSvgText({
+  if (ctx.mode === 'svg' || customTabs || effectsOnly) {
+    const svgArgs: SvgTextArgs = {
       pres,
       shape,
       theme,
@@ -6355,7 +6459,22 @@ const renderTableCellText = (
       ...(ctx.mode === 'foreignObject' ? { resolveFamily: browserFontFamily } : {}),
       vert: verticalLayoutOf(getTableCellTextDirection(cell)),
       columns: null,
-    });
+      ...(effectsOnly ? { effectsOnly: true } : {}),
+    };
+    if (effectsOnly) {
+      const reflection = paraData.some((para) =>
+        para.runs.some((run) => run.fmt?.reflection != null),
+      )
+        ? buildAndLayoutSvgText({ ...svgArgs, effectKind: 'reflection' })
+        : '';
+      const innerShadow = paraData.some((para) =>
+        para.runs.some((run) => run.fmt?.innerShadow != null),
+      )
+        ? buildAndLayoutSvgText({ ...svgArgs, effectKind: 'innerShadow' })
+        : '';
+      return reflection + innerShadow;
+    }
+    return buildAndLayoutSvgText(svgArgs);
   }
 
   const vertical = verticalTextStyle(getTableCellTextDirection(cell));

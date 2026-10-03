@@ -470,10 +470,7 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
       if (entry.underline) {
         const expected = { sng: 'solid', dbl: 'double', wavy: 'wavy' }[entry.underline];
         assert.equal(entry.underlineStyle, expected);
-        assert.equal(
-          entry.parsed.formats[0].format.underline,
-          entry.underline === 'sng' ? true : entry.underline,
-        );
+        assert.equal(entry.parsed.formats[0].format.underline, entry.underline);
       } else assert.equal(entry.parsed.formats[0].format.underline, undefined);
     }
     assert.match(result.underlineColorHtml, /text-decoration-color: rgb\(170, 187, 204\)/);

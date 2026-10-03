@@ -443,6 +443,7 @@ export {
   getSlideNotes,
   getSlideNotesTextFormats,
   getSlideNotesParagraphEndFormat,
+  resolveSlideNotesTextColor,
   getSlideNotesLength,
   transformSlideNotesCase,
   getSlideOutline,
@@ -696,6 +697,7 @@ export type {
 } from './fn.ts';
 export type { TextCase } from './fn/shape-text.ts';
 export type { TableCellParagraph } from './fn.ts';
+export type { SlideNotesTextFormatOptions } from './fn.ts';
 export type {
   PlaceholderType,
   PresetShape,

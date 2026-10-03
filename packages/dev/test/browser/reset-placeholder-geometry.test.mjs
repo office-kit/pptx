@@ -101,9 +101,9 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
+      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       await editor
-        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menu', { name: 'スライド', exact: true })
         .getByRole('menuitem', { name: 'プレースホルダーの配置を戻す', exact: true })
         .click();
       await saved();
@@ -190,13 +190,13 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
+      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       const restore = editor
-        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menu', { name: 'スライド', exact: true })
         .getByRole('menuitem', { name: '削除したプレースホルダーを復元', exact: true });
       await restore.click();
       await saved();
-      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
+      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       await restore.click();
       await saved();
       await page.screenshot({ path: '/tmp/pptx-restore-slots-ja.png', fullPage: true });
@@ -291,9 +291,9 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
+      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       await editor
-        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menu', { name: 'スライド', exact: true })
         .getByRole('menuitem', { name: 'プレースホルダーの文字書式を戻す', exact: true })
         .click();
       await saved();
@@ -406,9 +406,9 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'レイアウト', exact: true }).click();
+      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       await editor
-        .getByRole('menu', { name: 'レイアウト', exact: true })
+        .getByRole('menu', { name: 'スライド', exact: true })
         .getByRole('menuitem', { name: 'レイアウトをリセット', exact: true })
         .click();
       await saved();

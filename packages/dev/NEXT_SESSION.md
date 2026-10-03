@@ -1,3 +1,85 @@
+## 2026-10-04: Notes Enter caret fixed; final integrated verification
+
+- NotesPane now supplies the post-newline logical caret to changed() and RichTextInput, instead of re-reading the pre-newline DOM range. Removed unused typingParagraph bookkeeping. Repeated Enter test no longer uses ArrowDown; asserts exact text and saved tx1 token.
+- Agent reported two consecutive passes; root current-artifact browser56912 also passed (19s), log `/tmp/parity-notes-caret-final.log`. Root moved save revision baseline before typing to avoid a debounce race in the test itself.
+- Root44620 passed format, lint, core types and preview types. Root24796 passed core/preview builds and DSL typecheck/build against freshly built dependencies.
+- Final dev build and all five notes/inline-effect browser cases passed (29262). Logs `/tmp/parity-dev-final-build.log`, `/tmp/parity-notes-effects-final.log`. Final format/diff check23380 also passed. Earlier full-suite five timeout failures remain unresolved under host load; not a full gate pass.
+- Changes remain uncommitted at this entry. Keep the sole PR #287 destination feat/pptx-editor. Native comparison/restoration and full UI parity remain incomplete.
+
+## 2026-10-03: Current artifact recheck and CI audit
+
+- Root current-artifact notes browser 16141 failed at repeated pending newlines (line 291, accent1 instead of tx1); this was after the agent rebuild, so stale output does not explain it. Notes agent is fixing Enter caret movement and pending format lifecycle. Remove the test ArrowDown workaround and verify actual keyboard caret positions before accepting the fix.
+- Current site Svelte check 41536 passed with 0 errors/warnings (`/tmp/parity-notes-final-svelte.log`). This precedes final notes edits.
+- PR #287 still OPEN at 3e9564cc. CI run 37124988148: static, Node 22/26, preview fidelity, OOXML validator pass; Node 24 browser job fails 12/429 (417 pass). Retrieved failed log `/tmp/parity-node24-ci-failed.log`. Failures correspond to the already updated notes contenteditable assertion, responsive Arrange selectors and clipboard underline expectation; focused replacement checks are recorded below. This is not a green PR until new changes are pushed and CI reruns.
+- Native retry again failed screen size 0×0; app inventory confirms PowerPoint running. No document mutations. Host load remains ~167; do not infer semantic success from timeout-only failures.
+
+## 2026-10-03: Validation status and host load
+
+- 43403 is terminal: all three selection-pane cases pass (main bilingual/Undo case84.8s with normal120s timeout); notes repeated-pending-newline case fails at291, accent1 RGB instead of tx1. Agent notes_theme_fix is fixing actual paragraph state, not weakening assertions.
+- 67934 passed format, lint and core typecheck.
+- Timeout rerun75983 is terminal:12pass/5timeout, same five cases as full suite. Host `uptime` showed load173.40/157.65/143.44 at23:51. This is evidence of severe contention, not proof of semantic correctness. Avoid repeated full suites while overloaded; no timeout limits were changed.
+- PR287 inspected: OPEN, head feat/pptx-editor at3e9564cc0ab19093859c1b2ffd6ed50556d8a5a4. No push in these increments.
+- Updated public effect-renderer documentation to specify EMU local cell bounds and changeset to include grouped table editing.
+
+## 2026-10-03: Grouped table effect scale fixed
+
+- Root reproduced ~82px grouped-table effect displacement. Effects bounds incorrectly included scope.textScale although the table editing shell already retains ancestor scaling. Table cells now use unscaled local bounds; ordinary shape text retains its scale compensation.
+- Agent reports fresh preview/dev build and 4/4 inline-effect browser passes, including nonuniform group/table glyph-vs-effect geometry. Root reviewed the actual cell-specific bounds branch.
+- Notes pending typing format now tracks its paragraph to avoid carrying one empty paragraph's formatting to another; repeated pending newlines inherit the pending token. This follow-up is awaiting fresh browser validation.
+- Root current build + notes/selection browser run is 43403, `/tmp/parity-notes-selection-current.log`. Root final format/lint/core types is 67934 (types output `/tmp/parity-final-root-types.log`).
+- Timeout-file rerun75983 remains live; fuzz and schema-property timeouts have recurred. Wait for terminal stacks and remaining results. No timeout limits have been weakened.
+- Native retry remains 0x0, no changes. No commit/push; full parity remains unproven.
+
+## 2026-10-03: Full-suite result and grouped-table regression
+
+- Full unit suite 58687 is terminal failure: 3510 passed, 109 skipped, 6 failed across 5 files. Five failures are timeouts (swatches, fuzz, two raster tests, schema property). Remaining failure was the old vert270 CSS expectation; corrected it to vertical-rl plus half-turn, with a column-order explanation. CSS tests (6) and pure-SVG direction tests (10) pass separately. Logs `/tmp/parity-vertical-unit-final.log`, `/tmp/parity-svg-modes-final.log`.
+- Default-timeout, single-worker rerun of the four timeout files is active as 75983, `/tmp/parity-full-failures-recheck.log`. Do not treat diagnostic timeout increases as a replacement for this gate.
+- Notes exact-token browser 86237 passed (25s), `/tmp/parity-notes-exact-token.log`: checks the newly typed Z's own range saves tx1 and resolves #12AB34 after reload, plus cross-run replacement and Undo. Agent is reviewing further pending-newline/empty-paragraph navigation edge cases; implementation is not frozen yet.
+- New grouped-table browser32476 failed: normal table and horizontal/vertical shapes pass; nonuniform group table effect x386.585 vs live glyph304.994 (~82px shift). Agent inline_remaining_audit owns measured geometry fix. Log `/tmp/parity-grouped-table-effects.log`.
+- No push yet; existing PR #287 remains sole target.
+
+## 2026-10-03: Table live effects verified; empty-note paragraph regression remains
+
+- Added table-cell support through the canonical `renderTextEffectsSvg(..., {cell})`; no second public renderer. Both static table and edit effects share effective table-run formatting.
+- Fresh preview/editor build passed (88069); lint and preview typecheck passed (5298). Format check passed before the latest notes test edits.
+- `/tmp/parity-table-notes-browser.log` (94557, terminal failure): horizontal, vert270, and table-cell effects all pass, including actual DOM Range versus SVG effect coordinates. Notes cross-run replacement proceeds, but typing into a new empty paragraph fails at line 231: actual accent1 RGB 79/129/189 versus paragraph-end tx1 RGB 18/171/52. Do not claim this regression fixed. Agent notes_theme_fix owns the fix and focused rebuild/retest.
+- Agent inline_remaining_audit is adding nonuniform grouped-table geometry coverage; do not accept grouped table fidelity without measurement.
+- Root full suite 58687 is still confirmed live; `/tmp/parity-full-tests-current.log`. Worker PIDs turn over; do not restart because of sparse output. Final failure stacks are pending.
+- Native retry requested by user again failed capture 0x0; listApps confirms PowerPoint running. No native changes. All changes remain uncommitted/unpushed; retain PR #287.
+
+## 2026-10-03: Selection regression completed; broader validation active
+
+- Selection-pane failure was resolved: parent Escape consumed locally so it cannot clear canvas selection; explicit Format Shape opening reflects current pane lifecycle; Japanese reload uses localized Home/Arrange helper.
+- Diagnostic 86024 passed selection names/visibility/undo/bilingual persistence in 64.8 seconds (`/tmp/parity-selection-diagnostic.log`). The old 60-second whole-scenario timeout was too short for this long case; set it to 120 seconds (diagnostic used 180). No assertion was removed. Speaker notes/transition case passed separately in 40 seconds.
+- Full suite 58687 is still live, `/tmp/parity-full-tests-current.log`; observed timeout failures include swatches, fuzz, schema-property and two raster cases. Wait for terminal output, distinguish timeouts from semantic failures. Do not claim full gate success.
+- Agent notes_theme_fix is adding empty-paragraph and mixed-run replacement browser coverage without changing implementation. Agent inline_remaining_audit is investigating missing table-cell live effect overlays; coordinate builds before accepting those edits.
+- Native retry still fails 0x0. No native document edits. No commit/push this increment yet.
+
+## 2026-10-03: Responsive Arrange dismissal and vertical edit alignment follow-up
+
+- Still uncommitted; HEAD remains `3e9564cc`, PR #287 remains the only PR. Do not infer full parity or readiness from focused passes.
+- Fixed collapsed Home Drawing parent menu dismissal after Arrange commands through an explicit callback. Format-pane regression now asserts the parent closes before interacting with Selection Pane.
+- `/tmp/parity-arrange-regressions.log`: 9/10 passed (format pane, crop, reorder, four layout reset cases, two selection drag cases). Remaining selection case used a single Escape to dismiss a nested menu; it now dismisses the still-open parent separately. Focused retry 2548 then reached an outdated expectation that closing Selection Pane opens Format Shape. Updated the test to open Format Shape explicitly; retry 8906 showed parent Escape bubbling to canvas and clearing selection. Added group-local Escape handling with stopPropagation, rebuilt successfully. Also changed empty contenteditable notes assertion to textContent (innerText contains a placeholder newline). Retry handle 89536 (`/tmp/parity-selection-notes-final.log`) is current: speaker-notes/transition case passed; selection case still running. Root full unit suite handle 58687 (`/tmp/parity-full-tests-current.log`), pnpm test --maxWorkers=2, also confirmed live. Poll handles, do not restart merely due to elapsed observation. Final format check passed.
+- `vert270` HTML CSS uses `vertical-rl + rotate(180deg)` to preserve left-to-right columns, while SVG retains cw270. Agent verified inline effects 2/2, vertical autofit 4/4, SVG modes 10/10. Removed geometry debugging output and corrected API direction documentation. This supersedes the unresolved vertical geometry notes below; native parity is still unverified.
+- Root format check passed after formatting render-slide.ts; lint and core typecheck passed. Notes agent previously passed site Svelte check (0 errors/warnings), and root repeated site check successfully after the notes loop fix (before final group Escape listener).
+- Notes browser loop fixed by invoking formatForRange untracked in the doc.version effect. Agent rebuilt dev, passed core notes 6 tests and the notes-theme browser case (typing, save, Undo).
+- Global color-state leak audit found no reproducible defect because renderSlideSvg initializes that state. Speculative try/finally restoration was rejected and removed; preserve all actual overlay changes.
+- Latest native retry, including resetting the UI session, still failed with capture 0x0. PowerPoint runs but no windows were returned; no native document modifications.
+
+## 2026-10-03: In-progress notes theme and live text effects (uncommitted)
+
+- Working tree contains notes-master theme color resolution and live reflection/inner-shadow overlays; neither increment is ready to publish yet. HEAD remains `3e9564cc`; keep PR #287 as the only PR.
+- Actual glyph Range and SVG effect bounds on edit entry now agree within 2px for the tested rotated horizontal and vert270 fixtures with asymmetric margins. Horizontal save/reopen passed. Vertical test still needs its final save/reopen rerun after normalizing SVG wrap-boundary whitespace assertions. These checks compare before/after geometry, not native parity.
+- Visual inspection of `inline-live-effects-vert270.png` revealed that static/live SVG effects do not align with the HTML glyphs even though entry geometry stays unchanged. Agent `inline_remaining_audit` is investigating canonical vertical layout and adding a direct effect-versus-glyph regression. Its latest inner-rect change is unverified; do not accept it based on diff checks alone.
+- Group editing across all 8 nested/reflected combinations passed after updating the test to compose every ancestor transform (`/tmp/parity-final-targeted.log`). Preview typecheck passed. Inline editing baseline passed separately (`/tmp/parity-edit-regressions.log`).
+- Agent `notes_theme_fix` is repairing pending-range projection. Root review of its first revision found that typed insertions and replacements spanning multiple runs dropped the inserted display range; that revision is not accepted. Review must cover mixed formatting boundaries, typing format and a notes theme distinct from the slide theme. Do not fall back to the slide-themed ColorPicker for notes scheme tokens. Latest notes browser failure included an incorrect hardcoded accent1 RGB expectation.
+- Full root suite: 3513 passed, 109 skipped, 3 timeout failures (`/tmp/parity-tests.log`). Single-worker recheck passed fuzz but timed out on the 5-second schema-property and underline-raster tests (`/tmp/parity-timeout-recheck.log`). Diagnostic rerun with a 30-second limit passed all 11 tests in both files (`/tmp/parity-timeout-diagnostic.log`); this does not replace the default-limit gate.
+- Follow-up regression found during agent iteration: mapping `vert270` to `cw90` fails the existing pure-SVG direction test (1 failure, 9 passes; `/tmp/parity-svg-directions-current.log`). The incorrect direction mapping has since been removed; root rerun passed all 10 tests (`/tmp/parity-svg-directions-recheck.log`). Preserve 270-degree output and fix effect placement without changing that assertion. The earlier 214-pass run predates this intermediate change.
+- Latest root verification: lint and core typecheck passed. Character inner-shadow/reflection, SVG text modes, and group-text-flip regressions passed all 214 tests across 4 files (`/tmp/parity-effects-core-current.log`). These do not replace the pending browser effect-versus-glyph tests. Format check flagged the actively edited `inline-text-effects.test.mjs`; rerun after agent edits settle.
+- Shared editor Svelte check session 95654 ended with 2 Color assignment errors (`/tmp/parity-svelte-current.log`). Notes agent added color parsing; final typecheck/browser verification remains pending.
+- CI run 37124988148 finished: Node 24 browser tests failed 12 cases (legacy notes inputValue, underline representation, Arrange/Layout selectors); all other jobs passed. Root is reproducing the format-pane failure; full log `/tmp/parity-ci-node24-failure.log`.
+- Native retry still reports screen 0x0; PowerPoint is running but window information is absent. No native document changes made. Goal remains incomplete; broad parity gaps listed below still apply.
+
 ## 2026-10-03: Editing character effects and notes script offsets
 
 - Inline text now retains character outlines, outer shadows and glows, resolves theme colors, and scales effects with editor zoom. The HTML clipboard has a 1x fallback outside the editor. Outline paint order and glow/shadow ordering match the static browser preview.

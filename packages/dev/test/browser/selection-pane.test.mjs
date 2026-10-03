@@ -1,3 +1,4 @@
+import { openArrange } from '../helpers/ribbon.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -29,7 +30,7 @@ import { startPreview } from '../helpers/server.mjs';
 
 test(
   'selection pane names, visibility, nested selection and undo persist in both languages',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-selection-pane-'));
     let preview, browser;
@@ -91,7 +92,7 @@ test(
           )[0],
         );
       await saved();
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
@@ -103,7 +104,6 @@ test(
         true,
       );
       await pane.getByRole('button', { name: 'Third', exact: true }).click();
-      const arrange = editor.getByRole('button', { name: 'Arrange', exact: true });
       await pane.getByRole('button', { name: 'Lock object: Third', exact: true }).click();
       await saved();
       assert.equal(
@@ -126,7 +126,7 @@ test(
         getShapeBounds((await state()).find((shape) => getShapeName(shape) === 'Third')),
         fixed,
       );
-      await arrange.click();
+      await openArrange(editor);
       assert.equal(
         await editor.getByRole('menuitem', { name: 'Align', exact: true }).isDisabled(),
         true,
@@ -136,7 +136,11 @@ test(
         true,
       );
       await page.keyboard.press('Escape');
+      const drawingMenu = editor.getByRole('menu', { name: 'Drawing', exact: true });
+      if (await drawingMenu.isVisible()) await page.keyboard.press('Escape');
       await pane.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
+      await editor.locator('.hit.selected').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       for (const name of [
         'Horizontal position',
@@ -160,7 +164,7 @@ test(
         await editor.getByRole('checkbox', { name: 'Flip horizontally', exact: true }).isDisabled(),
         true,
       );
-      await arrange.click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
@@ -187,7 +191,7 @@ test(
       await pane.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
       const reference = editor.getByRole('combobox', { name: 'Alignment reference', exact: true });
       await reference.selectOption('slide');
-      await arrange.click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Align', exact: true }).click();
       assert.equal(
         await editor
@@ -206,16 +210,16 @@ test(
       assert.ok(Math.abs(boxes[1].x - boxes[0].x - boxes[0].w - gap) <= 1);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
-      await arrange.click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Align', exact: true }).click();
       await editor.getByRole('menuitemradio', { name: 'Align Selected Objects' }).click();
       assert.equal(await reference.inputValue(), 'selection');
-      await arrange.click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
       await pane.getByRole('button', { name: 'Third', exact: true }).click();
-      await arrange.click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Align', exact: true }).focus();
       await page.keyboard.press('ArrowRight');
       await editor.getByRole('menuitem', { name: 'Align Right', exact: true }).click();
@@ -226,7 +230,7 @@ test(
       );
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
-      await arrange.click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'More Rotation Options...', exact: true }).click();
       const rotationInput = editor.getByRole('spinbutton', { name: 'Rotation', exact: true });
@@ -236,7 +240,7 @@ test(
         .filter({ hasText: /^Size$/ })
         .click();
       assert.equal(await rotationInput.isVisible(), false);
-      await arrange.click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'More Rotation Options...', exact: true }).click();
       assert.equal(await rotationInput.evaluate((input) => input === document.activeElement), true);
@@ -249,11 +253,11 @@ test(
       );
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
-      await arrange.click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
-      await arrange.click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'Rotate Right 90°', exact: true }).click();
       await saved();
@@ -261,7 +265,7 @@ test(
         getShapeRotation((await state()).find((shape) => getShapeName(shape) === 'Third')),
         90,
       );
-      await arrange.click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'Flip Horizontal', exact: true }).click();
       await saved();
@@ -381,10 +385,7 @@ test(
       await pane.getByRole('button', { name: '選択ウィンドウを閉じる', exact: true }).click();
       assert.equal(await pane.count(), 0);
       await page.reload();
-      await editor
-        .locator('button[aria-haspopup="menu"]:visible')
-        .filter({ hasText: '配置' })
-        .click();
+      await openArrange(editor, 'ja');
       await editor
         .getByRole('menuitemcheckbox', { name: '選択ウィンドウ...', exact: true })
         .click();
@@ -438,7 +439,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       await saved();
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
@@ -520,7 +521,7 @@ test(
         'Object 44',
         'Object 43',
       ]);
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await page.keyboard.press('Meta+Shift+KeyF');
       await saved();
       assert.equal(await editor.getByRole('menu', { name: 'Arrange', exact: true }).count(), 0);
@@ -538,7 +539,7 @@ test(
       await saved();
       assert.equal(await pane.locator('.name').count(), count);
       await pane.getByRole('button', { name: 'Object 44', exact: true }).click();
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await editor.getByRole('menuitem', { name: 'Regroup', exact: true }).click();
       await saved();
       assert.equal(await pane.locator('.name').count(), count - 1);
@@ -602,7 +603,7 @@ test(
           )[0],
         );
       await saved();
-      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await openArrange(editor);
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();

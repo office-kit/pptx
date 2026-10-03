@@ -29,9 +29,10 @@ describe('vertical writing as CSS', () => {
   it('reports vert270’s half turn separately from its writing mode', () => {
     // No writing-mode reads bottom-to-top, so the turn is a transform — and it
     // is reported apart so a caller that already rotates the box can compose
-    // the two instead of dropping one.
+    // the two instead of dropping one. The half turn reverses vertical-rl's
+    // column order so successive columns advance left-to-right.
     expect(verticalTextStyle('vert270')).toEqual({
-      declarations: 'writing-mode:vertical-lr',
+      declarations: 'writing-mode:vertical-rl',
       transform: 'rotate(180deg)',
     });
   });

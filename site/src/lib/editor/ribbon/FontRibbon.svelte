@@ -37,6 +37,7 @@
   });
   const activeTextFormat = $derived(editor.inlineTextFormat ?? editor.notesInlineTextFormat);
   const formats = $derived(activeTextFormat?.formats ?? cellFormats ?? objectFormats ?? []);
+  const displayFormats = $derived(activeTextFormat?.displayFormats ?? formats);
   const themeFonts = $derived.by(() => {
     editor.doc.version;
     const fonts = getPresentationFonts(editor.doc.pres);
@@ -95,4 +96,4 @@
   }
 </script>
 
-<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!activeTextFormat || editor.doc.selection.kind === 'cell' || editor.selectedShapes().some(isTableShape) || !!objectFormats} onformat={apply} oncase={changeCase} onfontsize={stepFontSize} ontoggle={toggle} />
+<TextFormatBar ribbon {formats} {displayFormats} fontFamilies={themeFonts} selected={!!activeTextFormat || editor.doc.selection.kind === 'cell' || editor.selectedShapes().some(isTableShape) || !!objectFormats} onformat={apply} oncase={changeCase} onfontsize={stepFontSize} ontoggle={toggle} />

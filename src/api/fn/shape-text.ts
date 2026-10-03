@@ -489,7 +489,7 @@ export const setShapeTextBodyRotationDeg = (
  *
  *   - `horz` — default left-to-right, top-to-bottom (returns `null`).
  *   - `vert` — 90° rotation, lines run top-to-bottom, columns right-to-left.
- *   - `vert270` — 270° rotation, lines top-to-bottom, columns left-to-right.
+ *   - `vert270` — 270° rotation, lines bottom-to-top, columns left-to-right.
  *   - `wordArtVert` — characters not rotated, stacked vertically.
  *   - `eaVert` — East-Asian vertical: characters upright, columns right-to-left.
  *   - `mongolianVert` — Mongolian: rotated 90°, columns left-to-right.
