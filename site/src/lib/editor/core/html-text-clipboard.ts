@@ -271,6 +271,13 @@ export function textClipboardHtml(
   const container = document.createElement('div');
   container.style.whiteSpace = 'pre-wrap';
   const cssColor = (value: string) => (/^[\da-f]{6}$/i.test(value) ? `#${value}` : value);
+  const rgba = (value: string, opacity: number | undefined) => {
+    const hex = cssColor(value);
+    const match = /^#([\da-f]{6})$/i.exec(hex);
+    if (!match || opacity === undefined || opacity >= 1) return hex;
+    const rgb = [0, 2, 4].map((offset) => Number.parseInt(match[1]!.slice(offset, offset + 2), 16));
+    return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.max(0, opacity)})`;
+  };
   for (const { start, end, format } of copied.formats) {
     const span = document.createElement('span');
     span.textContent = copied.text.slice(start, end);
@@ -282,6 +289,32 @@ export function textClipboardHtml(
     const families = [format.font, format.fontEastAsian].filter((font): font is string => !!font);
     if (families.length) style.fontFamily = families.map((font) => JSON.stringify(font)).join(', ');
     if (format.color) style.color = cssColor(format.color);
+    if (format.outline) {
+      const outlineColor = format.outline.color;
+      const width = format.outline.widthEmu ?? 9525;
+      if (outlineColor)
+        style.setProperty(
+          '-webkit-text-stroke',
+          `calc(${width / 9525}px * var(--text-zoom, 1)) ${cssColor(outlineColor)}`,
+        );
+      style.paintOrder = 'stroke fill';
+    }
+    const shadows: string[] = [];
+    if (format.glow) {
+      shadows.push(
+        `0 0 calc(${(format.glow.radiusEmu ?? 63500) / 9525}px * var(--text-zoom, 1)) ${rgba(format.glow.color, format.glow.opacity)}`,
+      );
+    }
+    if (format.shadow) {
+      const angle = ((format.shadow.angleDeg ?? 45) * Math.PI) / 180;
+      const distance = (format.shadow.offsetEmu ?? 38100) / 9525;
+      const x = Math.cos(angle) * distance;
+      const y = Math.sin(angle) * distance;
+      shadows.push(
+        `calc(${x}px * var(--text-zoom, 1)) calc(${y}px * var(--text-zoom, 1)) calc(${(format.shadow.blurEmu ?? 50800) / 9525}px * var(--text-zoom, 1)) ${rgba(format.shadow.color ?? '#000000', format.shadow.opacity)}`,
+      );
+    }
+    if (shadows.length) style.textShadow = shadows.join(', ');
     if (format.highlight) style.backgroundColor = cssColor(format.highlight);
     if (format.cap === 'all') style.textTransform = 'uppercase';
     else if (format.cap === 'small') style.fontVariantCaps = 'small-caps';

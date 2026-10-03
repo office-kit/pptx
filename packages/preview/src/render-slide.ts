@@ -2467,7 +2467,7 @@ export interface SvgTextArgs {
   readonly vert: VerticalLayout;
   readonly columns: ColumnLayout | null;
   readonly effectsOnly?: boolean;
-  readonly effectKind?: 'reflection' | 'innerShadow' | 'all';
+  readonly effectKind?: 'reflection' | 'outer' | 'innerShadow' | 'all';
   /** Maps an authored font name onto the family the measurer keys off.
    *  The render paths leave this unset (= `substituteFamily`, whose output
    *  must match the bundled TTFs' internal names for resvg). The audit path
@@ -2615,6 +2615,24 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
           ? {
               outlineHex: resolveColor(fmt.outline.color, a.theme, '#000000'),
               outlineWidthPx: (fmt.outline.widthEmu ?? 9525) / EMU_PER_PX,
+            }
+          : {}),
+        ...(fmt?.shadow
+          ? {
+              shadow: {
+                ...fmt.shadow,
+                ...(fmt.shadow.color
+                  ? { color: resolveColor(fmt.shadow.color, a.theme, '#000000') }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(fmt?.glow
+          ? {
+              glow: {
+                ...fmt.glow,
+                color: resolveColor(fmt.glow.color, a.theme, '#FFFF00'),
+              },
             }
           : {}),
         baseline,
