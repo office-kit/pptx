@@ -30,7 +30,7 @@ import {
   setShapeStroke,
   setShapeTextFormat,
 } from '@office-kit/pptx';
-import { startPreview } from '../helpers/server.mjs';
+import { startPreview, waitForState } from '../helpers/server.mjs';
 
 const WORDS = {
   en: (key) => key,
@@ -175,16 +175,18 @@ test(
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.inline-edit');
       await input.waitFor();
-      await page.keyboard.press('ControlOrMeta+a');
+      await input.press('ControlOrMeta+a');
       await input.press('ControlOrMeta+Alt+c');
       await page.keyboard.press('Escape');
 
       // …and paste it over the target's text.
       await editor.locator('.hit').nth(1).dblclick();
       await input.waitFor();
-      await page.keyboard.press('ControlOrMeta+a');
+      await input.press('ControlOrMeta+a');
+      const beforePasteRevision = (await waitForState(preview.url, () => true)).revision;
       await input.press('ControlOrMeta+Alt+v');
       await page.keyboard.press('ControlOrMeta+Enter');
+      await waitForState(preview.url, (state) => state.revision !== beforePasteRevision);
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
 
       const { pres, shapes } = await savedShapes(preview);

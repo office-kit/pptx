@@ -1022,8 +1022,11 @@
     const source = boxes.find(b => b.id === active.id)?.shape;
     return inlineTextHtml(doc.pres, shape, source, active.cell);
   });
-  function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
-    return shape ? textFormatsInRange(shape, textRange, editing?.cell, { pres: doc.pres, source: boxes.find(b => b.id === editing?.id)?.shape ?? shape }) : [];
+  function selectedTextFormats(
+    shape = boxes.find(b => b.id === editing?.id)?.shape,
+    range = textRange,
+  ) {
+    return shape ? textFormatsInRange(shape, range, editing?.cell, { pres: doc.pres, source: boxes.find(b => b.id === editing?.id)?.shape ?? shape }) : [];
   }
   const rangeFormats = $derived.by(() => {
     doc.version;
@@ -1232,9 +1235,13 @@
   }
   /** Picks up the format at the caret or selection, paragraph included. */
   function copyInlineFormat() {
+    // The native selection is authoritative here. The select event that updates
+    // textRange can still be queued when the format-painter shortcut arrives.
+    const range = textInput?.getSelection() ?? textRange;
+    textRange = range;
     const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
     if (!target) return;
-    const character = (textRange.start === textRange.end ? rangeFormats : selectedTextFormats())[0] ?? {};
+    const character = (range.start === range.end ? rangeFormats : selectedTextFormats(undefined, range))[0] ?? {};
     editor.formatClipboard = readTextFormat(doc.pres, target.shape, target.indices[0] ?? 0, character);
     editor.toast('info', t('Formatting copied'));
   }
@@ -1244,7 +1251,10 @@
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
     if (!format || !cur || !box || restoringEditing) return;
-    const range = { ...textRange };
+    // As with pickup, read the selection at the shortcut boundary instead of
+    // relying on the asynchronous select event to have updated textRange.
+    const range = { ...(textInput?.getSelection() ?? textRange) };
+    textRange = range;
     doc.transact(t('Paste formatting'), () => {
       replayEdits(box, cur);
       const target = inlineParagraphTarget();
