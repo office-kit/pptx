@@ -17,6 +17,7 @@ import {
   parseXml,
   qname,
   serializeXml,
+  textContent,
   type XmlElement,
 } from '../../internal/xml/index.ts';
 import {
@@ -173,6 +174,67 @@ export const getSlideNotes = (slide: SlideData): string | null => {
     return textBodyText(txBody);
   }
   return null;
+};
+
+/** Returns the kind and UTF-16 position of each visible notes line separator. */
+export const getSlideNotesLineBreaks = (
+  slide: SlideData,
+): ReadonlyArray<{ readonly position: number; readonly kind: 'paragraph' | 'break' }> => {
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName === null) return [];
+  const part = slide[INTERNAL_PACKAGE].getPart(notesPartName);
+  if (part === null) return [];
+  const root = parseXml(decode(part.data)).root;
+  const cSld = firstChildElement(root, NAME_CSLD);
+  const spTree = cSld && firstChildElement(cSld, NAME_SP_TREE);
+  if (!spTree) return [];
+  const breaks: { position: number; kind: 'paragraph' | 'break' }[] = [];
+  let offset = 0;
+  for (const child of spTree.children) {
+    if (
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.pml ||
+      child.name.localName !== 'sp'
+    )
+      continue;
+    const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+    const nvPr = nvSpPr && firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+    const ph = nvPr && firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+    if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
+    const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+    if (!txBody) return [];
+    const paragraphs = txBody.children.filter(
+      (item): item is XmlElement =>
+        item.kind === 'element' && item.name.namespaceURI === NS.dml && item.name.localName === 'p',
+    );
+    paragraphs.forEach((paragraph, paragraphIndex) => {
+      for (const item of paragraph.children) {
+        if (item.kind !== 'element' || item.name.namespaceURI !== NS.dml) continue;
+        if (item.name.localName === 'br') {
+          breaks.push({ position: offset, kind: 'break' });
+          offset++;
+          continue;
+        }
+        if (item.name.localName !== 'r' && item.name.localName !== 'fld') continue;
+        const text = item.children
+          .filter(
+            (child): child is XmlElement =>
+              child.kind === 'element' &&
+              child.name.namespaceURI === NS.dml &&
+              child.name.localName === 't',
+          )
+          .map((child) => textContent(child))
+          .join('');
+        offset += text.length;
+      }
+      if (paragraphIndex < paragraphs.length - 1) {
+        breaks.push({ position: offset, kind: 'paragraph' });
+        offset++;
+      }
+    });
+    return breaks;
+  }
+  return breaks;
 };
 
 /** A direct character-format range in a slide's speaker notes. */
@@ -840,6 +902,11 @@ export const appendSlideNotes = (slide: SlideData, text: string): void => {
 /**
  * Replaces speaker notes. With `range`, replaces that UTF-16 selection while
  * retaining untouched run/paragraph XML and inheriting the insertion format.
+ * When inserting line-feed characters through a ranged edit, `newlines`
+ * selects whether those inserted separators become paragraph breaks
+ * (`'paragraph'`, the default) or paragraph-internal soft breaks (`'break'`).
+ * Existing separators outside the edited range keep their original OOXML
+ * kind; the option does not normalize the rest of the notes.
  * `preserveFormatting` infers one changed range from the common prefix/suffix;
  * apply disjoint edits separately to retain the formatting between them.
  */
@@ -849,6 +916,7 @@ export const setSlideNotes = (
   options: {
     preserveFormatting?: boolean;
     range?: { start: number; end: number };
+    newlines?: 'paragraph' | 'break';
   } = {},
 ): void => {
   const pkg = slide[INTERNAL_PACKAGE];
@@ -872,8 +940,9 @@ export const setSlideNotes = (
       if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
       const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
       if (!txBody) continue;
-      if (options.preserveFormatting || options.range) editTextBody(txBody, value, options.range);
-      else setTextBody(txBody, value);
+      if (options.preserveFormatting || options.range || options.newlines) {
+        editTextBody(txBody, value, options.range, options.newlines ?? 'paragraph');
+      } else setTextBody(txBody, value);
       part.data = encode(serializeXml(doc));
       return;
     }
@@ -894,7 +963,10 @@ export const setSlideNotes = (
     }
   }
   const notesName = partName(`/ppt/notesSlides/notesSlide${nextN}.xml`);
-  const doc = buildEmptyNotesSlide(value);
+  // `buildEmptyNotesSlide` emits paragraph separators for newline text. Start
+  // empty when the caller explicitly requests soft breaks, then run the same
+  // mutation path used by existing notes parts after relationships are wired.
+  const doc = buildEmptyNotesSlide(options.newlines === 'break' ? '' : value);
   pkg.addPart(
     notesName,
     'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml',
@@ -931,6 +1003,7 @@ export const setSlideNotes = (
     targetMode: 'Internal',
   });
   pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
+  if (options.newlines === 'break') setSlideNotes(slide, value, options);
 };
 
 /** Applies PowerPoint-style Change Case to a speaker-notes range. */

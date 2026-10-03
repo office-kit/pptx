@@ -441,6 +441,7 @@ export {
   getSlideMasterUsageCounts,
   getSlideMediaPartNames,
   getSlideNotes,
+  getSlideNotesLineBreaks,
   getSlideNotesTextFormats,
   getSlideNotesParagraphEndFormat,
   resolveSlideNotesTextColor,

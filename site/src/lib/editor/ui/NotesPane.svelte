@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte';
-  import { asColor, getSlideNotes, getSlideNotesParagraphEndFormat, getSlideNotesTextFormats, getSlides, resolveSlideNotesTextColor, setSlideNotes, setSlideNotesFormat, toWritableTextFormat, transformSlideNotesCase, type TextCase, type TextFormat } from '@office-kit/pptx';
+  import { asColor, getSlideNotes, getSlideNotesLineBreaks, getSlideNotesParagraphEndFormat, getSlideNotesTextFormats, getSlides, resolveSlideNotesTextColor, setSlideNotes, setSlideNotesFormat, toWritableTextFormat, transformSlideNotesCase, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { stepFontSize } from '../core/font-size.ts';
@@ -22,6 +22,10 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
   let typingFormat: { format: TextFormat; reset: boolean } | undefined;
   let pendingParagraphs = new Set<number>();
+  // `getSlideNotes` intentionally exposes both paragraph breaks and soft
+  // breaks as `\n`. Keep the distinction while an edit is live so paragraph
+  // end formatting is indexed by OOXML `<a:p>`, rather than every newline.
+  let softBreaks = new Set(getSlideNotesLineBreaks(slide).filter((item) => item.kind === 'break').map((item) => item.position));
   let input: { focus(): void; blur(): void; getElement(): HTMLElement | undefined; setSelectionRange(start: number, end: number): void; getSelection(): { start: number; end: number } };
   let pane: HTMLElement;
   let drag: { id: number; y: number; height: number } | null = null;
@@ -90,20 +94,21 @@
     pendingParagraphs.clear();
     // An external replacement or deleted slide must never receive a stale draft.
     if (doc.pres !== presentation || !getSlides(presentation).includes(slide)) return;
-    if (value !== (getSlideNotes(slide) ?? '')) {
-      try { doc.transact(t('Speaker notes'), () => {
-        for (const edit of edits) {
-          setSlideNotes(slide, edit.text, { range: { start: edit.start, end: edit.end } });
-          if (edit.typing && edit.text.length) {
-            setSlideNotesFormat(slide, edit.typing.format, {
-              range: { start: edit.start, end: edit.start + edit.text.length },
-              reset: edit.typing.reset,
-            });
-          }
+    try { doc.transact(t('Speaker notes'), () => {
+      for (const edit of edits) {
+        setSlideNotes(slide, edit.text, {
+          range: { start: edit.start, end: edit.end },
+          newlines: edit.newlines,
+        });
+        if (edit.typing && edit.text.length) {
+          setSlideNotesFormat(slide, edit.typing.format, {
+            range: { start: edit.start, end: edit.start + edit.text.length },
+            reset: edit.typing.reset,
+          });
         }
-      }); }
-      catch (error) { editor.toast('error', String(error)); }
-    }
+      }
+    }); }
+    catch (error) { editor.toast('error', String(error)); }
   }
   function formatInRanges(next: { start: number; end: number }, ranges: typeof formattedRanges): TextFormat {
     const matching: TextFormat[] = [];
@@ -138,6 +143,34 @@
     const nextDisplayFormat = formatInRanges(next, resolvedFormattedRanges);
     if (JSON.stringify(displayNoteFormat) !== JSON.stringify(nextDisplayFormat)) displayNoteFormat = nextDisplayFormat;
   }
+  function reindexPendingParagraphs(change: TextEdit, insertedNewlinesAreParagraphs = true) {
+    if (pendingParagraphs.size === 0) return;
+    // TextEdit offsets are UTF-16 offsets (the same convention used by the
+    // contenteditable selection). Iterate by code unit here: spreading a
+    // string would count astral characters as one item and shift all later
+    // soft-break/paragraph positions by one.
+    let removedParagraphs = 0;
+    for (let index = change.start; index < change.end; index++) {
+      if (value[index] === '\n' && !softBreaks.has(index)) removedParagraphs++;
+    }
+    let insertedParagraphs = 0;
+    if (insertedNewlinesAreParagraphs) {
+      for (let index = 0; index < change.text.length; index++) {
+        if (change.text[index] === '\n') insertedParagraphs++;
+      }
+    }
+    if (removedParagraphs === 0 && insertedParagraphs === 0) return;
+    let paragraph = 0;
+    for (let index = 0; index < change.start; index++) {
+      if (value[index] === '\n' && !softBreaks.has(index)) paragraph++;
+    }
+    const next = new Set<number>();
+    for (const index of pendingParagraphs) {
+      if (index <= paragraph) next.add(index);
+      else if (index > paragraph + removedParagraphs) next.add(index - removedParagraphs + insertedParagraphs);
+    }
+    pendingParagraphs = next;
+  }
   function changed(next: string, nextSelection?: { start: number; end: number }) {
     // RichTextInput cancels the browser paragraph insertion before this
     // callback, so the DOM selection still points at the pre-newline range.
@@ -146,6 +179,12 @@
     const after = nextSelection ?? input?.getSelection?.() ?? range;
     const change = textEditDiff(value, next, range, after.end);
     if (change) {
+      reindexPendingParagraphs(change);
+      softBreaks = new Set(
+        [...softBreaks]
+          .filter((position) => position < change.start || position >= change.end)
+          .map((position) => position >= change.end ? position + change.text.length - (change.end - change.start) : position),
+      );
       if (typingFormat && change.text.length) {
         change.typing = typingFormat;
       }
@@ -164,6 +203,7 @@
       event.preventDefault(); event.stopPropagation();
       commit();
       typingFormat = undefined;
+      softBreaks.clear();
       const backward = !(event.shiftKey || event.key.toLowerCase() === 'y');
       void (backward ? doc.undo() : doc.redo());
     } else if (mod && event.key.toLowerCase() === 's') commit();
@@ -239,19 +279,39 @@
     return ranges.sort((left, right) => left.start - right.start || left.end - right.end);
   }
   function currentParagraphEnd() {
-    return value.slice(0, range.start).split('\n').length - 1;
+    return paragraphIndexAt(range.start);
+  }
+  function paragraphIndexAt(position: number) {
+    let paragraph = 0;
+    for (let index = 0; index < position; index++) {
+      if (value[index] === '\n' && !softBreaks.has(index)) paragraph++;
+    }
+    return paragraph;
+  }
+  function paragraphBoundsAt(position: number) {
+    let start = position;
+    while (start > 0) {
+      const newline = value.lastIndexOf('\n', start - 1);
+      if (newline < 0) { start = 0; break; }
+      if (softBreaks.has(newline)) { start = newline; continue; }
+      start = newline + 1;
+      break;
+    }
+    let end = position;
+    while (end < value.length) {
+      const newline = value.indexOf('\n', end);
+      if (newline < 0 || !softBreaks.has(newline)) { end = newline < 0 ? value.length : newline; break; }
+      end = newline + 1;
+    }
+    return { start, end };
   }
   function currentParagraphIsEmpty() {
-    const start = value.lastIndexOf('\n', Math.max(0, range.start - 1)) + 1;
-    const newline = value.indexOf('\n', range.start);
-    const end = newline === -1 ? value.length : newline;
-    return value.slice(start, end).length === 0;
+    const { start, end } = paragraphBoundsAt(range.start);
+    return value.slice(start, end).replace(/\n/g, '').length === 0;
   }
   function paragraphIsEmptyAt(position: number) {
-    const start = value.lastIndexOf('\n', Math.max(0, position - 1)) + 1;
-    const newline = value.indexOf('\n', position);
-    const end = newline === -1 ? value.length : newline;
-    return value.slice(start, end).length === 0;
+    const { start, end } = paragraphBoundsAt(position);
+    return value.slice(start, end).replace(/\n/g, '').length === 0;
   }
   function applyNoteFormat(format: TextFormat, reset = false) {
     commit();
@@ -351,6 +411,7 @@
     doc.version;
     if (!pending) {
       value = getSlideNotes(slide) ?? '';
+      softBreaks = new Set(getSlideNotesLineBreaks(slide).filter((item) => item.kind === 'break').map((item) => item.position));
       formattedRanges = getSlideNotesTextFormats(slide).map((item) => ({ ...item, format: toWritableTextFormat(item.format) }));
       resolvedFormattedRanges = getSlideNotesTextFormats(slide, { resolveColors: true }).map((item) => ({ ...item, format: toWritableTextFormat(item.format) }));
       if (range.start === range.end && currentParagraphIsEmpty()) {
@@ -397,8 +458,8 @@
   <div class="resize" role="separator" tabindex="0" aria-label={t('Notes pane height')} aria-orientation="horizontal" aria-valuemin={60} aria-valuemax={maxHeight} aria-valuenow={editor.notesHeight} onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={() => drag = null} onpointercancel={() => drag = null} onlostpointercapture={() => drag = null} onkeydown={resizeKeys}></div>
   <RichTextInput bind:this={input} {value} html={noteHtml} label={t('Notes content')} style="position:static; width:100%; height:100%; min-height:40px; box-sizing:border-box;" textZoom={1}
     onfocus={() => { editor.inlineTextFormat = null; focused = true; }} onblur={() => { commit(); setTimeout(() => { if (document.activeElement !== input?.getElement?.()) focused = false; }, 0); }}
-    onselect={(next) => { const paragraph = value.slice(0, next.start).split('\n').length - 1; const pendingEmptyParagraph = next.start === next.end && typingFormat && pendingParagraphs.has(paragraph) && paragraphIsEmptyAt(next.start); if ((next.start !== range.start || next.end !== range.end) && !pendingEmptyParagraph) { typingFormat = undefined; } range = next; formatForRange(next); }} onbeforeinput={(next) => { range = next; formatForRange(next); }} oninput={changed} onkeydown={keys}
-    onnewline={() => {
+    onselect={(next) => { const paragraph = paragraphIndexAt(next.start); const pendingEmptyParagraph = next.start === next.end && typingFormat && pendingParagraphs.has(paragraph) && paragraphIsEmptyAt(next.start); if ((next.start !== range.start || next.end !== range.end) && !pendingEmptyParagraph) { typingFormat = undefined; } range = next; formatForRange(next); }} onbeforeinput={(next) => { range = next; formatForRange(next); }} oninput={changed} onkeydown={keys}
+    onnewline={(kind) => {
       // A newly-created paragraph is empty until its first character is
       // typed. Capture the current paragraph-end format before applying the
       // newline so that pending typing in the new paragraph inherits the
@@ -411,13 +472,36 @@
         ? { ...typingFormat.format }
         : toWritableTextFormat(getSlideNotesParagraphEndFormat(slide, currentParagraphEnd()));
       const nextCaret = range.start + 1;
-      changed(`${value.slice(0, range.start)}\n${value.slice(range.end)}`, { start: nextCaret, end: nextCaret });
+      const nextValue = `${value.slice(0, range.start)}\n${value.slice(range.end)}`;
+      const change = textEditDiff(value, nextValue, range, nextCaret) ?? {
+        start: range.start,
+        end: range.end,
+        text: value.slice(range.start, range.end),
+      };
+      change.newlines = kind;
+      if (typingFormat) change.typing = typingFormat;
+      reindexPendingParagraphs(change, kind === 'paragraph');
+      softBreaks = new Set(
+        [...softBreaks]
+          .filter((position) => position < range.start || position >= range.end)
+          .map((position) => position >= range.end ? position + 1 - (range.end - range.start) : position),
+      );
+      if (kind === 'break') softBreaks.add(range.start);
+      changes.push(change);
+      value = nextValue;
+      range = { start: nextCaret, end: nextCaret };
+      pending = changes.length > 0;
+      clearTimeout(timer);
+      if (!composing) timer = setTimeout(commit, 600);
       // The contenteditable DOM is not updated until Svelte flushes. Keep its
       // native caret aligned immediately so a second Enter or typed character
       // cannot be applied at the pre-newline position.
       input.setSelectionRange(nextCaret, nextCaret);
       typingFormat = { format: inherited, reset: false };
-      pendingParagraphs.add(paragraph);
+      // Paragraph indexes after the insertion move by one. Keep existing
+      // pending paragraphs addressable when Enter is pressed in an earlier
+      // empty paragraph before them.
+      if (kind === 'paragraph') pendingParagraphs.add(paragraph);
     }} oncomposition={(active) => { composing = active; if (active) clearTimeout(timer); else if (pending) timer = setTimeout(commit, 600); }}
     onhistory={(backward) => { commit(); typingFormat = undefined; pendingParagraphs.clear(); void (backward ? doc.undo() : doc.redo()); }} oncopy={() => {}} oncut={() => {}} onpaste={pasteNotes} />
 </section>
