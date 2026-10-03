@@ -21,7 +21,7 @@ test(
     try {
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
-      for (const width of [900, 1500, 1601, 1900, 2100]) {
+      for (const width of [756, 900, 1500, 1601, 1900, 2100]) {
         const page = await browser.newPage({ viewport: { width, height: 900 } });
         try {
           await page.goto(preview.url);
@@ -72,12 +72,24 @@ test(
               `${width}px ${locale} group selector scrolls`,
             );
 
-            // Font stays as the full group at compact widths so its family field
-            // remains directly usable and is not duplicated in the group menu.
-            assert.ok(
-              (await editor.locator('.font-group input').count()) > 0,
-              `${width}px ${locale} Font family control is missing`,
-            );
+            const fontTrigger = compact.locator('.font-trigger');
+            if (width < 800) {
+              assert.equal(await editor.locator('.font-group').isVisible(), false);
+              await fontTrigger.click();
+              const fontMenu = editor.locator('.group-menu');
+              await fontMenu.waitFor();
+              assert.ok((await fontMenu.locator('input').count()) > 0);
+              assert.equal(
+                await fontMenu.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+                true,
+                `${width}px ${locale} Font menu scrolls`,
+              );
+              await page.keyboard.press('Escape');
+              await fontMenu.waitFor({ state: 'hidden' });
+            } else {
+              assert.equal(await fontTrigger.isVisible(), false);
+              assert.equal(await editor.locator('.font-group').isVisible(), true);
+            }
 
             const paragraph = compact
               .locator('.group-menu-trigger')
