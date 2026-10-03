@@ -4,6 +4,7 @@ import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.t
 import { readColorFromContainer } from './shape-gradient-read.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
+import { readShapeStyleFill } from './shape-style-read.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
 import {
@@ -298,20 +299,30 @@ export const getShapeFillColorResolved = (
   shape: SlideShapeData,
 ): string | null => {
   const color = fillColorElement(shape);
-  return color ? resolveDrawingColor(color, getPresentationTheme(pres)) : null;
+  if (color) return resolveDrawingColor(color, getPresentationTheme(pres));
+  if (getShapeFill(shape).kind !== 'inherit') return null;
+  const style = readShapeStyleFill(pres, shape);
+  return style?.kind === 'solid' ? style.color || null : null;
 };
 
 /**
- * Returns the opacity (`0`–`1`) of the shape's own solid fill, read from
+ * Returns the opacity (`0`–`1`) of the shape's solid fill, read from
  * the `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children of its color
  * element, or `null` when the fill isn't solid or carries no alpha
  * transform (PowerPoint paints it fully opaque). Companion to
  * `getShapeFillColorResolved`, which never carries the alpha channel —
- * OOXML encodes color and alpha independently.
+ * OOXML encodes color and alpha independently. Pass `pres` to resolve the
+ * shape's theme fill reference when no direct fill is present.
  */
-export const getShapeFillOpacity = (shape: SlideShapeData): number | null => {
+export const getShapeFillOpacity = (
+  shape: SlideShapeData,
+  pres?: PresentationData,
+): number | null => {
   const color = fillColorElement(shape);
-  return color ? resolveDrawingColorOpacity(color) : null;
+  if (color) return resolveDrawingColorOpacity(color);
+  if (!pres || getShapeFill(shape).kind !== 'inherit') return null;
+  const style = readShapeStyleFill(pres, shape);
+  return style?.kind === 'solid' ? resolveDrawingColorOpacity(style.colorElement) : null;
 };
 
 /**
@@ -324,6 +335,15 @@ export const getShapeFillOpacity = (shape: SlideShapeData): number | null => {
 export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeData): ShapeFill => {
   const own = getShapeFill(shape);
   if (own.kind !== 'inherit') return own;
+
+  // A shape's own style reference supplies the default paint before the
+  // placeholder layout/master cascade. Direct `spPr` paint above remains
+  // authoritative, matching DrawingML's precedence rules.
+  const style = readShapeStyleFill(pres, shape);
+  if (style) {
+    if (style.kind === 'solid') return { kind: 'solid', color: style.color };
+    return style;
+  }
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);

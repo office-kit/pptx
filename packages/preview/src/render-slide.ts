@@ -1058,7 +1058,7 @@ const paint = (
     fillColor = resolved ?? resolveColor(fill.color, theme, '#E5E7EB');
     // `<a:alpha>` lives beside the color, not in it — a 27% "veil" over
     // layout artwork must not paint as an opaque block.
-    const opacity = shape ? getShapeFillOpacity(shape) : null;
+    const opacity = shape ? getShapeFillOpacity(shape, pres) : null;
     if (opacity !== null && opacity < 1) fillAttrs = ` fill-opacity="${opacity.toFixed(3)}"`;
   } else if (fill.kind === 'none') {
     fillColor = 'none';
@@ -1100,8 +1100,8 @@ const paint = (
       fillColor = built.fillAttr;
     } else {
       // The fill reads as a gradient but no `<a:gradFill>` is reachable
-      // (e.g. it's referenced through the theme style matrix, which the
-      // core doesn't model yet). Fall back to the resolved solid color
+      // (for example, an unresolved placeholder style reference). Fall back
+      // to the resolved solid color
       // when the shape carries one, else transparent — never a spurious
       // tint that masks real content.
       fillColor = (shape && pres ? getShapeFillColorResolved(pres, shape) : null) ?? 'none';
@@ -1118,10 +1118,8 @@ const paint = (
   } else if (fill.kind === 'image') {
     fillColor = '#DDD6FE';
   } else {
-    // `inherit`: the real fill lives in the layout/master cascade or the
-    // shape's style matrix (`<p:style><a:fillRef>`), which we don't resolve
-    // yet. Render transparent — that matches what PowerPoint / LibreOffice
-    // show for unstyled text boxes, content placeholders, and bare autoshapes
+    // Unresolved fills remain transparent, matching PowerPoint / LibreOffice
+    // rendering of unstyled text boxes, content placeholders, and bare autoshapes
     // (verified against ground truth), and never paints a spurious grey box
     // over real content. (`isPlaceholder` no longer changes the fill: a
     // no-type `<p:ph>` reads as phType null, so keying on it mislabelled

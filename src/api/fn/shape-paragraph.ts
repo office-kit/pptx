@@ -60,6 +60,7 @@ import { commitAndRefresh, decode, releaseUnusedLinkRels, requireTxBody } from '
 import { getPresentationFonts, getPresentationTheme } from './theme.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { readBulletStyleLayer, type BulletStyleLayer } from './bullet-style.ts';
+import { readShapeStyleFontFormat } from './shape-style-font-read.ts';
 // -- Effective rPr cascade (ECMA-376 §21.1.2.4.7) ---------------------------
 //
 // A run's effective character properties are resolved by walking the
@@ -391,6 +392,11 @@ export const getShapeRunFormatEffective = (
       }
     }
   }
+
+  // A shape Quick Style is the outermost text fallback. Its fontRef supplies
+  // the theme family and color when no run, paragraph, or placeholder layer
+  // authored that property (for example, PowerPoint's Colored Fill style).
+  mergeRPrLayer(result, readShapeStyleFontFormat(pres, shape));
 
   // 7. Theme fontScheme — typeface resolution.
   //
