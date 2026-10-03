@@ -66,6 +66,7 @@ const MUTATING_VERBS = [
   'reset',
   'update',
   'apply',
+  'transform',
 ];
 
 function isMutatingName(name: string): boolean {

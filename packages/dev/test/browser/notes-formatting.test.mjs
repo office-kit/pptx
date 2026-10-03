@@ -9,6 +9,7 @@ import {
   createPresentation,
   addBlankSlide,
   setSlideNotes,
+  setSlideNotesFormat,
   savePresentation,
   loadPresentation,
   getSlideNotes,
@@ -43,23 +44,41 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.getByRole('button', { name: 'Notes', exact: true }).click();
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
+      assert.match(await input.innerHTML(), /font-weight:\s*bold/i);
       const revision = (await waitForState(preview.url, () => true)).revision;
       await input.evaluate((el) => {
+        const point = (offset) => {
+          const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          let remaining = offset;
+          let node;
+          while ((node = walker.nextNode())) {
+            if (remaining <= node.textContent.length) return [node, remaining];
+            remaining -= node.textContent.length;
+          }
+          return [el, el.childNodes.length];
+        };
         for (const [start, end, text] of [
           [0, 5, 'New'],
           [10, 10, '!'],
         ]) {
-          el.setSelectionRange(start, end);
+          const selection = document.getSelection();
+          const domRange = document.createRange();
+          const [startNode, startOffset] = point(start);
+          const [endNode, endOffset] = point(end);
+          domRange.setStart(startNode, startOffset);
+          domRange.setEnd(endNode, endOffset);
+          selection.removeAllRanges();
+          selection.addRange(domRange);
+          document.dispatchEvent(new Event('selectionchange'));
           el.dispatchEvent(
             new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: text }),
           );
-          el.setRangeText(text, start, end, 'end');
-          el.dispatchEvent(
-            new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }),
-          );
+          document.execCommand('insertText', false, text);
         }
       });
       await input.press('Tab');
@@ -87,3 +106,69 @@ test(
     }
   },
 );
+
+test('formatted notes paste is one undoable transaction', { timeout: 60000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-notes-paste-'));
+  let preview, browser;
+  try {
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide notes="Original"/></Presentation>`,
+    );
+    preview = await startPreview(file);
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+    await page.goto(preview.url);
+    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+    const editor = page.frameLocator('#editor-frame');
+    await editor.getByText('Saved to this project', { exact: true }).waitFor();
+    await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+    const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
+    await input.selectText();
+    const before = (await waitForState(preview.url, () => true)).revision;
+    await input.evaluate((element) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', 'Pasted');
+      data.setData('text/html', '<span style="font-weight: bold">Pasted</span>');
+      element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData: data }));
+    });
+    const pasted = await waitForState(preview.url, (state) => state.revision !== before);
+    const read = async () =>
+      loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+    const formatted = await read();
+    assert.equal(getSlideNotes(getSlides(formatted)[0]), 'Pasted');
+    const name = '/ppt/notesSlides/notesSlide1.xml';
+    assert.match(
+      new TextDecoder().decode(_internalPackageOf(formatted).getPart(name).data),
+      /<a:rPr[^>]*\bb="1"/,
+      'HTML paste preserves the bold run',
+    );
+
+    await input.press('Meta+z');
+    await waitForState(preview.url, (state) => state.revision !== pasted.revision);
+    const undone = await read();
+    assert.equal(
+      getSlideNotes(getSlides(undone)[0]),
+      'Original',
+      'one Undo restores both pasted text and its formatting',
+    );
+  } finally {
+    await browser?.close();
+    await preview?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('setSlideNotesFormat applies run formatting to a selected notes range', () => {
+  const pres = createPresentation();
+  const slide = addBlankSlide(pres);
+  setSlideNotes(slide, 'Bold note');
+  setSlideNotesFormat(slide, { bold: true }, { range: { start: 0, end: 4 } });
+  const name = '/ppt/notesSlides/notesSlide1.xml';
+  const xml = new TextDecoder().decode(_internalPackageOf(pres).getPart(name).data);
+  assert.match(xml, /<a:rPr[^>]*\bb="1"/);
+  assert.match(xml, /<a:t> note<\/a:t>/);
+});

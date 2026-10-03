@@ -2899,6 +2899,33 @@
       ]
     },
     {
+      "id": "setSlideNotesFormat",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "transformSlideNotesCase",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "TextCase",
+          "kind": "enum",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setSlideOutlineCollapsed",
       "operand": "slide",
       "takesOperand": true,

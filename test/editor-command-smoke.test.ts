@@ -25,6 +25,10 @@ import {
   loadPresentation,
   savePresentation,
   setShapeLocked,
+  setSlideNotes,
+  getSlideNotes,
+  getSlideNotesTextFormats,
+  getSlideNotesParagraphEndFormat,
 } from '@office-kit/pptx';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
 import { RegroupHistory } from '../site/src/lib/editor/core/regroup-history.ts';
@@ -75,6 +79,43 @@ function run(doc: FakeDoc, id: string, args: Record<string, unknown> = {}) {
 }
 
 describe('editor command registry drives the library', () => {
+  it('preserves the selected notes range through formatting and case commands', async () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    setSlideNotes(slide, 'Alpha Beta');
+    const doc = new FakeDoc(pres);
+    run(doc, 'setSlideNotesFormat', {
+      format: { bold: true },
+      options: { range: { start: 0, end: 5 } },
+    });
+    run(doc, 'transformSlideNotesCase', {
+      value: 'upper',
+      options: { range: { start: 0, end: 5 } },
+    });
+    const restored = getSlides(await loadPresentation(await savePresentation(pres)))[0]!;
+    expect(getSlideNotes(restored)).toBe('ALPHA Beta');
+    expect(getSlideNotesTextFormats(restored)).toContainEqual(
+      expect.objectContaining({
+        start: 0,
+        end: 5,
+        format: expect.objectContaining({ bold: true }),
+      }),
+    );
+  });
+  it('dispatches paragraph-end notes formatting without a text range', async () => {
+    const pres = createPresentation();
+    addBlankSlide(pres);
+    const doc = new FakeDoc(pres);
+    run(doc, 'setSlideNotesFormat', {
+      format: { italic: true },
+      options: { paragraphEnd: 0 },
+    });
+    const restored = getSlides(await loadPresentation(await savePresentation(pres)))[0]!;
+    expect(getSlideNotes(restored)).toBe('');
+    expect(getSlideNotesParagraphEndFormat(restored, 0)).toEqual(
+      expect.objectContaining({ italic: true }),
+    );
+  });
   it('applies a background gradient to the active slide through the command registry', async () => {
     const pres = createPresentation();
     addBlankSlide(pres);

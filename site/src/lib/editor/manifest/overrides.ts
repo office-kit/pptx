@@ -60,6 +60,18 @@ const withCharacterEffects = (format: ParamSpec): ParamSpec => ({
   fields: [...(format.fields ?? []), ...CHARACTER_EFFECT_FIELDS],
 });
 
+const notesTextRange: ParamSpec = {
+  name: 'range',
+  type: '{ start: number; end: number }',
+  kind: 'object',
+  optional: false,
+  label: 'Text range',
+  fields: [
+    { name: 'start', type: 'number', kind: 'number', optional: false, label: 'Start' },
+    { name: 'end', type: 'number', kind: 'number', optional: false, label: 'End' },
+  ],
+};
+
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
@@ -441,6 +453,59 @@ const handOverrides: Record<string, CapabilityOverride> = {
     ],
   },
   setSlideNotes: { labelJa: 'スピーカーノートの編集' },
+  setSlideNotesFormat: {
+    labelEn: 'Format Speaker Notes',
+    labelJa: 'スピーカーノートの書式設定',
+    params: [
+      withCharacterEffects(generatedOverrides.setShapeTextFormat!.params![0]!),
+      {
+        name: 'options',
+        type: '{ range: { start: number; end: number }; reset?: boolean } | { paragraphEnd: number; reset?: boolean }',
+        kind: 'object',
+        optional: false,
+        label: 'Options',
+        fields: [
+          { ...notesTextRange, optional: true },
+          {
+            name: 'reset',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Clear text formatting',
+          },
+          {
+            name: 'paragraphEnd',
+            type: 'number',
+            kind: 'number',
+            optional: true,
+            label: 'Paragraph end index',
+          },
+        ],
+      },
+    ],
+  },
+  transformSlideNotesCase: {
+    labelEn: 'Change Notes Case',
+    labelJa: 'ノートの大文字と小文字の変更',
+    params: [
+      {
+        name: 'value',
+        type: 'TextCase',
+        kind: 'enum',
+        optional: false,
+        label: 'Case',
+        enumValues: ['sentence', 'lower', 'upper', 'title', 'toggle'],
+      },
+      {
+        name: 'options',
+        type: '{ range?: { start: number; end: number } }',
+        kind: 'object',
+        optional: true,
+        label: 'Options',
+        fields: [{ ...notesTextRange, optional: true }],
+      },
+    ],
+  },
   setSlideTitle: { labelJa: 'スライドタイトルの編集' },
   setTableCellClickAction: { labelEn: 'Set Table Cell Link', labelJa: '表セルのリンクを設定' },
   setTableCellAnchor: { labelJa: 'セルの縦方向の配置' },

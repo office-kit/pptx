@@ -127,6 +127,14 @@ export class EditorController {
     fontSize?: (direction: 1 | -1) => void;
     toggle: (property: TextFormatToggle) => void;
   } | null>(null);
+  /** Selection-aware formatting target used by the speaker-notes editor. */
+  notesInlineTextFormat = $state<{
+    formats: TextFormat[];
+    apply: (format: TextFormat, reset?: boolean) => void;
+    changeCase?: (value: TextCase) => void;
+    fontSize?: (direction: 1 | -1) => void;
+    toggle: (property: TextFormatToggle) => void;
+  } | null>(null);
   ribbonVisible = $state(true);
   thumbnailsVisible = $state(true);
   selectionPaneVisible = $state(false);
