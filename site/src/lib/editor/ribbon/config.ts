@@ -57,11 +57,6 @@ export const RIBBON: readonly RibbonTab[] = [
           { id: 'addContentSlide', icon: 'slide-content' },
           { id: 'duplicateSlide', icon: 'duplicate' },
           { id: 'removeSlide', icon: 'trash' },
-        ],
-      },
-      {
-        title: 'Layout',
-        items: [
           { id: 'resetSlideLayout', icon: 'slide-content' },
           {
             id: 'addMissingSlidePlaceholders',
@@ -97,18 +92,20 @@ export const RIBBON: readonly RibbonTab[] = [
         ],
       },
       {
-        title: 'Drawing',
+        title: 'Insert',
         items: [
+          { id: 'addSlideImage', icon: 'image' },
           { id: 'addSlideShape', icon: 'shape', preset: PRESET.shape },
           { id: 'addSlideTextBox', icon: 'textbox', preset: PRESET.textBox },
+        ],
+      },
+      {
+        title: 'Drawing',
+        items: [
           { id: 'setShapeFill', icon: 'fill' },
           { id: 'setShapeStroke', icon: 'outline' },
           { id: 'setShapeShadow', icon: 'shadow' },
         ],
-      },
-      {
-        title: 'Arrange',
-        items: [],
       },
       {
         title: 'Editing',

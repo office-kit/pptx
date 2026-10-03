@@ -50,27 +50,70 @@ test(
               true,
               `${width}px ${locale} ribbon scrolls: ${JSON.stringify(groupMetrics)}`,
             );
-            await editor
-              .getByRole('button', { name: locale === 'ja' ? '配置' : 'Arrange', exact: true })
-              .click();
             const selectionPane = editor.getByRole('menuitemcheckbox', {
               name: locale === 'ja' ? '選択ウィンドウ...' : 'Selection Pane...',
               exact: true,
             });
-            await selectionPane.waitFor();
-            await page.keyboard.press('Escape');
-            await selectionPane.waitFor({ state: 'hidden' });
             const compact = editor.locator('.compact-groups');
             if (width > 2000) {
+              const drawingGroup = editor
+                .locator('.group')
+                .filter({ hasText: locale === 'ja' ? '図形' : 'Drawing' });
+              assert.equal(await drawingGroup.locator('button[title*="setShapeFill"]').count(), 1);
+              assert.equal(
+                await drawingGroup.locator('button[title*="setShapeStroke"]').count(),
+                1,
+              );
+              await editor
+                .getByRole('button', { name: locale === 'ja' ? '配置' : 'Arrange', exact: true })
+                .click();
+              await selectionPane.waitFor();
+              await page.keyboard.press('Escape');
+              await selectionPane.waitFor({ state: 'hidden' });
               assert.equal(await compact.isVisible(), false);
               continue;
             }
             await compact.waitFor();
+            const drawingTrigger = compact
+              .locator('.group-menu-trigger')
+              .filter({ hasText: locale === 'ja' ? '図形' : 'Drawing' });
+            await drawingTrigger.click();
+            const drawingMenu = editor.locator('.group-menu');
+            await drawingMenu.waitFor();
+            assert.equal(await drawingMenu.locator('button[title*="setShapeFill"]').count(), 1);
+            assert.equal(await drawingMenu.locator('button[title*="setShapeStroke"]').count(), 1);
+            await drawingMenu
+              .getByRole('button', { name: locale === 'ja' ? '配置' : 'Arrange', exact: false })
+              .click();
+            await selectionPane.waitFor();
+            await page.keyboard.press('Escape');
+            await selectionPane.waitFor({ state: 'hidden' });
             assert.equal(
               await compact.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
               true,
               `${width}px ${locale} group selector scrolls`,
             );
+            // PowerPoint keeps layout controls in its Slides group.  The
+            // compact Home ribbon must expose the same grouping without a
+            // separate Layout trigger.
+            assert.equal(
+              await compact
+                .getByRole('button', {
+                  name: locale === 'ja' ? 'レイアウト' : 'Layout',
+                  exact: true,
+                })
+                .count(),
+              0,
+            );
+            const slidesTrigger = compact
+              .locator('.group-menu-trigger')
+              .filter({ hasText: locale === 'ja' ? 'スライド' : 'Slides' });
+            await slidesTrigger.click();
+            const slidesMenu = editor.locator('.group-menu');
+            await slidesMenu.waitFor();
+            assert.equal(await slidesMenu.locator('button[title*="resetSlideLayout"]').count(), 1);
+            await page.keyboard.press('Escape');
+            await slidesMenu.waitFor({ state: 'hidden' });
 
             const fontTrigger = compact.locator('.font-trigger');
             if (width < 800) {
