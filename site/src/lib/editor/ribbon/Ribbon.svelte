@@ -108,8 +108,8 @@
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group" class:font-group={current?.id === 'home' && group.title === 'Font'} class:paragraph-group={current?.id === 'home' && group.title === 'Paragraph'}>
         <div class="group-items">
-          {#if current?.id === 'home' && group.title === 'Arrange'}<ArrangeMenu />
-          {:else if current?.id === 'home' && group.title === 'Font'}<FontRibbon />
+          {#if current?.id === 'home' && group.title === 'Drawing'}<ArrangeMenu />{/if}
+          {#if current?.id === 'home' && group.title === 'Font'}<FontRibbon />
           {:else if current?.id === 'design' && group.title === 'Background'}
             <BackgroundStyles />
           {:else}
@@ -138,13 +138,9 @@
     {#if current?.id === 'home'}
       <div class="compact-groups" role="toolbar" aria-label={t('Home ribbon groups')}>
         {#each current.groups as group (group.title)}
-          {#if group.title === 'Arrange'}
-          <ArrangeMenu compact />
-          {:else}
           <button class="group-menu-trigger" class:font-trigger={group.title === 'Font'} class:paragraph-trigger={group.title === 'Paragraph'} aria-haspopup="menu" aria-expanded={openGroup === group.title} onclick={() => openGroup = openGroup === group.title ? null : group.title}>
             <span>{t(group.title)}</span><span aria-hidden="true">⌄</span>
           </button>
-          {/if}
         {/each}
       </div>
       {#if openGroup}
@@ -154,6 +150,7 @@
             <div class="group-menu-items">
               {#if group.title === 'Font'}<FontRibbon />
               {:else}
+                {#if group.title === 'Drawing'}<ArrangeMenu compact />{/if}
                 {#each group.items as item (item.id + (item.label ?? ''))}
                   {@const cap = capabilityById.get(item.id)}
                   {#if item.id === 'setParagraphAlignment'}<ParagraphAlignment />
