@@ -14,6 +14,27 @@ const cssUnderlineStyles = {
   wavy: 'wavy',
 } as const;
 type CssUnderlineStyle = keyof typeof cssUnderlineStyles;
+type OfficeKitUnderline = Exclude<NonNullable<TextFormat['underline']>, boolean>;
+const officeKitUnderlineStyles = new Set<OfficeKitUnderline>([
+  'none',
+  'words',
+  'sng',
+  'dbl',
+  'heavy',
+  'dotted',
+  'dottedHeavy',
+  'dash',
+  'dashHeavy',
+  'dashLong',
+  'dashLongHeavy',
+  'dotDash',
+  'dotDashHeavy',
+  'dotDotDash',
+  'dotDotDashHeavy',
+  'wavy',
+  'wavyHeavy',
+  'wavyDbl',
+]);
 const maxHtmlLength = 4_000_000;
 const maxNodes = 50_000;
 const maxDepth = 128;
@@ -157,6 +178,15 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
       if (decoration.includes('line-through'))
         format.strike = style.textDecorationStyle === 'double' ? 'dblStrike' : true;
     }
+    const preservedUnderline = element.getAttribute('data-office-kit-underline');
+    if (
+      preservedUnderline &&
+      officeKitUnderlineStyles.has(preservedUnderline as OfficeKitUnderline)
+    ) {
+      format.underline = preservedUnderline as OfficeKitUnderline;
+      const preservedColor = color(style.textDecorationColor);
+      if (preservedColor) format.underlineColor = preservedColor;
+    }
     if (style.verticalAlign === 'super') format.baseline = 0.3;
     if (style.verticalAlign === 'sub') format.baseline = -0.25;
     if (style.verticalAlign === 'baseline') format.baseline = 0;
@@ -263,6 +293,8 @@ export function textClipboardHtml(
       style.fontKerning = format.kern > 0 && format.size >= format.kern / 100 ? 'normal' : 'none';
     const decorations = [];
     const underline = format.underline;
+    if (typeof underline === 'string' && underline !== 'none')
+      span.dataset.officeKitUnderline = underline;
     const strikeStyle = format.strike === 'dblStrike' ? 'double' : 'solid';
     const editing = options.editing === true;
     if (format.baseline) {
@@ -289,6 +321,8 @@ export function textClipboardHtml(
         else {
           const underlineElement = document.createElement('u');
           underlineElement.textContent = word;
+          if (typeof underline === 'string' && underline !== 'none')
+            underlineElement.dataset.officeKitUnderline = underline;
           underlineElement.style.cssText += underlineStyle;
           if (explicitUnderlineColor) underlineElement.style.textDecorationColor = underlineColor;
           underlineNodes.append(underlineElement);
@@ -329,6 +363,8 @@ export function textClipboardHtml(
       style.textDecorationStyle = strikeStyle;
       const underlineSpan = document.createElement('u');
       underlineSpan.textContent = span.textContent;
+      if (typeof underline === 'string' && underline !== 'none')
+        underlineSpan.dataset.officeKitUnderline = underline;
       underlineSpan.style.textDecorationLine = 'underline';
       if (underlineStyle) underlineSpan.style.textDecorationStyle = underlineStyle;
       if (explicitUnderlineColor) underlineSpan.style.textDecorationColor = underlineColor;
