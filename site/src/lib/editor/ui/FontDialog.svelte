@@ -24,12 +24,20 @@
   let strike = $state<string>();
   let cap = $state<TextFormat['cap']>();
   let offset = $state<number>();
+  let offsetText = $state('');
+  let lastValidOffsetText = $state('');
+  let offsetEdited = $state(false);
+  let offsetError = $state<string>();
+  let offsetInput = $state<HTMLInputElement>();
+  let offsetErrorDialog: HTMLDialogElement;
   let normalizeHeight = $state<boolean>();
   let spacingMode = $state('');
   let spacingAmount = $state<number>();
   let useKerning = $state<boolean>();
   let kerningThreshold = $state<number>();
   let patch = $state<TextFormat>({});
+  const OFFSET_MIN = -100;
+  const OFFSET_MAX = 100;
   const formats = $derived.by(() => {
     doc.version;
     if (editor.inlineTextFormat) return editor.inlineTextFormat.formats;
@@ -73,6 +81,9 @@
     cap = common(f => f.cap ?? 'none');
     const base = common(f => f.baseline ?? 0);
     offset = base === undefined ? undefined : base * 100;
+    offsetText = offset === undefined ? '' : `${offset}%`;
+    lastValidOffsetText = offsetText;
+    offsetEdited = false;
     normalizeHeight = common(f => f.normalizeHeight ?? false);
     const spc = common(f => f.spc ?? 0);
     spacingMode = spc === undefined ? '' : spc === 0 ? 'normal' : spc > 0 ? 'expanded' : 'condensed';
@@ -95,9 +106,56 @@
   }
   function setOffset(value: number | undefined) {
     offset = value;
+    offsetText = value === undefined ? '' : `${value}%`;
+    lastValidOffsetText = offsetText;
+    offsetEdited = true;
+    offsetError = undefined;
     if (value !== undefined) patch.baseline = value / 100;
   }
+  function parseOffset(value: string): number | undefined {
+    const match = /^(-?(?:\d+(?:\.\d*)?|\.\d+))%$/.exec(value);
+    const parsed = match ? Number(match[1]) : NaN;
+    return Number.isFinite(parsed) && parsed >= OFFSET_MIN && parsed <= OFFSET_MAX ? parsed : undefined;
+  }
+  function invalidOffsetMessage(value: string): string {
+    return `${t('The value')} “${value}” ${t('is invalid. Please provide a valid value.')}`;
+  }
+  function validateOffset(): boolean {
+    const value = offsetText.trim();
+    const parsed = parseOffset(value);
+    if (parsed === undefined) {
+      offsetError = value;
+      return false;
+    }
+    offsetError = undefined;
+    setOffset(parsed);
+    return true;
+  }
+  function changeOffset() {
+    offsetEdited = true;
+    if (!validateOffset() && !offsetErrorDialog.open) offsetErrorDialog.showModal();
+  }
+  function stepOffset(amount: number) {
+    const current = parseOffset(offsetText.trim()) ?? offset ?? 0;
+    const stepped = Math.trunc(current) + amount;
+    setOffset(Math.max(OFFSET_MIN, Math.min(OFFSET_MAX, stepped)));
+    offsetInput?.focus();
+  }
+  function closeOffsetError(discard: boolean) {
+    if (discard) {
+      offsetText = lastValidOffsetText;
+    } else {
+      offsetText = '';
+    }
+    offsetError = undefined;
+    offsetErrorDialog.close();
+    offsetInput?.focus();
+  }
   function apply() {
+    if (offsetEdited && !validateOffset()) {
+      offsetErrorDialog.showModal();
+      return;
+    }
     if (Object.keys(patch).length) {
       if (editor.inlineTextFormat) editor.inlineTextFormat.apply(patch);
       else if (doc.selection.kind === 'cell') {
@@ -158,7 +216,7 @@
           <label class="check"><input type="checkbox" checked={strike === 'dblStrike'} indeterminate={strike === undefined} onchange={e => { strike = e.currentTarget.checked ? 'dblStrike' : 'noStrike'; patch.strike = strike; }} />{t('Double strikethrough')}</label>
           <label class="check"><input type="checkbox" checked={offset !== undefined && offset > 0} indeterminate={offset === undefined} onchange={e => setOffset(e.currentTarget.checked ? 30 : 0)} />{t('Superscript')}</label>
           <label class="check"><input type="checkbox" checked={offset !== undefined && offset < 0} indeterminate={offset === undefined} onchange={e => setOffset(e.currentTarget.checked ? -25 : 0)} />{t('Subscript')}</label>
-          <label class="offset">{t('Offset (%)')}<input type="number" min="-100" max="100" step="any" bind:value={offset} placeholder={t('Mixed')} onchange={() => setOffset(offset)} /></label>
+          <label class="offset">{t('Offset (%)')}<span class="offset-control"><input aria-label={t('Offset (%)')} bind:this={offsetInput} type="text" inputmode="decimal" bind:value={offsetText} placeholder={t('Mixed')} onchange={changeOffset} /><span class="stepper"><button type="button" aria-label={t('Increase offset')} onclick={() => stepOffset(2)}>▲</button><button type="button" aria-label={t('Decrease offset')} onclick={() => stepOffset(-2)}>▼</button></span></span></label>
         </div>
         <div>
           <label class="check"><input type="checkbox" checked={cap === 'small'} indeterminate={cap === undefined} onchange={e => { cap = e.currentTarget.checked ? 'small' : 'none'; patch.cap = cap; }} />{t('Small caps')}</label>
@@ -179,6 +237,11 @@
     </div>
     <footer><button type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit">{t('OK')}</button></footer>
   </form>
+</dialog>
+
+<dialog class="offset-error-dialog" bind:this={offsetErrorDialog} role="alertdialog" aria-label={t('Invalid value')} oncancel={event => { event.preventDefault(); closeOffsetError(false); }}>
+  <p>{offsetError === undefined ? '' : invalidOffsetMessage(offsetError)}</p>
+  <footer><button type="button" onclick={() => closeOffsetError(false)}>{t('OK')}</button><button type="button" onclick={() => closeOffsetError(true)}>{t('Discard Change')}</button></footer>
 </dialog>
 
 <style>
@@ -204,7 +267,11 @@
   .color-grid, .effects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
   .color-grid { grid-template-columns: 1fr 1.4fr 1fr; }
   .offset { flex-direction: row; align-items: center; margin-top: 8px; }
+  .offset-control { display: inline-flex; align-items: stretch; }
   .offset input { width: 78px; }
+  .stepper { display: flex; flex-direction: column; }
+  .stepper button { width: 18px; padding: 0; border: 1px solid var(--ok-border); background: var(--ok-input); color: inherit; font-size: 8px; line-height: 10px; }
+  .stepper button + button { border-top: 0; }
   .spacing-row { display: flex; gap: 24px; margin: 22px 0; }
   .spacing-row label { width: 150px; }
   .kerning-row > label:last-child { flex-direction: row; align-items: center; margin-top: 14px; }
@@ -212,4 +279,7 @@
   footer { display: flex; justify-content: flex-end; gap: 8px; padding: 18px 24px; }
   footer button { min-width: 70px; padding: 5px 10px; border: 1px solid var(--ok-border); border-radius: 4px; background: transparent; color: inherit; cursor: pointer; }
   footer button[type='submit'] { background: var(--ok-accent); border-color: var(--ok-accent); color: #fff; }
+  .offset-error-dialog { width: 360px; max-width: calc(100vw - 32px); box-sizing: border-box; border: 1px solid var(--ok-border); border-radius: 7px; background: var(--ok-panel); color: var(--ok-text); padding: 18px 24px; box-shadow: var(--ok-shadow-lg); }
+  .offset-error-dialog p { margin: 0; }
+  .offset-error-dialog footer { padding: 18px 0 0; }
 </style>
