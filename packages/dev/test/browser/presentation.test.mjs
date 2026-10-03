@@ -467,7 +467,7 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
       await page.getByRole('button', { name: 'Preview', exact: true }).click();
-      await page.locator('#slide a').click();
+      await page.locator('#slide a').locator('span').last().click();
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
       await page.locator('#slide a').focus();
       await page.keyboard.press('Enter');
@@ -476,9 +476,9 @@ test(
       await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
       const presenter = await ready;
       presenter.on('pageerror', (error) => errors.push(error.message));
-      await presenter.locator('#next a').click();
+      await presenter.locator('#next a').locator('span').last().click();
       await presenter.getByText('Slide 1 of 4', { exact: true }).waitFor();
-      await presenter.locator('#current a').click();
+      await presenter.locator('#current a').locator('span').last().click();
       await presenter.getByText('Slide 3 of 4', { exact: true }).waitFor();
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
       await presenter.locator('#current a').focus();

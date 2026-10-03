@@ -95,7 +95,7 @@ for (const repeated of [false, true])
           await page.keyboard.press('ArrowRight');
           await expectSlide('Last');
         }
-        await page.locator('#slide a[href="#pptx-end-show"]').click();
+        await page.locator('#slide a[href="#pptx-end-show"]').locator('span').last().click();
         await page.waitForFunction(
           () => !document.body.classList.contains('presenting') && !document.fullscreenElement,
         );
@@ -111,11 +111,11 @@ for (const repeated of [false, true])
         const popup = page.waitForEvent('popup');
         await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
         const presenter = await popup;
-        await presenter.locator('#current a[href="#slide-3"]').click();
+        await presenter.locator('#current a[href="#slide-3"]').locator('span').last().click();
         await expectSlide('Last');
         await presenter.locator('#current a[href="#pptx-last-slide-viewed"]').click();
         await expectSlide('First');
-        await presenter.locator('#current a[href="#pptx-end-show"]').click();
+        await presenter.locator('#current a[href="#pptx-end-show"]').locator('span').last().click();
         await page.waitForFunction(() => !document.body.classList.contains('presenting'));
       } finally {
         await browser?.close();

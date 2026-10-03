@@ -107,7 +107,8 @@ for (const [returnToShow, automatic] of [
           );
           return;
         }
-        await page.locator('#slide a[href="#pptx-custom-show?id=9&return=true"]').click();
+        const nested = page.locator('#slide a[href="#pptx-custom-show?id=9&return=true"]');
+        await nested.locator('span').last().click();
         await expectSlide('Part A');
         await page.locator('#slide a[href="#pptx-end-show"]').click();
         await expectSlide('Part B');
