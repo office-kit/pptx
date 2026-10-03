@@ -110,6 +110,7 @@ export type {
   LineEndType,
   PatternFillOptions,
   PatternPreset,
+  ReflectionOptions,
   ShadowOptions,
 } from '../internal/drawingml/index.ts';
 export type {

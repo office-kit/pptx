@@ -109,10 +109,18 @@ export type ShapeEffectAny =
       // near-end alpha (`stA`). Both are unit fractions when authored.
       readonly opacity?: number;
       readonly startOpacity?: number;
+      readonly startPosition?: number;
+      readonly endPosition?: number;
+      readonly fadeDirection?: number;
+      readonly scaleX?: number;
+      readonly alignment?: 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
+      readonly rotateWithShape?: boolean;
       // Vertical scale (`sy`) as a signed unit fraction — PowerPoint
       // encodes the mirror as a negative `sy` (e.g. -1 = full-height
       // flip), so renderers must honor the sign, not just the magnitude.
       readonly scaleY?: number;
+      readonly skewX?: number;
+      readonly skewY?: number;
       readonly blurEmu: number;
       readonly distEmu: number;
       readonly angleDeg: number;
