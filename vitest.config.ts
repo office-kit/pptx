@@ -8,6 +8,7 @@ export default defineConfig({
       // built dist/ directory. The alias wires the package name directly to the
       // TypeScript source so vitest resolves the same code the tests exercise.
       '@office-kit/pptx': resolve('./src/api/index.ts'),
+      '@office-kit/pptx-preview': resolve('./packages/preview/src/index.ts'),
     },
   },
   test: {
