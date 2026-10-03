@@ -92,15 +92,20 @@ for (const { preset, grouped = false, collapsed = false } of [
         const layout = await input.evaluate((node) => {
           const box = node.getBoundingClientRect(),
             style = getComputedStyle(node);
+          // Padding is reported in local CSS pixels while the editor input is
+          // transformed to match the preview (including group scaling).
+          const scaleX = box.width / parseFloat(style.width),
+            scaleY = box.height / parseFloat(style.height);
           const paragraph = node.querySelector('[data-text-paragraph]');
           const region = document.querySelector('.paint foreignObject');
           const rendered = region.getBoundingClientRect();
           return {
             actual: [
-              box.x + parseFloat(style.paddingLeft),
-              box.y + parseFloat(style.paddingTop),
-              box.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
-              box.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+              box.x + parseFloat(style.paddingLeft) * scaleX,
+              box.y + parseFloat(style.paddingTop) * scaleY,
+              box.width - (parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)) * scaleX,
+              box.height -
+                (parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)) * scaleY,
             ],
             expected: [rendered.x, rendered.y, rendered.width, rendered.height],
             align: getComputedStyle(paragraph).textAlign,

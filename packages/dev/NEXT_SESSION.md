@@ -1482,3 +1482,8 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Clicking native Character Spacing subsequently failed with screen capture size 0x0; immediate state/screenshot and getApp retries returned the same error. No document mutation was performed. Keep retrying the native connection; don't report the later menu as verified.
 - CI run 37065871763 on 8f854af4 finished: static, OOXML, preview fidelity, Node 22 and Node 26 passed; Node 24 failed after 50m14s. Audit the Chromium log before claiming complete CI validation.
 - Narrow Home regression failed before the change (expanded Font at 756px), then passed at 756/900/1500/1601/1900/2100px in English and Japanese. Popover font fields, Escape dismissal and no horizontal overflow are checked. Editor build, root formatting/lint and Svelte check (0 errors/warnings) pass. Screenshot `/tmp/home-ribbon-756-ja.png` inspected.
+
+## 2026-10-03: CI text-region coordinate correction
+
+- Node 24 CI custom-geometry and preset-text-editing failures were test measurement errors: they added native CSS padding directly to viewport rectangles after inline inputs began using canvas transforms. They did not prove a custom-geometry reader/layout defect. Converted padding with viewport width/height divided by computed CSS width/height, preserving the existing strict bounds and round-trip checks. Fixtures are unrotated; do not generalize these axis scale formulas to rotated elements.
+- Root and agent verification: 2 custom geometry and 8 preset geometry cases pass (`/tmp/native-ci-text-coordinates.log`). Production rendering unchanged. Other Node 24 Chromium failures still require investigation; complete CI is not green.
