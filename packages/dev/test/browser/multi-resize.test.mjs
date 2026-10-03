@@ -14,7 +14,7 @@ import {
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
 test(
-  'selection corner handles proportionally resize rotated objects and preserve history',
+  'individual handles resize selected objects about their own anchors and preserve history',
   { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-multi-resize-'));
@@ -23,7 +23,7 @@ test(
       const file = join(dir, 'deck.tsx');
       await writeFile(
         file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={2} y={2} width={2} height={1}>English</Text><Text x={6} y={2} width={2} height={1} rotation={45}>日本語</Text><Text x={10} y={5} width={1} height={1}>Other</Text></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={2} y={2} width={2} height={1}>English</Text><Text x={6} y={2} width={2} height={1}>日本語</Text><Text x={10} y={5} width={1} height={1}>Other</Text></Slide></Presentation>`,
       );
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
@@ -55,12 +55,15 @@ test(
           .click({ modifiers: ['Shift'] });
       };
       const handle = (direction) =>
-        editor.getByRole('button', {
-          name: ja
-            ? `選択範囲を拡大・縮小（${{ nw: '左上', se: '右下' }[direction]}）`
-            : `Scale selection ${direction}`,
-          exact: true,
-        });
+        editor
+          .locator('.hit')
+          .nth(0)
+          .getByRole('button', {
+            name: ja
+              ? `サイズ変更（${{ nw: '左上', se: '右下' }[direction]}）`
+              : `Resize ${direction}`,
+            exact: true,
+          });
       const centre = async (locator) => {
         const b = await locator.boundingBox();
         return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
@@ -84,7 +87,8 @@ test(
         1,
         'multiple selection exposes corner resize handles',
       );
-      assert.equal(await editor.locator('.multi-selection .handle').count(), 4);
+      assert.equal(await editor.locator('.hit.selected .handle').count(), 16);
+      assert.equal(await editor.locator('.multi-selection').count(), 0);
       const anchor = await relative('nw');
       const beforeResize = (await waitForState(preview.url, () => true)).revision;
       await beginResize('se', 80, 30);
@@ -96,12 +100,13 @@ test(
       assert.ok(scale > 1.1);
       const fixed = await relative('nw');
       assert.ok(Math.hypot(fixed.x - anchor.x, fixed.y - anchor.y) < 1);
-      const pivot = { x: 2 * 914400, y: (2.5 - 1.5 / Math.SQRT2) * 914400 };
+      const scaleY = enlarged[0].h / original[0].h;
+      assert.ok(Math.abs(scaleY - scale) > 0.01);
       for (let i = 0; i < 2; i++) {
-        assert.ok(Math.abs(enlarged[i].h - original[i].h * scale) <= 2);
+        assert.ok(Math.abs(enlarged[i].h - original[i].h * scaleY) <= 2);
         assert.ok(Math.abs(enlarged[i].w - original[i].w * scale) <= 2);
-        assert.ok(Math.abs(enlarged[i].x - (pivot.x + (original[i].x - pivot.x) * scale)) <= 2);
-        assert.ok(Math.abs(enlarged[i].y - (pivot.y + (original[i].y - pivot.y) * scale)) <= 2);
+        assert.ok(Math.abs(enlarged[i].x - original[i].x) <= 2);
+        assert.ok(Math.abs(enlarged[i].y - original[i].y) <= 2);
         assert.equal(enlarged[i].rotation, original[i].rotation);
       }
       assert.deepEqual(enlarged[2], original[2]);
