@@ -4,6 +4,7 @@
   import { getEditor } from '../core/context.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { stepFontSize } from '../core/font-size.ts';
+  import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import type { TextEdit } from '../core/text-edit-preview.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import RichTextInput from './RichTextInput.svelte';
@@ -193,9 +194,8 @@
     input.focus();
     input.setSelectionRange(range.start, range.end);
   }
-  function toggleNoteFormat(property: 'bold' | 'italic' | 'underline' | 'strike' | 'superscript' | 'subscript') {
-    const format = property === 'underline' ? { underline: noteFormat.underline === 'sng' ? 'none' : 'sng' } : property === 'superscript' ? { baseline: noteFormat.baseline === 30 ? 0 : 30 } : property === 'subscript' ? { baseline: noteFormat.baseline === -25 ? 0 : -25 } : property === 'bold' ? { bold: !noteFormat.bold } : property === 'italic' ? { italic: !noteFormat.italic } : { strike: !noteFormat.strike };
-    applyNoteFormat(format);
+  function toggleNoteFormat(property: TextFormatToggle) {
+    applyNoteFormat(toggleTextFormat([noteFormat], property));
   }
   function changeCase(caseValue: TextCase) {
     commit();

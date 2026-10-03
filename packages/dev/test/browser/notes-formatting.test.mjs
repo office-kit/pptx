@@ -172,3 +172,55 @@ test('setSlideNotesFormat applies run formatting to a selected notes range', () 
   assert.match(xml, /<a:rPr[^>]*\bb="1"/);
   assert.match(xml, /<a:t> note<\/a:t>/);
 });
+
+test(
+  'notes script buttons use proportional baselines and toggle off',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-notes-script-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide notes="Script"/></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
+      await input.selectText();
+      for (const [button, baseline] of [
+        ['Superscript', 30000],
+        ['Superscript', 0],
+        ['Subscript', -25000],
+        ['Subscript', 0],
+      ]) {
+        const before = (await waitForState(preview.url, () => true)).revision;
+        await editor.getByRole('button', { name: button, exact: true }).click();
+        await waitForState(preview.url, (state) => state.revision !== before);
+        const saved = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        const xml = new TextDecoder().decode(
+          _internalPackageOf(saved).getPart('/ppt/notesSlides/notesSlide1.xml').data,
+        );
+        assert.match(
+          xml,
+          new RegExp(`baseline="${baseline}"`),
+          `${button} writes the OOXML percentage for its actual offset`,
+        );
+        assert.equal(getSlideNotes(getSlides(saved)[0]), 'Script');
+      }
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

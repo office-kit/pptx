@@ -188,11 +188,29 @@ export interface PieceInput {
   readonly href: string | null;
   readonly hrefTip?: string;
   readonly isBreak: boolean; // <a:br>
+  /** Character-level DrawingML outer shadow, rendered as a glyph-only SVG layer. */
+  readonly shadow?: TextShadowInput;
+  /** Character-level DrawingML glow, rendered as a glyph-only SVG layer. */
+  readonly glow?: TextGlowInput;
   readonly innerShadow?: TextInnerShadowInput;
   /** Character-level DrawingML reflection. The duplicate glyph is emitted
    * from the same laid-out group so mixed runs and wrapping keep their exact
    * positions. */
   readonly reflection?: TextReflectionInput;
+}
+
+export interface TextShadowInput {
+  readonly color?: string;
+  readonly blurEmu?: number;
+  readonly offsetEmu?: number;
+  readonly angleDeg?: number;
+  readonly opacity?: number;
+}
+
+export interface TextGlowInput {
+  readonly color?: string;
+  readonly radiusEmu?: number;
+  readonly opacity?: number;
 }
 
 export interface TextInnerShadowInput {
@@ -282,7 +300,7 @@ export interface TextBodyInput {
   /** Emit only non-interactive character effects for a foreignObject sibling. */
   readonly effectsOnly?: boolean;
   /** Restrict an effects-only pass to one character-effect family. */
-  readonly effectKind?: 'reflection' | 'innerShadow' | 'all';
+  readonly effectKind?: 'reflection' | 'outer' | 'innerShadow' | 'all';
 }
 
 // ---------------------------------------------------------------------------
@@ -851,7 +869,7 @@ const placeColumns = (
 const emitPlacements = (
   placements: Placement[],
   effectsOnly = false,
-  effectKind: 'reflection' | 'innerShadow' | 'all' = 'all',
+  effectKind: 'reflection' | 'outer' | 'innerShadow' | 'all' = 'all',
 ): string => {
   const paragraphs: string[] = [];
   let parts: string[] = [];
@@ -864,7 +882,7 @@ const emitPlacements = (
   };
   let effectIndex = 0;
   const namespace = reflectionNamespace++;
-  const nextEffectId = (kind: 'reflection' | 'inner-shadow'): string =>
+  const nextEffectId = (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow'): string =>
     `text-${kind}-${namespace}-${effectIndex++}`;
   for (const { line, baselineY, dx } of placements) {
     if (line.paraIndex !== paraIndex) {
@@ -927,9 +945,9 @@ const emitLine = (
   baselineY: number,
   dx: number,
   descent: number,
-  nextEffectId: (kind: 'reflection' | 'inner-shadow') => string,
+  nextEffectId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
   effectsOnly: boolean,
-  effectKind: 'reflection' | 'innerShadow' | 'all',
+  effectKind: 'reflection' | 'outer' | 'innerShadow' | 'all',
 ): string => {
   const toks = [...line.tokens];
   while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
@@ -953,16 +971,21 @@ const emitLine = (
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
   const reflections =
-    effectKind === 'innerShadow'
+    effectKind === 'innerShadow' || effectKind === 'outer'
       ? ''
       : emitTextReflections(groups, line.textAnchor, x0, baselineY, descent, nextEffectId);
+  const outerEffects =
+    effectKind === 'reflection' || effectKind === 'innerShadow'
+      ? ''
+      : emitTextOuterEffects(groups, line.textAnchor, x0, baselineY, nextEffectId);
   const innerShadows =
-    effectKind === 'reflection'
+    effectKind === 'reflection' || effectKind === 'outer'
       ? ''
       : emitTextInnerShadows(groups, line.textAnchor, x0, baselineY, nextEffectId);
-  if (effectsOnly) return reflections + innerShadows;
+  if (effectsOnly) return outerEffects + reflections + innerShadows;
   return (
     emitHighlights(groups, line.textAnchor, x0, baselineY) +
+    outerEffects +
     reflections +
     text +
     innerShadows +
@@ -1008,7 +1031,7 @@ const emitTextReflections = (
   x0: number,
   baselineY: number,
   descent: number,
-  nextEffectId: (kind: 'reflection' | 'inner-shadow') => string,
+  nextEffectId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
 ): string => {
   const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
   let cursor =
@@ -1094,12 +1117,74 @@ const emitTextReflections = (
   return parts.join('');
 };
 
+const emitTextOuterEffects = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+  nextId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+): string => {
+  const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
+  let cursor =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  const parts: string[] = [];
+  for (const group of groups) {
+    const shadow = group.piece.shadow;
+    const glow = group.piece.glow;
+    if (group.width <= 0 || group.isTab || (!shadow && !glow)) {
+      cursor += group.width;
+      continue;
+    }
+    const glyph = `<text x="${fmt(cursor)}" y="${fmt(baselineY)}" text-anchor="start" xml:space="preserve">${tspan(group)}</text>`;
+    if (shadow) {
+      const id = nextId('outer-shadow');
+      const angle = ((shadow.angleDeg ?? 45) * Math.PI) / 180;
+      const distance = (shadow.offsetEmu ?? 38100) / EMU_PER_PX;
+      const blur = Math.max(0, (shadow.blurEmu ?? 50800) / EMU_PER_PX / 2);
+      const glyphSize = renderedSizePxOf(group.piece);
+      const pad = Math.max(1, distance + blur * 3);
+      const color = shadow.color ?? '#000000';
+      const opacity = Math.max(0, Math.min(1, shadow.opacity ?? 1));
+      const defs =
+        `<defs><filter id="${id}" filterUnits="userSpaceOnUse" x="${fmt(cursor - pad)}" y="${fmt(baselineY - glyphSize * 1.5 - pad)}" width="${fmt(group.width + pad * 2)}" height="${fmt(glyphSize * 2 + pad * 2)}">` +
+        `<feGaussianBlur in="SourceAlpha" stdDeviation="${fmt(blur)}" result="shadowBlur"/>` +
+        `<feOffset in="shadowBlur" dx="${fmt(Math.cos(angle) * distance)}" dy="${fmt(Math.sin(angle) * distance)}" result="shadowOffset"/>` +
+        `<feFlood flood-color="${escapeXml(color)}" flood-opacity="${opacity.toFixed(3)}" result="shadowColor"/>` +
+        `<feComposite in="shadowColor" in2="shadowOffset" operator="in"/>` +
+        `</filter></defs>`;
+      parts.push(
+        `${defs}${glyph.replace('<text ', `<text filter="url(#${id})" aria-hidden="true" pointer-events="none" `)}`,
+      );
+    }
+    if (glow) {
+      const id = nextId('glow');
+      const radius = Math.max(0, (glow.radiusEmu ?? 63500) / EMU_PER_PX);
+      const glyphSize = renderedSizePxOf(group.piece);
+      const pad = Math.max(1, radius * 2);
+      const color = glow.color ?? '#FFFF00';
+      const opacity = Math.max(0, Math.min(1, glow.opacity ?? 1));
+      const defs =
+        `<defs><filter id="${id}" filterUnits="userSpaceOnUse" x="${fmt(cursor - pad)}" y="${fmt(baselineY - glyphSize * 1.5 - pad)}" width="${fmt(group.width + pad * 2)}" height="${fmt(glyphSize * 2 + pad * 2)}">` +
+        `<feMorphology in="SourceAlpha" operator="dilate" radius="${fmt(radius / 2)}" result="glowExpanded"/>` +
+        `<feGaussianBlur in="glowExpanded" stdDeviation="${fmt(radius / 2)}" result="glowBlur"/>` +
+        `<feFlood flood-color="${escapeXml(color)}" flood-opacity="${opacity.toFixed(3)}" result="glowColor"/>` +
+        `<feComposite in="glowColor" in2="glowBlur" operator="in"/>` +
+        `</filter></defs>`;
+      parts.push(
+        `${defs}${glyph.replace('<text ', `<text filter="url(#${id})" aria-hidden="true" pointer-events="none" `)}`,
+      );
+    }
+    cursor += group.width;
+  }
+  return parts.join('');
+};
+
 const emitTextInnerShadows = (
   groups: readonly Group[],
   textAnchor: 'start' | 'middle' | 'end',
   x0: number,
   baselineY: number,
-  nextId: (kind: 'reflection' | 'inner-shadow') => string,
+  nextId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
 ): string => {
   const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
   let cursor =
@@ -1364,6 +1449,22 @@ const sameInnerShadow = (
   );
 };
 
+const sameShadow = (a: TextShadowInput | undefined, b: TextShadowInput | undefined): boolean => {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.color === b.color &&
+    a.blurEmu === b.blurEmu &&
+    a.offsetEmu === b.offsetEmu &&
+    a.angleDeg === b.angleDeg &&
+    a.opacity === b.opacity
+  );
+};
+
+const sameGlow = (a: TextGlowInput | undefined, b: TextGlowInput | undefined): boolean => {
+  if (a === undefined || b === undefined) return a === b;
+  return a.color === b.color && a.radiusEmu === b.radiusEmu && a.opacity === b.opacity;
+};
+
 const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.family === b.family &&
   a.sizePx === b.sizePx &&
@@ -1380,6 +1481,8 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.strike === b.strike &&
   a.baseline === b.baseline &&
   a.smallCaps === b.smallCaps &&
+  sameShadow(a.shadow, b.shadow) &&
+  sameGlow(a.glow, b.glow) &&
   sameInnerShadow(a.innerShadow, b.innerShadow) &&
   sameReflection(a.reflection, b.reflection) &&
   a.href === b.href &&

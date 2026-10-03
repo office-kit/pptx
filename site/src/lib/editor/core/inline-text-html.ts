@@ -14,6 +14,7 @@ import {
   getShapeSlide,
   type PresentationData,
   type SlideShapeData,
+  type ReadTextFormat,
 } from '@office-kit/pptx';
 import { paragraphNumberLabels } from '@office-kit/pptx-preview';
 import { defaultTextMetrics, shapeTextDefaults } from './text-layout-defaults.ts';
@@ -53,6 +54,36 @@ export function resolveEditingTextColor(
   const mapped = getEffectiveColorMap(getShapeSlide(shape))[token] ?? token;
   const key = themeKeyByToken[mapped] ?? themeKeyByToken[token];
   return key ? theme[key] : undefined;
+}
+
+/** Resolve every paint-bearing color before HTML export (including copied runs). */
+export function resolveEditingTextFormatColors(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  format: ReadTextFormat,
+): ReadTextFormat {
+  const color = (value: string | null | undefined): string | undefined =>
+    value == null ? undefined : (resolveEditingTextColor(pres, shape, value) ?? value);
+  const resolved = (value: string | null | undefined) => {
+    const next = color(value);
+    return next === undefined ? {} : { color: next };
+  };
+  return {
+    ...format,
+    ...(format.color !== undefined
+      ? { color: format.color === null ? null : color(format.color) }
+      : {}),
+    ...(format.underlineColor !== undefined
+      ? { underlineColor: format.underlineColor === null ? null : color(format.underlineColor) }
+      : {}),
+    ...(format.outline
+      ? { outline: { ...format.outline, ...resolved(format.outline.color) } }
+      : {}),
+    ...(format.shadow ? { shadow: { ...format.shadow, ...resolved(format.shadow.color) } } : {}),
+    ...(format.glow
+      ? { glow: { ...format.glow, color: color(format.glow.color) ?? format.glow.color } }
+      : {}),
+  };
 }
 
 /** Keep literal UTF-16 paragraph separators for editing and clipboard offsets. */
@@ -105,20 +136,9 @@ export function inlineTextHtml(
           : element.kind === 'fld'
             ? resolve(index, { fieldIndex: fieldIndex++ })
             : resolve(index, { breakIndex: breakIndex++ });
-      const editingFormat =
-        cell && rawFormat
-          ? {
-              ...rawFormat,
-              ...(rawFormat.color
-                ? { color: resolveEditingTextColor(pres, shape, rawFormat.color) }
-                : {}),
-              ...(rawFormat.underlineColor !== undefined && rawFormat.underlineColor !== null
-                ? {
-                    underlineColor: resolveEditingTextColor(pres, shape, rawFormat.underlineColor),
-                  }
-                : {}),
-            }
-          : rawFormat;
+      const editingFormat = rawFormat
+        ? resolveEditingTextFormatColors(pres, shape, rawFormat)
+        : rawFormat;
       // The reader widens colors to strings; the HTML exporter takes what a
       // writer would.
       return { start, end: text.length, format: toWritableTextFormat(editingFormat ?? {}) };
