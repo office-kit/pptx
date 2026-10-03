@@ -31,6 +31,7 @@ import { getEffectiveColorMap } from './color-map.ts';
 import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
 import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
 import { getPresentationTheme, type PresentationTheme } from './theme.ts';
+import { getShapeStyleTheme, readShapeStyleFillElement } from './shape-style-read.ts';
 // ---------------------------------------------------------------------------
 // Detailed gradient-fill reader. Companion to `getShapeFill`, which
 // only reports the discriminated `kind`. Returns the full stop list +
@@ -171,6 +172,24 @@ export const parseGradFill = (
 };
 
 /**
+ * `undefined` means no usable style reference; `null` means an explicit
+ * non-gradient style that masks placeholder inheritance.
+ */
+const readStyleMatrixGradient = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): ReadGradientFill | null | undefined => {
+  const resolved = readShapeStyleFillElement(pres, shape);
+  if (!resolved) return undefined;
+  if (resolved.name.localName !== 'gradFill') return null;
+  const { theme } = getShapeStyleTheme(pres, shape);
+  return parseGradFill(resolved, {
+    theme,
+    colorMap: getEffectiveColorMap(shape[SHAPE_SLIDE]),
+  });
+};
+
+/**
  * Returns the full gradient definition (`stops` + `angleDeg`) when the
  * shape's `<p:spPr>` carries an `<a:gradFill>`. Returns `null` for any
  * other fill kind, including `inherit` — the function does not walk the
@@ -191,11 +210,9 @@ export const getShapeGradientFill = (shape: SlideShapeData): ReadGradientFill | 
  * Returns the first gradient in the placeholder cascade, or `null` when an
  * explicit non-gradient fill masks the cascade or no layer defines one.
  *
- * Resolves only gradients authored as a literal `<a:gradFill>` on the
- * shape or its placeholder ancestors. Gradients referenced through the
- * theme style matrix (`<p:style><a:fillRef>` → `<a:fillStyleLst>`) are
- * not modelled by the core yet, so those still report `inherit` and
- * fall through here.
+ * Resolves literal gradients on the shape or its placeholder ancestors, and
+ * the shape's own theme style-matrix fill reference. Style references on
+ * placeholder ancestors are not resolved.
  */
 export const getShapeGradientFillEffective = (
   pres: PresentationData,
@@ -227,6 +244,12 @@ export const getShapeGradientFillEffective = (
   };
   const own = readGradFromSpPr(shape[SHAPE_ELEMENT]);
   if (own !== undefined) return own;
+
+  // A fillRef is the shape's own default and therefore precedes the
+  // placeholder layout/master cascade. An explicit style-matrix noFill or
+  // non-gradient fill also masks inherited gradients.
+  const style = readStyleMatrixGradient(pres, shape);
+  if (style !== undefined) return style;
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
