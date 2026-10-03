@@ -23,24 +23,38 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
     const nodes: Text[] = [];
     let node;
     while ((node = walker.nextNode())) nodes.push(node as Text);
-    const parts: { text: string; width: number; decimal: number; tab?: HTMLElement }[] = [];
+    const parts: {
+      text: string;
+      width: number;
+      decimal: number;
+      measurementKey?: string;
+      chunks?: string[];
+      measure?: (text: string) => number;
+      tab?: HTMLElement;
+    }[] = [];
     for (const node of nodes) {
       const style = getComputedStyle(node.parentElement!);
       const variant = style.fontVariantCaps === 'small-caps' ? 'small-caps' : 'normal';
-      context.font = `${style.fontStyle} ${variant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-      context.fontKerning =
-        style.fontKerning === 'normal' || style.fontKerning === 'none' ? style.fontKerning : 'auto';
-      // Canvas applies tracking to shaped glyphs, including the trailing spacing in CSS layout.
-      context.letterSpacing = `${parseFloat(style.letterSpacing) || 0}px`;
-      if (verticalMeasure) {
-        verticalMeasure.style.font = context.font;
-        verticalMeasure.style.fontKerning = style.fontKerning;
-        verticalMeasure.style.letterSpacing = style.letterSpacing;
-        verticalMeasure.style.writingMode = style.writingMode;
-        verticalMeasure.style.textOrientation = style.textOrientation;
-        verticalMeasure.style.textTransform = style.textTransform;
-      }
+      const font = `${style.fontStyle} ${variant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const configure = () => {
+        context.font = font;
+        context.fontKerning =
+          style.fontKerning === 'normal' || style.fontKerning === 'none'
+            ? style.fontKerning
+            : 'auto';
+        // Canvas applies tracking to shaped glyphs, including the trailing spacing in CSS layout.
+        context.letterSpacing = `${parseFloat(style.letterSpacing) || 0}px`;
+        if (verticalMeasure) {
+          verticalMeasure.style.font = context.font;
+          verticalMeasure.style.fontKerning = style.fontKerning;
+          verticalMeasure.style.letterSpacing = style.letterSpacing;
+          verticalMeasure.style.writingMode = style.writingMode;
+          verticalMeasure.style.textOrientation = style.textOrientation;
+          verticalMeasure.style.textTransform = style.textTransform;
+        }
+      };
       const measure = (text: string) => {
+        configure();
         if (verticalMeasure) {
           verticalMeasure.textContent = text;
           return verticalMeasure.getBoundingClientRect().height;
@@ -49,6 +63,14 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
         const displayed = style.textTransform === 'uppercase' ? text.toUpperCase() : text;
         return context.measureText(displayed).width;
       };
+      const measurementKey = JSON.stringify([
+        font,
+        style.fontKerning,
+        style.letterSpacing,
+        style.textTransform,
+        style.writingMode,
+        style.textOrientation,
+      ]);
       const fragment = document.createDocumentFragment();
       for (const text of node.data.split(/(\t|\n)/)) {
         if (text === '\t') {
@@ -62,15 +84,26 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
           parts.push({ text, width: 0, decimal: 0, tab });
         } else {
           fragment.append(text);
-          const decimal = text.indexOf('.');
-          parts.push({
-            text,
-            width: measure(text),
-            decimal: decimal < 0 ? -1 : measure(text.slice(0, decimal)),
-          });
+          if (!text) continue;
+          const previous = parts.at(-1);
+          // Browsers kern across span boundaries when their font metrics match,
+          // including runs that differ only in color or text decoration.
+          const joined =
+            text !== '\n' && previous?.text !== '\n' && previous?.measurementKey === measurementKey;
+          if (joined) previous.chunks!.push(text);
+          else parts.push({ text, chunks: [text], width: 0, decimal: -1, measurementKey, measure });
         }
       }
       node.replaceWith(fragment);
+    }
+    for (const part of parts) {
+      if (!part.chunks) continue;
+      const text = part.chunks.join('');
+      part.width = part.measure!(text);
+      const decimal = text.indexOf('.');
+      // Subtract the suffix from the fully shaped run to retain kerning at
+      // the decimal boundary (for example, the V and period in "AV.12").
+      part.decimal = decimal < 0 ? -1 : part.width - part.measure!(text.slice(decimal));
     }
     verticalMeasure?.remove();
     let fieldWidth = 0;

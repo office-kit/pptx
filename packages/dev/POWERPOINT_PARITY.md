@@ -899,3 +899,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Preview now reads the existing cell `vert` property in both HTML and pure SVG paths, using the same direction mapping as shape text. Previously table cells always rendered horizontally despite preserving the property in OOXML.
 - Inline editing follows all six stored vertical directions. Logical paragraph sizing preserves upright RTL glyph positions; bottom-to-top editing counter-rotates asymmetric insets so its text rectangle matches the preview.
 - Browser comparisons cover per-character bounds on entry and editing/save retention in all six directions. Pure SVG tests verify saved clockwise/counterclockwise cells. Native direction calibration and existing pure-SVG upright/East-Asian approximations remain unverified; this is not evidence of full native parity.
+
+## Editing tab kerning across formatting runs
+
+- Reproduced right-tab misalignment at 586.72px for a 600px stop when `AV.12` spans multiple equally sized Arial runs. Browser shaping retains kerning across those run boundaries, including color changes; summing separate canvas widths did not.
+- The editing layout now shapes consecutive runs with matching font metrics together, retaining the original DOM and UTF-16 offsets. Decimal positioning also retains kerning at the decimal boundary. Text fragments are collected before measurement to avoid repeatedly measuring growing prefixes.
+- Focused browser regressions cover right/center/decimal alignment across color boundaries, plus existing capitalization, tracking, kerning and vertical-tab cases. This does not prove native ruler gestures, locale-specific decimal behavior or complex wrapping parity.

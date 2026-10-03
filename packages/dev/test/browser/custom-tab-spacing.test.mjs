@@ -295,3 +295,68 @@ test('browser preview measures tracked SVG text at its painted width', async () 
     await browser.close();
   }
 });
+
+test('editing tabs preserve kerning across equally styled runs', async () => {
+  const { build } = await import('esbuild');
+  const { fileURLToPath } = await import('node:url');
+  const bundle = await build({
+    stdin: {
+      contents: `export {layoutEditingTabs} from './editing-tabs.ts';`,
+      loader: 'ts',
+      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+    },
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    write: false,
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const results = await page.evaluate(async (code) => {
+      const module = await import(
+        URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+      );
+      return ['right', 'center', 'decimal'].map((alignment) => {
+        const root = document.createElement('div');
+        root.style.cssText = 'font:80px Arial;white-space:pre;';
+        const paragraph = document.createElement('section');
+        paragraph.dataset.tabStops = `600:${alignment}`;
+        paragraph.append('\t');
+        for (const text of ['A', 'V', '.12']) {
+          const span = document.createElement('span');
+          span.textContent = text;
+          span.style.color = text === 'V' ? 'red' : 'black';
+          paragraph.append(span);
+        }
+        root.append(paragraph);
+        document.body.append(root);
+        module.layoutEditingTabs(root, 1);
+        const spans = paragraph.querySelectorAll('section > span');
+        const field = document.createRange();
+        field.setStartBefore(spans[1]);
+        field.setEndAfter(spans[3]);
+        const bounds = field.getBoundingClientRect();
+        field.setEndBefore(spans[3]);
+        const decimal = field.getBoundingClientRect().width;
+        const position =
+          bounds.left -
+          paragraph.getBoundingClientRect().left +
+          (alignment === 'right'
+            ? bounds.width
+            : alignment === 'center'
+              ? bounds.width / 2
+              : decimal);
+        const text = paragraph.textContent;
+        root.remove();
+        return { alignment, position, text };
+      });
+    }, bundle.outputFiles[0].text);
+    for (const result of results) {
+      assert.equal(result.text, '\tAV.12');
+      assert.ok(Math.abs(result.position - 600) < 1, JSON.stringify(result));
+    }
+  } finally {
+    await browser.close();
+  }
+});
