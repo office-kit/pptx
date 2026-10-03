@@ -2859,6 +2859,7 @@ export const resolveTextBodyModel = (
   phType: string | null,
   measure: TextMeasurer,
   defaultColor: string,
+  useSvgTextRect = false,
 ): TextBodyModel | null => {
   let paragraphCount: number;
   try {
@@ -2931,16 +2932,20 @@ export const resolveTextBodyModel = (
   );
   if (innerW <= 0 || innerH <= 0) return null;
 
-  // Keep vertical text in the same inner rectangle as the browser editing
-  // surface. CSS writing-mode rotates glyph flow without rotating the box;
-  // sharing this rectangle keeps static glyphs, live effects, and the caret on
-  // one pivot when margins are asymmetric.
-  const svgTextRect = (_v: VerticalLayout): { x: number; y: number; w: number; h: number } => ({
-    x: innerX,
-    y: innerY,
-    w: innerW,
-    h: innerH,
-  });
+  // The pure-SVG engine rotates the horizontal layout axes, so vertical text
+  // uses the inset-swapped rect that its glyphs are actually laid into. The
+  // browser/foreignObject path keeps the authored inner rect because CSS
+  // writing-mode rotates flow inside that box. Keep this choice explicit so
+  // the static raster path does not inherit live-editor geometry.
+  const svgTextRect = (v: VerticalLayout): { x: number; y: number; w: number; h: number } =>
+    useSvgTextRect && v !== 'none' && v !== 'upright'
+      ? {
+          x: bounds.x + tIns,
+          y: bounds.y + lIns,
+          w: Math.max(0, bounds.w - tIns - bIns),
+          h: Math.max(0, bounds.h - lIns - rIns),
+        }
+      : { x: innerX, y: innerY, w: innerW, h: innerH };
 
   // First pass — collect every run's text + format so we can both
   // (a) compute an autofit scale and (b) emit each run with the
@@ -3450,6 +3455,7 @@ const renderTextBody = (
     phType,
     ctx.measure,
     activeDeckTextColor,
+    ctx.mode === 'svg' && output === 'body',
   );
   if (model === null) return '';
   const {
@@ -3508,9 +3514,8 @@ const renderTextBody = (
             gapPx: svgCols.gapEmu !== undefined ? svgCols.gapEmu / EMU_PER_PX : 0,
           }
         : null;
-    // SVG and CSS writing-mode share the authored inner rectangle. The SVG
-    // engine rotates the layout axes inside it; rotating the insets as well
-    // would displace effects from the editable glyphs with asymmetric margins.
+    // Pure SVG uses its axis-swapped rectangle for vertical text; the
+    // foreignObject path keeps the authored inner rectangle for live editing.
     const { x: vInnerX, y: vInnerY, w: vInnerW, h: vInnerH } = svgTextRect(svgVert);
     if (vInnerW <= 0 || vInnerH <= 0) return '';
     const svgArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {

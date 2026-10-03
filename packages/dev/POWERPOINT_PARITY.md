@@ -911,3 +911,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Setting a font color now replaces every DrawingML fill choice, including gradient and pattern fills. Clearing the direct color removes the local fill so inheritance can apply. Previously non-solid fills remained beside the new solid fill, producing invalid OOXML.
 - Regression coverage includes all six fill choices, preservation of unrelated run properties, rejected-color preservation, and saved/reloaded PowerPoint-native gradient and pattern fixtures validated against the presentation schema.
 - This fixes color mutation and serialization; gradient and pattern text rendering and the full WordArt gallery remain incomplete.
+
+## Speaker-notes paragraph and soft breaks
+
+- Enter inserts a paragraph separator; Shift+Enter inserts an OOXML `a:br` within the current paragraph. Notes editing tracks their UTF-16 positions independently so paragraph-end formatting is indexed by actual paragraphs.
+- Replacing a selected paragraph separator with a soft break now commits even when the visible string is unchanged. The public notes API exposes separator kinds and accepts the inserted separator kind on ranged edits.
+- Nine focused core tests pass, including emoji offsets, mixed-separator replacements and save/load/schema checks. Browser coverage verifies existing separator conversion, subsequent typing, save/reload and Undo. Native interaction comparison remains outstanding while screen capture returns size 0×0.
