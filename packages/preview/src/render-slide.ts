@@ -7193,6 +7193,7 @@ const buildEffectsFilter = (
   // Chain primitives by passing each result as `in` to the next merge.
   // The shape's original alpha + RGB live in SourceGraphic / SourceAlpha.
   const layers: string[] = [];
+  const innerShadows: string[] = [];
 
   for (const e of effects) {
     if (e.kind === 'outerShdw') {
@@ -7227,7 +7228,7 @@ const buildEffectsFilter = (
         `<feFlood flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="innerCol${i}"/>`,
         `<feComposite in="innerCol${i}" in2="innerMask${i}" operator="in" result="innerOut${i}"/>`,
       );
-      layers.push(`innerOut${i}`);
+      innerShadows.push(`innerOut${i}`);
     } else if (e.kind === 'glow') {
       // PowerPoint / LibreOffice keep the glow color near-opaque for most of
       // the `rad` reach and feather only at the outer edge. Compositing flood
@@ -7272,18 +7273,18 @@ const buildEffectsFilter = (
     // SVG `<filter>` has no flip-and-fade primitive.
   }
 
-  // Compose: paint each effect layer plus the original SourceGraphic.
-  // Shadows want to sit behind the source; glow behind too; innerShdw
-  // and softEdge already replace bits of the source. Doing the merge
-  // in order produces reasonable layering for the common cases.
-  if (layers.length === 0) return null;
+  // Compose outer effects, the source, then the inner shadows.
+  if (layers.length === 0 && innerShadows.length === 0) return null;
 
-  // Always paint the original source last so it sits on top of shadows /
-  // glows. softEdge/blur replaced the source so we don't double-paint.
+  // Paint the source over outer shadows/glows. softEdge/blur replaced the
+  // source so we don't double-paint.
   const replacedSource = effects.some((e) => e.kind === 'softEdge' || e.kind === 'blur');
   const mergeChildren = layers.map((l) => `<feMergeNode in="${l}"/>`).join('');
   const sourceMerge = replacedSource ? '' : '<feMergeNode in="SourceGraphic"/>';
-  primitives.push(`<feMerge>${mergeChildren}${sourceMerge}</feMerge>`);
+  // An inner shadow darkens the source itself; painting it behind an opaque
+  // SourceGraphic makes it disappear. Outer shadows and glows stay behind.
+  const innerMerge = innerShadows.map((layer) => `<feMergeNode in="${layer}"/>`).join('');
+  primitives.push(`<feMerge>${mergeChildren}${sourceMerge}${innerMerge}</feMerge>`);
 
   const defs = `<defs><filter id="${id}" x="-25%" y="-25%" width="150%" height="150%">${primitives.join('')}</filter></defs>`;
   return { id, defs };
