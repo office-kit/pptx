@@ -15,6 +15,7 @@ import {
   parseXml,
   qname,
   serializeXml,
+  type XmlElement,
 } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
@@ -26,7 +27,14 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { NAME_CSLD, NAME_SP_TREE, decode, encode } from './_helpers.ts';
-import { setTextBody, textBodyText } from '../../internal/drawingml/index.ts';
+import { setTextBody, textBodyText, type TextFormat } from '../../internal/drawingml/index.ts';
+import {
+  formatTextBodyParagraphEnd,
+  transformTextBodyCase,
+  type TextCase,
+} from '../../internal/drawingml/text-body-edit.ts';
+import type { ReadTextFormat } from '../../internal/drawingml/index.ts';
+import { parseRPrLikeElement } from './shape-color.ts';
 import { getSlides, isSlideHidden } from './slide-query.ts';
 import { getShapeHyperlink, setShapeHyperlink } from './shapes.ts';
 import {
@@ -40,7 +48,11 @@ import {
 } from './embedded.ts';
 import type { ChartKind } from '../../internal/chartml/index.ts';
 
-import { editTextBody, validateTextRange } from '../../internal/drawingml/text-body-edit.ts';
+import {
+  editTextBody,
+  formatTextBodyRange,
+  validateTextRange,
+} from '../../internal/drawingml/text-body-edit.ts';
 
 // ---------------------------------------------------------------------------
 // Speaker notes.
@@ -83,6 +95,122 @@ export const getSlideNotes = (slide: SlideData): string | null => {
     return textBodyText(txBody);
   }
   return null;
+};
+
+/** A direct character-format range in a slide's speaker notes. */
+export interface SlideNotesTextFormatRange {
+  readonly start: number;
+  readonly end: number;
+  readonly format: ReadTextFormat;
+}
+
+/**
+ * Reads the literal run formatting from the notes body using the same UTF-16
+ * offsets as `setSlideNotesFormat`. Paragraph and line-break separators are
+ * included in the offsets but are not returned as formatted ranges.
+ */
+export const getSlideNotesTextFormats = (
+  slide: SlideData,
+): ReadonlyArray<SlideNotesTextFormatRange> => {
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName === null) return [];
+  const part = slide[INTERNAL_PACKAGE].getPart(notesPartName);
+  if (part === null) return [];
+  const root = parseXml(decode(part.data)).root;
+  const cSld = firstChildElement(root, NAME_CSLD);
+  const spTree = cSld && firstChildElement(cSld, NAME_SP_TREE);
+  if (!spTree) return [];
+  const nameP = qname('a', 'p', NS.dml);
+  const nameR = qname('a', 'r', NS.dml);
+  const nameFld = qname('a', 'fld', NS.dml);
+  const nameBr = qname('a', 'br', NS.dml);
+  const nameT = qname('a', 't', NS.dml);
+  const nameRPr = qname('a', 'rPr', NS.dml);
+  const textOf = (element: XmlElement | null): string => {
+    if (!element) return '';
+    return element.children
+      .filter((child) => child.kind === 'text' || child.kind === 'cdata')
+      .map((child) => child.data)
+      .join('');
+  };
+  const out: SlideNotesTextFormatRange[] = [];
+  let offset = 0;
+  const paragraphs: XmlElement[] = [];
+  for (const child of spTree.children) {
+    if (
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.pml ||
+      child.name.localName !== 'sp'
+    )
+      continue;
+    const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+    const nvPr = nvSpPr && firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+    const ph = nvPr && firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+    if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
+    const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+    if (!txBody) return [];
+    for (const p of txBody.children) {
+      if (
+        p.kind === 'element' &&
+        p.name.namespaceURI === nameP.namespaceURI &&
+        p.name.localName === nameP.localName
+      )
+        paragraphs.push(p);
+    }
+    break;
+  }
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    for (const child of paragraph.children) {
+      if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+      if (child.name.localName === nameR.localName || child.name.localName === nameFld.localName) {
+        const text = textOf(firstChildElement(child, nameT));
+        const rPr = firstChildElement(child, nameRPr);
+        if (text && rPr)
+          out.push({ start: offset, end: offset + text.length, format: parseRPrLikeElement(rPr) });
+        offset += text.length;
+      } else if (child.name.localName === nameBr.localName) offset++;
+    }
+    if (paragraphIndex + 1 < paragraphs.length) offset++;
+  });
+  return out;
+};
+
+/** Reads the paragraph-end character format used for typing at a notes caret. */
+export const getSlideNotesParagraphEndFormat = (
+  slide: SlideData,
+  paragraphIndex: number,
+): ReadTextFormat => {
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName === null) return {};
+  const part = slide[INTERNAL_PACKAGE].getPart(notesPartName);
+  if (part === null) return {};
+  const root = parseXml(decode(part.data)).root;
+  const cSld = firstChildElement(root, NAME_CSLD);
+  const spTree = cSld && firstChildElement(cSld, NAME_SP_TREE);
+  if (!spTree) return {};
+  for (const child of spTree.children) {
+    if (
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.pml ||
+      child.name.localName !== 'sp'
+    )
+      continue;
+    const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+    const nvPr = nvSpPr && firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+    const ph = nvPr && firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+    if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
+    const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+    if (!txBody) return {};
+    const paragraphs = txBody.children.filter(
+      (item) =>
+        item.kind === 'element' && item.name.namespaceURI === NS.dml && item.name.localName === 'p',
+    );
+    const paragraph = paragraphs[paragraphIndex];
+    if (!paragraph || paragraph.kind !== 'element') return {};
+    const end = firstChildElement(paragraph, qname('a', 'endParaRPr', NS.dml));
+    return end ? parseRPrLikeElement(end) : {};
+  }
+  return {};
 };
 
 /**
@@ -622,7 +750,10 @@ export const appendSlideNotes = (slide: SlideData, text: string): void => {
 export const setSlideNotes = (
   slide: SlideData,
   value: string,
-  options: { preserveFormatting?: boolean; range?: { start: number; end: number } } = {},
+  options: {
+    preserveFormatting?: boolean;
+    range?: { start: number; end: number };
+  } = {},
 ): void => {
   const pkg = slide[INTERNAL_PACKAGE];
   const notesPartName = findNotesPartName(slide);
@@ -704,6 +835,76 @@ export const setSlideNotes = (
     targetMode: 'Internal',
   });
   pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
+};
+
+/** Applies PowerPoint-style Change Case to a speaker-notes range. */
+export const transformSlideNotesCase = (
+  slide: SlideData,
+  value: TextCase,
+  options: { range?: { start: number; end: number } } = {},
+): void => {
+  editExistingNotesBody(slide, (body) => transformTextBodyCase(body, value, options.range));
+};
+
+/**
+ * Applies direct run formatting to a UTF-16 range in the slide's speaker notes.
+ * Unselected runs and paragraph XML are preserved. An empty range is a no-op.
+ * Use `paragraphEnd` instead of `range` to update the paragraph-end character
+ * formatting for subsequent typing, including in an empty notes body.
+ */
+export const setSlideNotesFormat = (
+  slide: SlideData,
+  format: TextFormat,
+  options:
+    | { range: { start: number; end: number }; reset?: boolean; paragraphEnd?: never }
+    | { paragraphEnd: number; reset?: boolean; range?: never },
+): void => {
+  if (options.paragraphEnd !== undefined) {
+    if (!Number.isInteger(options.paragraphEnd) || options.paragraphEnd < 0)
+      throw new RangeError(`paragraph index out of range: ${options.paragraphEnd}`);
+    // An empty notes paragraph is a real PowerPoint editing target even when
+    // the OOXML notes part has not been created yet. Create that part before
+    // delegating to the XML formatter; only paragraph zero exists initially.
+    if (findNotesPartName(slide) === null) {
+      if (options.paragraphEnd !== 0)
+        throw new RangeError(`paragraph index out of range: ${options.paragraphEnd}`);
+      setSlideNotes(slide, '');
+    }
+  }
+  editExistingNotesBody(slide, (body) =>
+    options.paragraphEnd === undefined
+      ? formatTextBodyRange(body, format, options.range, options.reset)
+      : formatTextBodyParagraphEnd(body, options.paragraphEnd, format, options.reset),
+  );
+};
+
+const editExistingNotesBody = (slide: SlideData, edit: (body: XmlElement) => void): void => {
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName === null) return;
+  const part = slide[INTERNAL_PACKAGE].getPart(notesPartName);
+  if (part === null) throw new Error(`notes rel points at missing part ${notesPartName}`);
+  const doc = parseXml(decode(part.data));
+  const cSld = firstChildElement(doc.root, NAME_CSLD);
+  const spTree = cSld && firstChildElement(cSld, NAME_SP_TREE);
+  if (!spTree) throw new Error('notesSlide has no <p:spTree>');
+  for (const child of spTree.children) {
+    if (
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.pml ||
+      child.name.localName !== 'sp'
+    )
+      continue;
+    const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+    const nvPr = nvSpPr && firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+    const ph = nvPr && firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+    if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
+    const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+    if (!txBody) throw new Error('notesSlide body has no text body');
+    edit(txBody);
+    part.data = encode(serializeXml(doc));
+    return;
+  }
+  throw new Error('notesSlide has no body placeholder to format');
 };
 
 /**

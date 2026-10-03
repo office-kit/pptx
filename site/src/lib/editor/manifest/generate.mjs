@@ -56,6 +56,7 @@ export const MUTATING_VERBS = [
   'reset',
   'update',
   'apply',
+  'transform',
 ];
 
 // A handful of mutating-verb exports are not slide-authoring operations the

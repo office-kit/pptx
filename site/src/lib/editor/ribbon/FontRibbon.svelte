@@ -35,14 +35,15 @@
     }
     return result;
   });
-  const formats = $derived(editor.inlineTextFormat?.formats ?? cellFormats ?? objectFormats ?? []);
+  const activeTextFormat = $derived(editor.inlineTextFormat ?? editor.notesInlineTextFormat);
+  const formats = $derived(activeTextFormat?.formats ?? cellFormats ?? objectFormats ?? []);
   const themeFonts = $derived.by(() => {
     editor.doc.version;
     const fonts = getPresentationFonts(editor.doc.pres);
     return fonts ? [fonts.majorLatin, fonts.majorEastAsian, fonts.majorComplexScript, fonts.minorLatin, fonts.minorEastAsian, fonts.minorComplexScript].filter((font): font is string => !!font) : [];
   });
   function apply(format: TextFormat, reset = false) {
-    if (editor.inlineTextFormat) editor.inlineTextFormat.apply(format, reset);
+    if (activeTextFormat) activeTextFormat.apply(format, reset);
     else if (editor.doc.selection.kind === 'cell') {
       const selection = editor.doc.selection;
       const table = editor.doc.shapeById(selection.slideIndex, selection.shapeId);
@@ -54,11 +55,11 @@
     } else editor.invoke('setShapeTextFormat', { format, options: { reset } });
   }
   function toggle(property: TextFormatToggle) {
-    if (editor.inlineTextFormat) editor.inlineTextFormat.toggle(property);
+    if (activeTextFormat) activeTextFormat.toggle(property);
     else apply(toggleTextFormat(formats, property));
   }
   function changeCase(value: TextCase) {
-    if (editor.inlineTextFormat) { editor.inlineTextFormat.changeCase?.(value); return; }
+    if (activeTextFormat) { activeTextFormat.changeCase?.(value); return; }
     if (editor.doc.selection.kind === 'cell') {
       const selection = editor.doc.selection;
       const table = editor.doc.shapeById(selection.slideIndex, selection.shapeId);
@@ -72,8 +73,8 @@
     });
   }
   function stepFontSize(direction: 1 | -1) {
-    if (editor.inlineTextFormat?.fontSize) {
-      editor.inlineTextFormat.fontSize(direction);
+    if (activeTextFormat?.fontSize) {
+      activeTextFormat.fontSize(direction);
       return;
     }
     if (editor.doc.selection.kind === 'cell') {
@@ -94,4 +95,4 @@
   }
 </script>
 
-<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || editor.doc.selection.kind === 'cell' || editor.selectedShapes().some(isTableShape) || !!objectFormats} onformat={apply} oncase={changeCase} onfontsize={stepFontSize} ontoggle={toggle} />
+<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!activeTextFormat || editor.doc.selection.kind === 'cell' || editor.selectedShapes().some(isTableShape) || !!objectFormats} onformat={apply} oncase={changeCase} onfontsize={stepFontSize} ontoggle={toggle} />
