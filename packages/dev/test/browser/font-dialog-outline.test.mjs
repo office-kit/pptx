@@ -6,7 +6,6 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   getShapeParagraphElements,
-  getShapeText,
   getSlideShapes,
   getSlides,
   loadPresentation,
@@ -50,9 +49,7 @@ test(
         const pres = await loadPresentation(
           new Uint8Array(await (await fetch(`${preview.url}/deck.pptx`)).arrayBuffer()),
         );
-        const titleShape = getSlideShapes(getSlides(pres)[0]).find(
-          (shape) => getShapeText(shape) === 'Heading',
-        );
+        const titleShape = getSlideShapes(getSlides(pres)[0])[0];
         return getShapeParagraphElements(titleShape, 0)
           .filter((run) => run.kind === 'r')
           .map((run) => ({ text: run.text, size: run.format?.size }));
@@ -60,7 +57,6 @@ test(
 
       await saved.waitFor();
       const before = await readTitleRuns();
-      const revision = (await waitForState(preview.url, () => true)).revision;
       await title.focus();
       await title.evaluate((input) => {
         input.focus({ preventScroll: true });
@@ -70,9 +66,32 @@ test(
       await page.keyboard.press('Control+T');
       const dialog = editor.getByRole('dialog', { name: 'Font', exact: true });
       await dialog.waitFor();
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(await title.evaluate((node) => node === node.ownerDocument.activeElement), true);
+      const beforeTyping = (await waitForState(preview.url, () => true)).revision;
+      await page.keyboard.insertText('X');
+      await page.keyboard.press('Control+s');
+      await waitForState(preview.url, (state) => state.revision !== beforeTyping);
+      await saved.waitFor();
+      assert.equal((await readTitleRuns()).map((run) => run.text).join(''), 'HXing');
+
+      const beforeTypingUndo = (await waitForState(preview.url, () => true)).revision;
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await waitForState(preview.url, (state) => state.revision !== beforeTypingUndo);
+      await saved.waitFor();
+      assert.equal((await readTitleRuns()).map((run) => run.text).join(''), 'Heading');
+
+      await title.evaluate((input) => {
+        input.focus({ preventScroll: true });
+        window.selectEditorText(input, 1, 4);
+        input.dispatchEvent(new Event('select', { bubbles: true }));
+      });
+      const formatRevision = (await waitForState(preview.url, () => true)).revision;
+      await page.keyboard.press('Control+T');
+      await dialog.waitFor();
       await dialog.getByLabel('Font size', { exact: true }).fill('28');
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
-      await waitForState(preview.url, (state) => state.revision !== revision);
+      await waitForState(preview.url, (state) => state.revision !== formatRevision);
       await saved.waitFor();
 
       assert.deepEqual(await readTitleRuns(), [
@@ -81,6 +100,20 @@ test(
         { text: 'ing', size: before.at(-1)?.size },
       ]);
       assert.deepEqual((await readTitleRuns()).map((run) => run.text).join(''), 'Heading');
+
+      assert.equal(await title.evaluate((node) => node === node.ownerDocument.activeElement), true);
+      const beforeAppliedTyping = (await waitForState(preview.url, () => true)).revision;
+      await page.keyboard.insertText('X');
+      await page.keyboard.press('Control+s');
+      await waitForState(preview.url, (state) => state.revision !== beforeAppliedTyping);
+      await saved.waitFor();
+      assert.equal((await readTitleRuns()).map((run) => run.text).join(''), 'HXing');
+
+      const beforeAppliedUndo = (await waitForState(preview.url, () => true)).revision;
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await waitForState(preview.url, (state) => state.revision !== beforeAppliedUndo);
+      await saved.waitFor();
+      assert.equal((await readTitleRuns()).map((run) => run.text).join(''), 'Heading');
 
       const undoRevision = (await waitForState(preview.url, () => true)).revision;
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();

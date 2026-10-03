@@ -65,6 +65,27 @@ test(
       await waitForState(preview.url, (state) => state.revision !== beforeUndo);
       await saved();
       assert.equal(await read(), 'Before Target After');
+
+      await editor.locator('.hit').first().dblclick();
+      await input.waitFor();
+      await selectTarget();
+      await page.keyboard.press('Control+T');
+      await dialog.waitFor();
+      await dialog.getByLabel('Font size', { exact: true }).fill('20');
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.equal(await input.evaluate((node) => node === node.ownerDocument.activeElement), true);
+      const beforeAppliedTyping = (await waitForState(preview.url, () => true)).revision;
+      await page.keyboard.insertText('X');
+      await editor.locator('.floating-text-format-bar summary').click();
+      await editor.getByRole('button', { name: 'Done', exact: true }).click();
+      await waitForState(preview.url, (state) => state.revision !== beforeAppliedTyping);
+      await saved();
+      assert.equal(await read(), 'Before X After');
+      const beforeAppliedUndo = (await waitForState(preview.url, () => true)).revision;
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await waitForState(preview.url, (state) => state.revision !== beforeAppliedUndo);
+      await saved();
+      assert.equal(await read(), 'Before Target After');
     } finally {
       await browser?.close();
       await preview?.close();
