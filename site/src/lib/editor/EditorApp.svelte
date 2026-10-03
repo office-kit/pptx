@@ -70,7 +70,7 @@
       (doc.selection.kind === 'shape' && editor.selectedShapes().some(shape => getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0));
     if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 't' && hasTextTarget && !typing && !e.defaultPrevented) {
       e.preventDefault();
-      editor.activeDialog = 'font';
+      editor.openFontDialog();
       return;
     }
 

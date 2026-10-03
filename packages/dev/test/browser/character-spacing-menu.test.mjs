@@ -126,14 +126,36 @@ test(
       );
       const mixedRuns = await readRuns();
       await menu.getByRole('menuitem', { name: 'More Spacing...', exact: true }).click();
-      const mixedDialog = editor.getByRole('dialog', { name: 'Character Spacing', exact: true });
-      assert.equal(await mixedDialog.locator('select').inputValue(), '');
-      assert.equal(await mixedDialog.locator('input[type=number]').inputValue(), '');
+      const mixedDialog = editor.getByRole('dialog', { name: 'Font', exact: true });
+      assert.equal(
+        await mixedDialog
+          .getByRole('tab', { name: 'Character Spacing', exact: true })
+          .getAttribute('aria-selected'),
+        'true',
+      );
+      assert.equal(await mixedDialog.getByLabel('Spacing', { exact: true }).inputValue(), '');
+      assert.equal(await mixedDialog.getByLabel('By (pt)', { exact: true }).inputValue(), '');
+      assert.equal(
+        await mixedDialog.getByLabel('Use kerning for fonts', { exact: true }).isChecked(),
+        true,
+      );
+      assert.equal(
+        await mixedDialog
+          .getByRole('spinbutton', { name: 'For fonts points and above', exact: true })
+          .inputValue(),
+        '12',
+      );
+      await mixedDialog.getByLabel('Spacing', { exact: true }).selectOption('expanded');
+      assert.equal(await mixedDialog.getByLabel('By (pt)', { exact: true }).inputValue(), '1');
+      await mixedDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.deepEqual(await readRuns(), mixedRuns);
+      await trigger.click();
+      await menu.getByRole('menuitem', { name: 'More Spacing...', exact: true }).click();
       await mixedDialog.getByRole('button', { name: 'OK', exact: true }).click();
       assert.deepEqual(await readRuns(), mixedRuns);
       await trigger.click();
       await menu.getByRole('menuitem', { name: 'More Spacing...', exact: true }).click();
-      await mixedDialog.locator('select').selectOption('normal');
+      await mixedDialog.getByLabel('Spacing', { exact: true }).selectOption('normal');
       await mixedDialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
       assert.deepEqual(await readRuns(), [
@@ -148,17 +170,30 @@ test(
       await selectTight();
       await trigger.click();
       await menu.getByRole('menuitem', { name: 'More Spacing...', exact: true }).click();
-      const custom = editor.locator('dialog[open]');
+      const custom = editor.getByRole('dialog', { name: 'Font', exact: true });
       await page.screenshot({ path: '/tmp/pptx-character-spacing-dialog.png' });
-      await custom.locator('select').selectOption('expanded');
-      await custom.locator('input[type=number]').fill('2.5');
+      assert.equal(await custom.getByLabel('By (pt)', { exact: true }).inputValue(), '1.5');
+      await custom.getByLabel('Spacing', { exact: true }).selectOption('normal');
+      assert.equal(await custom.getByLabel('By (pt)', { exact: true }).isDisabled(), false);
+      await custom.getByLabel('By (pt)', { exact: true }).fill('2');
+      await custom.getByLabel('By (pt)', { exact: true }).press('Tab');
+      assert.equal(await custom.getByLabel('Spacing', { exact: true }).inputValue(), 'expanded');
+      assert.equal(await custom.getByLabel('By (pt)', { exact: true }).inputValue(), '2');
+      await custom.getByLabel('Spacing', { exact: true }).selectOption('expanded');
+      assert.equal(await custom.getByLabel('By (pt)', { exact: true }).inputValue(), '2');
+      await custom.getByLabel('By (pt)', { exact: true }).fill('2.5');
       await custom.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(
+        await trigger.evaluate((node) => node === node.ownerDocument.activeElement),
+        true,
+      );
       assert.deepEqual(await readRuns(), beforeCancel);
 
       await trigger.click();
       await menu.getByRole('menuitem', { name: 'More Spacing...', exact: true }).click();
-      await custom.locator('select').selectOption('expanded');
-      await custom.locator('input[type=number]').fill('2.5');
+      assert.equal(await custom.getByLabel('By (pt)', { exact: true }).inputValue(), '1.5');
+      await custom.getByLabel('Spacing', { exact: true }).selectOption('expanded');
+      await custom.getByLabel('By (pt)', { exact: true }).fill('2.5');
       await custom.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
       const customRuns = await readRuns();
@@ -178,7 +213,20 @@ test(
       await saved();
       assert.deepEqual(await readRuns(), customRuns);
 
-      await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().dblclick();
+      await editor.locator('.inline-edit').waitFor();
+      await selectTight();
+      await trigger.click();
+      await menu.getByRole('menuitem', { name: 'More Spacing...', exact: true }).click();
+      const kerningDialog = editor.getByRole('dialog', { name: 'Font', exact: true });
+      await kerningDialog.getByLabel('Use kerning for fonts', { exact: true }).uncheck();
+      await kerningDialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await saved();
+      assert.equal((await readRuns())[1].kern, 0);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await readRuns(), customRuns);
+
       await trigger.press('Enter');
       assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
       const firstPreset = menu.getByRole('menuitemradio').first();

@@ -284,6 +284,9 @@ export class EditorController {
 
   /** Command whose argument dialog is currently open (null = none). */
   activeDialog = $state<string | null>(null);
+  /** Initial tab for the shared Font dialog; PowerPoint opens Character Spacing from its ribbon menu. */
+  fontDialogTab = $state<'font' | 'character'>('font');
+  fontDialogReturnFocus: HTMLElement | null = null;
   linkTableCell = $state<{ row: number; col: number } | null>(null);
   linkTextRange = $state<{ start: number; end: number } | null>(null);
   paletteOpen = $state<boolean>(false);
@@ -464,10 +467,19 @@ export class EditorController {
   pendingPreset: Record<string, unknown> = {};
 
   closeDialog(): void {
+    const returnFocus = this.activeDialog === 'font' ? this.fontDialogReturnFocus : null;
+    this.fontDialogReturnFocus = null;
     this.activeDialog = null;
     this.linkTextRange = null;
     this.linkTableCell = null;
     this.pendingPreset = {};
+    if (returnFocus?.isConnected) queueMicrotask(() => returnFocus.focus());
+  }
+
+  openFontDialog(tab: 'font' | 'character' = 'font', returnFocus?: HTMLElement): void {
+    this.fontDialogTab = tab;
+    this.fontDialogReturnFocus = returnFocus ?? null;
+    this.activeDialog = 'font';
   }
 
   togglePalette(open?: boolean): void {
