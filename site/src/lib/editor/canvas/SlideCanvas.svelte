@@ -950,8 +950,11 @@
     // already carries the shape's rotation.
     const vertical = verticalTextStyle(target ? getTableCellTextDirection(target) : body!.vert ?? getShapeTextDirection(shape)).declarations;
     const columns = target ? '' : textColumnsStyle(body!.columns);
+    // Keep unwrapped text at its painted position, including when the caret
+    // moves beyond the shape. `pre` preserves explicit paragraph separators.
+    const wrapping = body?.wrap === 'none' ? ' white-space:pre; overflow:visible;' : '';
     // Block alignment keeps literal paragraph separators and selection offsets intact.
-    return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};${vertical ? ` ${vertical};` : ''}${columns ? ` ${columns};` : ''}`;
+    return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};${vertical ? ` ${vertical};` : ''}${columns ? ` ${columns};` : ''}${wrapping}`;
   });
 
   // The half turn for bottom-to-top text in a shape body or table cell.

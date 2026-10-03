@@ -1778,3 +1778,11 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
   Root TypeScript and Vitest configurations now resolve the preview package
   source explicitly, like the existing core alias. Type resolution tracing
   confirms `packages/preview/src/index.ts`, not stale `dist`, is checked.
+
+### 2026-10-03 — preserve unwrapped text while editing
+
+- Reproduced `wrap="none"` text changing from one painted line to seven editing lines in a narrow box; typing at the end shifted glyphs upward by about 56px. The edit overlay now uses `white-space:pre` and visible overflow for effective no-wrap bodies, preserving explicit paragraph breaks without inner scrolling.
+- Browser regression measures glyph ranges before editing and after typing, plus explicit-newline and square-wrap controls. Related text-entry, background, metrics, spacing, body-margin, vertical-writing and autofit tests passed (14 cases, `/tmp/text-wrap-related-tests.log`). Final focused results: `/tmp/text-wrap-final-tests.log`.
+- Native connection, screenshot and click interaction succeeded. A single click on the selected title enters editing at the clicked character without moving text. An accidental Shape Style click was immediately undone; saved reference slide XML matches `reference-before-wordart.pptx` byte-for-byte. No outstanding reference content change from this turn.
+- Added two earlier native WordArt captures (white/accent5 shadow and gray gradient), with provenance in `test/fixtures/native/wordart-capture.md`. WordArt gallery implementation and remaining presets are still outstanding.
+- Full parity remains unproven. Continue the operation audit in POWERPOINT_PARITY.md; this correction covers the reproduced no-wrap shift, not all possible editing layout shifts.
