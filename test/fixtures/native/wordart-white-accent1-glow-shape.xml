@@ -1,0 +1,61 @@
+<p:sp xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:nvSpPr>
+    <p:cNvPr id="2" name="Title 1" />
+    <p:cNvSpPr>
+      <a:spLocks noGrp="1" />
+    </p:cNvSpPr>
+    <p:nvPr>
+      <p:ph type="title" />
+    </p:nvPr>
+  </p:nvSpPr>
+  <p:spPr />
+  <p:txBody>
+    <a:bodyPr />
+    <a:lstStyle />
+    <a:p>
+      <a:r>
+        <a:rPr lang="en-US" b="1" spc="50" dirty="0">
+          <a:ln w="9525" cmpd="sng">
+            <a:solidFill>
+              <a:schemeClr val="accent1" />
+            </a:solidFill>
+            <a:prstDash val="solid" />
+          </a:ln>
+          <a:solidFill>
+            <a:srgbClr val="70AD47">
+              <a:tint val="1000" />
+            </a:srgbClr>
+          </a:solidFill>
+          <a:effectLst>
+            <a:glow rad="38100">
+              <a:schemeClr val="accent1">
+                <a:alpha val="40000" />
+              </a:schemeClr>
+            </a:glow>
+          </a:effectLst>
+        </a:rPr>
+        <a:t>Outline title</a:t>
+      </a:r>
+      <a:endParaRPr b="1" spc="50" dirty="0">
+        <a:ln w="9525" cmpd="sng">
+          <a:solidFill>
+            <a:schemeClr val="accent1" />
+          </a:solidFill>
+          <a:prstDash val="solid" />
+        </a:ln>
+        <a:solidFill>
+          <a:srgbClr val="70AD47">
+            <a:tint val="1000" />
+          </a:srgbClr>
+        </a:solidFill>
+        <a:effectLst>
+          <a:glow rad="38100">
+            <a:schemeClr val="accent1">
+              <a:alpha val="40000" />
+            </a:schemeClr>
+          </a:glow>
+        </a:effectLst>
+      </a:endParaRPr>
+    </a:p>
+  </p:txBody>
+</p:sp>

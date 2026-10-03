@@ -1786,3 +1786,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Native connection, screenshot and click interaction succeeded. A single click on the selected title enters editing at the clicked character without moving text. An accidental Shape Style click was immediately undone; saved reference slide XML matches `reference-before-wordart.pptx` byte-for-byte. No outstanding reference content change from this turn.
 - Added two earlier native WordArt captures (white/accent5 shadow and gray gradient), with provenance in `test/fixtures/native/wordart-capture.md`. WordArt gallery implementation and remaining presets are still outstanding.
 - Full parity remains unproven. Continue the operation audit in POWERPOINT_PARITY.md; this correction covers the reproduced no-wrap shift, not all possible editing layout shifts.
+
+### 2026-10-03 — complete native WordArt preset capture
+
+- All 20 WordArt gallery presets are captured as namespace-complete shape XML in `test/fixtures/native/`; see `wordart-capture.md` for labels, provenance and replacement observations. Captures establish native storage, not implemented UI parity.
+- Each temporary operation was undone and saved. Final slide XML matched `/tmp/pptx-outline-audit/reference-before-wordart-replacement.pptx` byte-for-byte. Reconnection then confirmed reference Saved to my Mac and Undo disabled; the subsequent Text Effects menu attempt returned screen size 0×0 twice. No new content mutation was requested.
+- Next implementation must preserve character-level effects separately from shape-level effects, and bodyPr 3D separately from spPr 3D. Do not build presets by copying shape styles or indiscriminately clearing font/paragraph properties.
