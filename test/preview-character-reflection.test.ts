@@ -58,7 +58,7 @@ const body = (pieces: PieceInput[]): TextBodyInput => ({
 describe('character reflection in the SVG text layout', () => {
   it('does not merge an explicit default reflection into an adjacent plain run', () => {
     const svg = layoutTextSvg(
-      { ...body([piece('plain'), piece('effect', {})]), wrap: false, reflectionsOnly: true },
+      { ...body([piece('plain'), piece('effect', {})]), wrap: false, effectsOnly: true },
       defaultMeasurer,
     );
     expect(svg).toContain('effect</tspan>');
@@ -69,7 +69,7 @@ describe('character reflection in the SVG text layout', () => {
     const svg = layoutTextSvg(
       {
         ...input,
-        reflectionsOnly: true,
+        effectsOnly: true,
         paragraphs: input.paragraphs.map((paragraph) => ({
           ...paragraph,
           bullet: { text: '•', family: 'Carlito', sizePx: 32, fillHex: '#000000' },

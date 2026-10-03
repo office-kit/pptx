@@ -37,6 +37,79 @@ const strikeStyles = new Set(['noStrike', 'sngStrike', 'dblStrike']);
 const percentageScale = 100_000;
 const minPercentageInteger = -2_147_483_648;
 const maxPercentageInteger = 2_147_483_647;
+const maxEmu = 27_273_042_316_900;
+const maxLineWidthEmu = 20_116_800; // DrawingML ST_LineWidth
+const alignments = new Set(['tl', 't', 'tr', 'l', 'ctr', 'r', 'bl', 'b', 'br']);
+
+const finiteIn = (value: unknown, min: number, max: number): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+const emu = (value: unknown) => finiteIn(value, 0, maxEmu);
+const angle = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+const opacity = (value: unknown) => finiteIn(value, 0, 1);
+const color = (value: unknown) => typeof value === 'string' && asColor(value) !== null;
+const anchor = (value: unknown) => typeof value === 'string' && alignments.has(value);
+
+function validOutline(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, item]) =>
+    key === 'color' ? color(item) : key === 'widthEmu' ? finiteIn(item, 0, maxLineWidthEmu) : false,
+  );
+}
+
+function validShadow(value: unknown, inner = false) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value === null;
+  return Object.entries(value).every(([key, item]) => {
+    if (key === 'color') return color(item);
+    if (key === 'blurEmu' || key === 'offsetEmu') return emu(item);
+    if (key === 'angleDeg') return angle(item);
+    if (key === 'opacity') return opacity(item);
+    if (!inner && key === 'alignment') return anchor(item);
+    if (!inner && key === 'rotateWithShape') return typeof item === 'boolean';
+    return false;
+  });
+}
+
+function validGlow(value: unknown) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value === null;
+  if (!('color' in value)) return false;
+  return Object.entries(value).every(([key, item]) =>
+    key === 'color'
+      ? color(item)
+      : key === 'radiusEmu'
+        ? emu(item)
+        : key === 'opacity'
+          ? opacity(item)
+          : false,
+  );
+}
+
+function validReflection(value: unknown) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value === null;
+  return Object.entries(value).every(([key, item]) => {
+    if (key === 'blurEmu' || key === 'offsetEmu') return emu(item);
+    if (key === 'angleDeg' || key === 'fadeDirection') return angle(item);
+    if (
+      key === 'opacity' ||
+      key === 'startOpacity' ||
+      key === 'startPosition' ||
+      key === 'endPosition'
+    )
+      return opacity(item);
+    if (key === 'scaleX' || key === 'scaleY')
+      return (
+        typeof item === 'number' &&
+        Number.isFinite(item) &&
+        Number.isSafeInteger(Math.round(item * percentageScale)) &&
+        Math.round(item * percentageScale) >= minPercentageInteger &&
+        Math.round(item * percentageScale) <= maxPercentageInteger
+      );
+    if (key === 'skewX' || key === 'skewY') return angle(item) && item > -90 && item < 90;
+    if (key === 'alignment') return anchor(item);
+    if (key === 'rotateWithShape') return typeof item === 'boolean';
+    return false;
+  });
+}
 
 export function copyTextRange(
   shape: SlideShapeData,
@@ -120,6 +193,16 @@ function validFormat(value: unknown): value is TextFormat {
           Math.round(v * percentageScale) >= minPercentageInteger &&
           Math.round(v * percentageScale) <= maxPercentageInteger
         );
+      case 'outline':
+        return v === null || validOutline(v);
+      case 'shadow':
+        return validShadow(v);
+      case 'innerShadow':
+        return validShadow(v, true);
+      case 'glow':
+        return validGlow(v);
+      case 'reflection':
+        return validReflection(v);
       default:
         return false;
     }

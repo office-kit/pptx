@@ -1,3 +1,15 @@
+## 2026-10-03: Character effect preview and clipboard follow-up
+
+- Character inner shadows now have SVG filters and a foreignObject sibling effect layer. Review caught and fixed default-effect run merging, unresolved theme colors and duplicate glyph fill. Raster regression checks that shadow changes stay inside glyph ink; native geometry remains unverified.
+- Structured text clipboard accepts canonical outline, outer/inner shadow, glow and reflection metadata with boundary checks. Copy/paste/save/load preserves inner shadows. Format painter preserves outer-shadow alignment and rotation.
+- Editing follow-up: `site/src/lib/editor/core/html-text-clipboard.ts` does not emit outline/shadow/glow/inner-shadow/reflection styles for the contenteditable surface. Static foreignObject preview coverage does not establish effect fidelity during active text editing. Add a browser edit-entry regression and implement matching effects without changing text geometry.
+- Combined inner/outer shadows, glow and reflection pass the official XML schema test. Do not infer full visual parity from schema validity.
+- Validation: full root format/lint/typecheck/test/build passed (3512 tests, 109 skipped; `/tmp/inner-effects-full.log`) before the final non-interactive overlay attributes. Clipboard and format-painter tests passed (16); preview/DSL build/typecheck and site check passed (`/tmp/inner-effects-packages.log`).
+- Final scoped regression after non-interactive overlay attributes: 75 tests passed, lint and preview typecheck/build passed (`/tmp/inner-effects-final-focused.log`). Chromium static foreignObject screenshots confirm visible inner shadow above HTML: `/tmp/pptx-character-inner-shadow-{plain,shadow,diff}.png`. This verifies static browser painting, not active edit fidelity or native geometry.
+- Additional rendering gaps found by review: pure-SVG text still lacks outer shadow/glow; foreignObject CSS shadows ignore alignment/rotation semantics. Fixed-axis reflection remains incomplete.
+- Native retries by bundle ID and display name still fail with screen size 0×0; the app is running but no native windows are reported. No native document changes were made.
+- CI run 37122401615 passed Static checks, Preview fidelity, OOXML validator and Node 22. Node 26 failed during dependency installation (`node-pty` fallback download of Node 26.10.0 headers: ECONNRESET), before tests; Node 24 was still active. This is not a full CI pass.
+
 ## 2026-10-03: Character inner shadows and reflection preview
 
 - Character formatting now reads/writes `innerShadow`, supports independent removal/reset and paragraph inheritance, and preserves native outer-shadow alignment/rotation. Fixtures cover the captured WordArt inner shadow and centered outer shadow; omitted outer-shadow attributes resolve to the XSD defaults (`b`, rotation enabled).

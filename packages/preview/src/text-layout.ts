@@ -188,10 +188,19 @@ export interface PieceInput {
   readonly href: string | null;
   readonly hrefTip?: string;
   readonly isBreak: boolean; // <a:br>
+  readonly innerShadow?: TextInnerShadowInput;
   /** Character-level DrawingML reflection. The duplicate glyph is emitted
    * from the same laid-out group so mixed runs and wrapping keep their exact
    * positions. */
   readonly reflection?: TextReflectionInput;
+}
+
+export interface TextInnerShadowInput {
+  readonly color?: string;
+  readonly blurEmu?: number;
+  readonly offsetEmu?: number;
+  readonly angleDeg?: number;
+  readonly opacity?: number;
 }
 
 export interface TextReflectionInput {
@@ -270,8 +279,10 @@ export interface TextBodyInput {
   readonly vert?: VerticalLayout;
   /** Multi-column body (`numCol`/`spcCol`); null / omitted is single column. */
   readonly columns?: ColumnLayout | null;
-  /** Emit only non-interactive reflection glyphs for a foreignObject sibling. */
-  readonly reflectionsOnly?: boolean;
+  /** Emit only non-interactive character effects for a foreignObject sibling. */
+  readonly effectsOnly?: boolean;
+  /** Restrict an effects-only pass to one character-effect family. */
+  readonly effectKind?: 'reflection' | 'innerShadow' | 'all';
 }
 
 // ---------------------------------------------------------------------------
@@ -722,7 +733,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
 
 export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
   const { placements, vert, cx, cy } = layoutCore(input, measure);
-  const body = emitPlacements(placements, input.reflectionsOnly === true);
+  const body = emitPlacements(placements, input.effectsOnly === true, input.effectKind ?? 'all');
   if (vert === 'none' || vert === 'upright') return body;
   const deg = vert === 'cw90' ? 90 : 270;
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
@@ -837,7 +848,11 @@ const placeColumns = (
  * paragraph that wraps into the next column appears as a second group under
  * the same index, because its lines are drawn where that column is.
  */
-const emitPlacements = (placements: Placement[], reflectionsOnly = false): string => {
+const emitPlacements = (
+  placements: Placement[],
+  effectsOnly = false,
+  effectKind: 'reflection' | 'innerShadow' | 'all' = 'all',
+): string => {
   const paragraphs: string[] = [];
   let parts: string[] = [];
   let paraIndex: number | null = null;
@@ -847,14 +862,16 @@ const emitPlacements = (placements: Placement[], reflectionsOnly = false): strin
     }
     parts = [];
   };
-  let reflectionIndex = 0;
+  let effectIndex = 0;
   const namespace = reflectionNamespace++;
+  const nextEffectId = (kind: 'reflection' | 'inner-shadow'): string =>
+    `text-${kind}-${namespace}-${effectIndex++}`;
   for (const { line, baselineY, dx } of placements) {
     if (line.paraIndex !== paraIndex) {
       close();
       paraIndex = line.paraIndex;
     }
-    if (line.bullet && !reflectionsOnly) {
+    if (line.bullet && !effectsOnly) {
       const b = line.bullet.b;
       if (b.imageHref) {
         // Sit the square bullet on the text baseline (bottom edge at the
@@ -874,8 +891,9 @@ const emitPlacements = (placements: Placement[], reflectionsOnly = false): strin
         baselineY,
         dx,
         line.descent,
-        () => `text-reflection-${namespace}-${reflectionIndex++}`,
-        reflectionsOnly,
+        (kind) => nextEffectId(kind),
+        effectsOnly,
+        effectKind,
       ),
     );
   }
@@ -909,8 +927,9 @@ const emitLine = (
   baselineY: number,
   dx: number,
   descent: number,
-  nextReflectionId: () => string,
-  reflectionsOnly: boolean,
+  nextEffectId: (kind: 'reflection' | 'inner-shadow') => string,
+  effectsOnly: boolean,
+  effectKind: 'reflection' | 'innerShadow' | 'all',
 ): string => {
   const toks = [...line.tokens];
   while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
@@ -933,19 +952,20 @@ const emitLine = (
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
-  const reflections = emitTextReflections(
-    groups,
-    line.textAnchor,
-    x0,
-    baselineY,
-    descent,
-    nextReflectionId,
-  );
-  if (reflectionsOnly) return reflections;
+  const reflections =
+    effectKind === 'innerShadow'
+      ? ''
+      : emitTextReflections(groups, line.textAnchor, x0, baselineY, descent, nextEffectId);
+  const innerShadows =
+    effectKind === 'reflection'
+      ? ''
+      : emitTextInnerShadows(groups, line.textAnchor, x0, baselineY, nextEffectId);
+  if (effectsOnly) return reflections + innerShadows;
   return (
     emitHighlights(groups, line.textAnchor, x0, baselineY) +
     reflections +
     text +
+    innerShadows +
     emitTextDecorations(groups, line.textAnchor, x0, baselineY)
   );
 };
@@ -988,7 +1008,7 @@ const emitTextReflections = (
   x0: number,
   baselineY: number,
   descent: number,
-  nextReflectionId: () => string,
+  nextEffectId: (kind: 'reflection' | 'inner-shadow') => string,
 ): string => {
   const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
   let cursor =
@@ -1012,7 +1032,7 @@ const emitTextReflections = (
     const endA = Math.max(0, Math.min(1, reflection.opacity ?? 0));
     const endPosition = Math.max(0, Math.min(1, reflection.endPosition ?? 1));
     const startPosition = Math.max(0, Math.min(endPosition, reflection.startPosition ?? 0));
-    const id = nextReflectionId();
+    const id = nextEffectId('reflection');
     const gradientId = `${id}-gradient`;
     const maskId = `${id}-mask`;
     const filterId = `${id}-blur`;
@@ -1069,6 +1089,46 @@ const emitTextReflections = (
     parts.push(
       `${defs}<g transform="${transform}" mask="url(#${maskId})"${filter} data-pptx-reflection="text" aria-hidden="true" pointer-events="none">${glyph}</g>`,
     );
+    cursor += group.width;
+  }
+  return parts.join('');
+};
+
+const emitTextInnerShadows = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+  nextId: (kind: 'reflection' | 'inner-shadow') => string,
+): string => {
+  const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
+  let cursor =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  const parts: string[] = [];
+  for (const group of groups) {
+    const shadow = group.piece.innerShadow;
+    if (!shadow || group.width <= 0 || group.isTab) {
+      cursor += group.width;
+      continue;
+    }
+    const id = nextId('inner-shadow');
+    const angle = ((shadow.angleDeg ?? 45) * Math.PI) / 180;
+    const dx = ((shadow.offsetEmu ?? 38100) / EMU_PER_PX) * Math.cos(angle);
+    const dy = ((shadow.offsetEmu ?? 38100) / EMU_PER_PX) * Math.sin(angle);
+    const blurPx = Math.max(0, (shadow.blurEmu ?? 50800) / EMU_PER_PX / 2);
+    const color = shadow.color ?? '#000000';
+    const opacity = Math.max(0, Math.min(1, shadow.opacity ?? 1));
+    const defs =
+      `<defs><filter id="${id}" x="-25%" y="-25%" width="150%" height="150%">` +
+      `<feGaussianBlur in="SourceAlpha" stdDeviation="${fmt(blurPx)}" result="innerBlur"/>` +
+      `<feOffset in="innerBlur" dx="${fmt(dx)}" dy="${fmt(dy)}" result="innerOff"/>` +
+      `<feComposite in="innerOff" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="innerMask"/>` +
+      `<feFlood flood-color="${escapeXml(color)}" flood-opacity="${opacity.toFixed(3)}" result="innerColor"/>` +
+      `<feComposite in="innerColor" in2="innerMask" operator="in" result="innerOut"/>` +
+      `<feComposite in="innerOut" in2="SourceAlpha" operator="in"/>` +
+      `</filter></defs>`;
+    const glyph = `<text x="${fmt(cursor)}" y="${fmt(baselineY)}" text-anchor="start" xml:space="preserve" filter="url(#${id})" aria-hidden="true" pointer-events="none">${tspan(group)}</text>`;
+    parts.push(defs + glyph);
     cursor += group.width;
   }
   return parts.join('');
@@ -1290,6 +1350,20 @@ const sameReflection = (
   a?.alignment === b?.alignment &&
   a?.rotateWithShape === b?.rotateWithShape;
 
+const sameInnerShadow = (
+  a: TextInnerShadowInput | undefined,
+  b: TextInnerShadowInput | undefined,
+): boolean => {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.color === b.color &&
+    a.blurEmu === b.blurEmu &&
+    a.offsetEmu === b.offsetEmu &&
+    a.angleDeg === b.angleDeg &&
+    a.opacity === b.opacity
+  );
+};
+
 const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.family === b.family &&
   a.sizePx === b.sizePx &&
@@ -1306,6 +1380,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.strike === b.strike &&
   a.baseline === b.baseline &&
   a.smallCaps === b.smallCaps &&
+  sameInnerShadow(a.innerShadow, b.innerShadow) &&
   sameReflection(a.reflection, b.reflection) &&
   a.href === b.href &&
   a.hrefTip === b.hrefTip;
