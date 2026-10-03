@@ -295,6 +295,30 @@ describe('individual selection resize', () => {
     expect(after.x).toBeCloseTo(before.x);
     expect(after.y).toBeCloseTo(before.y);
   });
+  for (const rotation of [135, -135]) {
+    it(`flips the local handle without swapping axes at ${rotation}-degree target`, () => {
+      const shapes = [
+        { x: 362, y: 609, w: 1046, h: 148, rotation: 0 },
+        { x: 420, y: 1155, w: 582, h: 118, rotation },
+      ];
+      const result = resizeSelectionRects(
+        shapes,
+        shapes[0]!,
+        'se',
+        { x: -100, y: 40 },
+        { w: 1, h: 1 },
+      );
+      const widthScale = result[0]!.w / shapes[0]!.w;
+      const heightScale = result[0]!.h / shapes[0]!.h;
+      expect(result[1]!.w).toBeCloseTo(shapes[1]!.w * widthScale);
+      expect(result[1]!.h).toBeCloseTo(shapes[1]!.h * heightScale);
+      // The target local north-west handle is dragged; its opposite south-east stays fixed.
+      const before = point(shapes[1]!, 'nw', rotation, true);
+      const after = point(result[1]!, 'nw', rotation, true);
+      expect(after.x).toBeCloseTo(before.x);
+      expect(after.y).toBeCloseTo(before.y);
+    });
+  }
   it('keeps zero-height lines flat and does not translate between objects', () => {
     const shapes = [
       { x: 0, y: 10, w: 100, h: 0 },
