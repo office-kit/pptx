@@ -202,3 +202,68 @@ test(
     }
   },
 );
+
+test(
+  'format painter shortcuts use the native selection before select delivery',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-format-painter-selection-race-'));
+    let preview, browser;
+    try {
+      preview = await startPreview(await deckWith(dir));
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+
+      const dispatchPainterKey = async (locator, code) =>
+        locator.evaluate((node, keyCode) => {
+          // Suppress the pending select event so the shortcut runs against a
+          // deliberately stale reactive textRange while the native selection
+          // is already current.
+          document.addEventListener('selectionchange', (event) => event.stopImmediatePropagation(), {
+            capture: true,
+            once: true,
+          });
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          node.dispatchEvent(
+            new KeyboardEvent('keydown', {
+              bubbles: true,
+              cancelable: true,
+              ctrlKey: true,
+              altKey: true,
+              key: keyCode.slice(-1).toLowerCase(),
+              code: keyCode,
+            }),
+          );
+        }, code);
+
+      await editor.locator('.hit').first().dblclick();
+      const input = editor.locator('.inline-edit');
+      await input.waitFor();
+      await dispatchPainterKey(input, 'KeyC');
+      await page.keyboard.press('Escape');
+
+      await editor.locator('.hit').nth(1).dblclick();
+      await input.waitFor();
+      const beforePasteRevision = (await waitForState(preview.url, () => true)).revision;
+      await dispatchPainterKey(input, 'KeyV');
+      await page.keyboard.press('ControlOrMeta+Enter');
+      await waitForState(preview.url, (state) => state.revision !== beforePasteRevision);
+      const { pres, shapes } = await savedShapes(preview);
+      assert.equal(getShapeRunFormatEffective(pres, shapes[1], 0, 0).bold, true);
+      assert.equal(getShapeRunFormatEffective(pres, shapes[1], 0, 0).size, 30);
+      assert.equal(getParagraphPropertiesEffective(pres, shapes[1], 0).align, 'right');
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
