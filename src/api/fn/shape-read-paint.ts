@@ -4,7 +4,9 @@ import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.t
 import { readColorFromContainer } from './shape-gradient-read.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
-import { readShapeStyleFill } from './shape-style-read.ts';
+import { getShapeStyleTheme, readShapeStyleFill } from './shape-style-read.ts';
+import { containingGroupFillElement } from './shape-group-paint.ts';
+import { getEffectiveColorMap } from './color-map.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
 import {
@@ -46,6 +48,43 @@ export type ShapeStroke =
   | { readonly kind: 'solid'; readonly color: string; readonly widthEmu?: number }
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
+
+const readDirectFill = (element: XmlElement): ShapeFill | null => {
+  const spPr =
+    firstChildElement(element, qname('p', 'spPr', NS.pml)) ??
+    firstChildElement(element, qname('p', 'grpSpPr', NS.pml));
+  const choices = spPr ? spPr.children : element.name.namespaceURI === NS.dml ? [element] : [];
+  for (const child of choices) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    switch (child.name.localName) {
+      case 'noFill':
+        return { kind: 'none' };
+      case 'solidFill': {
+        const color = readColorFromContainer(child);
+        return { kind: 'solid', color: color ?? '' };
+      }
+      case 'gradFill':
+        return { kind: 'gradient' };
+      case 'pattFill':
+        return { kind: 'pattern' };
+      case 'blipFill':
+        return { kind: 'image' };
+    }
+  }
+  return null;
+};
+
+const hasDirectGroupFill = (shape: SlideShapeData): boolean => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  return Boolean(
+    spPr?.children.some(
+      (child) =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        child.name.localName === 'grpFill',
+    ),
+  );
+};
 
 // The DrawingML color element inside `<a:solidFill>` under `container`,
 // or null when there is no solid fill there.
@@ -300,6 +339,19 @@ export const getShapeFillColorResolved = (
 ): string | null => {
   const color = fillColorElement(shape);
   if (color) return resolveDrawingColor(color, getPresentationTheme(pres));
+  if (hasDirectGroupFill(shape)) {
+    const groupFill = containingGroupFillElement(shape);
+    const groupColor =
+      groupFill?.name.localName === 'solidFill'
+        ? groupFill.children.find(
+            (child): child is XmlElement =>
+              child.kind === 'element' && child.name.namespaceURI === NS.dml,
+          )
+        : null;
+    if (!groupColor) return null;
+    const { theme } = getShapeStyleTheme(pres, shape);
+    return resolveDrawingColor(groupColor, theme, getEffectiveColorMap(shape[SHAPE_SLIDE]));
+  }
   if (getShapeFill(shape).kind !== 'inherit') return null;
   const style = readShapeStyleFill(pres, shape);
   return style?.kind === 'solid' ? style.color || null : null;
@@ -320,6 +372,17 @@ export const getShapeFillOpacity = (
 ): number | null => {
   const color = fillColorElement(shape);
   if (color) return resolveDrawingColorOpacity(color);
+  if (hasDirectGroupFill(shape)) {
+    const solid = containingGroupFillElement(shape);
+    const color =
+      solid?.name.localName === 'solidFill'
+        ? solid.children.find(
+            (child): child is XmlElement =>
+              child.kind === 'element' && child.name.namespaceURI === NS.dml,
+          )
+        : null;
+    return color ? resolveDrawingColorOpacity(color) : null;
+  }
   if (!pres || getShapeFill(shape).kind !== 'inherit') return null;
   const style = readShapeStyleFill(pres, shape);
   return style?.kind === 'solid' ? resolveDrawingColorOpacity(style.colorElement) : null;
@@ -335,6 +398,12 @@ export const getShapeFillOpacity = (
 export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeData): ShapeFill => {
   const own = getShapeFill(shape);
   if (own.kind !== 'inherit') return own;
+
+  // `grpFill` is an explicit DrawingML choice: the child paints with its
+  // containing group's fill. It must not fall through to the child's style
+  // matrix reference, which would incorrectly paint with the theme default.
+  if (hasDirectGroupFill(shape))
+    return readDirectFill(containingGroupFillElement(shape) ?? shape[SHAPE_ELEMENT]) ?? own;
 
   // A shape's own style reference supplies the default paint before the
   // placeholder layout/master cascade. Direct `spPr` paint above remains
@@ -438,6 +507,8 @@ export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
         return { kind: 'pattern' };
       case 'blipFill':
         return { kind: 'image' };
+      case 'grpFill':
+        return { kind: 'inherit' };
     }
   }
   return { kind: 'inherit' };

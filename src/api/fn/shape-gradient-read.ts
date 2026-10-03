@@ -32,6 +32,7 @@ import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.t
 import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
 import { getPresentationTheme, type PresentationTheme } from './theme.ts';
 import { getShapeStyleTheme, readShapeStyleFillElement } from './shape-style-read.ts';
+import { containingGroupFillElement } from './shape-group-paint.ts';
 // ---------------------------------------------------------------------------
 // Detailed gradient-fill reader. Companion to `getShapeFill`, which
 // only reports the discriminated `kind`. Returns the full stop list +
@@ -189,6 +190,19 @@ const readStyleMatrixGradient = (
   });
 };
 
+const readGroupGradient = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): ReadGradientFill | null => {
+  const gradFill = containingGroupFillElement(shape);
+  if (!gradFill || gradFill.name.localName !== 'gradFill') return null;
+  const { theme } = getShapeStyleTheme(pres, shape);
+  return parseGradFill(gradFill, {
+    theme,
+    colorMap: getEffectiveColorMap(shape[SHAPE_SLIDE]),
+  });
+};
+
 /**
  * Returns the full gradient definition (`stops` + `angleDeg`) when the
  * shape's `<p:spPr>` carries an `<a:gradFill>`. Returns `null` for any
@@ -235,6 +249,8 @@ export const getShapeGradientFillEffective = (
         ),
     );
     if (!fillChoice || fillChoice.kind !== 'element') return undefined;
+    if (fillChoice.name.localName === 'grpFill')
+      return el === shape[SHAPE_ELEMENT] ? readGroupGradient(pres, shape) : null;
     if (fillChoice.name.localName !== 'gradFill') return null;
     const gradFill = fillChoice;
     return parseGradFill(gradFill, {

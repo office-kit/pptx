@@ -57,10 +57,11 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, decode, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
-import { getPresentationFonts, getPresentationTheme } from './theme.ts';
+import { fontsFromThemeRoot, getPresentationFonts, getPresentationTheme } from './theme.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { readBulletStyleLayer, type BulletStyleLayer } from './bullet-style.ts';
 import { readShapeStyleFontFormat } from './shape-style-font-read.ts';
+import { getShapeStyleTheme } from './shape-style-read.ts';
 // -- Effective rPr cascade (ECMA-376 §21.1.2.4.7) ---------------------------
 //
 // A run's effective character properties are resolved by walking the
@@ -74,7 +75,7 @@ import { readShapeStyleFontFormat } from './shape-style-font-read.ts';
 //   5. The same path on the matching placeholder in the slide's layout
 //   6. The same path on the matching placeholder on the slide master,
 //      then the master's `<p:txStyles>` (`titleStyle` / `bodyStyle` / `otherStyle`)
-//   7. The theme's `<a:fontScheme>` — font typeface fallback only
+//   7. The owning slide master's `<a:fontScheme>` — font typeface fallback only
 //
 // Placeholder matching: by `<p:ph/@idx>` first, then by `<p:ph/@type>`.
 
@@ -292,8 +293,9 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 /**
  * Resolves a run's effective character properties by walking the
  * ECMA-376 §21.1.2.4.7 inheritance chain — run rPr →
- * pPr defRPr → text-body lstStyle → layout placeholder lstStyle →
- * master placeholder lstStyle + master txStyles → theme fontScheme.
+ * pPr defRPr → text-body lstStyle → shape Quick Style → layout placeholder
+ * lstStyle → master placeholder lstStyle + master txStyles → owning theme
+ * fontScheme.
  *
  * Each property (font, size, color, bold, italic, underline) is
  * resolved independently: the innermost layer that supplies a value
@@ -327,6 +329,11 @@ export const getShapeRunFormatEffective = (
   const result: Partial<ReadTextFormat> = {
     ...resolveTextBodyRunFormatEffective({ theme, colorMap }, txBody, paragraphIndex, runIndex),
   };
+
+  // Mac PowerPoint's Colored Fill Quick Style changes a title placeholder
+  // to the minor font and light text even when its master specifies major/dark.
+  // Direct run and paragraph formatting above still takes precedence.
+  mergeRPrLayer(result, readShapeStyleFontFormat(pres, shape));
 
   // Theme is consulted (a) at each layer to resolve scheme tokens and
   // color transforms eagerly, so the cascade can pick the innermost layer
@@ -393,11 +400,6 @@ export const getShapeRunFormatEffective = (
     }
   }
 
-  // A shape Quick Style is the outermost text fallback. Its fontRef supplies
-  // the theme family and color when no run, paragraph, or placeholder layer
-  // authored that property (for example, PowerPoint's Colored Fill style).
-  mergeRPrLayer(result, readShapeStyleFontFormat(pres, shape));
-
   // 7. Theme fontScheme — typeface resolution.
   //
   // The master often writes its `<a:latin typeface="+mj-lt"/>` /
@@ -409,7 +411,8 @@ export const getShapeRunFormatEffective = (
   // When no layer in the cascade supplied a font at all, pick the
   // major font for title-class placeholders and the minor font for
   // everything else, matching PowerPoint's defaults.
-  const fonts = getPresentationFonts(pres);
+  const fonts =
+    fontsFromThemeRoot(getShapeStyleTheme(pres, shape).root) ?? getPresentationFonts(pres);
   if (fonts) {
     const resolveThemeToken = (token: string): string | undefined => {
       switch (token) {

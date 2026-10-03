@@ -25,9 +25,9 @@ const NAME_FONT_REF = qname('a', 'fontRef', NS.dml);
  * Reads `<p:style><a:fontRef>` as the shape-level text fallback.
  *
  * PowerPoint's shape Quick Styles use `fontRef` for both the theme font
- * family and the default text color. The effective resolver adds it after
- * the existing authored and inherited text layers, preserving their
- * first-wins precedence.
+ * family and the default text color. Mac PowerPoint applies these before
+ * inherited placeholder/master defaults, but after direct character and
+ * paragraph formatting.
  */
 export const readShapeStyleFontFormat = (
   pres: PresentationData,
