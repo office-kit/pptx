@@ -9,8 +9,10 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
 
-  let { formats, selected, typing = false, onformat, oncase, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
+  let { formats, displayFormats = formats, selected, typing = false, onformat, oncase, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
     formats: TextFormat[];
+    /** Optional display-only formats, used when stored colors are theme tokens. */
+    displayFormats?: TextFormat[];
     selected: boolean;
     typing?: boolean;
     hideFont?: boolean;
@@ -41,6 +43,7 @@
   const size = $derived(formats.length && formats.every((f) => f.size === formats[0]?.size) ? formats[0]?.size : undefined);
   const highlight = $derived(formats.length && formats.every(f => f.highlight === formats[0]?.highlight) && /^#[0-9a-f]{6}$/i.test(formats[0]?.highlight ?? '') ? formats[0]!.highlight! : null);
   const color = $derived(formats.length && formats.every((f) => f.color === formats[0]?.color) ? formats[0]?.color : undefined);
+  const resolvedColor = $derived(displayFormats.length && displayFormats.every((f) => f.color === displayFormats[0]?.color) ? displayFormats[0]?.color : undefined);
 </script>
 
 <div class="text-format-bar" class:font-ribbon={ribbon} role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : context === 'objects' ? 'Format selected objects' : 'Selected text formatting')}>
@@ -70,7 +73,7 @@
       {#if item.property === 'bold'}<b>B</b>{:else if item.property === 'italic'}<i>I</i>{:else if item.property === 'underline'}<u>U</u>{:else if item.property === 'strike'}<s>S</s>{:else if item.property === 'superscript'}x<sup>2</sup>{:else}x<sub>2</sub>{/if}
     </button>
   {/each}
-  <div class="color-field"><span>{t('Text color')}</span><ColorPicker label={t('Text color')} value={color ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
+  <div class="color-field"><span>{t('Text color')}</span><ColorPicker label={t('Text color')} value={color ?? undefined} resolvedColor={resolvedColor ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
   <label><span>{t('Highlight color')}</span><input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
   {#if ribbon && oncase}<ChangeCaseMenu disabled={!(selected || typing)} onchange={oncase} />{/if}
   {#if ribbon}<button class="ok-btn font-dialog-trigger" aria-label={t('Font dialog')} title={t('Font dialog')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => editor.openFontDialog()}>A…</button>{/if}

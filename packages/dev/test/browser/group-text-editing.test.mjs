@@ -106,10 +106,12 @@ for (const nested of [false, true]) {
             );
             if (!foreign) throw new Error('Missing rendered text');
             const preview = foreign.getScreenCTM();
-            const own = new DOMMatrix(getComputedStyle(node).transform);
-            const parent = new DOMMatrix(getComputedStyle(node.parentElement).transform);
+            let composed = new DOMMatrix();
+            for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+              composed = new DOMMatrix(getComputedStyle(ancestor).transform).multiply(composed);
+            }
             const zoom = Number(getComputedStyle(node).getPropertyValue('--text-zoom'));
-            const actual = parent.multiply(own).scale(zoom);
+            const actual = composed.scale(zoom);
             return {
               actual: [actual.a, actual.b, actual.c, actual.d],
               expected: [preview.a, preview.b, preview.c, preview.d],

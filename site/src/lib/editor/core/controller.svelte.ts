@@ -116,6 +116,7 @@ export class EditorController {
   readonly view = new ViewPreferences();
   inlineTextFormat = $state<{
     formats: TextFormat[];
+    displayFormats?: TextFormat[];
     paragraphs: ParagraphProperties[];
     editParagraphs: (
       edit: (shape: Parameters<typeof setParagraphAlignment>[0], index: number) => void,
@@ -130,6 +131,8 @@ export class EditorController {
   /** Selection-aware formatting target used by the speaker-notes editor. */
   notesInlineTextFormat = $state<{
     formats: TextFormat[];
+    /** Optional theme-resolved view of `formats` for toolbar controls. */
+    displayFormats?: TextFormat[];
     apply: (format: TextFormat, reset?: boolean) => void;
     changeCase?: (value: TextCase) => void;
     fontSize?: (direction: 1 | -1) => void;

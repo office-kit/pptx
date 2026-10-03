@@ -71,7 +71,7 @@
   }
 
   function groupKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && openGroup) { event.preventDefault(); openGroup = null; }
+    if (event.key === 'Escape' && openGroup) { event.preventDefault(); event.stopPropagation(); openGroup = null; }
   }
 </script>
 
@@ -153,11 +153,11 @@
       {#if openGroup}
         {@const group = current.groups.find(item => item.title === openGroup)}
         {#if group}
-          <div class="group-menu" role="menu" tabindex="-1" aria-label={t(group.title)}>
+          <div class="group-menu" role="menu" tabindex="-1" aria-label={t(group.title)} onkeydown={groupKeydown}>
             <div class="group-menu-items">
               {#if group.title === 'Font'}<FontRibbon />
               {:else}
-                {#if group.title === 'Drawing'}<ArrangeMenu compact /><ShapeQuickStyles compact />{/if}
+                {#if group.title === 'Drawing'}<ArrangeMenu compact onchoose={() => openGroup = null} /><ShapeQuickStyles compact />{/if}
                 {#each group.items as item (item.id + (item.label ?? ''))}
                   {@const cap = capabilityById.get(item.id)}
                   {#if item.id === 'setParagraphAlignment'}<ParagraphAlignment />

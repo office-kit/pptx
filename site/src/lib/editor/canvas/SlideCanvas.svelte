@@ -23,7 +23,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
-  import { resolveTextBodyRect, shapeAutoFitScale, shapeTextAnchorOffset, shapeCustomTextRect, textColumnsStyle, verticalTextStyle } from '@office-kit/pptx-preview';
+  import { renderTextEffectsSvg, resolveTextBodyRect, shapeAutoFitScale, shapeTextAnchorOffset, shapeCustomTextRect, textColumnsStyle, verticalTextStyle } from '@office-kit/pptx-preview';
   import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
@@ -53,6 +53,7 @@
     getShapeCustomGeometry,
     getShapePreset,
     getShapeTextDirection,
+    getShapeTextBodyRotationDeg,
     insertTableRow,
     getTableCellText,
     getTableCellParagraphs,
@@ -903,18 +904,18 @@
     // scale the entire box. Scaling font sizes instead changes font metrics
     // and accumulates baseline differences on wrapped and mixed-font lines.
     const layoutBox = (sx: number, sy: number) => `left:${box.left + box.width * (1 - sx / zoom) / 2}%; top:${box.top + box.height * (1 - sy / zoom) / 2}%; width:${box.width * sx / zoom}%; height:${box.height * sy / zoom}%;`;
-    const base = `${layoutBox(1, 1)} transform:rotate(${box.rotation + textBodyTurn}deg) scale(${zoom}) ${textAnchorTranslation}; transform-origin:center;`;
+    const base = `${layoutBox(1, 1)} transform:rotate(${box.rotation}deg) scale(${zoom}); transform-origin:center;`;
 
     const [a, b, c, d] = scope.matrix;
     const reflected = a * d - b * c < 0;
-    const rotation = box.rotation + textBodyTurn + (getShapeFlip(box.shape)?.vertical ? 180 : 0);
+    const rotation = box.rotation + (getShapeFlip(box.shape)?.vertical ? 180 : 0);
     // Table glyphs follow ancestor scaling; only their reflection is cancelled.
     if (editing?.cell) return `${layoutBox(1, 1)} transform:rotate(${rotation}deg) scale(${reflected ? -zoom : zoom},${zoom}); transform-origin:center;`;
     const { x: sx, y: sy } = scope.textScale;
     if (!sx || !sy) return base;
     // Match the preview's text layout: expand the layout box, cancel ancestor
     // scale on glyphs, and cancel reflection before the shape's text rotation.
-    return `${layoutBox(sx, sy)} transform:rotate(${rotation}deg) scale(${(reflected ? -zoom : zoom) / sx},${zoom / sy}) ${textAnchorTranslation}; transform-origin:center;`;
+    return `${layoutBox(sx, sy)} transform:rotate(${rotation}deg) scale(${(reflected ? -zoom : zoom) / sx},${zoom / sy}); transform-origin:center;`;
   });
 
   const textBodyStyle = $derived.by(() => {
@@ -939,9 +940,9 @@
       const rect = resolveTextBodyRect(getShapePreset(shape), { x: 0, y: 0, w, h }, insets, shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)));
       insets = { left: rect.x, top: rect.y, right: w - rect.x - rect.w, bottom: h - rect.y - rect.h };
     }
-    // The preview turns the inner text rectangle; the edit overlay turns the
-    // whole editing box, so counter-rotate its insets to keep that rectangle in place.
-    if (textBodyTurn) insets = { top: insets.bottom, right: insets.left, bottom: insets.top, left: insets.right };
+    // The body turn is applied around the inner rectangle below. Keep the
+    // writing-mode padding in its authored orientation; swapping it here would
+    // move the caret relative to the SVG's vertical layout.
     const padding = [insets.top, insets.right, insets.bottom, insets.left]
       .map(value => `${value / 9525}px`).join(' ');
     // Vertical writing and multi-column bodies are the renderer's own CSS, so
@@ -1000,6 +1001,58 @@
     const source = boxes.find(b => b.id === active.id)?.shape;
     return inlineTextHtml(doc.pres, shape, source, active.cell);
   });
+  const pendingTextEffectsSvg = $derived.by(() => {
+    doc.version;
+    const shape = pendingTextShape;
+    const box = editBox;
+    const slide = doc.currentSlide;
+    if (!shape || !box || !slide || !scope) return '';
+    // Table-cell editing keeps the ancestor group scale on the editing shell;
+    // the surrounding scope overlay applies that transform once. Shape text
+    // cancels it in textInputStyle, so its effects layout must include the
+    // scale, while table cells must stay in the unscaled local box.
+    const groupScale = editing?.cell ? { x: 1, y: 1 } : scope.textScale;
+    const bounds = {
+      w: box.width / 100 * metrics.widthEmu * groupScale.x,
+      h: box.height / 100 * metrics.heightEmu * groupScale.y,
+    };
+    return renderTextEffectsSvg(doc.pres, slide, shape, bounds, editing?.cell ? { cell: editing.cell } : {});
+  });
+  // Keep body rotation nested inside the shape transform. PowerPoint rotates
+  // the text body around the inner text rectangle, whose centre moves when
+  // margins or custom geometry are asymmetric; rotating the outer edit box
+  // would visibly move the caret away from the painted glyphs.
+  const inlineEditBodyStyle = $derived.by(() => {
+    const box = editBox;
+    const shape = pendingTextShape;
+    if (!box || !shape || !scope) return 'position:absolute; inset:0;';
+    if (editing?.cell) {
+      return `position:absolute; inset:0; transform:rotate(${textBodyTurn}deg); transform-origin:center;`;
+    }
+    const bodyRotation = getShapeTextBodyRotationDeg(shape) ?? 0;
+    const body = getShapeBodyPrEffective(doc.pres, shape);
+    const margins = body.margins;
+    const w = box.width / 100 * metrics.widthEmu * scope.textScale.x;
+    const h = box.height / 100 * metrics.heightEmu * scope.textScale.y;
+    const insets = {
+      top: margins.top ?? 45720,
+      right: margins.right ?? 91440,
+      bottom: margins.bottom ?? 45720,
+      left: margins.left ?? 91440,
+    };
+    const rect = resolveTextBodyRect(
+      getShapePreset(shape),
+      { x: 0, y: 0, w, h },
+      insets,
+      shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)),
+    );
+    const originX = `${(rect.x + rect.w / 2) / w * 100}%`;
+    const originY = `${(rect.y + rect.h / 2) / h * 100}%`;
+    return `position:absolute; inset:0; transform:rotate(${bodyRotation + textBodyTurn}deg) ${textAnchorTranslation}; transform-origin:${originX} ${originY};`;
+  });
+  // The effects SVG owns its canonical body rotation and vertical layout. The
+  // HTML editor applies the equivalent transforms around the inner text rect.
+  const pendingTextEffectsStyle = 'position:absolute; inset:0;';
   function selectedTextFormats(
     shape = boxes.find(b => b.id === editing?.id)?.shape,
     range = textRange,
@@ -1418,14 +1471,19 @@
         {#if editing}
           {@const eb = editBox}
           {#if eb}
-            <RichTextInput
+            <div class="inline-edit-shell" style={textInputStyle}>
+              {#if pendingTextEffectsSvg}
+                <div class="inline-effects" style={pendingTextEffectsStyle} aria-hidden="true">{@html pendingTextEffectsSvg}</div>
+              {/if}
+              <div class="inline-edit-body" style={inlineEditBodyStyle}>
+                <RichTextInput
               label={t(editing.cell ? 'Cell text' : 'Edit text')}
               bind:this={textInput}
               onselect={(range) => {
                 if (editing && (range.start !== textRange.start || range.end !== textRange.end)) delete editing.typing;
                 textRange = range;
               }}
-              style={`${textInputStyle} ${textBodyStyle}`}
+              style={`position:absolute; inset:0; transform:none; ${textBodyStyle}`}
               value={editing.text}
               html={pendingTextHtml}
               textZoom={editAutoFit}
@@ -1484,7 +1542,9 @@
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
                 else if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); commitEditing(); }
               }}
-            />
+                />
+              </div>
+            </div>
           {/if}
         {/if}
       </div>
@@ -1535,6 +1595,25 @@
     background: #fff;
     box-shadow: var(--ok-shadow-lg);
     touch-action: none;
+  }
+  .inline-effects {
+    position: absolute;
+    z-index: 8;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .inline-edit-shell {
+    position: absolute;
+    z-index: 7;
+    pointer-events: none;
+    overflow: visible;
+  }
+  .inline-edit-body {
+    pointer-events: none;
+    overflow: visible;
+  }
+  .inline-edit-body :global(.inline-edit) {
+    pointer-events: auto;
   }
   .paint,
   .overlay {

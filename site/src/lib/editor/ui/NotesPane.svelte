@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte';
-  import { getSlideNotes, getSlideNotesParagraphEndFormat, getSlideNotesTextFormats, getSlides, setSlideNotes, setSlideNotesFormat, toWritableTextFormat, transformSlideNotesCase, type TextCase, type TextFormat } from '@office-kit/pptx';
+  import { asColor, getSlideNotes, getSlideNotesParagraphEndFormat, getSlideNotesTextFormats, getSlides, resolveSlideNotesTextColor, setSlideNotes, setSlideNotesFormat, toWritableTextFormat, transformSlideNotesCase, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { stepFontSize } from '../core/font-size.ts';
@@ -21,28 +21,34 @@
   let composing = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let typingFormat: { format: TextFormat; reset: boolean } | undefined;
+  let pendingParagraphs = new Set<number>();
   let input: { focus(): void; blur(): void; getElement(): HTMLElement | undefined; setSelectionRange(start: number, end: number): void; getSelection(): { start: number; end: number } };
   let pane: HTMLElement;
   let drag: { id: number; y: number; height: number } | null = null;
   let maxHeight = $state(400);
   let noteFormat = $state<TextFormat>({});
+  let displayNoteFormat = $state<TextFormat>({});
   let focused = $state(false);
   let formattedRanges = $state<{ start: number; end: number; format: TextFormat }[]>(
     getSlideNotesTextFormats(slide).map((item) => ({ ...item, format: toWritableTextFormat(item.format) })),
   );
+  let resolvedFormattedRanges = $state<{ start: number; end: number; format: TextFormat }[]>(
+    getSlideNotesTextFormats(slide, { resolveColors: true }).map((item) => ({ ...item, format: toWritableTextFormat(item.format) })),
+  );
   const noteHtml = $derived.by(() => {
     const text = value;
     if (!text) return '';
+    const displayRanges = pendingResolvedRanges();
     const points = new Set([0, text.length]);
-    for (const item of formattedRanges) { points.add(item.start); points.add(item.end); }
+    for (const item of displayRanges) { points.add(item.start); points.add(item.end); }
     const sorted = [...points].sort((a, b) => a - b);
     const formats: { start: number; end: number; format: TextFormat }[] = [];
     let rangeIndex = 0;
     for (let index = 0; index < sorted.length - 1; index++) {
       const start = sorted[index]!;
       const end = sorted[index + 1]!;
-      while (rangeIndex < formattedRanges.length && formattedRanges[rangeIndex]!.end <= start) rangeIndex++;
-      const current = formattedRanges[rangeIndex];
+      while (rangeIndex < displayRanges.length && displayRanges[rangeIndex]!.end <= start) rangeIndex++;
+      const current = displayRanges[rangeIndex];
       formats.push({ start, end, format: current && current.start <= start && current.end >= end ? current.format : {} });
     }
     return textClipboardHtml({ text, formats }, { editing: true });
@@ -81,6 +87,7 @@
     pending = false;
     const edits = changes;
     changes = [];
+    pendingParagraphs.clear();
     // An external replacement or deleted slide must never receive a stale draft.
     if (doc.pres !== presentation || !getSlides(presentation).includes(slide)) return;
     if (value !== (getSlideNotes(slide) ?? '')) {
@@ -98,14 +105,14 @@
       catch (error) { editor.toast('error', String(error)); }
     }
   }
-  function formatForRange(next: { start: number; end: number }) {
+  function formatInRanges(next: { start: number; end: number }, ranges: typeof formattedRanges): TextFormat {
     const matching: TextFormat[] = [];
     if (next.start === next.end) {
-      const item = formattedRanges.find((candidate) => candidate.start <= next.start && (candidate.end > next.start || (candidate.end === next.start && next.start === value.length)));
+      const item = ranges.find((candidate) => candidate.start <= next.start && (candidate.end > next.start || (candidate.end === next.start && next.start === value.length)));
       matching.push(item?.format ?? {});
     } else {
       let cursor = next.start;
-      for (const item of formattedRanges) {
+      for (const item of ranges) {
         if (item.end <= next.start) continue;
         if (item.start >= next.end) break;
         if (item.start > cursor) matching.push({});
@@ -118,15 +125,25 @@
       }
       if (cursor < next.end) matching.push({});
     }
-    if (matching.length === 0) { noteFormat = {}; return; }
+    if (matching.length === 0) return {};
     const keys = new Set(Object.keys(matching[0]!));
     for (const item of matching.slice(1)) for (const key of [...keys]) {
       if (item[key as keyof TextFormat] !== matching[0]![key as keyof TextFormat]) keys.delete(key);
     }
-    noteFormat = Object.fromEntries([...keys].map((key) => [key, matching[0]![key as keyof TextFormat]])) as TextFormat;
+    return Object.fromEntries([...keys].map((key) => [key, matching[0]![key as keyof TextFormat]])) as TextFormat;
   }
-  function changed(next: string) {
-    const after = input?.getSelection?.() ?? range;
+  function formatForRange(next: { start: number; end: number }) {
+    const nextFormat = formatInRanges(next, formattedRanges);
+    if (JSON.stringify(noteFormat) !== JSON.stringify(nextFormat)) noteFormat = nextFormat;
+    const nextDisplayFormat = formatInRanges(next, resolvedFormattedRanges);
+    if (JSON.stringify(displayNoteFormat) !== JSON.stringify(nextDisplayFormat)) displayNoteFormat = nextDisplayFormat;
+  }
+  function changed(next: string, nextSelection?: { start: number; end: number }) {
+    // RichTextInput cancels the browser paragraph insertion before this
+    // callback, so the DOM selection still points at the pre-newline range.
+    // Callers that synthesize an edit must provide the resulting caret rather
+    // than making the next edit depend on a stale DOM selection.
+    const after = nextSelection ?? input?.getSelection?.() ?? range;
     const change = textEditDiff(value, next, range, after.end);
     if (change) {
       if (typingFormat && change.text.length) {
@@ -155,12 +172,84 @@
   function readFormattedRanges() {
     return getSlideNotesTextFormats(slide).map((item) => ({ ...item, format: toWritableTextFormat(item.format) }));
   }
+  function readResolvedFormattedRanges() {
+    return getSlideNotesTextFormats(slide, { resolveColors: true }).map((item) => ({ ...item, format: toWritableTextFormat(item.format) }));
+  }
+  function displayFormat(format: TextFormat): TextFormat {
+    if (!format.color || /^#[\da-f]{6}$/i.test(format.color)) return { ...format };
+    const color = resolveSlideNotesTextColor(slide, format.color);
+    const parsed = color ? asColor(color) : null;
+    return parsed ? { ...format, color: parsed } : { ...format };
+  }
+  function pendingResolvedRanges() {
+    let ranges = resolvedFormattedRanges.map(item => ({ ...item, format: { ...item.format } }));
+    for (const change of changes) {
+      const delta = change.text.length - (change.end - change.start);
+      const insertionCarrier = change.start === change.end
+        ? ranges.find(item => item.start < change.start && item.end >= change.start) ??
+          ranges.find(item => item.end === change.start) ??
+          ranges.find(item => item.start === change.start)
+        : undefined;
+      const replacementCarrier = change.start !== change.end
+        ? ranges.find(item => item.start <= change.start && item.end > change.start)
+        : undefined;
+      const inherited = insertionCarrier?.format ?? replacementCarrier?.format ?? {};
+      const typed = change.typing && change.text.length
+        ? { ...(change.typing.reset ? {} : inherited), ...change.typing.format }
+        : null;
+      if (typed?.color && !/^#[\da-f]{6}$/i.test(typed.color)) {
+        const resolved = resolveSlideNotesTextColor(slide, typed.color);
+        const parsed = resolved ? asColor(resolved) : null;
+        if (parsed) typed.color = parsed;
+        else if (displayNoteFormat.color && /^#[\da-f]{6}$/i.test(displayNoteFormat.color)) typed.color = displayNoteFormat.color;
+        else delete typed.color;
+      }
+      const transformed: { start: number; end: number; format: TextFormat }[] = [];
+      let insertedWithInheritedFormat = false;
+      for (const item of ranges) {
+        if (change.start === change.end) {
+          const carriesInsertion = item === insertionCarrier;
+          if (carriesInsertion) {
+            if (typed) {
+              if (item.start < change.start) transformed.push({ ...item, end: change.start });
+              if (item.end > change.start) transformed.push({ ...item, start: change.start + change.text.length, end: item.end + delta });
+            } else transformed.push({ ...item, end: item.end + delta });
+          } else if (item.start >= change.start) {
+            transformed.push({ ...item, start: item.start + delta, end: item.end + delta });
+          } else transformed.push(item);
+        } else {
+          if (item.start < change.start) transformed.push({ ...item, end: Math.min(item.end, change.start) });
+          if (item.end > change.end) {
+            const start = item.start >= change.end ? item.start + delta : change.start + change.text.length;
+            transformed.push({ ...item, start, end: item.end + delta });
+          }
+          if (!typed && item.start <= change.start && item.end >= change.end && change.text.length) {
+            transformed.push({ start: change.start, end: change.start + change.text.length, format: item.format });
+            insertedWithInheritedFormat = true;
+          }
+        }
+      }
+      if (typed && change.text.length) {
+        transformed.push({ start: change.start, end: change.start + change.text.length, format: typed });
+      } else if (!typed && change.text.length && !insertedWithInheritedFormat && replacementCarrier) {
+        transformed.push({ start: change.start, end: change.start + change.text.length, format: replacementCarrier.format });
+      }
+      ranges = transformed;
+    }
+    return ranges.sort((left, right) => left.start - right.start || left.end - right.end);
+  }
   function currentParagraphEnd() {
     return value.slice(0, range.start).split('\n').length - 1;
   }
   function currentParagraphIsEmpty() {
     const start = value.lastIndexOf('\n', Math.max(0, range.start - 1)) + 1;
     const newline = value.indexOf('\n', range.start);
+    const end = newline === -1 ? value.length : newline;
+    return value.slice(start, end).length === 0;
+  }
+  function paragraphIsEmptyAt(position: number) {
+    const start = value.lastIndexOf('\n', Math.max(0, position - 1)) + 1;
+    const newline = value.indexOf('\n', position);
     const end = newline === -1 ? value.length : newline;
     return value.slice(start, end).length === 0;
   }
@@ -174,6 +263,7 @@
       // incorrectly affect a later caret in the same paragraph.
       if (currentParagraphIsEmpty()) {
         const paragraphEnd = currentParagraphEnd();
+        pendingParagraphs.clear();
         doc.transact(t(reset ? 'Clear notes typing format' : 'Format notes typing'), () => {
           setSlideNotesFormat(slide, format, { paragraphEnd, reset });
         });
@@ -184,12 +274,20 @@
         reset: typingFormat?.reset === true || reset,
       };
       noteFormat = reset ? {} : { ...noteFormat, ...format };
+      // Keep the display-only theme-resolved state in lockstep with the
+      // literal typing state. The next commit will re-read the ranges, but
+      // the toolbar must update immediately at a collapsed caret as well.
+      if (reset) displayNoteFormat = {};
+      else {
+        displayNoteFormat = { ...displayNoteFormat, ...displayFormat(format) };
+      }
       return;
     }
     doc.transact(t(reset ? 'Clear text formatting' : 'Format selected notes'), () => {
       setSlideNotesFormat(slide, format, { range, reset });
     });
     formattedRanges = readFormattedRanges();
+    resolvedFormattedRanges = readResolvedFormattedRanges();
     formatForRange(range);
     input.focus();
     input.setSelectionRange(range.start, range.end);
@@ -205,6 +303,7 @@
     });
     value = getSlideNotes(slide) ?? value;
     formattedRanges = readFormattedRanges();
+    resolvedFormattedRanges = readResolvedFormattedRanges();
     formatForRange(range);
     input.focus();
     input.setSelectionRange(range.start, range.end);
@@ -233,6 +332,7 @@
     value = next;
     range = { start: start + parsed.text.length, end: start + parsed.text.length };
     formattedRanges = readFormattedRanges();
+    resolvedFormattedRanges = readResolvedFormattedRanges();
     formatForRange(range);
     input.focus();
     input.setSelectionRange(range.start, range.end);
@@ -240,6 +340,7 @@
   $effect(() => {
     const api = {
       formats: [noteFormat],
+      displayFormats: [displayNoteFormat],
       apply: applyNoteFormat, changeCase, fontSize,
       toggle: toggleNoteFormat,
     };
@@ -251,12 +352,20 @@
     if (!pending) {
       value = getSlideNotes(slide) ?? '';
       formattedRanges = getSlideNotesTextFormats(slide).map((item) => ({ ...item, format: toWritableTextFormat(item.format) }));
+      resolvedFormattedRanges = getSlideNotesTextFormats(slide, { resolveColors: true }).map((item) => ({ ...item, format: toWritableTextFormat(item.format) }));
       if (range.start === range.end && currentParagraphIsEmpty()) {
         const paragraphEnd = currentParagraphEnd();
         const paragraphFormat = toWritableTextFormat(getSlideNotesParagraphEndFormat(slide, paragraphEnd));
+        const resolvedParagraphFormat = toWritableTextFormat(getSlideNotesParagraphEndFormat(slide, paragraphEnd, { resolveColors: true }));
         const currentFormat = untrack(() => noteFormat);
         if (JSON.stringify(currentFormat) !== JSON.stringify(paragraphFormat)) noteFormat = paragraphFormat;
+        displayNoteFormat = resolvedParagraphFormat;
         typingFormat = { format: { ...paragraphFormat }, reset: false };
+      } else {
+        // Undo/redo and theme edits change the ranges without moving the
+        // selection. Refresh both literal and resolved toolbar state even
+        // when the caret is in non-empty text.
+        untrack(() => formatForRange(range));
       }
     }
   });
@@ -288,9 +397,29 @@
   <div class="resize" role="separator" tabindex="0" aria-label={t('Notes pane height')} aria-orientation="horizontal" aria-valuemin={60} aria-valuemax={maxHeight} aria-valuenow={editor.notesHeight} onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={() => drag = null} onpointercancel={() => drag = null} onlostpointercapture={() => drag = null} onkeydown={resizeKeys}></div>
   <RichTextInput bind:this={input} {value} html={noteHtml} label={t('Notes content')} style="position:static; width:100%; height:100%; min-height:40px; box-sizing:border-box;" textZoom={1}
     onfocus={() => { editor.inlineTextFormat = null; focused = true; }} onblur={() => { commit(); setTimeout(() => { if (document.activeElement !== input?.getElement?.()) focused = false; }, 0); }}
-    onselect={(next) => { if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; formatForRange(next); }} onbeforeinput={(next) => { range = next; formatForRange(next); }} oninput={changed} onkeydown={keys}
-    onnewline={() => changed(`${value.slice(0, range.start)}\n${value.slice(range.end)}`)} oncomposition={(active) => { composing = active; if (active) clearTimeout(timer); else if (pending) timer = setTimeout(commit, 600); }}
-    onhistory={(backward) => { commit(); typingFormat = undefined; void (backward ? doc.undo() : doc.redo()); }} oncopy={() => {}} oncut={() => {}} onpaste={pasteNotes} />
+    onselect={(next) => { const paragraph = value.slice(0, next.start).split('\n').length - 1; const pendingEmptyParagraph = next.start === next.end && typingFormat && pendingParagraphs.has(paragraph) && paragraphIsEmptyAt(next.start); if ((next.start !== range.start || next.end !== range.end) && !pendingEmptyParagraph) { typingFormat = undefined; } range = next; formatForRange(next); }} onbeforeinput={(next) => { range = next; formatForRange(next); }} oninput={changed} onkeydown={keys}
+    onnewline={() => {
+      // A newly-created paragraph is empty until its first character is
+      // typed. Capture the current paragraph-end format before applying the
+      // newline so that pending typing in the new paragraph inherits the
+      // literal scheme token immediately, even before the debounce commits.
+      // `range` is the logical caret maintained by changed(). Derive the
+      // paragraph from it so Enter also works when the user moves back into
+      // an earlier pending paragraph.
+      const paragraph = currentParagraphEnd() + 1;
+      const inherited = typingFormat?.format
+        ? { ...typingFormat.format }
+        : toWritableTextFormat(getSlideNotesParagraphEndFormat(slide, currentParagraphEnd()));
+      const nextCaret = range.start + 1;
+      changed(`${value.slice(0, range.start)}\n${value.slice(range.end)}`, { start: nextCaret, end: nextCaret });
+      // The contenteditable DOM is not updated until Svelte flushes. Keep its
+      // native caret aligned immediately so a second Enter or typed character
+      // cannot be applied at the pre-newline position.
+      input.setSelectionRange(nextCaret, nextCaret);
+      typingFormat = { format: inherited, reset: false };
+      pendingParagraphs.add(paragraph);
+    }} oncomposition={(active) => { composing = active; if (active) clearTimeout(timer); else if (pending) timer = setTimeout(commit, 600); }}
+    onhistory={(backward) => { commit(); typingFormat = undefined; pendingParagraphs.clear(); void (backward ? doc.undo() : doc.redo()); }} oncopy={() => {}} oncut={() => {}} onpaste={pasteNotes} />
 </section>
 
 <style>

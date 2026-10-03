@@ -1593,7 +1593,7 @@ test(
       await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
       await saved();
       await editor.getByRole('button', { name: 'Speaker notes', exact: true }).click();
-      assert.equal(await notesInput.inputValue(), notes);
+      assert.equal(await notesInput.innerText(), notes);
       await notesInput.fill('Undo this edit');
       await notesInput.press('Meta+z');
       await saved();
@@ -1603,7 +1603,7 @@ test(
       locale = 'ja';
       await editor.getByRole('button', { name: '発表者ノート', exact: true }).click();
       notesInput = editor.getByLabel('ノートの内容', { exact: true });
-      assert.equal(await notesInput.inputValue(), '');
+      assert.equal(await notesInput.textContent(), '');
       await notesInput.fill('次のスライドの説明');
       await page.screenshot({ path: '/tmp/pptx-pr287-notes-ja.png', fullPage: true });
       await notesInput.press('Tab');

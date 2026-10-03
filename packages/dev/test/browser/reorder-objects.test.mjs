@@ -1,3 +1,4 @@
+import { openArrange } from '../helpers/ribbon.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -63,9 +64,8 @@ test(
             ),
           )[0],
         ).map(getShapeName);
-      const arrange = editor.getByRole('button', { name: 'Arrange', exact: true });
       await saved();
-      await arrange.click();
+      await openArrange(editor);
       assert.equal(
         await editor
           .getByRole('menuitem', { name: 'Reorder Overlapping Objects', exact: true })
@@ -79,7 +79,7 @@ test(
       await pane.getByRole('button', { name: 'C', exact: true }).click();
       await pane.getByRole('button', { name: 'A', exact: true }).click({ modifiers: ['Shift'] });
       async function open() {
-        await arrange.click();
+        await openArrange(editor);
         await editor
           .getByRole('menuitem', { name: 'Reorder Overlapping Objects', exact: true })
           .click();

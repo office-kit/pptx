@@ -10,6 +10,8 @@ import {
 import { REL_TYPES, buildEmptyNotesSlide } from '../../internal/presentationml/index.ts';
 import {
   NS,
+  attr,
+  elem,
   firstChildElement,
   getAttrValue,
   parseXml,
@@ -34,7 +36,8 @@ import {
   type TextCase,
 } from '../../internal/drawingml/text-body-edit.ts';
 import type { ReadTextFormat } from '../../internal/drawingml/index.ts';
-import { parseRPrLikeElement } from './shape-color.ts';
+import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
+import { themeFromPackage, type PresentationTheme } from './theme.ts';
 import { getSlides, isSlideHidden } from './slide-query.ts';
 import { getShapeHyperlink, setShapeHyperlink } from './shapes.ts';
 import {
@@ -65,6 +68,81 @@ const findNotesPartName = (slide: SlideData): PartName | null => {
   return notesRel.target.startsWith('/')
     ? partName(notesRel.target)
     : resolveTarget(slide[SLIDE_PART_NAME], notesRel.target);
+};
+
+const STANDARD_NOTES_COLOR_MAP: Readonly<Record<string, string>> = {
+  bg1: 'lt1',
+  tx1: 'dk1',
+  bg2: 'lt2',
+  tx2: 'dk2',
+  accent1: 'accent1',
+  accent2: 'accent2',
+  accent3: 'accent3',
+  accent4: 'accent4',
+  accent5: 'accent5',
+  accent6: 'accent6',
+  hlink: 'hlink',
+  folHlink: 'folHlink',
+};
+
+const notesMasterPartName = (slide: SlideData, notesPartName: PartName): PartName | null => {
+  const rels = slide[INTERNAL_PACKAGE].getRels(notesPartName);
+  const relation = rels?.items.find(
+    (item) => item.type === REL_TYPES.notesMaster && item.targetMode !== 'External',
+  );
+  if (!relation) return null;
+  return relation.target.startsWith('/')
+    ? partName(relation.target)
+    : resolveTarget(notesPartName, relation.target);
+};
+
+const notesColorContext = (
+  slide: SlideData,
+  notesPartName: PartName,
+): {
+  readonly theme: PresentationTheme | null;
+  readonly colorMap: Readonly<Record<string, string>>;
+} => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const masterName = notesMasterPartName(slide, notesPartName);
+  const masterPart = masterName ? pkg.getPart(masterName) : null;
+  const masterRoot = masterPart ? parseXml(decode(masterPart.data)).root : null;
+  const map = { ...STANDARD_NOTES_COLOR_MAP };
+  const masterMap = masterRoot ? firstChildElement(masterRoot, qname('p', 'clrMap', NS.pml)) : null;
+  for (const attr of masterMap?.attrs ?? []) {
+    if (attr.name.namespaceURI === '') map[attr.name.localName] = attr.value;
+  }
+  const notesPart = pkg.getPart(notesPartName);
+  const notesRoot = notesPart ? parseXml(decode(notesPart.data)).root : null;
+  const override = notesRoot ? firstChildElement(notesRoot, qname('p', 'clrMapOvr', NS.pml)) : null;
+  const overrideMapping = override
+    ? firstChildElement(override, qname('a', 'overrideClrMapping', NS.dml))
+    : null;
+  for (const attr of overrideMapping?.attrs ?? []) {
+    if (attr.name.namespaceURI === '') map[attr.name.localName] = attr.value;
+  }
+  return { theme: themeFromPackage(pkg, masterName ?? notesPartName), colorMap: map };
+};
+
+export interface SlideNotesTextFormatOptions {
+  /** Resolve scheme colors through the notes master theme and color map. */
+  readonly resolveColors?: boolean;
+}
+
+/** Resolve a notes text color token through the notes master theme and map.
+ * Literal tokens remain unchanged in the notes format readers; this helper is
+ * for transient editor display state (such as a pending typing format).
+ */
+export const resolveSlideNotesTextColor = (slide: SlideData, color: string): string | null => {
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName === null) return null;
+  const token = color.startsWith('scheme:') ? color.slice('scheme:'.length) : color;
+  if (!/^(?:bg[12]|tx[12]|lt[12]|dk[12]|accent[1-6]|hlink|folHlink)$/.test(token)) return null;
+  const context = notesColorContext(slide, notesPartName);
+  const colorElement = elem(qname('a', 'schemeClr', NS.dml), {
+    attrs: [attr(qname('', 'val', ''), token)],
+  });
+  return resolveDrawingColor(colorElement, context.theme, context.colorMap);
 };
 
 /**
@@ -105,12 +183,15 @@ export interface SlideNotesTextFormatRange {
 }
 
 /**
- * Reads the literal run formatting from the notes body using the same UTF-16
- * offsets as `setSlideNotesFormat`. Paragraph and line-break separators are
- * included in the offsets but are not returned as formatted ranges.
+ * Reads run formatting from the notes body using the same UTF-16 offsets as
+ * `setSlideNotesFormat`. By default scheme colors remain literal references;
+ * pass `resolveColors` to resolve them through the notes master theme and
+ * color map. Paragraph and line-break separators are included in the offsets
+ * but are not returned as formatted ranges.
  */
 export const getSlideNotesTextFormats = (
   slide: SlideData,
+  options?: SlideNotesTextFormatOptions,
 ): ReadonlyArray<SlideNotesTextFormatRange> => {
   const notesPartName = findNotesPartName(slide);
   if (notesPartName === null) return [];
@@ -134,6 +215,7 @@ export const getSlideNotesTextFormats = (
       .join('');
   };
   const out: SlideNotesTextFormatRange[] = [];
+  const colorContext = options?.resolveColors ? notesColorContext(slide, notesPartName) : null;
   let offset = 0;
   const paragraphs: XmlElement[] = [];
   for (const child of spTree.children) {
@@ -166,7 +248,11 @@ export const getSlideNotesTextFormats = (
         const text = textOf(firstChildElement(child, nameT));
         const rPr = firstChildElement(child, nameRPr);
         if (text && rPr)
-          out.push({ start: offset, end: offset + text.length, format: parseRPrLikeElement(rPr) });
+          out.push({
+            start: offset,
+            end: offset + text.length,
+            format: parseRPrLikeElement(rPr, colorContext ?? undefined),
+          });
         offset += text.length;
       } else if (child.name.localName === nameBr.localName) offset++;
     }
@@ -175,10 +261,15 @@ export const getSlideNotesTextFormats = (
   return out;
 };
 
-/** Reads the paragraph-end character format used for typing at a notes caret. */
+/**
+ * Reads the paragraph-end character format used for typing at a notes caret.
+ * By default scheme colors remain literal references; pass `resolveColors` to
+ * resolve them through the notes master theme and color map.
+ */
 export const getSlideNotesParagraphEndFormat = (
   slide: SlideData,
   paragraphIndex: number,
+  options?: SlideNotesTextFormatOptions,
 ): ReadTextFormat => {
   const notesPartName = findNotesPartName(slide);
   if (notesPartName === null) return {};
@@ -208,7 +299,12 @@ export const getSlideNotesParagraphEndFormat = (
     const paragraph = paragraphs[paragraphIndex];
     if (!paragraph || paragraph.kind !== 'element') return {};
     const end = firstChildElement(paragraph, qname('a', 'endParaRPr', NS.dml));
-    return end ? parseRPrLikeElement(end) : {};
+    return end
+      ? parseRPrLikeElement(
+          end,
+          options?.resolveColors ? notesColorContext(slide, notesPartName) : undefined,
+        )
+      : {};
   }
   return {};
 };

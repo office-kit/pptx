@@ -12,6 +12,7 @@
 // (or any SVG rasterizer) can paint — this is what the `/node` entry does.
 
 export { renderSlideSvg as renderSlideToSvg } from './render-slide.ts';
+export { renderTextEffectsSvg } from './render-slide.ts';
 
 // Text-layout audit — overflow (はみ出し) and soft-wrap (段落ち) detection,
 // measured with the same layout engine the preview renders with.
