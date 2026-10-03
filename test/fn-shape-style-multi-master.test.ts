@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   addSlideShape,
   getShapeFillEffective,
+  getShapeStrokeEffective,
+  getShapeStrokeColorResolved,
   getShapeGradientFillEffective,
   getSlideShapes,
   getSlides,
@@ -19,7 +21,7 @@ const encoder = new TextEncoder();
 
 const secondMasterStyle =
   '<p:style xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
-  '<a:lnRef idx="2"/><a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef>' +
+  '<a:lnRef idx="2"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef>' +
   '<a:effectRef idx="0"/><a:fontRef idx="minor"/></p:style>';
 const secondMasterGradientStyle = secondMasterStyle.replace(
   '<a:fillRef idx="1">',
@@ -116,7 +118,8 @@ const makeMultiMasterDeck = async () => {
   });
   const secondTheme = text('ppt/theme/theme1.xml')
     .replace('<a:accent1><a:srgbClr val="4F81BD"', '<a:accent1><a:srgbClr val="112233"')
-    .replace(/<a:fillStyleLst>[\s\S]*?<\/a:fillStyleLst>/, secondThemeFillStyles);
+    .replace(/<a:fillStyleLst>[\s\S]*?<\/a:fillStyleLst>/, secondThemeFillStyles)
+    .replace('<a:ln w="25400"', '<a:ln w="50800"');
   byName.set('ppt/theme/theme2.xml', {
     ...byName.get('ppt/theme/theme1.xml')!,
     name: 'ppt/theme/theme2.xml',
@@ -165,6 +168,11 @@ describe('shape style matrix references use the owning master theme', () => {
       const shapes = getSlideShapes(getSlides(loaded)[1]!);
       const solid = shapes.at(-2)!;
       const gradient = shapes.at(-1)!;
+      expect(getShapeStrokeColorResolved(loaded, solid)).toBe('#112233');
+      expect(getShapeStrokeEffective(loaded, solid)).toMatchObject({
+        kind: 'solid',
+        widthEmu: 50800,
+      });
       expect(getShapeFillEffective(loaded, solid)).toEqual({ kind: 'solid', color: '#112233' });
       expect(getShapeGradientFillEffective(loaded, gradient)?.stops[0]?.resolvedColor).toBe(
         '#112233',
