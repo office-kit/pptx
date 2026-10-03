@@ -89,7 +89,9 @@
     normalizeHeight = common(f => f.normalizeHeight ?? false);
     const spc = common(f => f.spc ?? 0);
     spacingMode = spc === undefined ? '' : spc === 0 ? 'normal' : spc > 0 ? 'expanded' : 'condensed';
-    spacingAmount = spc === undefined || spc === 0 ? undefined : Math.abs(spc) / 100;
+    // PowerPoint displays tenths of a point; preserve imported precision until edited.
+    spacingAmount =
+      spc === undefined || spc === 0 ? undefined : Math.round((Math.abs(spc) / 100) * 10) / 10;
     const kern = common(f => f.kern ?? 1200);
     useKerning = kern === undefined ? undefined : kern !== 0;
     kerningThreshold = kern === undefined ? undefined : kern === 0 ? 12 : kern / 100;
@@ -99,6 +101,8 @@
     else if (spacingMode && spacingAmount !== undefined) patch.spc = Math.round(spacingAmount * 100) * (spacingMode === 'condensed' ? -1 : 1);
   }
   function setSpacingAmount() {
+    if (spacingAmount !== undefined)
+      spacingAmount = Math.round((spacingAmount + Number.EPSILON) * 10) / 10;
     if (spacingMode === 'normal' && spacingAmount !== undefined && spacingAmount > 0) spacingMode = 'expanded';
     setSpacing();
   }
@@ -231,7 +235,7 @@
     {:else}
       <div class="spacing-row">
         <label>{t('Character spacing mode')}<select aria-label={t('Spacing')} bind:value={spacingMode} onchange={() => { if (spacingMode === 'normal') spacingAmount = undefined; else if (spacingAmount === undefined || spacingAmount === 0) spacingAmount = 1; setSpacing(); }}><option value="">{t('Mixed')}</option><option value="normal">{t('Normal')}</option><option value="expanded">{t('Expanded')}</option><option value="condensed">{t('Condensed')}</option></select></label>
-        <label>{t('By (pt)')}<input type="number" min="0" max="1000" step="any" disabled={!spacingMode} bind:value={spacingAmount} onchange={setSpacingAmount} /></label>
+        <label>{t('By (pt)')}<input type="number" min="0" max="1000" step="0.1" disabled={!spacingMode} bind:value={spacingAmount} onchange={setSpacingAmount} /></label>
       </div>
       <div class="kerning-row">
         <label class="check"><input type="checkbox" checked={useKerning ?? false} indeterminate={useKerning === undefined} onchange={e => { useKerning = e.currentTarget.checked; kerningThreshold ??= 12; setKerning(); }} />{t('Use kerning for fonts')}</label>

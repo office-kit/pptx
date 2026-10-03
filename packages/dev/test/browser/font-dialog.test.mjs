@@ -23,7 +23,7 @@ test(
     try {
       await writeFile(
         join(dir, 'deck.tsx'),
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={8} height={2} paragraphs={[{runs:[{text:'Before '},{text:'Target',format:{font:'Latin Original',fontEastAsian:'Asian Original',fontComplexScript:'Complex Original',bold:true,italic:true,kern:1200}},{text:' After'}]}]} /></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={8} height={2} paragraphs={[{runs:[{text:'Before '},{text:'Target',format:{font:'Latin Original',fontEastAsian:'Asian Original',fontComplexScript:'Complex Original',bold:true,italic:true,kern:1200,spc:15}},{text:' After'}]}]} /></Slide></Presentation>`,
       );
       preview = await startPreview(join(dir, 'deck.tsx'));
       browser = await chromium.launch({ headless: true });
@@ -75,6 +75,8 @@ test(
       await fontMenu.waitFor();
       await fontMenu.getByRole('menuitemradio', { name: 'Arial', exact: true }).click();
       await dialog.getByLabel('Font size').fill('22');
+      await dialog.getByRole('tab', { name: 'Character Spacing', exact: true }).click();
+      assert.equal(await dialog.getByLabel('By (pt)').inputValue(), '0.2');
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
       assert.deepEqual(await readRuns(), [
@@ -97,7 +99,7 @@ test(
           complexScript: 'Complex Original',
           underline: false,
           size: 22,
-          spc: 0,
+          spc: 15,
           bold: true,
           italic: true,
           kern: 1200,
@@ -122,19 +124,36 @@ test(
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
       assert.equal((await readRuns())[1].underline, 'wavyHeavy');
+      await select(7, 13);
+      await page.keyboard.press('Control+T');
+      await dialog.waitFor();
+      await dialog.getByRole('tab', { name: 'Character Spacing', exact: true }).click();
+      assert.equal(await dialog.getByLabel('By (pt)').inputValue(), '0.2');
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await saved();
       await select(0, 19);
       await page.keyboard.press('Control+T');
       await dialog.waitFor();
       await dialog.getByRole('tab', { name: 'Character Spacing', exact: true }).click();
+      assert.equal(await dialog.getByLabel('By (pt)').getAttribute('step'), '0.1');
       await dialog.getByLabel('Spacing', { exact: true }).selectOption('expanded');
-      await dialog.getByLabel('By (pt)').fill('1.5');
+      const spacingAmount = dialog.getByLabel('By (pt)');
+      assert.equal(await spacingAmount.inputValue(), '1');
+      await spacingAmount.fill('0.14');
+      await spacingAmount.press('Tab');
+      assert.equal(await spacingAmount.inputValue(), '0.1');
+      await spacingAmount.press('ArrowUp');
+      assert.equal(await spacingAmount.inputValue(), '0.2');
+      await spacingAmount.fill('0.15');
+      await spacingAmount.press('Tab');
+      assert.equal(await spacingAmount.inputValue(), '0.2');
       await dialog.getByLabel('Use kerning for fonts', { exact: true }).uncheck();
       await dialog.getByRole('tab', { name: 'Font', exact: true }).click();
       await dialog.getByRole('tab', { name: 'Character Spacing', exact: true }).click();
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
       const spaced = await readRuns();
-      assert.equal(spaced[1].spc, 150);
+      assert.equal(spaced[1].spc, 20);
       assert.equal(spaced[1].bold, true);
       assert.equal(spaced[1].italic, true);
       assert.equal(spaced[1].kern, 0);
@@ -156,7 +175,7 @@ test(
       assert.deepEqual(await readRuns(), beforeCancel);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
-      assert.equal((await readRuns())[1].spc, 0);
+      assert.equal((await readRuns())[1].spc, 15);
     } finally {
       await browser?.close();
       await preview?.close();
