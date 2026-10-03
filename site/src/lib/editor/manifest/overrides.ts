@@ -72,6 +72,105 @@ const notesTextRange: ParamSpec = {
   ],
 };
 
+// Shape quick styles are represented by four DrawingML style-list references.
+// Keep the nested form here so the command palette can assemble the exact
+// `ShapeStyleOptions` object expected by setShapeStyle rather than passing a
+// JSON blob or dropping the options argument entirely.
+const SHAPE_STYLE_TRANSFORM_KINDS = [
+  'comp',
+  'inv',
+  'gray',
+  'gamma',
+  'invGamma',
+  'tint',
+  'shade',
+  'alpha',
+  'alphaOff',
+  'alphaMod',
+  'hue',
+  'hueOff',
+  'hueMod',
+  'sat',
+  'satOff',
+  'satMod',
+  'lum',
+  'lumOff',
+  'lumMod',
+  'red',
+  'redOff',
+  'redMod',
+  'green',
+  'greenOff',
+  'greenMod',
+  'blue',
+  'blueOff',
+  'blueMod',
+] as const;
+
+const SHAPE_STYLE_COLOR_TRANSFORMS: ParamSpec = {
+  name: 'colorTransforms',
+  type: 'ReadonlyArray<ColorTransform>',
+  kind: 'array',
+  optional: true,
+  label: 'Color transforms',
+  item: {
+    name: 'transform',
+    type: 'ColorTransform',
+    kind: 'object',
+    optional: false,
+    fields: [
+      {
+        name: 'kind',
+        type: 'ColorTransform["kind"]',
+        kind: 'enum',
+        optional: false,
+        enumValues: SHAPE_STYLE_TRANSFORM_KINDS,
+        label: 'Transform',
+      },
+      {
+        name: 'value',
+        type: 'number',
+        kind: 'number',
+        optional: true,
+        label: 'Value',
+      },
+    ],
+  },
+};
+
+const SHAPE_STYLE_REFERENCE = (name: string, label: string): ParamSpec => ({
+  name,
+  type: 'ShapeStyleReference',
+  kind: 'object',
+  optional: false,
+  label,
+  fields: [
+    { name: 'idx', type: 'number', kind: 'number', optional: false, label: 'Reference index' },
+    { name: 'color', type: 'Color', kind: 'color', optional: true, label: 'Color' },
+    SHAPE_STYLE_COLOR_TRANSFORMS,
+  ],
+});
+
+const SHAPE_STYLE_FONT_REFERENCE: ParamSpec = {
+  name: 'font',
+  type: 'ShapeStyleFontReference',
+  kind: 'object',
+  optional: false,
+  label: 'Font reference',
+  fields: [
+    {
+      name: 'idx',
+      type: "'major' | 'minor' | 'none'",
+      kind: 'enum',
+      optional: false,
+      enumValues: ['major', 'minor', 'none'],
+      label: 'Font scheme',
+    },
+    { name: 'color', type: 'Color', kind: 'color', optional: true, label: 'Color' },
+    SHAPE_STYLE_COLOR_TRANSFORMS,
+  ],
+};
+
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
@@ -579,6 +678,26 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setSlideSize: { labelEn: 'Slide size', labelJa: 'スライドのサイズ', ribbonGroup: 'design' },
 
   // --- Shapes ------------------------------------------------------------
+  setShapeStyle: {
+    labelEn: 'Shape style',
+    labelJa: '図形のスタイル',
+    ribbonGroup: 'shape-styles',
+    params: [
+      {
+        name: 'options',
+        type: 'ShapeStyleOptions',
+        kind: 'object',
+        optional: false,
+        label: 'Shape style',
+        fields: [
+          SHAPE_STYLE_REFERENCE('line', 'Line reference'),
+          SHAPE_STYLE_REFERENCE('fill', 'Fill reference'),
+          SHAPE_STYLE_REFERENCE('effect', 'Effect reference'),
+          SHAPE_STYLE_FONT_REFERENCE,
+        ],
+      },
+    ],
+  },
   setShapeFill: {
     labelEn: 'Shape fill',
     labelJa: '図形の塗りつぶし',

@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 194,
+  "count": 197,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2372,6 +2372,23 @@
           "kind": "enum",
           "optional": false,
           "enumValues": ["round", "bevel", "miter"]
+        }
+      ]
+    },
+    {
+      "id": "setShapeStyle",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-style.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "ShapeStyleOptions",
+          "kind": "object",
+          "optional": false
         }
       ]
     },

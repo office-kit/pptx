@@ -39,6 +39,7 @@ export type ShapeStyleFill =
 const NAME_STYLE = qname('p', 'style', NS.pml);
 const NAME_FILL_REF = qname('a', 'fillRef', NS.dml);
 const NAME_LN_REF = qname('a', 'lnRef', NS.dml);
+const NAME_EFFECT_REF = qname('a', 'effectRef', NS.dml);
 const NAME_FMT_SCHEME = qname('a', 'fmtScheme', NS.dml);
 
 type ShapeStyleTheme = {
@@ -107,14 +108,17 @@ const readShapeStyleReferenceElement = (
   pres: PresentationData,
   shape: SlideShapeData,
   referenceName: XmlElement['name'],
-  listLocalName: 'fillStyleLst' | 'lnStyleLst',
+  listLocalName: 'fillStyleLst' | 'lnStyleLst' | 'effectStyleLst',
+  shapeElement: XmlElement = shape[SHAPE_ELEMENT],
 ): XmlElement | null => {
-  const style = firstChildElement(shape[SHAPE_ELEMENT], NAME_STYLE);
+  const style = firstChildElement(shapeElement, NAME_STYLE);
   const reference = style ? firstChildElement(style, referenceName) : null;
   if (!reference) return null;
 
   const index = Number.parseInt(getAttrValue(reference, qname('', 'idx', '')) ?? '', 10);
   if (!Number.isInteger(index)) return null;
+  if (index === 0 && listLocalName === 'effectStyleLst')
+    return elem(qname('a', 'effectLst', NS.dml));
   if (index === 0 || (index === 1000 && listLocalName === 'fillStyleLst'))
     return elem(qname('a', 'noFill', NS.dml));
   if (index < 1) return null;
@@ -141,7 +145,16 @@ const readShapeStyleReferenceElement = (
   const selected = styles?.[backgroundFill ? index - 1001 : index - 1];
   if (!selected) return null;
 
-  const resolved = cloneElement(selected);
+  // An effect reference indexes CT_EffectStyleItem, whose payload is the
+  // nested effect list. The other style references index their list items
+  // directly, so keep this extraction local to the effect path.
+  const selectedPayload =
+    listLocalName === 'effectStyleLst'
+      ? firstChildElement(selected, qname('a', 'effectLst', NS.dml))
+      : selected;
+  if (!selectedPayload) return null;
+
+  const resolved = cloneElement(selectedPayload);
   replaceStyleColorPlaceholder(resolved, reference);
 
   return resolved;
@@ -158,6 +171,14 @@ export const readShapeStyleLineElement = (
   pres: PresentationData,
   shape: SlideShapeData,
 ): XmlElement | null => readShapeStyleReferenceElement(pres, shape, NAME_LN_REF, 'lnStyleLst');
+
+/** Resolves a shape's effectRef against the owning master's effect style list. */
+export const readShapeStyleEffectElement = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  shapeElement: XmlElement = shape[SHAPE_ELEMENT],
+): XmlElement | null =>
+  readShapeStyleReferenceElement(pres, shape, NAME_EFFECT_REF, 'effectStyleLst', shapeElement);
 
 /** Reads the resolved fill choice from the shape's own style reference. */
 export const readShapeStyleFill = (

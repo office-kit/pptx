@@ -49,7 +49,13 @@ import {
   type SlideLayoutData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { PRES_PART_NAME, commitAndRefresh, decode } from './_helpers.ts';
+import {
+  PRES_PART_NAME,
+  commitAndRefresh,
+  commitSlideData,
+  decode,
+  refreshSlideData,
+} from './_helpers.ts';
 import { getSlides } from './slide-query.ts';
 import { findCNvPr } from './embedded.ts';
 
@@ -378,17 +384,37 @@ export const isShapeHidden = (shape: SlideShapeData): boolean => {
  * Sets or clears `<p:cNvPr hidden="...">` on the shape. Hidden
  * shapes remain in the document but PowerPoint doesn't render them.
  */
-export const setShapeHidden = (shape: SlideShapeData, hidden: boolean): void => {
-  const cNvPr = findCNvPr(shape);
-  if (!cNvPr) {
-    throw new Error(`setShapeHidden: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`);
+export function setShapeHidden(shape: SlideShapeData, hidden: boolean): void;
+export function setShapeHidden(shapes: readonly SlideShapeData[], hidden: boolean): void;
+export function setShapeHidden(
+  shapeOrShapes: SlideShapeData | readonly SlideShapeData[],
+  hidden: boolean,
+): void {
+  const shapes = Array.isArray(shapeOrShapes) ? shapeOrShapes : [shapeOrShapes];
+  // Validate every shape before changing any of them. This keeps a batch
+  // atomic when a malformed/custom shape has no cNvPr.
+  const cNvPrs = shapes.map((shape) => {
+    const cNvPr = findCNvPr(shape);
+    if (!cNvPr) {
+      throw new Error(`setShapeHidden: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`);
+    }
+    return { shape, cNvPr };
+  });
+  for (const { cNvPr } of cNvPrs) {
+    cNvPr.attrs = cNvPr.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === 'hidden'),
+    );
+    if (hidden) cNvPr.attrs.push(attr(qname('', 'hidden', ''), '1'));
   }
-  cNvPr.attrs = cNvPr.attrs.filter(
-    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'hidden'),
-  );
-  if (hidden) cNvPr.attrs.push(attr(qname('', 'hidden', ''), '1'));
-  commitAndRefresh(shape);
-};
+  // A gallery may hide many source shapes at once. Commit once per owning
+  // slide so this remains linear and does not repeatedly rebuild the slide
+  // model (which also keeps arbitrary timing trees intact).
+  const slides = new Set(cNvPrs.map(({ shape }) => shape[SHAPE_SLIDE]));
+  for (const slide of slides) {
+    commitSlideData(slide);
+    refreshSlideData(slide);
+  }
+}
 
 export const renameShape = (shape: SlideShapeData, newName: string): void => {
   const cNvPr = findCNvPr(shape);

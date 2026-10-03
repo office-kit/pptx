@@ -349,6 +349,7 @@ export const resolveDrawingColorOpacity = (colorEl: XmlElement): number | null =
 export const parseEffectList = (
   effectLst: XmlElement,
   theme: PresentationTheme | null,
+  colorMap?: Readonly<Record<string, string>> | null,
 ): ShapeEffectAny[] => {
   const readEffectColor = (host: XmlElement): { color: string; opacity?: number } => {
     let inner: XmlElement | null = null;
@@ -368,7 +369,7 @@ export const parseEffectList = (
     }
     if (!inner) return { color: '' };
     const opacity = resolveDrawingColorOpacity(inner);
-    const hex = resolveDrawingColor(inner, theme);
+    const hex = resolveDrawingColor(inner, theme, colorMap);
     return { color: hex ?? '', ...(opacity !== null ? { opacity } : {}) };
   };
 

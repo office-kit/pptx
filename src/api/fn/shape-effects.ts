@@ -3,6 +3,7 @@
 import { parseEffectList, resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
+import { getEffectiveColorMap } from './color-map.ts';
 import {
   type GlowOptions,
   type ShadowOptions,
@@ -32,9 +33,21 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, decode, requireSpPr } from './_helpers.ts';
-import { getPresentationTheme } from './theme.ts';
+import { getShapeStyleTheme, readShapeStyleEffectElement } from './shape-style-read.ts';
 // ---------------------------------------------------------------------------
 // Effects: shadow + glow.
+
+const hasEffectSource = (shapeElement: XmlElement): boolean => {
+  const spPr = firstChildElement(shapeElement, qname('p', 'spPr', NS.pml));
+  if (!spPr) return false;
+  if (
+    firstChildElement(spPr, qname('a', 'effectLst', NS.dml)) !== null ||
+    firstChildElement(spPr, qname('a', 'effectDag', NS.dml)) !== null
+  )
+    return true;
+  const style = firstChildElement(shapeElement, qname('p', 'style', NS.pml));
+  return style !== null && firstChildElement(style, qname('a', 'effectRef', NS.dml)) !== null;
+};
 
 /**
  * Read-back for `setShapeShadow` / `setShapeGlow`. Returns the kind
@@ -168,8 +181,17 @@ export const getShapeEffects = (
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return [];
   const effectLst = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
-  if (!effectLst) return [];
-  return parseEffectList(effectLst, getPresentationTheme(pres));
+  if (firstChildElement(spPr, qname('a', 'effectDag', NS.dml)) !== null) return [];
+  // A shape style's effectRef is the theme-backed equivalent of an explicit
+  // effectLst. An empty explicit effect list still wins, so only consult the
+  // style reference when the shape has no local list at all.
+  const resolved = effectLst ?? readShapeStyleEffectElement(pres, shape);
+  if (!resolved) return [];
+  return parseEffectList(
+    resolved,
+    getShapeStyleTheme(pres, shape).theme,
+    getEffectiveColorMap(shape[SHAPE_SLIDE]),
+  );
 };
 
 /**
@@ -204,13 +226,16 @@ export const getShapeEffectsEffective = (
   shape: SlideShapeData,
 ): readonly ShapeEffectAny[] => {
   const own = getShapeEffects(pres, shape);
-  if (own.length > 0) return own;
+  const ownEffectSource = hasEffectSource(shape[SHAPE_ELEMENT]);
+  // An explicit empty effectLst, or effectRef idx="0", is a deliberate
+  // clear and must stop placeholder inheritance just like a non-empty list.
+  if (ownEffectSource) return own;
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
   if (phIdx === null && phType === null) return own;
 
-  const theme = getPresentationTheme(pres);
+  const theme = getShapeStyleTheme(pres, shape).theme;
   const layout = getSlideLayout(shape[SHAPE_SLIDE]);
   if (!layout) return own;
 
@@ -226,18 +251,23 @@ export const getShapeEffectsEffective = (
     return match?.element ?? null;
   };
 
-  const readEffectsOn = (el: XmlElement): readonly ShapeEffectAny[] => {
+  const readEffectsOn = (el: XmlElement): readonly ShapeEffectAny[] | null => {
     const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
-    if (!spPr) return [];
-    const eff = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
-    if (!eff) return [];
-    return parseEffectList(eff, theme);
+    if (!spPr) return null;
+    if (!hasEffectSource(el)) return null;
+    // An authored effectDag or an unresolved effectRef is still an explicit
+    // source. We cannot safely reinterpret it as inherited effects.
+    if (firstChildElement(spPr, qname('a', 'effectDag', NS.dml)) !== null) return [];
+    const eff =
+      firstChildElement(spPr, qname('a', 'effectLst', NS.dml)) ??
+      readShapeStyleEffectElement(pres, shape, el);
+    return eff ? parseEffectList(eff, theme, getEffectiveColorMap(shape[SHAPE_SLIDE])) : [];
   };
 
   const layoutPh = findPh(layout[LAYOUT_PART].shapes);
   if (layoutPh) {
     const layoutEffects = readEffectsOn(layoutPh);
-    if (layoutEffects.length > 0) return layoutEffects;
+    if (layoutEffects !== null) return layoutEffects;
   }
 
   const pkg = pres[INTERNAL_PACKAGE];
@@ -253,7 +283,7 @@ export const getShapeEffectsEffective = (
   const masterPh = findPh(masterShapes);
   if (masterPh) {
     const masterEffects = readEffectsOn(masterPh);
-    if (masterEffects.length > 0) return masterEffects;
+    if (masterEffects !== null) return masterEffects;
   }
   return own;
 };
