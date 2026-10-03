@@ -64,6 +64,131 @@ describe('character-level effects', () => {
     expect(xml.indexOf('<a:glow')).toBeLessThan(xml.indexOf('<a:outerShdw'));
   });
 
+  it('writes, reads, and removes a character reflection', async () => {
+    const { pres, shape } = textBox();
+    setShapeTextFormat(shape, {
+      reflection: {
+        blurEmu: 6350,
+        offsetEmu: 0,
+        angleDeg: 90,
+        opacity: 0.003,
+        startOpacity: 0.53,
+        endPosition: 0.355,
+        scaleY: -0.9,
+        alignment: 'bl',
+        rotateWithShape: false,
+      },
+    });
+
+    const xml = getShapeXmlString(shape);
+    expect(xml).toContain(
+      '<a:reflection blurRad="6350" dist="0" dir="5400000" algn="bl" rotWithShape="0" stA="53000" endA="300" endPos="35500" sy="-90000"',
+    );
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).reflection).toEqual({
+      blurEmu: 6350,
+      offsetEmu: 0,
+      angleDeg: 90,
+      opacity: 0.003,
+      startOpacity: 0.53,
+      endPosition: 0.355,
+      scaleY: -0.9,
+      alignment: 'bl',
+      rotateWithShape: false,
+    });
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const restored = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+    expect(getShapeRunFormat(restored, 0, 0)?.reflection).toEqual({
+      blurEmu: 6350,
+      offsetEmu: 0,
+      angleDeg: 90,
+      opacity: 0.003,
+      startOpacity: 0.53,
+      endPosition: 0.355,
+      scaleY: -0.9,
+      alignment: 'bl',
+      rotateWithShape: false,
+    });
+
+    setShapeTextFormat(shape, { shadow: { color: '#000000' } });
+    setShapeTextFormat(shape, { reflection: null });
+    expect(getShapeXmlString(shape)).not.toContain('<a:reflection');
+    expect(getShapeRunFormat(shape, 0, 0)?.shadow).toMatchObject({ color: '#000000' });
+  });
+
+  it('round trips every reflection transform and preserves schema defaults', async () => {
+    const { pres, shape } = textBox();
+    const reflection = {
+      blurEmu: 6350,
+      offsetEmu: 12700,
+      angleDeg: 30,
+      startOpacity: 0.7,
+      startPosition: 0.1,
+      opacity: 0.05,
+      endPosition: 0.8,
+      fadeDirection: 120,
+      scaleX: 1.5,
+      scaleY: -0.9,
+      skewX: 12,
+      skewY: -8,
+      alignment: 'tr' as const,
+      rotateWithShape: false,
+    };
+    setShapeTextFormat(shape, { reflection });
+    const restored = await loadPresentation(await savePresentation(pres));
+    expect(
+      getShapeRunFormat(getSlideShapes(getSlides(restored)[0]!)[0]!, 0, 0)?.reflection,
+    ).toEqual(reflection);
+    setShapeTextFormat(shape, { reflection: {} });
+    expect(getShapeRunFormat(shape, 0, 0)?.reflection).toMatchObject({
+      angleDeg: 0,
+      alignment: 'b',
+      rotateWithShape: true,
+    });
+  });
+
+  it('validates fixed angles and percentages against the DrawingML bounds', () => {
+    const { shape } = textBox();
+    for (const skewX of [-90, 90, 100, Number.NaN]) {
+      expect(() => setShapeTextFormat(shape, { reflection: { skewX } })).toThrow();
+    }
+    expect(() => setShapeTextFormat(shape, { reflection: { scaleX: 1e20 } })).toThrow();
+    setShapeTextFormat(shape, { reflection: { angleDeg: 359.99999999, fadeDirection: -90 } });
+    expect(getShapeRunFormat(shape, 0, 0)?.reflection).toMatchObject({
+      angleDeg: 0,
+      fadeDirection: 270,
+    });
+  });
+
+  it('removes reflection independently and with a whole-format reset', () => {
+    const { shape } = textBox();
+    setShapeTextFormat(shape, {
+      reflection: {},
+      shadow: { color: '#000000' },
+      glow: { color: '#FFFFFF' },
+    });
+    setShapeTextFormat(shape, { reflection: null });
+    expect(getShapeRunFormat(shape, 0, 0)).toMatchObject({
+      shadow: { color: '#000000' },
+      glow: { color: '#FFFFFF' },
+    });
+    expect(getShapeRunFormat(shape, 0, 0)?.reflection).toBeUndefined();
+    setShapeTextFormat(shape, { reflection: {} });
+    setShapeTextFormat(shape, { size: 18 }, { reset: true });
+    expect(getShapeRunFormat(shape, 0, 0)?.reflection).toBeUndefined();
+  });
+
+  it('accepts reflection magnification and rejects non-finite geometry', () => {
+    const { shape } = textBox();
+    expect(() => setShapeTextFormat(shape, { reflection: { scaleY: 1.5 } })).not.toThrow();
+    expect(() => setShapeTextFormat(shape, { reflection: { angleDeg: Number.NaN } })).toThrow(
+      /angleDeg must be finite/,
+    );
+    expect(() =>
+      setShapeTextFormat(shape, { reflection: { scaleY: Number.POSITIVE_INFINITY } }),
+    ).toThrow(/scaleY must be finite/);
+  });
+
   it('keeps the run’s own child order — ln, effectLst, then the fonts', () => {
     const { shape } = textBox();
     setShapeTextFormat(shape, {

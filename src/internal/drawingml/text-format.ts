@@ -32,9 +32,11 @@ import { parseColor } from './color.ts';
 import {
   type EffectPlacement,
   type GlowOptions,
+  type ReflectionOptions,
   type ShadowOptions,
   removeEffect,
   setGlow,
+  setReflection,
   setShadow,
 } from './effects.ts';
 import { applySolidStroke } from './stroke.ts';
@@ -183,6 +185,8 @@ export interface TextFormat {
    * `null` removes it.
    */
   glow?: GlowOptions | null;
+  /** Reflection below the glyphs — `<a:reflection>` in the run's effect list. */
+  reflection?: ReflectionOptions | null;
 }
 
 /** A run's outline: `CT_LineProperties` as far as text uses it. */
@@ -200,7 +204,7 @@ export interface TextOutline {
  */
 export type ReadTextFormat = Omit<
   TextFormat,
-  'color' | 'underlineColor' | 'highlight' | 'outline' | 'shadow' | 'glow'
+  'color' | 'underlineColor' | 'highlight' | 'outline' | 'shadow' | 'glow' | 'reflection'
 > & {
   color?: string | null;
   underlineColor?: string | null;
@@ -208,6 +212,7 @@ export type ReadTextFormat = Omit<
   outline?: ReadTextOutline | null;
   shadow?: (Omit<ShadowOptions, 'color'> & { readonly color?: string }) | null;
   glow?: (Omit<GlowOptions, 'color'> & { readonly color: string }) | null;
+  reflection?: ReflectionOptions | null;
 };
 
 /** A run outline read back from a deck. `color` widens for the same reason. */
@@ -221,7 +226,7 @@ export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: st
  * round trip never writes a color the schema has no room for.
  */
 export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
-  const { color, underlineColor, highlight, outline, shadow, glow, ...rest } = format;
+  const { color, underlineColor, highlight, outline, shadow, glow, reflection, ...rest } = format;
   const outlineColor = outline?.color === undefined ? null : asColor(outline.color);
   const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
   const glowColor = glow == null ? null : asColor(glow.color);
@@ -260,6 +265,7 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
             ...(glow.opacity === undefined ? {} : { opacity: glow.opacity }),
           },
         }),
+    ...(reflection === undefined ? {} : { reflection }),
   };
 };
 
@@ -432,6 +438,10 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.glow !== undefined) {
     if (format.glow === null) removeEffect(rPr, 'glow');
     else setGlow(rPr, format.glow, rPrEffectPlacement);
+  }
+  if (format.reflection !== undefined) {
+    if (format.reflection === null) removeEffect(rPr, 'reflection');
+    else setReflection(rPr, format.reflection, rPrEffectPlacement);
   }
 };
 

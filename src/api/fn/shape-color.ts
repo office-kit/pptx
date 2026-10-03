@@ -414,7 +414,24 @@ export const parseEffectList = (
       };
       const opacity = pctFraction('endA');
       const startOpacity = pctFraction('stA');
+      const startPosition = pctFraction('stPos');
+      const endPosition = pctFraction('endPos');
+      const fadeDirectionRaw = getAttrValue(child, qname('', 'fadeDir', ''));
+      const fadeDirection =
+        fadeDirectionRaw === null ? undefined : readColorAngleDegrees(fadeDirectionRaw);
+      const scaleX = pctFraction('sx');
       const scaleY = pctFraction('sy');
+      const skewXRaw = getAttrValue(child, qname('', 'kx', ''));
+      const skewYRaw = getAttrValue(child, qname('', 'ky', ''));
+      const skewX = skewXRaw === null ? undefined : readColorAngleDegrees(skewXRaw);
+      const skewY = skewYRaw === null ? undefined : readColorAngleDegrees(skewYRaw);
+      const alignmentRaw = getAttrValue(child, qname('', 'algn', ''));
+      const alignment =
+        alignmentRaw !== null &&
+        ['tl', 't', 'tr', 'l', 'ctr', 'r', 'bl', 'b', 'br'].includes(alignmentRaw)
+          ? (alignmentRaw as 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br')
+          : undefined;
+      const rotateWithShape = getAttrValue(child, qname('', 'rotWithShape', ''));
       out.push({
         kind: 'reflection',
         blurEmu: blur,
@@ -422,7 +439,17 @@ export const parseEffectList = (
         angleDeg: dir / 60000,
         ...(opacity !== undefined ? { opacity } : {}),
         ...(startOpacity !== undefined ? { startOpacity } : {}),
+        ...(startPosition !== undefined ? { startPosition } : {}),
+        ...(endPosition !== undefined ? { endPosition } : {}),
+        ...(fadeDirection !== undefined ? { fadeDirection } : {}),
+        ...(scaleX !== undefined ? { scaleX } : {}),
         ...(scaleY !== undefined ? { scaleY } : {}),
+        ...(skewX !== undefined ? { skewX } : {}),
+        ...(skewY !== undefined ? { skewY } : {}),
+        ...(alignment !== undefined ? { alignment } : {}),
+        ...(rotateWithShape !== null
+          ? { rotateWithShape: rotateWithShape !== '0' && rotateWithShape !== 'false' }
+          : {}),
       });
     } else if (local === 'softEdge') {
       const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
@@ -620,6 +647,25 @@ export const parseRPrLikeElement = (
           color: effect.color,
           radiusEmu: effect.radiusEmu,
           ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+        };
+      } else if (effect.kind === 'reflection') {
+        out.reflection = {
+          blurEmu: effect.blurEmu,
+          offsetEmu: effect.distEmu,
+          angleDeg: effect.angleDeg,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+          ...(effect.startOpacity !== undefined ? { startOpacity: effect.startOpacity } : {}),
+          ...(effect.startPosition !== undefined ? { startPosition: effect.startPosition } : {}),
+          ...(effect.endPosition !== undefined ? { endPosition: effect.endPosition } : {}),
+          ...(effect.fadeDirection !== undefined ? { fadeDirection: effect.fadeDirection } : {}),
+          ...(effect.scaleX !== undefined ? { scaleX: effect.scaleX } : {}),
+          ...(effect.scaleY !== undefined ? { scaleY: effect.scaleY } : {}),
+          ...(effect.skewX !== undefined ? { skewX: effect.skewX } : {}),
+          ...(effect.skewY !== undefined ? { skewY: effect.skewY } : {}),
+          ...(effect.alignment !== undefined ? { alignment: effect.alignment } : {}),
+          ...(effect.rotateWithShape !== undefined
+            ? { rotateWithShape: effect.rotateWithShape }
+            : {}),
         };
       }
     }

@@ -1792,3 +1792,10 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - All 20 WordArt gallery presets are captured as namespace-complete shape XML in `test/fixtures/native/`; see `wordart-capture.md` for labels, provenance and replacement observations. Captures establish native storage, not implemented UI parity.
 - Each temporary operation was undone and saved. Final slide XML matched `/tmp/pptx-outline-audit/reference-before-wordart-replacement.pptx` byte-for-byte. Reconnection then confirmed reference Saved to my Mac and Undo disabled; the subsequent Text Effects menu attempt returned screen size 0×0 twice. No new content mutation was requested.
 - Next implementation must preserve character-level effects separately from shape-level effects, and bodyPr 3D separately from spPr 3D. Do not build presets by copying shape styles or indiscriminately clearing font/paragraph properties.
+
+### 2026-10-03 — character reflection round-trip support
+
+- Core `TextFormat.reflection` now reads/writes native run reflection independently from shape effects. All transform parameters, fade positions, alignment and rotation survive save/load; null removes only reflection. The actual native gallery fixture is covered.
+- Regression exposed skew angles being parsed as percentages (12° became 7.2°); corrected to angle parsing. Writer validates schema bounds, uses schema defaults, and normalizes directions after quantization.
+- Root lint/typecheck, full tests (485 files, 3495 tests passed; 109 skipped), and build passed. After documentation/constants cleanup, 25 focused tests passed and full format check passed.
+- Preview rendering is still under implementation and requires browser/raster verification; core round-trip success does not establish visual parity. Native retry still returned screen size 0×0 with no native windows available. No content was changed during that retry.

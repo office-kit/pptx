@@ -1,6 +1,6 @@
 // Shape effects — `<a:effectLst>` builders.
 //
-// Covers the most-used PowerPoint effects: outer shadow + glow. The
+// Covers the most-used PowerPoint effects: outer shadow, glow, and reflection. The
 // element ordering on `<p:spPr>` is `xfrm → geometry → fill → ln →
 // effectLst → scene3d → sp3d → extLst`. Callers locate the right
 // insertion slot using `effectInsertionIndex`.
@@ -13,6 +13,7 @@ import { buildColorElement } from './color.ts';
 const NAME_EFFECT_LST = qname('a', 'effectLst', NS.dml);
 const NAME_OUTER_SHDW = qname('a', 'outerShdw', NS.dml);
 const NAME_GLOW = qname('a', 'glow', NS.dml);
+const NAME_REFLECTION = qname('a', 'reflection', NS.dml);
 const NAME_ALPHA = qname('a', 'alpha', NS.dml);
 
 const ATTR_BLUR_RAD = qname('', 'blurRad', '');
@@ -21,7 +22,24 @@ const ATTR_DIR = qname('', 'dir', '');
 const ATTR_ALGN = qname('', 'algn', '');
 const ATTR_ROT_WITH_SHAPE = qname('', 'rotWithShape', '');
 const ATTR_RAD = qname('', 'rad', '');
+const ATTR_ST_A = qname('', 'stA', '');
+const ATTR_ST_POS = qname('', 'stPos', '');
+const ATTR_END_A = qname('', 'endA', '');
+const ATTR_END_POS = qname('', 'endPos', '');
+const ATTR_FADE_DIR = qname('', 'fadeDir', '');
+const ATTR_SX = qname('', 'sx', '');
+const ATTR_SY = qname('', 'sy', '');
+const ATTR_KX = qname('', 'kx', '');
+const ATTR_KY = qname('', 'ky', '');
 const ATTR_VAL = qname('', 'val', '');
+
+const PERCENTAGE_UNITS = 100000;
+const ANGLE_UNITS_PER_DEGREE = 60000;
+const FULL_TURN_DEGREES = 360;
+const FULL_TURN_UNITS = FULL_TURN_DEGREES * ANGLE_UNITS_PER_DEGREE;
+const RIGHT_ANGLE_UNITS = 90 * ANGLE_UNITS_PER_DEGREE;
+const SIGNED_INT_MIN = -2147483648;
+const SIGNED_INT_MAX = 2147483647;
 
 export interface ShadowOptions {
   /** `#RRGGBB`, bare `RRGGBB`, or scheme token. Defaults to black. */
@@ -46,6 +64,38 @@ export interface GlowOptions {
   readonly radiusEmu?: number;
   /** Opacity (0–1). Defaults to fully opaque. */
   readonly opacity?: number;
+}
+
+/** Character reflection parameters from DrawingML's `<a:reflection>`. */
+export interface ReflectionOptions {
+  /** Blur radius in EMU; defaults to zero. */
+  readonly blurEmu?: number;
+  /** Offset distance in EMU; defaults to zero. */
+  readonly offsetEmu?: number;
+  /** Offset direction in clockwise degrees from right; defaults to zero. */
+  readonly angleDeg?: number;
+  /** Ending opacity (0–1); defaults to zero (`endA`). */
+  readonly opacity?: number;
+  /** Starting opacity (0–1); defaults to one. */
+  readonly startOpacity?: number;
+  /** Starting fade position (0–1); defaults to zero. */
+  readonly startPosition?: number;
+  /** Ending fade position (0–1); defaults to one. */
+  readonly endPosition?: number;
+  /** Fade direction in clockwise degrees from right; defaults to 90. */
+  readonly fadeDirection?: number;
+  /** Horizontal scale; defaults to one. Negative values mirror horizontally. */
+  readonly scaleX?: number;
+  /** Vertical scale; defaults to one. Negative values mirror vertically. */
+  readonly scaleY?: number;
+  /** Horizontal skew in degrees, strictly between -90 and 90. */
+  readonly skewX?: number;
+  /** Vertical skew in degrees, strictly between -90 and 90. */
+  readonly skewY?: number;
+  /** Transform anchor; defaults to bottom center (`b`). */
+  readonly alignment?: 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
+  /** Whether the effect rotates with its shape; defaults to true. */
+  readonly rotateWithShape?: boolean;
 }
 
 /**
@@ -194,6 +244,77 @@ export const setGlow = (host: XmlElement, options: GlowOptions, place?: EffectPl
     children: [colorWithAlpha(options.color, options.opacity)],
   });
   putEffect(host, glow, place);
+};
+
+/** Sets a reflection on `host`'s effect list, preserving other effects. */
+export const setReflection = (
+  host: XmlElement,
+  options: ReflectionOptions = {},
+  place?: EffectPlacement,
+): void => {
+  const blur = emuExtent(options.blurEmu ?? 0, 'setReflection: blurEmu');
+  const dist = emuExtent(options.offsetEmu ?? 0, 'setReflection: offsetEmu');
+  const angleDeg = options.angleDeg ?? 0;
+  if (!Number.isFinite(angleDeg)) throw new RangeError('setReflection: angleDeg must be finite');
+  const fraction = (value: number | undefined, field: string): string | undefined => {
+    if (value === undefined) return undefined;
+    if (!Number.isFinite(value) || value < 0 || value > 1)
+      throw new RangeError(`${field} must be in [0, 1]`);
+    return String(Math.round(value * PERCENTAGE_UNITS));
+  };
+  const scalePercentage = (value: number | undefined, field: string): string | undefined => {
+    if (value === undefined) return undefined;
+    if (!Number.isFinite(value)) throw new RangeError(`${field} must be finite`);
+    const units = Math.round(value * PERCENTAGE_UNITS);
+    if (!Number.isSafeInteger(units) || units < SIGNED_INT_MIN || units > SIGNED_INT_MAX)
+      throw new RangeError(`${field} must fit an OOXML percentage integer`);
+    return String(units);
+  };
+  const fixedAngle = (value: number | undefined, field: string): string | undefined => {
+    if (value === undefined) return undefined;
+    if (!Number.isFinite(value)) throw new RangeError(`${field} must be finite`);
+    const units = Math.round(value * ANGLE_UNITS_PER_DEGREE);
+    if (units <= -RIGHT_ANGLE_UNITS || units >= RIGHT_ANGLE_UNITS)
+      throw new RangeError(`${field} must be strictly between -90 and 90 degrees`);
+    return String(units);
+  };
+  const direction =
+    Math.round(
+      (((angleDeg % FULL_TURN_DEGREES) + FULL_TURN_DEGREES) % FULL_TURN_DEGREES) *
+        ANGLE_UNITS_PER_DEGREE,
+    ) % FULL_TURN_UNITS;
+  const positiveAngle = (value: number | undefined, field: string): string | undefined => {
+    if (value === undefined) return undefined;
+    if (!Number.isFinite(value)) throw new RangeError(`${field} must be finite`);
+    return String(
+      Math.round(
+        (((value % FULL_TURN_DEGREES) + FULL_TURN_DEGREES) % FULL_TURN_DEGREES) *
+          ANGLE_UNITS_PER_DEGREE,
+      ) % FULL_TURN_UNITS,
+    );
+  };
+  const optionalAttr = (name: ReturnType<typeof qname>, value: string | undefined) =>
+    value === undefined ? [] : [attr(name, value)];
+  const attrs = [
+    attr(ATTR_BLUR_RAD, String(blur)),
+    attr(ATTR_DIST, String(dist)),
+    attr(ATTR_DIR, String(direction)),
+    attr(ATTR_ALGN, options.alignment ?? 'b'),
+    attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === false ? '0' : '1'),
+    ...optionalAttr(ATTR_ST_A, fraction(options.startOpacity, 'setReflection: startOpacity')),
+    ...optionalAttr(ATTR_ST_POS, fraction(options.startPosition, 'setReflection: startPosition')),
+    ...optionalAttr(ATTR_END_A, fraction(options.opacity, 'setReflection: opacity')),
+    ...optionalAttr(ATTR_END_POS, fraction(options.endPosition, 'setReflection: endPosition')),
+    ...optionalAttr(
+      ATTR_FADE_DIR,
+      positiveAngle(options.fadeDirection, 'setReflection: fadeDirection'),
+    ),
+    ...optionalAttr(ATTR_SX, scalePercentage(options.scaleX, 'setReflection: scaleX')),
+    ...optionalAttr(ATTR_SY, scalePercentage(options.scaleY, 'setReflection: scaleY')),
+    ...optionalAttr(ATTR_KX, fixedAngle(options.skewX, 'setReflection: skewX')),
+    ...optionalAttr(ATTR_KY, fixedAngle(options.skewY, 'setReflection: skewY')),
+  ];
+  putEffect(host, elem(NAME_REFLECTION, { attrs }), place);
 };
 
 /** Removes any effect list from `host`. */

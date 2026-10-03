@@ -1,7 +1,8 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { resolveDrawingColor, resolveDrawingColorOpacity } from '../src/api/index.ts';
-import { parseEffectList } from '../src/api/fn/shape-color.ts';
-import { parseXml } from '../src/internal/xml/index.ts';
+import { parseEffectList, parseRPrLikeElement } from '../src/api/fn/shape-color.ts';
+import { NS, firstChildElement, parseXml, qname } from '../src/internal/xml/index.ts';
 
 const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const parseColor = (transform: string) =>
@@ -68,5 +69,50 @@ describe('DrawingML color transform percentage lexical forms', () => {
       `<a:effectLst xmlns:a="${A}"><a:reflection blurRad="0" dist="0" dir="0" endA="50%"/></a:effectLst>`,
     ).root;
     expect(parseEffectList(effects, null)[0]).toMatchObject({ opacity: 0.5 });
+  });
+
+  it('reads native reflection attributes without dropping the extra geometry', () => {
+    const effects = parseXml(
+      `<a:effectLst xmlns:a="${A}"><a:reflection blurRad="6350" dist="0" dir="5400000" stA="53000" endA="300" endPos="35500" sy="-90000" algn="bl" rotWithShape="0"/></a:effectLst>`,
+    ).root;
+    expect(parseEffectList(effects, null)).toEqual([
+      {
+        kind: 'reflection',
+        blurEmu: 6350,
+        distEmu: 0,
+        angleDeg: 90,
+        opacity: 0.003,
+        startOpacity: 0.53,
+        endPosition: 0.355,
+        scaleY: -0.9,
+        alignment: 'bl',
+        rotateWithShape: false,
+      },
+    ]);
+  });
+
+  it('reads the captured native WordArt reflection fixture', async () => {
+    const xml = parseXml(
+      await readFile(
+        new URL('./fixtures/native/wordart-accent5-gradient-reflection-shape.xml', import.meta.url),
+        'utf8',
+      ),
+    ).root;
+    const txBody = firstChildElement(xml, qname('p', 'txBody', NS.pml));
+    const paragraph = txBody && firstChildElement(txBody, qname('a', 'p', NS.dml));
+    const run = paragraph && firstChildElement(paragraph, qname('a', 'r', NS.dml));
+    const rPr = run && firstChildElement(run, qname('a', 'rPr', NS.dml));
+    expect(rPr).not.toBeNull();
+    expect(parseRPrLikeElement(rPr!).reflection).toEqual({
+      blurEmu: 6350,
+      offsetEmu: 0,
+      angleDeg: 90,
+      opacity: 0.003,
+      startOpacity: 0.53,
+      endPosition: 0.355,
+      scaleY: -0.9,
+      alignment: 'bl',
+      rotateWithShape: false,
+    });
   });
 });
