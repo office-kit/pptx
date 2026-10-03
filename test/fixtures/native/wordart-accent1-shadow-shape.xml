@@ -1,0 +1,47 @@
+<p:sp xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+	<p:nvSpPr>
+		<p:cNvPr id="2" name="Title 1"/>
+		<p:cNvSpPr>
+			<a:spLocks noGrp="1"/>
+		</p:cNvSpPr>
+		<p:nvPr>
+			<p:ph type="title"/>
+		</p:nvPr>
+	</p:nvSpPr>
+	<p:spPr/>
+	<p:txBody>
+		<a:bodyPr/>
+		<a:lstStyle/>
+		<a:p>
+			<a:r>
+				<a:rPr lang="en-US" dirty="0">
+					<a:ln w="0"/>
+					<a:solidFill>
+						<a:schemeClr val="accent1"/>
+					</a:solidFill>
+					<a:effectLst>
+						<a:outerShdw blurRad="38100" dist="25400" dir="5400000" algn="ctr" rotWithShape="0">
+							<a:srgbClr val="6E747A">
+								<a:alpha val="43000"/>
+							</a:srgbClr>
+						</a:outerShdw>
+					</a:effectLst>
+				</a:rPr>
+				<a:t>Outline title</a:t>
+			</a:r>
+			<a:endParaRPr dirty="0">
+				<a:ln w="0"/>
+				<a:solidFill>
+					<a:schemeClr val="accent1"/>
+				</a:solidFill>
+				<a:effectLst>
+					<a:outerShdw blurRad="38100" dist="25400" dir="5400000" algn="ctr" rotWithShape="0">
+						<a:srgbClr val="6E747A">
+							<a:alpha val="43000"/>
+						</a:srgbClr>
+					</a:outerShdw>
+				</a:effectLst>
+			</a:endParaRPr>
+		</a:p>
+	</p:txBody>
+</p:sp>

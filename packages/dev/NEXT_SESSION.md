@@ -1757,3 +1757,24 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Full parity remains incomplete: live hover previews, WordArt styles, effectDag/3D style rendering, pattern/image style detail readers, and broader operation-by-operation native comparisons still require work. These gallery tests do not prove full PowerPoint parity.
 - Verification: full root suite passed 484 files / 3482 tests (109 skipped), then final effect-reference fixes passed 32 focused tests across 6 files. Final format/lint/root typecheck passed; preview/DSL/dev typechecks and site check passed; workspace build and Chromium Quick Styles regression passed. Browser checks cover 900/1500/2200px Home overflow, 77 styles, native reference serialization, bold preservation, Undo/Redo, inline pagination and constant last-page width, and no page errors. Logs: `/tmp/quickstyle-complete-tests.log`, `/tmp/quickstyle-final-{focused,build,browser}.log`.
 - Explicit unresolved effectRef and effectDag now stop inherited effects. effectDag remains unrendered, rather than being replaced by the parent's or theme's unrelated shadow. Cache invalidation follows slide/version changes; inline apply preserves focus on the chosen thumbnail.
+
+### 2026-10-03 — native WordArt comparison resumed
+
+- Native PowerPoint AX, screenshot, Shape Format navigation, style application,
+  Save, and Undo all worked after reconnecting.
+- Captured the first three WordArt styles into
+  `test/fixtures/native/wordart-*-shape.xml`; provenance and exact observations
+  are in `test/fixtures/native/wordart-capture.md`.
+- Reference file restored with Undo + Save after every capture. Its final
+  `ppt/slides/slide1.xml` is byte-identical to `reference-before-wordart.pptx`.
+- Native WordArt uses run/end-paragraph properties, separate from shape quick
+  styles. Accent 2 outline also makes the text bold and applies luminance
+  transforms. Accent 1 shadow uses `algn="ctr"`; current ShadowOptions writer
+  fixes alignment to `tl`. Do not substitute shape style effects for WordArt.
+- Remaining WordArt presets and replacement semantics still need comparison;
+  no WordArt gallery implementation is claimed by these captures.
+- PR head `4281afe1` CI run `37118277823` failed before build: root typecheck
+  could not resolve `@office-kit/pptx-preview` imported by the new swatch test.
+  Root TypeScript and Vitest configurations now resolve the preview package
+  source explicitly, like the existing core alias. Type resolution tracing
+  confirms `packages/preview/src/index.ts`, not stale `dist`, is checked.

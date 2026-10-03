@@ -1,0 +1,41 @@
+<p:sp xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+	<p:nvSpPr>
+		<p:cNvPr id="2" name="Title 1"/>
+		<p:cNvSpPr>
+			<a:spLocks noGrp="1"/>
+		</p:cNvSpPr>
+		<p:nvPr>
+			<p:ph type="title"/>
+		</p:nvPr>
+	</p:nvSpPr>
+	<p:spPr/>
+	<p:txBody>
+		<a:bodyPr/>
+		<a:lstStyle/>
+		<a:p>
+			<a:r>
+				<a:rPr lang="en-US" dirty="0">
+					<a:ln w="0"/>
+					<a:effectLst>
+						<a:outerShdw blurRad="38100" dist="19050" dir="2700000" algn="tl" rotWithShape="0">
+							<a:schemeClr val="dk1">
+								<a:alpha val="40000"/>
+							</a:schemeClr>
+						</a:outerShdw>
+					</a:effectLst>
+				</a:rPr>
+				<a:t>Outline title</a:t>
+			</a:r>
+			<a:endParaRPr dirty="0">
+				<a:ln w="0"/>
+				<a:effectLst>
+					<a:outerShdw blurRad="38100" dist="19050" dir="2700000" algn="tl" rotWithShape="0">
+						<a:schemeClr val="dk1">
+							<a:alpha val="40000"/>
+						</a:schemeClr>
+					</a:outerShdw>
+				</a:effectLst>
+			</a:endParaRPr>
+		</a:p>
+	</p:txBody>
+</p:sp>
