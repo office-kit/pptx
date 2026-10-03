@@ -309,7 +309,14 @@ export function editTextBody(
 ): void {
   const before = textBodyText(txBody);
   if (range) validateTextRange(before, range, 'setText');
-  if (range ? before.slice(range.start, range.end) === value : before === value) return;
+  // Explicit newline replacements can change a paragraph separator into a soft
+  // break (or vice versa) without changing the plain-text representation.
+  if (
+    range
+      ? before.slice(range.start, range.end) === value && !value.includes('\n')
+      : before === value
+  )
+    return;
   // Code points prevent splitting surrogate pairs when two emoji share a high surrogate.
   const oldChars = Array.from(before);
   const newChars = Array.from(value);
