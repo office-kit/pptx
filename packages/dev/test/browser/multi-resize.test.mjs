@@ -11,7 +11,7 @@ import {
   getShapeRotation,
   loadPresentation,
 } from '@office-kit/pptx';
-import { startPreview } from '../helpers/server.mjs';
+import { startPreview, waitForState } from '../helpers/server.mjs';
 
 test(
   'selection corner handles proportionally resize rotated objects and preserve history',
@@ -86,8 +86,10 @@ test(
       );
       assert.equal(await editor.locator('.multi-selection .handle').count(), 4);
       const anchor = await relative('nw');
+      const beforeResize = (await waitForState(preview.url, () => true)).revision;
       await beginResize('se', 80, 30);
       await page.mouse.up();
+      await waitForState(preview.url, (state) => state.revision !== beforeResize);
       await saved();
       const enlarged = await geometry();
       const scale = enlarged[0].w / original[0].w;
