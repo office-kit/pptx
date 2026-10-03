@@ -106,15 +106,21 @@ for (const grouped of [false, true]) {
         const layout = await input.evaluate((node) => {
           const box = node.getBoundingClientRect(),
             style = getComputedStyle(node);
+          // Computed padding is in the element's untransformed CSS space;
+          // the editor scales the input (and grouped shapes scale it again).
+          // Convert it to viewport pixels before comparing with SVG geometry.
+          const scaleX = box.width / parseFloat(style.width),
+            scaleY = box.height / parseFloat(style.height);
           const region = document.querySelector('.paint foreignObject');
           const rendered = region.getBoundingClientRect();
           const shapeBox = document.querySelector('.paint path').getBoundingClientRect();
           return {
             actual: [
-              box.x + parseFloat(style.paddingLeft),
-              box.y + parseFloat(style.paddingTop),
-              box.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
-              box.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+              box.x + parseFloat(style.paddingLeft) * scaleX,
+              box.y + parseFloat(style.paddingTop) * scaleY,
+              box.width - (parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)) * scaleX,
+              box.height -
+                (parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)) * scaleY,
             ],
             expected: [rendered.x, rendered.y, rendered.width, rendered.height],
             shape: [shapeBox.x, shapeBox.y, shapeBox.width, shapeBox.height],
@@ -147,9 +153,14 @@ for (const grouped of [false, true]) {
         const reopened = await input.evaluate((node) => {
           const box = node.getBoundingClientRect(),
             style = getComputedStyle(node);
+          const scaleX = box.width / parseFloat(style.width),
+            scaleY = box.height / parseFloat(style.height);
           const rendered = document.querySelector('.paint foreignObject').getBoundingClientRect();
           return {
-            actual: [box.x + parseFloat(style.paddingLeft), box.y + parseFloat(style.paddingTop)],
+            actual: [
+              box.x + parseFloat(style.paddingLeft) * scaleX,
+              box.y + parseFloat(style.paddingTop) * scaleY,
+            ],
             expected: [rendered.x, rendered.y],
           };
         });
