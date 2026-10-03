@@ -36,6 +36,7 @@ import {
   setShapeStrokeDash,
   setShapeStrokeJoin,
   setShapeText,
+  setShapeTextFormat,
   setSlideNotes,
   setSlideTransition,
   getTableCell,
@@ -83,6 +84,24 @@ const shape = (pres: ReturnType<typeof createPresentation>, preset = 'rect') =>
     h: inches(2),
     text: 'X',
   });
+
+skipIfNoXmllint(
+  'character inner and outer shadows coexist with glow and reflection in schema order',
+  async () => {
+    const pres = createPresentation();
+    const textShape = shape(pres);
+    setShapeTextFormat(textShape, {
+      reflection: { scaleY: -0.9, startOpacity: 0.53, endPosition: 0.355 },
+      shadow: { color: '#123456', alignment: 'ctr', rotateWithShape: true },
+      innerShadow: { color: '#000000', blurEmu: 63500, offsetEmu: 50800, angleDeg: 225 },
+      glow: { color: '#00FF00', radiusEmu: 63500 },
+    });
+    const xml = await authoredXml(pres);
+    expect(xml).toContain('<a:innerShdw');
+    expect(xml).toContain('<a:outerShdw');
+    expect(xml).toContain('<a:reflection');
+  },
+);
 
 describe('schema coverage: text run + paragraph ordering', () => {
   skipIfNoXmllint('color + highlight on one run stays in schema order', async () => {

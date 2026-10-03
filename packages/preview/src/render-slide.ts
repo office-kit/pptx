@@ -2466,7 +2466,8 @@ export interface SvgTextArgs {
   readonly measure: TextMeasurer;
   readonly vert: VerticalLayout;
   readonly columns: ColumnLayout | null;
-  readonly reflectionOnly?: boolean;
+  readonly effectsOnly?: boolean;
+  readonly effectKind?: 'reflection' | 'innerShadow' | 'all';
   /** Maps an authored font name onto the family the measurer keys off.
    *  The render paths leave this unset (= `substituteFamily`, whose output
    *  must match the bundled TTFs' internal names for resvg). The audit path
@@ -2622,6 +2623,16 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
               reflection: fmt.reflection,
             }
           : {}),
+        ...(fmt?.innerShadow
+          ? {
+              innerShadow: {
+                ...fmt.innerShadow,
+                ...(fmt.innerShadow.color
+                  ? { color: resolveColor(fmt.innerShadow.color, a.theme, '#000000') }
+                  : {}),
+              },
+            }
+          : {}),
         href: run.href ?? null,
         ...(run.hrefTip !== undefined ? { hrefTip: run.hrefTip } : {}),
       };
@@ -2708,7 +2719,8 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
     paragraphs,
     vert: a.vert,
     columns: a.columns,
-    ...(a.reflectionOnly ? { reflectionsOnly: true } : {}),
+    ...(a.effectsOnly ? { effectsOnly: true } : {}),
+    ...(a.effectKind ? { effectKind: a.effectKind } : {}),
   };
   return input;
 };
@@ -3567,17 +3579,22 @@ const renderTextBody = (
   const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};${offsetStyle}${wrapStyle}${vertStyles}">${content}</div>`;
   const foreign = `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
   // Keep the editable browser text in foreignObject, but paint character
-  // reflections in a sibling SVG layer. Mirroring an HTML inline box changes
+  // effects in a sibling SVG layer. Mirroring an HTML inline box changes
   // line metrics and reflects unstyled runs, so the deterministic layout
   // engine emits only the affected glyph groups here.
-  const hasCharacterReflection = paraData.some((para) =>
-    para.runs.some((run) => run.fmt?.reflection !== undefined && run.fmt.reflection !== null),
+  const hasCharacterEffect = paraData.some((para) =>
+    para.runs.some(
+      (run) =>
+        (run.fmt?.reflection !== undefined && run.fmt.reflection !== null) ||
+        (run.fmt?.innerShadow !== undefined && run.fmt.innerShadow !== null),
+    ),
   );
   let reflectionOverlay = '';
-  if (hasCharacterReflection) {
+  let innerShadowOverlay = '';
+  if (hasCharacterEffect) {
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     const { x: rX, y: rY, w: rW, h: rH } = svgTextRect(svgVert);
-    reflectionOverlay = buildAndLayoutSvgText({
+    const effectArgs: SvgTextArgs = {
       pres,
       shape,
       theme,
@@ -3598,9 +3615,21 @@ const renderTextBody = (
       measure: browserTextMeasurer() ?? ctx.measure,
       vert: svgVert,
       columns: null,
-      reflectionOnly: true,
+      effectsOnly: true,
       resolveFamily: browserFontFamily,
-    });
+    };
+    const hasCharacterReflection = paraData.some((para) =>
+      para.runs.some((run) => run.fmt?.reflection !== undefined && run.fmt.reflection !== null),
+    );
+    const hasCharacterInnerShadow = paraData.some((para) =>
+      para.runs.some((run) => run.fmt?.innerShadow !== undefined && run.fmt.innerShadow !== null),
+    );
+    if (hasCharacterReflection) {
+      reflectionOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'reflection' });
+    }
+    if (hasCharacterInnerShadow) {
+      innerShadowOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'innerShadow' });
+    }
   }
   // <a:bodyPr rot="N"/> rotates the text body around its own center
   // (PowerPoint pivots on the shape's text-anchor midpoint). Wrap the
@@ -3610,9 +3639,9 @@ const renderTextBody = (
   if (bodyRotDeg !== null && bodyRotDeg !== 0) {
     const pivotX = innerX + innerW / 2;
     const pivotY = innerY + innerH / 2;
-    return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${reflectionOverlay}${foreign}</g>`;
+    return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${reflectionOverlay}${foreign}${innerShadowOverlay}</g>`;
   }
-  return reflectionOverlay + foreign;
+  return reflectionOverlay + foreign + innerShadowOverlay;
 };
 
 // ---------------------------------------------------------------------------
