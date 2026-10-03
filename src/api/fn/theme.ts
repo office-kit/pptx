@@ -210,25 +210,9 @@ export interface PresentationFonts {
   readonly minorComplexScript: string | null;
 }
 
-const readTypeface = (parent: XmlElement | null, local: string): string | null => {
-  if (!parent) return null;
-  const el = firstChildElement(parent, qname('a', local, NS.dml));
-  if (!el) return null;
-  const v = getAttrValue(el, qname('', 'typeface', ''));
-  if (!v) return null;
-  return v;
-};
-
-/**
- * Returns the deck theme's font scheme, or `null` when the package
- * carries no theme. As with `getPresentationTheme`, the deck theme is
- * the first slide master's; per-master font lookup will land if needed.
- */
-export const getPresentationFonts = (pres: PresentationData): PresentationFonts | null => {
-  const pkg = pres[INTERNAL_PACKAGE];
-  const themePart = deckThemePart(pkg);
-  if (!themePart) return null;
-  const root = readRoot(themePart.data);
+/** @internal Reads a theme root's font scheme without selecting a package theme. */
+export const fontsFromThemeRoot = (root: XmlElement | null): PresentationFonts | null => {
+  if (!root) return null;
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
   if (!themeElements) return null;
   const fontScheme = firstChildElement(themeElements, qname('a', 'fontScheme', NS.dml));
@@ -243,6 +227,27 @@ export const getPresentationFonts = (pres: PresentationData): PresentationFonts 
     minorEastAsian: readTypeface(minorFont, 'ea'),
     minorComplexScript: readTypeface(minorFont, 'cs'),
   };
+};
+
+const readTypeface = (parent: XmlElement | null, local: string): string | null => {
+  if (!parent) return null;
+  const el = firstChildElement(parent, qname('a', local, NS.dml));
+  if (!el) return null;
+  const v = getAttrValue(el, qname('', 'typeface', ''));
+  if (!v) return null;
+  return v;
+};
+
+/**
+ * Returns the deck theme's font scheme, or `null` when the package
+ * carries no theme. This is the presentation-level fallback; shape text
+ * resolution uses `fontsFromThemeRoot` with the shape's owning master theme.
+ */
+export const getPresentationFonts = (pres: PresentationData): PresentationFonts | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const themePart = deckThemePart(pkg);
+  if (!themePart) return null;
+  return fontsFromThemeRoot(readRoot(themePart.data));
 };
 
 /**
