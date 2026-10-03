@@ -905,3 +905,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Reproduced right-tab misalignment at 586.72px for a 600px stop when `AV.12` spans multiple equally sized Arial runs. Browser shaping retains kerning across those run boundaries, including color changes; summing separate canvas widths did not.
 - The editing layout now shapes consecutive runs with matching font metrics together, retaining the original DOM and UTF-16 offsets. Decimal positioning also retains kerning at the decimal boundary. Text fragments are collected before measurement to avoid repeatedly measuring growing prefixes.
 - Focused browser regressions cover right/center/decimal alignment across color boundaries, plus existing capitalization, tracking, kerning and vertical-tab cases. This does not prove native ruler gestures, locale-specific decimal behavior or complex wrapping parity.
+
+## Font color replacement on WordArt
+
+- Setting a font color now replaces every DrawingML fill choice, including gradient and pattern fills. Clearing the direct color removes the local fill so inheritance can apply. Previously non-solid fills remained beside the new solid fill, producing invalid OOXML.
+- Regression coverage includes all six fill choices, preservation of unrelated run properties, rejected-color preservation, and saved/reloaded PowerPoint-native gradient and pattern fixtures validated against the presentation schema.
+- This fixes color mutation and serialization; gradient and pattern text rendering and the full WordArt gallery remain incomplete.

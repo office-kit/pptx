@@ -42,6 +42,7 @@ import {
   setShadow,
 } from './effects.ts';
 import { applySolidStroke } from './stroke.ts';
+import { removeAnyFill } from './fill.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
@@ -320,14 +321,15 @@ const setOrRemoveAttr = (
 };
 
 const setSolidFill = (rPr: XmlElement, value: string | null): void => {
-  // Remove any existing solidFill first.
-  rPr.children = rPr.children.filter(
-    (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'solidFill'),
-  );
-  if (value === null) return;
+  if (value === null) {
+    removeAnyFill(rPr);
+    return;
+  }
   const parsed = parseColor(value);
   if (parsed === null) throw new Error(`unrecognized color: ${value}`);
+  // Character fills are a choice, just like shape fills. Keeping a WordArt
+  // gradient or pattern beside the new solid fill would produce invalid OOXML.
+  removeAnyFill(rPr);
   const inner =
     parsed.kind === 'srgb'
       ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
