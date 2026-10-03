@@ -2,6 +2,7 @@
 
 import type { Color } from '../../internal/drawingml/index.ts';
 import { resolveDrawingColor } from './shape-color.ts';
+import { readShapeStrokeLineElement } from './shape-read-paint.ts';
 import {
   type ArrowOptions,
   type GradientFillOptions,
@@ -417,11 +418,20 @@ export const setShapeNoStroke = (shape: SlideShapeData): void => {
   commitAndRefresh(shape);
 };
 
-/** Reads back the shape's stroke dash style, or `null` if none. */
-export const getShapeStrokeDash = (shape: SlideShapeData): LineDash | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+/**
+ * Reads back the shape's stroke dash style, or `null` if none. When `pres` is
+ * supplied, a direct partial line is overlaid on the shape's `lnRef` style.
+ */
+export const getShapeStrokeDash = (
+  shape: SlideShapeData,
+  pres?: PresentationData,
+): LineDash | null => {
+  const ln = pres
+    ? readShapeStrokeLineElement(pres, shape)
+    : (() => {
+        const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+        return spPr ? firstChildElement(spPr, qname('a', 'ln', NS.dml)) : null;
+      })();
   if (!ln) return null;
   const prstDash = firstChildElement(ln, qname('a', 'prstDash', NS.dml));
   if (!prstDash) return null;
@@ -431,15 +441,20 @@ export const getShapeStrokeDash = (shape: SlideShapeData): LineDash | null => {
 
 /**
  * Reads back the shape's arrowhead on one end of `<a:ln>`, or `null`
- * when no `<a:headEnd>` / `<a:tailEnd>` is present.
+ * when no `<a:headEnd>` / `<a:tailEnd>` is present. When `pres` is supplied,
+ * a direct partial line is overlaid on the shape's `lnRef` style.
  */
 export const getShapeStrokeArrow = (
   shape: SlideShapeData,
   end: 'head' | 'tail',
+  pres?: PresentationData,
 ): ArrowOptions | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  const ln = pres
+    ? readShapeStrokeLineElement(pres, shape)
+    : (() => {
+        const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+        return spPr ? firstChildElement(spPr, qname('a', 'ln', NS.dml)) : null;
+      })();
   if (!ln) return null;
   const arr = firstChildElement(ln, qname('a', end === 'head' ? 'headEnd' : 'tailEnd', NS.dml));
   if (!arr) return null;

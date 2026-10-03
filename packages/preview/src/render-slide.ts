@@ -1138,11 +1138,11 @@ const paint = (
     strokeColor = resolved ?? resolveColor(stroke.color, theme, '#9CA3AF');
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
     if (shape) {
-      const opacity = getShapeStrokeOpacity(shape);
+      const opacity = getShapeStrokeOpacity(shape, pres);
       if (opacity !== null && opacity < 1) {
         strokeAttrParts.push(`stroke-opacity="${opacity.toFixed(3)}"`);
       }
-      const dash = getShapeStrokeDash(shape);
+      const dash = getShapeStrokeDash(shape, pres);
       if (dash && dash !== 'solid') {
         const pattern = DASH_PATTERNS[dash];
         if (pattern) {
@@ -1155,22 +1155,22 @@ const paint = (
           strokeAttrParts.push(`stroke-dasharray="${arr}"`);
         }
       }
-      const cap = getShapeStrokeCap(shape);
+      const cap = getShapeStrokeCap(shape, pres);
       if (cap === 'rnd') strokeAttrParts.push('stroke-linecap="round"');
       else if (cap === 'sq') strokeAttrParts.push('stroke-linecap="square"');
       else if (cap === 'flat') strokeAttrParts.push('stroke-linecap="butt"');
-      const join = getShapeStrokeJoin(shape);
+      const join = getShapeStrokeJoin(shape, pres);
       if (join === 'round') strokeAttrParts.push('stroke-linejoin="round"');
       else if (join === 'bevel') strokeAttrParts.push('stroke-linejoin="bevel"');
       else if (join === 'miter') strokeAttrParts.push('stroke-linejoin="miter"');
-      const cmpd = getShapeStrokeCompound(shape);
+      const cmpd = getShapeStrokeCompound(shape, pres);
       if (cmpd === 'dbl') {
         // Approximate a double line by widening + a transparent stripe down
         // the middle. SVG has no native compound-line primitive.
         strokeWidth = Math.max(strokeWidth, 19_050);
       }
-      const head = getShapeStrokeArrow(shape, 'head');
-      const tail = getShapeStrokeArrow(shape, 'tail');
+      const head = getShapeStrokeArrow(shape, 'head', pres);
+      const tail = getShapeStrokeArrow(shape, 'tail', pres);
       if (head && head.type !== 'none') {
         const m = buildArrowMarker(
           head.type,

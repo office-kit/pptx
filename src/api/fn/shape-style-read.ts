@@ -38,6 +38,7 @@ export type ShapeStyleFill =
 
 const NAME_STYLE = qname('p', 'style', NS.pml);
 const NAME_FILL_REF = qname('a', 'fillRef', NS.dml);
+const NAME_LN_REF = qname('a', 'lnRef', NS.dml);
 const NAME_FMT_SCHEME = qname('a', 'fmtScheme', NS.dml);
 
 type ShapeStyleTheme = {
@@ -75,18 +76,47 @@ export const getShapeStyleTheme = (
   };
 };
 
-/** Resolves a shape's fillRef against the presentation theme format scheme. */
-export const readShapeStyleFillElement = (
+const replaceStyleColorPlaceholder = (resolved: XmlElement, reference: XmlElement): void => {
+  const referenceColor = reference.children.find(
+    (child): child is XmlElement => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+  );
+  if (!referenceColor) return;
+  const replace = (parent: XmlElement): void => {
+    parent.children = parent.children.map((child) => {
+      if (child.kind !== 'element') return child;
+      if (
+        child.name.localName === 'schemeClr' &&
+        getAttrValue(child, qname('', 'val', '')) === 'phClr'
+      ) {
+        const replacement = cloneElement(referenceColor);
+        replacement.children.push(
+          ...child.children.map((item) =>
+            item.kind === 'element' ? cloneElement(item) : { ...item },
+          ),
+        );
+        return replacement;
+      }
+      replace(child);
+      return child;
+    });
+  };
+  replace(resolved);
+};
+
+const readShapeStyleReferenceElement = (
   pres: PresentationData,
   shape: SlideShapeData,
+  referenceName: XmlElement['name'],
+  listLocalName: 'fillStyleLst' | 'lnStyleLst',
 ): XmlElement | null => {
   const style = firstChildElement(shape[SHAPE_ELEMENT], NAME_STYLE);
-  const reference = style ? firstChildElement(style, NAME_FILL_REF) : null;
+  const reference = style ? firstChildElement(style, referenceName) : null;
   if (!reference) return null;
 
   const index = Number.parseInt(getAttrValue(reference, qname('', 'idx', '')) ?? '', 10);
   if (!Number.isInteger(index)) return null;
-  if (index === 0 || index === 1000) return elem(qname('a', 'noFill', NS.dml));
+  if (index === 0 || (index === 1000 && listLocalName === 'fillStyleLst'))
+    return elem(qname('a', 'noFill', NS.dml));
   if (index < 1) return null;
 
   const themeRoot = getShapeStyleTheme(pres, shape).root;
@@ -97,43 +127,37 @@ export const readShapeStyleFillElement = (
   const list = scheme
     ? firstChildElement(
         scheme,
-        qname('a', index >= 1001 ? 'bgFillStyleLst' : 'fillStyleLst', NS.dml),
+        qname(
+          'a',
+          index >= 1001 && listLocalName === 'fillStyleLst' ? 'bgFillStyleLst' : listLocalName,
+          NS.dml,
+        ),
       )
     : null;
   const styles = list?.children.filter(
     (child): child is XmlElement => child.kind === 'element' && child.name.namespaceURI === NS.dml,
   );
-  const selected = styles?.[index >= 1001 ? index - 1001 : index - 1];
+  const backgroundFill = listLocalName === 'fillStyleLst' && index >= 1001;
+  const selected = styles?.[backgroundFill ? index - 1001 : index - 1];
   if (!selected) return null;
 
-  const referenceColor = reference.children.find(
-    (child): child is XmlElement => child.kind === 'element' && child.name.namespaceURI === NS.dml,
-  );
   const resolved = cloneElement(selected);
-  const replacePlaceholder = (parent: XmlElement): void => {
-    parent.children = parent.children.map((child) => {
-      if (child.kind !== 'element') return child;
-      if (
-        child.name.localName === 'schemeClr' &&
-        getAttrValue(child, qname('', 'val', '')) === 'phClr' &&
-        referenceColor
-      ) {
-        const replacement = cloneElement(referenceColor);
-        replacement.children.push(
-          ...child.children.map((item) =>
-            item.kind === 'element' ? cloneElement(item) : { ...item },
-          ),
-        );
-        return replacement;
-      }
-      replacePlaceholder(child);
-      return child;
-    });
-  };
-  replacePlaceholder(resolved);
+  replaceStyleColorPlaceholder(resolved, reference);
 
   return resolved;
 };
+
+/** Resolves a shape's fillRef against the presentation theme format scheme. */
+export const readShapeStyleFillElement = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): XmlElement | null => readShapeStyleReferenceElement(pres, shape, NAME_FILL_REF, 'fillStyleLst');
+
+/** Resolves a shape's lnRef against the owning master's line style list. */
+export const readShapeStyleLineElement = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): XmlElement | null => readShapeStyleReferenceElement(pres, shape, NAME_LN_REF, 'lnStyleLst');
 
 /** Reads the resolved fill choice from the shape's own style reference. */
 export const readShapeStyleFill = (

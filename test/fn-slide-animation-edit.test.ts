@@ -772,10 +772,14 @@ describe('fn API: removals the slide’s timing could not survive', () => {
         `<p:bldLst><p:bldP spid="${b}" grpId="0"/><p:bldP spid="${b}" grpId="1"/></p:bldLst>`,
       ),
     );
-    const before = await savePresentation(pres);
+    // ZIP entry timestamps are generated when the archive is written and may
+    // advance between these two saves. Compare the decompressed package so
+    // this assertion covers every OPC part while ignoring that container
+    // metadata.
+    const before = unzipSync(await savePresentation(pres));
 
     expect(() => removeShape(shapes[0]!)).toThrow();
-    expect(await savePresentation(pres)).toEqual(before);
+    expect(unzipSync(await savePresentation(pres))).toEqual(before);
   });
 });
 

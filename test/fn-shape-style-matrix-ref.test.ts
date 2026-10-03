@@ -92,6 +92,14 @@ const styleDeck = async (
 };
 
 describe('shape style-matrix fill references', () => {
+  it('renders the native Colored Fill outline from its theme line reference', async () => {
+    const pres = await styleDeck();
+    const svg = renderSlideToSvg(pres, getSlides(pres)[0]!);
+    expect(svg).toContain('stroke="#1C334E"');
+    expect(svg).toContain('stroke-width="2.67"');
+    expect(svg).toContain('stroke-linecap="butt"');
+  });
+
   it.runIf(isSchemaValidationAvailable())(
     'keeps the native style fixture schema-valid',
     async () => {
