@@ -539,7 +539,7 @@ for (const target of ['shape', 'cell'])
         await viewer.getByRole('button', { name: 'Preview', exact: true }).click();
         const link = viewer.locator('#slide a').filter({ hasText: '日本語' });
         assert.equal(await link.count(), 1);
-        await link.click();
+        await link.locator('span').last().click();
         assert.equal(await viewer.locator('#count').textContent(), 'Slide 2 of 2');
         await viewer.close();
         await page.reload();
