@@ -51,6 +51,8 @@ describe('character-level effects', () => {
 
     const format = getShapeRunFormatEffective(pres, shape, 0, 0);
     expect(format.shadow).toEqual({
+      alignment: 'tl',
+      rotateWithShape: false,
       color: '#123456',
       blurEmu: 50800,
       offsetEmu: 38100,
@@ -62,6 +64,19 @@ describe('character-level effects', () => {
     // caller asked for them in.
     const xml = getShapeXmlString(shape);
     expect(xml.indexOf('<a:glow')).toBeLessThan(xml.indexOf('<a:outerShdw'));
+  });
+
+  it('round trips an authored shadow anchor and rotation independently of reflection', async () => {
+    const { pres, shape } = textBox();
+    setShapeTextFormat(shape, {
+      shadow: { color: '#123456', alignment: 'ctr', rotateWithShape: true },
+      reflection: {},
+    });
+    const restored = await loadPresentation(await savePresentation(pres));
+    const format = getShapeRunFormat(getSlideShapes(getSlides(restored)[0]!)[0]!, 0, 0);
+    expect(format?.shadow).toMatchObject({ alignment: 'ctr', rotateWithShape: true });
+    expect(format?.reflection).toBeDefined();
+    expect(getShapeXmlString(shape)).toContain('algn="ctr" rotWithShape="1"');
   });
 
   it('writes, reads, and removes a character reflection', async () => {

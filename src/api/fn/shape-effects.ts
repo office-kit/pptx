@@ -83,6 +83,8 @@ export type ShapeEffect =
 export type ShapeEffectAny =
   | {
       readonly kind: 'outerShdw';
+      readonly alignment?: ShadowOptions['alignment'];
+      readonly rotateWithShape?: boolean;
       readonly color: string;
       readonly opacity?: number;
       readonly blurEmu: number;

@@ -137,6 +137,8 @@ const BASELINE_LEADING_DROP = 0.036;
 // optimum sits at dx=−1, independent of font or anchor). Nudging emitted x
 // coordinates compensates; sub-pixel so it is invisible at any zoom.
 const GRID_NUDGE_X = -0.75;
+const EMU_PER_PX = 9525;
+let reflectionNamespace = 0;
 
 // ---------------------------------------------------------------------------
 // Engine input model. render-slide.ts resolves the OOXML cascade and hands the
@@ -186,6 +188,28 @@ export interface PieceInput {
   readonly href: string | null;
   readonly hrefTip?: string;
   readonly isBreak: boolean; // <a:br>
+  /** Character-level DrawingML reflection. The duplicate glyph is emitted
+   * from the same laid-out group so mixed runs and wrapping keep their exact
+   * positions. */
+  readonly reflection?: TextReflectionInput;
+}
+
+export interface TextReflectionInput {
+  readonly blurEmu?: number;
+  readonly offsetEmu?: number;
+  readonly angleDeg?: number;
+  readonly opacity?: number;
+  readonly startOpacity?: number;
+  readonly startPosition?: number;
+  readonly endPosition?: number;
+  readonly fadeDirection?: number;
+  readonly scaleX?: number;
+  readonly scaleY?: number;
+  readonly skewX?: number;
+  readonly skewY?: number;
+  readonly alignment?: string;
+  /** Preserved from OOXML; fixed-axis rendering requires shape rotation context. */
+  readonly rotateWithShape?: boolean;
 }
 
 export interface BulletInput {
@@ -246,6 +270,8 @@ export interface TextBodyInput {
   readonly vert?: VerticalLayout;
   /** Multi-column body (`numCol`/`spcCol`); null / omitted is single column. */
   readonly columns?: ColumnLayout | null;
+  /** Emit only non-interactive reflection glyphs for a foreignObject sibling. */
+  readonly reflectionsOnly?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -696,7 +722,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
 
 export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
   const { placements, vert, cx, cy } = layoutCore(input, measure);
-  const body = emitPlacements(placements);
+  const body = emitPlacements(placements, input.reflectionsOnly === true);
   if (vert === 'none' || vert === 'upright') return body;
   const deg = vert === 'cw90' ? 90 : 270;
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
@@ -811,7 +837,7 @@ const placeColumns = (
  * paragraph that wraps into the next column appears as a second group under
  * the same index, because its lines are drawn where that column is.
  */
-const emitPlacements = (placements: Placement[]): string => {
+const emitPlacements = (placements: Placement[], reflectionsOnly = false): string => {
   const paragraphs: string[] = [];
   let parts: string[] = [];
   let paraIndex: number | null = null;
@@ -821,12 +847,14 @@ const emitPlacements = (placements: Placement[]): string => {
     }
     parts = [];
   };
+  let reflectionIndex = 0;
+  const namespace = reflectionNamespace++;
   for (const { line, baselineY, dx } of placements) {
     if (line.paraIndex !== paraIndex) {
       close();
       paraIndex = line.paraIndex;
     }
-    if (line.bullet) {
+    if (line.bullet && !reflectionsOnly) {
       const b = line.bullet.b;
       if (b.imageHref) {
         // Sit the square bullet on the text baseline (bottom edge at the
@@ -840,7 +868,16 @@ const emitPlacements = (placements: Placement[]): string => {
         );
       }
     }
-    parts.push(emitLine(line, baselineY, dx));
+    parts.push(
+      emitLine(
+        line,
+        baselineY,
+        dx,
+        line.descent,
+        () => `text-reflection-${namespace}-${reflectionIndex++}`,
+        reflectionsOnly,
+      ),
+    );
   }
   close();
   return paragraphs.join('');
@@ -867,7 +904,14 @@ const lineAdvance = (line: Line, para: ParaInput): number => {
   return adv * para.lineAdvanceScale;
 };
 
-const emitLine = (line: Line, baselineY: number, dx: number): string => {
+const emitLine = (
+  line: Line,
+  baselineY: number,
+  dx: number,
+  descent: number,
+  nextReflectionId: () => string,
+  reflectionsOnly: boolean,
+): string => {
   const toks = [...line.tokens];
   while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
     toks.pop();
@@ -889,8 +933,18 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  const reflections = emitTextReflections(
+    groups,
+    line.textAnchor,
+    x0,
+    baselineY,
+    descent,
+    nextReflectionId,
+  );
+  if (reflectionsOnly) return reflections;
   return (
     emitHighlights(groups, line.textAnchor, x0, baselineY) +
+    reflections +
     text +
     emitTextDecorations(groups, line.textAnchor, x0, baselineY)
   );
@@ -926,6 +980,98 @@ const groupTokens = (toks: Token[]): Group[] => {
     }
   }
   return groups;
+};
+
+const emitTextReflections = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+  descent: number,
+  nextReflectionId: () => string,
+): string => {
+  const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
+  let cursor =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  const parts: string[] = [];
+  for (const group of groups) {
+    const reflection = group.piece.reflection;
+    if (!reflection || group.width <= 0 || group.isTab) {
+      cursor += group.width;
+      continue;
+    }
+    // CT_ReflectionEffect defaults sy to +100%; preserve positive authored
+    // scales too, since they still describe a translated reflected copy.
+    const scaleY = reflection.scaleY ?? 1;
+    const distPx = (reflection.offsetEmu ?? 0) / EMU_PER_PX;
+    const contactY = baselineY + descent;
+    const angleRad = ((reflection.angleDeg ?? 0) * Math.PI) / 180;
+    const offsetX = distPx * Math.cos(angleRad);
+    const offsetY = distPx * Math.sin(angleRad);
+    const startA = Math.max(0, Math.min(1, reflection.startOpacity ?? 1));
+    const endA = Math.max(0, Math.min(1, reflection.opacity ?? 0));
+    const endPosition = Math.max(0, Math.min(1, reflection.endPosition ?? 1));
+    const startPosition = Math.max(0, Math.min(endPosition, reflection.startPosition ?? 0));
+    const id = nextReflectionId();
+    const gradientId = `${id}-gradient`;
+    const maskId = `${id}-mask`;
+    const filterId = `${id}-blur`;
+    const blurPx = Math.max(0, (reflection.blurEmu ?? 0) / EMU_PER_PX / 2);
+    // PowerPoint's default fade is the vertical near-to-far ramp used below.
+    // For authored directions, use the DrawingML clockwise angle in the
+    // objectBoundingBox coordinate system rather than silently dropping it.
+    const fadeDirection = reflection.fadeDirection;
+    const gradient =
+      fadeDirection === undefined || fadeDirection === 90
+        ? 'x1="0" y1="1" x2="0" y2="0"'
+        : (() => {
+            const radians = (fadeDirection * Math.PI) / 180;
+            const dx = Math.cos(radians) / 2;
+            const dy = Math.sin(radians) / 2;
+            return `x1="${(0.5 + dx).toFixed(3)}" y1="${(0.5 + dy).toFixed(3)}" x2="${(0.5 - dx).toFixed(3)}" y2="${(0.5 - dy).toFixed(3)}"`;
+          })();
+    const defs =
+      `<defs><linearGradient id="${gradientId}" ${gradient}>` +
+      `<stop offset="0" stop-color="#fff" stop-opacity="${startA.toFixed(3)}"/>` +
+      `<stop offset="${startPosition.toFixed(3)}" stop-color="#fff" stop-opacity="${startA.toFixed(3)}"/>` +
+      `<stop offset="${endPosition.toFixed(3)}" stop-color="#fff" stop-opacity="${endA.toFixed(3)}"/>` +
+      `<stop offset="1" stop-color="#fff" stop-opacity="${endA.toFixed(3)}"/>` +
+      `</linearGradient>` +
+      `<mask id="${maskId}" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#${gradientId})"/></mask>` +
+      (blurPx > 0
+        ? `<filter id="${filterId}" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="${fmt(blurPx)}"/></filter>`
+        : '') +
+      `</defs>`;
+    const filter = blurPx > 0 ? ` filter="url(#${filterId})"` : '';
+    const scaleX = reflection.scaleX ?? 1;
+    const alignment = reflection.alignment ?? 'b';
+    const anchorX =
+      alignment === 'l' || alignment === 'tl' || alignment === 'bl'
+        ? cursor
+        : alignment === 'r' || alignment === 'tr' || alignment === 'br'
+          ? cursor + group.width
+          : cursor + group.width / 2;
+    const anchorY =
+      alignment === 'tl' || alignment === 't' || alignment === 'tr'
+        ? baselineY - group.piece.sizePx
+        : alignment === 'l' || alignment === 'ctr' || alignment === 'r'
+          ? baselineY - group.piece.sizePx / 2
+          : contactY;
+    const skew =
+      (reflection.skewX ?? 0) !== 0 || (reflection.skewY ?? 0) !== 0
+        ? ` skewX(${fmt(reflection.skewX ?? 0)}) skewY(${fmt(reflection.skewY ?? 0)})`
+        : '';
+    const transform =
+      `translate(${fmt(anchorX + offsetX)} ${fmt(anchorY + offsetY)})` +
+      `${skew} scale(${fmt(scaleX)} ${fmt(scaleY)})` +
+      ` translate(${fmt(-anchorX)} ${fmt(-anchorY)})`;
+    const glyph = `<text x="${fmt(cursor)}" y="${fmt(baselineY)}" text-anchor="start" xml:space="preserve">${tspan(group)}</text>`;
+    parts.push(
+      `${defs}<g transform="${transform}" mask="url(#${maskId})"${filter} data-pptx-reflection="text" aria-hidden="true" pointer-events="none">${glyph}</g>`,
+    );
+    cursor += group.width;
+  }
+  return parts.join('');
 };
 
 // SVG baseline-shift sign convention: positive shifts the glyph UP (smaller
@@ -1124,6 +1270,26 @@ const wavyPath = (
   return `<path d="${d}" stroke="${piece.underlineHex ?? piece.fillHex}" stroke-width="${fmt(strokeWidth)}" fill="none"/>`;
 };
 
+const sameReflection = (
+  a: TextReflectionInput | undefined,
+  b: TextReflectionInput | undefined,
+): boolean =>
+  (a === undefined) === (b === undefined) &&
+  a?.blurEmu === b?.blurEmu &&
+  a?.offsetEmu === b?.offsetEmu &&
+  a?.angleDeg === b?.angleDeg &&
+  a?.opacity === b?.opacity &&
+  a?.startOpacity === b?.startOpacity &&
+  a?.startPosition === b?.startPosition &&
+  a?.endPosition === b?.endPosition &&
+  a?.fadeDirection === b?.fadeDirection &&
+  a?.scaleX === b?.scaleX &&
+  a?.scaleY === b?.scaleY &&
+  a?.skewX === b?.skewX &&
+  a?.skewY === b?.skewY &&
+  a?.alignment === b?.alignment &&
+  a?.rotateWithShape === b?.rotateWithShape;
+
 const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.family === b.family &&
   a.sizePx === b.sizePx &&
@@ -1140,6 +1306,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.strike === b.strike &&
   a.baseline === b.baseline &&
   a.smallCaps === b.smallCaps &&
+  sameReflection(a.reflection, b.reflection) &&
   a.href === b.href &&
   a.hrefTip === b.hrefTip;
 

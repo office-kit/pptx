@@ -16,15 +16,15 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 Current unresolved areas (2026-10-03; the sections below retain the comparison history):
 
-| Area                     | Remaining work                                                                                                                                                                                   |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| WordArt                  | Native captures exist for all 20 presets; gallery application, text gradient/pattern fills, inner shadows, body 3D and complete reflection rendering/interaction remain incomplete.              |
-| Outline                  | Exact formatting-display metrics/persistence, remaining text menu commands and native comparison of cross-slide selection and drag gestures.                                                     |
-| Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
-| Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
-| Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
-| Native verification      | Recheck remaining zoom/gallery/pane geometry and interaction cases with usable screenshots and reliable pointer/keyboard input. Keep bridge failures separate from observed PowerPoint behavior. |
-| Release review           | Verify subsequent changes against ordinary build artifacts and CI, and complete the whole-PR maintainer review before claiming readiness.                                                        |
+| Area                     | Remaining work                                                                                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| WordArt                  | Native captures exist for all 20 presets; inner-shadow read/write is implemented; gallery application, text gradient/pattern fills, inner-shadow rendering, body 3D and complete reflection rendering/interaction remain incomplete. |
+| Outline                  | Exact formatting-display metrics/persistence, remaining text menu commands and native comparison of cross-slide selection and drag gestures.                                                                                         |
+| Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                                                          |
+| Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                                                               |
+| Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                                                       |
+| Native verification      | Recheck remaining zoom/gallery/pane geometry and interaction cases with usable screenshots and reliable pointer/keyboard input. Keep bridge failures separate from observed PowerPoint behavior.                                     |
+| Release review           | Verify subsequent changes against ordinary build artifacts and CI, and complete the whole-PR maintainer review before claiming readiness.                                                                                            |
 
 Historical statements that a feature is missing can be superseded by a later section;
 for example, outline collapse and ruler tab gestures are now implemented. This list
