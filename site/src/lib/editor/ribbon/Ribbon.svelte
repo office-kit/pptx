@@ -13,6 +13,7 @@
   import SlideShowRibbon from './SlideShowRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
+  import ShapeQuickStyles from './ShapeQuickStyles.svelte';
   import FontRibbon from './FontRibbon.svelte';
   import LineSpacingMenu from './LineSpacingMenu.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
@@ -105,10 +106,16 @@
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
+    {#if current?.id === 'shape'}
+      <div class="group shape-style-group">
+        <div class="group-items"><ShapeQuickStyles inline /></div>
+        <div class="group-title">{t('Shape Styles')}</div>
+      </div>
+    {/if}
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group" class:font-group={current?.id === 'home' && group.title === 'Font'} class:paragraph-group={current?.id === 'home' && group.title === 'Paragraph'}>
         <div class="group-items">
-          {#if current?.id === 'home' && group.title === 'Drawing'}<ArrangeMenu />{/if}
+          {#if current?.id === 'home' && group.title === 'Drawing'}<ArrangeMenu /><ShapeQuickStyles />{/if}
           {#if current?.id === 'home' && group.title === 'Font'}<FontRibbon />
           {:else if current?.id === 'design' && group.title === 'Background'}
             <BackgroundStyles />
@@ -150,7 +157,7 @@
             <div class="group-menu-items">
               {#if group.title === 'Font'}<FontRibbon />
               {:else}
-                {#if group.title === 'Drawing'}<ArrangeMenu compact />{/if}
+                {#if group.title === 'Drawing'}<ArrangeMenu compact /><ShapeQuickStyles compact />{/if}
                 {#each group.items as item (item.id + (item.label ?? ''))}
                   {@const cap = capabilityById.get(item.id)}
                   {#if item.id === 'setParagraphAlignment'}<ParagraphAlignment />

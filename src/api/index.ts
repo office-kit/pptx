@@ -87,6 +87,7 @@ export type { ImageFillLayout, ImageTileAlignment, ImageTileFlip } from './fn.ts
 export type { ImageCrop } from './fn.ts';
 export type { ImageRecolor, ImageRecolorColor } from './fn.ts';
 export type { ImageFit } from './fn.ts';
+export type { ShapeStyleFontReference, ShapeStyleOptions, ShapeStyleReference } from './fn.ts';
 export type {
   AudioFormat,
   MediaFade,
@@ -589,6 +590,7 @@ export {
   setShapeRunText,
   setShapeSize,
   setShapeStroke,
+  setShapeStyle,
   setShapeStrokeArrow,
   setShapeStrokeCap,
   setShapeStrokeCompound,
