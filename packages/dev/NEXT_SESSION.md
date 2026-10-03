@@ -1514,3 +1514,8 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Multi-object resize and rotation both pass locally on Node 24 (`/tmp/multi-transform-node24-recheck.log`). Rotation also passed with Chromium CPU throttled 6x (`/tmp/multi-rotate-throttled.log`); the temporary diagnostic file was removed. This does not resolve the Linux CI failures. Investigate pointer hit targets and document revision before assuming a geometry defect or weakening assertions.
 - Native PowerPoint reconnected successfully. Reference remains `Outline title`, Undo disabled, and was returned from Outline View to Normal. No new document mutations in this check.
 - PR #287 received d414cab8. CI run 37100443570 is running on that commit; the slideshow test correction in this entry is newer and needs a subsequent push.
+
+## 2026-10-03: Transform save synchronization and native baseline controls
+
+- Multi-resize/rotate tests now wait for the server document revision to change after the first drag before reading exported geometry. The old Saved label could describe the previous revision. Geometry and history assertions remain unchanged; production code unchanged. Root Node 24 verification: 2 passed (`/tmp/multi-transform-root-revision.log`); scoped format and lint passed. Linux CI confirmation remains pending.
+- Native Font dialog verified: Superscript initializes 30%, Subscript initializes -25%, and they are mutually exclusive. Entering `10` without a percent suffix produced an invalid-value alert; Discard Change restored -25%. Entering `10%` succeeded and selected Superscript. Cancelled the dialog; reference title and Undo disabled verified. Current numeric offset field differs; percentage input implementation is delegated to link_visibility.

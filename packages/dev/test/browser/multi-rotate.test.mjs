@@ -11,7 +11,7 @@ import {
   getShapeRotation,
   loadPresentation,
 } from '@office-kit/pptx';
-import { startPreview } from '../helpers/server.mjs';
+import { startPreview, waitForState } from '../helpers/server.mjs';
 
 test(
   'multiple objects rotate around their shared centre, with bilingual history and cancellation',
@@ -81,9 +81,11 @@ test(
           { steps: 8 },
         );
       };
+      const beforeTurn = (await waitForState(preview.url, () => true)).revision;
       await beginTurn(89);
       await page.mouse.up();
       await page.keyboard.up('Shift');
+      await waitForState(preview.url, (state) => state.revision !== beforeTurn);
       await saved();
       const turned = await geometry();
       assert.equal(turned[0].rotation, 90);
