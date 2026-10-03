@@ -186,10 +186,10 @@ export const getShapeGradientFill = (shape: SlideShapeData): ReadGradientFill | 
 
 /**
  * Same as `getShapeGradientFill` but walks the layout → master
- * placeholder cascade when the shape itself carries no `<a:gradFill>`.
+ * placeholder cascade when the shape carries no explicit fill choice.
  * Stop `resolvedColor` values include the theme, color map, and color transforms.
- * Returns the first gradient found, or `null` when neither the shape
- * nor its inherited placeholder defines one.
+ * Returns the first gradient in the placeholder cascade, or `null` when an
+ * explicit non-gradient fill masks the cascade or no layer defines one.
  *
  * Resolves only gradients authored as a literal `<a:gradFill>` on the
  * shape or its placeholder ancestors. Gradients referenced through the
@@ -201,18 +201,32 @@ export const getShapeGradientFillEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
 ): ReadGradientFill | null => {
-  const readGradFromSpPr = (el: XmlElement): ReadGradientFill | null => {
+  // `undefined` means that this layer has no literal fill choice and the
+  // cascade may continue. `null` means that the layer has an explicit
+  // non-gradient (or malformed gradient) choice, which must mask ancestors.
+  const readGradFromSpPr = (el: XmlElement): ReadGradientFill | null | undefined => {
+    const background = getAttrValue(el, qname('', 'useBgFill', ''))?.trim();
+    if (background === '1' || background === 'true') return null;
     const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
-    if (!spPr) return null;
-    const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
-    if (!gradFill) return null;
+    if (!spPr) return undefined;
+    const fillChoice = spPr.children.find(
+      (child) =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['noFill', 'solidFill', 'gradFill', 'pattFill', 'blipFill', 'grpFill'].includes(
+          child.name.localName,
+        ),
+    );
+    if (!fillChoice || fillChoice.kind !== 'element') return undefined;
+    if (fillChoice.name.localName !== 'gradFill') return null;
+    const gradFill = fillChoice;
     return parseGradFill(gradFill, {
       theme: getPresentationTheme(pres),
       colorMap: getEffectiveColorMap(shape[SHAPE_SLIDE]),
     });
   };
   const own = readGradFromSpPr(shape[SHAPE_ELEMENT]);
-  if (own) return own;
+  if (own !== undefined) return own;
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
@@ -236,7 +250,7 @@ export const getShapeGradientFillEffective = (
   const layoutPh = findPh(layout[LAYOUT_PART].shapes);
   if (layoutPh) {
     const g = readGradFromSpPr(layoutPh);
-    if (g) return g;
+    if (g !== undefined) return g;
   }
 
   const pkg = pres[INTERNAL_PACKAGE];
@@ -252,7 +266,7 @@ export const getShapeGradientFillEffective = (
   const masterPh = findPh(masterShapes);
   if (masterPh) {
     const g = readGradFromSpPr(masterPh);
-    if (g) return g;
+    if (g !== undefined) return g;
   }
   return null;
 };
