@@ -382,14 +382,28 @@ export const parseEffectList = (
       const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
       const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
       const c = readEffectColor(child);
-      out.push({
-        kind: local,
+      const alignmentRaw = getAttrValue(child, qname('', 'algn', '')) ?? 'b';
+      const alignment = ['tl', 't', 'tr', 'l', 'ctr', 'r', 'bl', 'b', 'br'].includes(alignmentRaw)
+        ? (alignmentRaw as 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br')
+        : undefined;
+      const rotationRaw = getAttrValue(child, qname('', 'rotWithShape', '')) ?? 'true';
+      const shadow = {
         color: c.color,
         blurEmu: blur,
         distEmu: dist,
         angleDeg: dir / 60000,
         ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
-      });
+      };
+      out.push(
+        local === 'outerShdw'
+          ? {
+              kind: 'outerShdw',
+              ...shadow,
+              ...(alignment !== undefined ? { alignment } : {}),
+              rotateWithShape: rotationRaw !== '0' && rotationRaw !== 'false',
+            }
+          : { kind: 'innerShdw', ...shadow },
+      );
     } else if (local === 'glow') {
       const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
       const c = readEffectColor(child);
@@ -628,7 +642,7 @@ export const parseRPrLikeElement = (
     out.outline = outline;
   }
   // `<a:effectLst>` on a run holds the same effects as on a shape; a run that
-  // states one states it for its own glyphs. Only the two the library writes
+  // states one states it for its own glyphs. Only effects the library writes
   // are surfaced here — the rest stay readable through `getShapeEffects`'
   // union, which is not what a character format is.
   const effects = firstChildElement(rPr, qname('a', 'effectLst', NS.dml));
@@ -636,6 +650,18 @@ export const parseRPrLikeElement = (
     for (const effect of parseEffectList(effects, ctx?.theme ?? null)) {
       if (effect.kind === 'outerShdw') {
         out.shadow = {
+          color: effect.color,
+          ...(effect.alignment !== undefined ? { alignment: effect.alignment } : {}),
+          ...(effect.rotateWithShape !== undefined
+            ? { rotateWithShape: effect.rotateWithShape }
+            : {}),
+          blurEmu: effect.blurEmu,
+          offsetEmu: effect.distEmu,
+          angleDeg: effect.angleDeg,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+        };
+      } else if (effect.kind === 'innerShdw') {
+        out.innerShadow = {
           color: effect.color,
           blurEmu: effect.blurEmu,
           offsetEmu: effect.distEmu,

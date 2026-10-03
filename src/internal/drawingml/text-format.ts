@@ -32,10 +32,12 @@ import { asColor, parseColor } from './color.ts';
 import {
   type EffectPlacement,
   type GlowOptions,
+  type InnerShadowOptions,
   type ReflectionOptions,
   type ShadowOptions,
   removeEffect,
   setGlow,
+  setInnerShadow,
   setReflection,
   setShadow,
 } from './effects.ts';
@@ -180,6 +182,8 @@ export interface TextFormat {
    * `<a:effectLst>`. `null` removes it.
    */
   shadow?: ShadowOptions | null;
+  /** Inner shadow inside the glyphs — `<a:innerShdw>` in the run's effect list. */
+  innerShadow?: InnerShadowOptions | null;
   /**
    * Glow around the glyphs — `<a:glow>` in the run's own `<a:effectLst>`.
    * `null` removes it.
@@ -204,13 +208,21 @@ export interface TextOutline {
  */
 export type ReadTextFormat = Omit<
   TextFormat,
-  'color' | 'underlineColor' | 'highlight' | 'outline' | 'shadow' | 'glow' | 'reflection'
+  | 'color'
+  | 'underlineColor'
+  | 'highlight'
+  | 'outline'
+  | 'shadow'
+  | 'innerShadow'
+  | 'glow'
+  | 'reflection'
 > & {
   color?: string | null;
   underlineColor?: string | null;
   highlight?: string | null;
   outline?: ReadTextOutline | null;
   shadow?: (Omit<ShadowOptions, 'color'> & { readonly color?: string }) | null;
+  innerShadow?: (Omit<InnerShadowOptions, 'color'> & { readonly color?: string }) | null;
   glow?: (Omit<GlowOptions, 'color'> & { readonly color: string }) | null;
   reflection?: ReflectionOptions | null;
 };
@@ -226,9 +238,20 @@ export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: st
  * round trip never writes a color the schema has no room for.
  */
 export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
-  const { color, underlineColor, highlight, outline, shadow, glow, reflection, ...rest } = format;
+  const {
+    color,
+    underlineColor,
+    highlight,
+    outline,
+    shadow,
+    innerShadow,
+    glow,
+    reflection,
+    ...rest
+  } = format;
   const outlineColor = outline?.color === undefined ? null : asColor(outline.color);
   const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
+  const innerShadowColor = innerShadow?.color === undefined ? null : asColor(innerShadow.color);
   const glowColor = glow == null ? null : asColor(glow.color);
   return {
     ...rest,
@@ -249,6 +272,10 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
       ? {}
       : {
           shadow: {
+            ...(shadow.alignment === undefined ? {} : { alignment: shadow.alignment }),
+            ...(shadow.rotateWithShape === undefined
+              ? {}
+              : { rotateWithShape: shadow.rotateWithShape }),
             ...(shadow.blurEmu === undefined ? {} : { blurEmu: shadow.blurEmu }),
             ...(shadow.offsetEmu === undefined ? {} : { offsetEmu: shadow.offsetEmu }),
             ...(shadow.angleDeg === undefined ? {} : { angleDeg: shadow.angleDeg }),
@@ -256,6 +283,19 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
             ...(shadowColor === null ? {} : { color: shadowColor }),
           },
         }),
+    ...(innerShadow === undefined
+      ? {}
+      : innerShadow === null
+        ? { innerShadow: null }
+        : {
+            innerShadow: {
+              ...(innerShadow.blurEmu === undefined ? {} : { blurEmu: innerShadow.blurEmu }),
+              ...(innerShadow.offsetEmu === undefined ? {} : { offsetEmu: innerShadow.offsetEmu }),
+              ...(innerShadow.angleDeg === undefined ? {} : { angleDeg: innerShadow.angleDeg }),
+              ...(innerShadow.opacity === undefined ? {} : { opacity: innerShadow.opacity }),
+              ...(innerShadowColor === null ? {} : { color: innerShadowColor }),
+            },
+          }),
     ...(glow == null || glowColor === null
       ? {}
       : {
@@ -434,6 +474,10 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.shadow !== undefined) {
     if (format.shadow === null) removeEffect(rPr, 'outerShdw');
     else setShadow(rPr, format.shadow, rPrEffectPlacement);
+  }
+  if (format.innerShadow !== undefined) {
+    if (format.innerShadow === null) removeEffect(rPr, 'innerShdw');
+    else setInnerShadow(rPr, format.innerShadow, rPrEffectPlacement);
   }
   if (format.glow !== undefined) {
     if (format.glow === null) removeEffect(rPr, 'glow');

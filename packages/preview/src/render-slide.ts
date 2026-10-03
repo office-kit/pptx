@@ -2465,6 +2465,7 @@ export interface SvgTextArgs {
   readonly measure: TextMeasurer;
   readonly vert: VerticalLayout;
   readonly columns: ColumnLayout | null;
+  readonly reflectionOnly?: boolean;
   /** Maps an authored font name onto the family the measurer keys off.
    *  The render paths leave this unset (= `substituteFamily`, whose output
    *  must match the bundled TTFs' internal names for resvg). The audit path
@@ -2615,6 +2616,11 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
             }
           : {}),
         baseline,
+        ...(fmt?.reflection
+          ? {
+              reflection: fmt.reflection,
+            }
+          : {}),
         href: run.href ?? null,
         ...(run.hrefTip !== undefined ? { hrefTip: run.hrefTip } : {}),
       };
@@ -2701,6 +2707,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
     paragraphs,
     vert: a.vert,
     columns: a.columns,
+    ...(a.reflectionOnly ? { reflectionsOnly: true } : {}),
   };
   return input;
 };
@@ -3558,6 +3565,42 @@ const renderTextBody = (
   const offsetStyle = `translate:${model.anchorOffset.x}px ${model.anchorOffset.y}px;`;
   const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};${offsetStyle}${wrapStyle}${vertStyles}">${content}</div>`;
   const foreign = `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
+  // Keep the editable browser text in foreignObject, but paint character
+  // reflections in a sibling SVG layer. Mirroring an HTML inline box changes
+  // line metrics and reflects unstyled runs, so the deterministic layout
+  // engine emits only the affected glyph groups here.
+  const hasCharacterReflection = paraData.some((para) =>
+    para.runs.some((run) => run.fmt?.reflection !== undefined && run.fmt.reflection !== null),
+  );
+  let reflectionOverlay = '';
+  if (hasCharacterReflection) {
+    const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
+    const { x: rX, y: rY, w: rW, h: rH } = svgTextRect(svgVert);
+    reflectionOverlay = buildAndLayoutSvgText({
+      pres,
+      shape,
+      theme,
+      paraData,
+      numberLabels,
+      autoFitScale: authoredAutofit ? autoFitScale : 1,
+      lineHeightScale: 1 - (authoredAutofit?.lnSpcReduction ?? 0),
+      defaultPt,
+      themeFace,
+      defaultColor,
+      anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      anchorCentered: effectiveBody.anchorCentered ?? false,
+      wrap: effectiveBody.wrap !== 'none',
+      innerX: rX,
+      innerY: rY,
+      innerW: rW,
+      innerH: rH,
+      measure: browserTextMeasurer() ?? ctx.measure,
+      vert: svgVert,
+      columns: null,
+      reflectionOnly: true,
+      resolveFamily: browserFontFamily,
+    });
+  }
   // <a:bodyPr rot="N"/> rotates the text body around its own center
   // (PowerPoint pivots on the shape's text-anchor midpoint). Wrap the
   // foreignObject in a transform-aware <g> so the surrounding shape
@@ -3566,9 +3609,9 @@ const renderTextBody = (
   if (bodyRotDeg !== null && bodyRotDeg !== 0) {
     const pivotX = innerX + innerW / 2;
     const pivotY = innerY + innerH / 2;
-    return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${foreign}</g>`;
+    return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${reflectionOverlay}${foreign}</g>`;
   }
-  return foreign;
+  return reflectionOverlay + foreign;
 };
 
 // ---------------------------------------------------------------------------

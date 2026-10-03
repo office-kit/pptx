@@ -57,6 +57,8 @@ describe('DrawingML color transform percentage lexical forms', () => {
       {
         kind: 'outerShdw',
         color: '#00FF00',
+        alignment: 'b',
+        rotateWithShape: true,
         blurEmu: 0,
         distEmu: 0,
         angleDeg: 0,
@@ -89,6 +91,34 @@ describe('DrawingML color transform percentage lexical forms', () => {
         rotateWithShape: false,
       },
     ]);
+  });
+
+  it('reads omitted outer shadow anchors using schema defaults', () => {
+    const rPr = parseXml(
+      `<a:rPr xmlns:a="${A}"><a:effectLst><a:outerShdw><a:srgbClr val="000000"/></a:outerShdw></a:effectLst></a:rPr>`,
+    ).root;
+    expect(parseRPrLikeElement(rPr).shadow).toMatchObject({
+      alignment: 'b',
+      rotateWithShape: true,
+    });
+  });
+
+  it('preserves the native WordArt shadow anchor and rotation', async () => {
+    const xml = parseXml(
+      await readFile(
+        new URL('./fixtures/native/wordart-accent1-shadow-shape.xml', import.meta.url),
+        'utf8',
+      ),
+    ).root;
+    const txBody = firstChildElement(xml, qname('p', 'txBody', NS.pml));
+    const paragraph = txBody && firstChildElement(txBody, qname('a', 'p', NS.dml));
+    const run = paragraph && firstChildElement(paragraph, qname('a', 'r', NS.dml));
+    const rPr = run && firstChildElement(run, qname('a', 'rPr', NS.dml));
+    expect(rPr).not.toBeNull();
+    expect(parseRPrLikeElement(rPr!).shadow).toMatchObject({
+      alignment: 'ctr',
+      rotateWithShape: false,
+    });
   });
 
   it('reads the captured native WordArt reflection fixture', async () => {

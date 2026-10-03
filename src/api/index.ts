@@ -103,6 +103,7 @@ export type {
   ArrowOptions,
   ColorTransform,
   GlowOptions,
+  InnerShadowOptions,
   GradientFillOptions,
   GradientStop,
   LineDash,

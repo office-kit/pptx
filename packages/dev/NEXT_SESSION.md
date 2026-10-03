@@ -1,3 +1,11 @@
+## 2026-10-03: Character inner shadows and reflection preview
+
+- Character formatting now reads/writes `innerShadow`, supports independent removal/reset and paragraph inheritance, and preserves native outer-shadow alignment/rotation. Fixtures cover the captured WordArt inner shadow and centered outer shadow; omitted outer-shadow attributes resolve to the XSD defaults (`b`, rotation enabled).
+- SVG and foreignObject previews now emit character reflection glyph layers. Regressions cover mixed runs, wrap, unique mask IDs, positive scales, center anchors, raster visibility, default-effect run boundaries and avoiding duplicate bullets in the overlay.
+- Root quality gates passed with 3507 tests (109 skipped) before the final default-reflection grouping regression; final scoped verification is recorded in `/tmp/native-effects-final-focused.log`. Preview and DSL build/typecheck passed. The temporary Chromium smoke test is preserved at `/tmp/pptx-reflection-browser-audit.test.ts`; it only proves text/overlay coexistence and nonzero bounds, not native geometry or edit-entry stability.
+- Still incomplete: WordArt gallery application, gradient/pattern character fills, inner-shadow rendering, body 3D, reflection font-metric calibration, arbitrary fade-direction fidelity and fixed-axis reflection under shape/group rotation. `rotateWithShape=false` is preserved but does not yet render correctly under rotation. Do not claim full WordArt or PowerPoint parity.
+- Native connection retry still returns screen size 0×0. No native mutations were performed in this step. Re-check the current reference window and restoration state before further native mutations.
+
 ## 2026-10-02: Browser preview tracking matches SVG
 
 - Reproduced browserTextMeasurer undercounting the painted width with positive tracking (168.55px measured versus 172.56px painted). Like editing tabs, the browser preview now delegates tracking to canvas so glyph shaping and trailing CSS spacing agree with SVG.

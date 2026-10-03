@@ -12,6 +12,7 @@ import { buildColorElement } from './color.ts';
 
 const NAME_EFFECT_LST = qname('a', 'effectLst', NS.dml);
 const NAME_OUTER_SHDW = qname('a', 'outerShdw', NS.dml);
+const NAME_INNER_SHDW = qname('a', 'innerShdw', NS.dml);
 const NAME_GLOW = qname('a', 'glow', NS.dml);
 const NAME_REFLECTION = qname('a', 'reflection', NS.dml);
 const NAME_ALPHA = qname('a', 'alpha', NS.dml);
@@ -52,6 +53,24 @@ export interface ShadowOptions {
    * Direction in degrees, measured clockwise from the right (3 o'clock).
    * Defaults to 45° (down-right).
    */
+  readonly angleDeg?: number;
+  /** Opacity (0–1). Defaults to fully opaque. */
+  readonly opacity?: number;
+  /** Transform anchor; defaults to top left (`tl`) for authored shadows. */
+  readonly alignment?: 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
+  /** Whether the shadow rotates with its shape; defaults to false. */
+  readonly rotateWithShape?: boolean;
+}
+
+/** Character or shape inner-shadow parameters from `<a:innerShdw>`. */
+export interface InnerShadowOptions {
+  /** `#RRGGBB`, bare `RRGGBB`, or scheme token. Defaults to black. */
+  readonly color?: Color;
+  /** Edge blur in EMU. Defaults to 50800 (4pt). */
+  readonly blurEmu?: number;
+  /** Offset distance in EMU. Defaults to 38100 (3pt). */
+  readonly offsetEmu?: number;
+  /** Direction in degrees, measured clockwise from the right. Defaults to 45°. */
   readonly angleDeg?: number;
   /** Opacity (0–1). Defaults to fully opaque. */
   readonly opacity?: number;
@@ -224,12 +243,38 @@ export const setShadow = (
       attr(ATTR_BLUR_RAD, String(blur)),
       attr(ATTR_DIST, String(dist)),
       attr(ATTR_DIR, dir),
-      attr(ATTR_ALGN, 'tl'),
-      attr(ATTR_ROT_WITH_SHAPE, '0'),
+      attr(ATTR_ALGN, options.alignment ?? 'tl'),
+      attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === true ? '1' : '0'),
     ],
     children: [colorWithAlpha(color, options.opacity)],
   });
   putEffect(host, outerShdw, place);
+};
+
+/** Sets an inner shadow, replacing only a prior inner shadow. */
+export const setInnerShadow = (
+  host: XmlElement,
+  options: InnerShadowOptions = {},
+  place?: EffectPlacement,
+): void => {
+  const blur = emuExtent(options.blurEmu ?? 50800, 'setInnerShadow: blurEmu');
+  const dist = emuExtent(options.offsetEmu ?? 38100, 'setInnerShadow: offsetEmu');
+  const angleDeg = options.angleDeg ?? 45;
+  if (!Number.isFinite(angleDeg)) throw new RangeError('setInnerShadow: angleDeg must be finite');
+  const opacity = options.opacity;
+  if (opacity !== undefined && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1))
+    throw new RangeError('setInnerShadow: opacity must be in [0, 1]');
+  const dir = String(
+    Math.round(
+      (((angleDeg % FULL_TURN_DEGREES) + FULL_TURN_DEGREES) % FULL_TURN_DEGREES) *
+        ANGLE_UNITS_PER_DEGREE,
+    ) % FULL_TURN_UNITS,
+  );
+  const innerShdw = elem(NAME_INNER_SHDW, {
+    attrs: [attr(ATTR_BLUR_RAD, String(blur)), attr(ATTR_DIST, String(dist)), attr(ATTR_DIR, dir)],
+    children: [colorWithAlpha(options.color ?? '#000000', opacity)],
+  });
+  putEffect(host, innerShdw, place);
 };
 
 /**

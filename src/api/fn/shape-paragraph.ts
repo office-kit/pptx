@@ -119,6 +119,8 @@ const mergeRPrLayer = (base: Partial<ReadTextFormat>, layer: Partial<ReadTextFor
   }
   if (base.outline === undefined && layer.outline !== undefined) base.outline = layer.outline;
   if (base.shadow === undefined && layer.shadow !== undefined) base.shadow = layer.shadow;
+  if (base.innerShadow === undefined && layer.innerShadow !== undefined)
+    base.innerShadow = layer.innerShadow;
   if (base.glow === undefined && layer.glow !== undefined) base.glow = layer.glow;
   if (base.reflection === undefined && layer.reflection !== undefined)
     base.reflection = layer.reflection;
