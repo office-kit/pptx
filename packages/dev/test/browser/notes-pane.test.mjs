@@ -261,6 +261,60 @@ test(
 );
 
 test(
+  'composition end schedules notes autosave without a follow-up input',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-notes-composition-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide notes="A"/></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
+      await input.press('End');
+      const before = (await waitForState(preview.url, () => true)).revision;
+      await input.evaluate((node) => {
+        node.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+        node.textContent = 'A候';
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        range.collapse(false);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        node.dispatchEvent(
+          new InputEvent('input', {
+            bubbles: true,
+            inputType: 'insertCompositionText',
+            isComposing: true,
+          }),
+        );
+        node.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '候' }));
+      });
+      await waitForState(preview.url, (state) => state.revision !== before);
+      const saved = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      assert.equal(getSlideNotes(getSlides(saved)[0]), 'A候');
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
   'leaving focused notes routes Home formatting to the selected slide',
   { timeout: 60000 },
   async () => {
