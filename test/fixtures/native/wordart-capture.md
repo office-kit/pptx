@@ -11,6 +11,8 @@ The final slide XML was byte-identical to the pre-capture slide XML.
 | `wordart-black-shadow-shape.xml` | Fill: Black, Text color 1; Shadow |
 | `wordart-accent1-shadow-shape.xml` | Fill: Blue, Accent color 1; Shadow |
 | `wordart-accent2-outline-shape.xml` | Fill: Red, Accent color 2; Outline: Red, Accent color 2 |
+| `wordart-white-accent5-shadow-shape.xml` | Fill: White; Outline: Aqua, Accent color 5; Shadow |
+| `wordart-gray-gradient-shape.xml` | Gradient Fill, Gray |
 
 These are native shape XML extracts, with namespace declarations added to make
 each extract self-contained. They are evidence for implementing the WordArt
@@ -26,7 +28,12 @@ Observed payloads:
   no rotation with shape, RGB `6E747A` at 43% opacity.
 - Accent 2 outline: sets bold, outline width 22225 EMU with solid accent 2
   line, and accent 2 text fill with `lumMod=40000`, `lumOff=60000`.
-- All three apply the character properties to both the run and end-paragraph
+- White/accent 5 shadow: sets bold, white RGB fill, accent 5 outline width
+  10160 EMU; black shadow at 30% opacity, blur 38100 EMU, distance 22860 EMU,
+  direction 90 degrees, alignment `tl`, no rotation with shape.
+- Gray gradient: stops at 21% (`53575C`) and 88% (`C5C7CA`), linear angle
+  90 degrees, zero-width outline, and no explicit effects.
+- All five apply the character properties to both the run and end-paragraph
   properties. Shape geometry and body properties remain unchanged.
 
 Before implementing all presets, capture the remaining gallery entries and
