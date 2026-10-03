@@ -13,6 +13,7 @@ import {
   savePresentation,
   loadPresentation,
   getSlideNotesTextFormats,
+  getSlideNotesLineBreaks,
   getSlideNotes,
   getSlides,
 } from '@office-kit/pptx';
@@ -20,7 +21,7 @@ import { startPreview, waitForState } from '../helpers/server.mjs';
 
 test(
   'notes use their own theme and retain scheme colors after typing and Undo',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-notes-theme-'));
     let preview, browser;
@@ -305,6 +306,138 @@ test(
         repeatedZFormat?.format.color,
         'tx1',
         'repeated pending paragraph typing must save the inherited literal token',
+      );
+
+      // Shift+Enter is a paragraph-internal break.  A following regular Enter
+      // must still create a new <a:p>, and undo must remove both edits as one
+      // notes transaction without converting the soft break into a paragraph.
+      const beforeSoftText = await input.textContent();
+      const beforeSoftDeck = await read();
+      const notesPart = (deck) => {
+        const part = _internalPackageOf(deck).parts.find((item) =>
+          item.contentType.endsWith('notesSlide+xml'),
+        );
+        assert.ok(part);
+        return new TextDecoder().decode(part.data);
+      };
+      const beforeSoftXml = notesPart(beforeSoftDeck);
+      const beforeParagraphs = (beforeSoftXml.match(/<a:p(?:\s|>)/g) ?? []).length;
+      const beforeBreaks = (beforeSoftXml.match(/<a:br(?:\s|>)/g) ?? []).length;
+      const beforeSoftRevision = (await waitForState(preview.url, () => true)).revision;
+      await input.click();
+      await input.press('End');
+      await input.press('Shift+Enter');
+      assert.equal(await input.textContent(), `${beforeSoftText}\n`);
+      await input.press('Enter');
+      assert.equal(await input.textContent(), `${beforeSoftText}\n\n`);
+      await input.press('Q');
+      assert.equal(await input.textContent(), `${beforeSoftText}\n\nQ`);
+      await input.press('Tab');
+      const softEdit = await waitForState(
+        preview.url,
+        (state) => state.revision !== beforeSoftRevision,
+      );
+      const softSaved = await read();
+      const softXml = notesPart(softSaved);
+      const afterParagraphs = (softXml.match(/<a:p(?:\s|>)/g) ?? []).length;
+      const afterBreaks = (softXml.match(/<a:br(?:\s|>)/g) ?? []).length;
+      assert.equal(afterBreaks, beforeBreaks + 1, 'Shift+Enter must serialize one a:br');
+      assert.equal(
+        afterParagraphs,
+        beforeParagraphs + 1,
+        'regular Enter after Shift+Enter must add one a:p',
+      );
+      assert.equal(getSlideNotes(getSlides(softSaved)[0]), `${beforeSoftText}\n\nQ`);
+      await input.press('Meta+z');
+      await waitForState(preview.url, (state) => state.revision !== softEdit.revision);
+      assert.equal(
+        await input.textContent(),
+        beforeSoftText,
+        'Undo must remove the soft and regular break edits',
+      );
+      const softUndo = await read();
+      assert.equal(getSlideNotes(getSlides(softUndo)[0]), beforeSoftText);
+
+      // Selecting an existing paragraph separator and pressing Shift+Enter
+      // changes only its OOXML kind. The visible text is identical, so this
+      // specifically guards the explicit same-text edit path and round trip.
+      const existingText = await input.textContent();
+      const existingBreak = existingText.indexOf('\n');
+      assert.ok(existingBreak >= 0);
+      const existingBefore = await read();
+      const existingBeforeXml = notesPart(existingBefore);
+      const existingParagraphs = (existingBeforeXml.match(/<a:p(?:\s|>)/g) ?? []).length;
+      const existingBrs = (existingBeforeXml.match(/<a:br(?:\s|>)/g) ?? []).length;
+      assert.equal(
+        getSlideNotesLineBreaks(getSlides(existingBefore)[0]).find(
+          (item) => item.position === existingBreak,
+        )?.kind,
+        'paragraph',
+        'the selected separator must begin as a paragraph break',
+      );
+      const existingRevision = (await waitForState(preview.url, () => true)).revision;
+      await input.click();
+      await input.evaluate((el, offset) => {
+        const selection = window.getSelection();
+        const selected = document.createRange();
+        let remaining = offset;
+        const visit = (parent) => {
+          for (const node of parent.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+              if (remaining < node.data.length) {
+                selected.setStart(node, remaining);
+                selected.setEnd(node, remaining + 1);
+                return true;
+              }
+              remaining -= node.data.length;
+            } else if (node.nodeName === 'BR') {
+              if (remaining === 0) {
+                selected.setStartBefore(node);
+                selected.setEndAfter(node);
+                return true;
+              }
+              remaining -= 1;
+            } else if (visit(node)) {
+              return true;
+            }
+          }
+          return false;
+        };
+        if (visit(el)) {
+          selection?.removeAllRanges();
+          selection?.addRange(selected);
+          document.dispatchEvent(new Event('selectionchange'));
+          return;
+        }
+        throw new Error(`could not select notes offset ${offset}`);
+      }, existingBreak);
+      await input.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+      // Route the selection through native keyboard events as well so
+      // RichTextInput observes the logical range before handling Shift+Enter.
+      await input.press('ArrowLeft');
+      await input.press('Shift+ArrowRight');
+      await input.press('Shift+Enter');
+      assert.equal(await input.textContent(), existingText);
+      await input.press('Tab');
+      await waitForState(preview.url, (state) => state.revision !== existingRevision);
+      const existingSaved = await read();
+      const existingSavedXml = notesPart(existingSaved);
+      assert.equal(
+        (existingSavedXml.match(/<a:p(?:\s|>)/g) ?? []).length,
+        existingParagraphs - 1,
+        'same-text Shift+Enter must replace one paragraph separator',
+      );
+      assert.equal(
+        (existingSavedXml.match(/<a:br(?:\s|>)/g) ?? []).length,
+        existingBrs + 1,
+        'same-text Shift+Enter must serialize an a:br',
+      );
+      assert.equal(
+        getSlideNotesLineBreaks(getSlides(existingSaved)[0]).find(
+          (item) => item.position === existingBreak,
+        )?.kind,
+        'break',
+        'the converted separator must remain a soft break after save/load',
       );
     } finally {
       await browser?.close();

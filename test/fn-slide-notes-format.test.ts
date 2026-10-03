@@ -11,6 +11,7 @@ import {
   createPresentation,
   findSlideLayout,
   getSlideNotes,
+  getSlideNotesLineBreaks,
   getSlideNotesParagraphEndFormat,
   getSlideNotesTextFormats,
   resolveSlideNotesTextColor,
@@ -42,6 +43,7 @@ describe('fn API: speaker-notes run formats', () => {
     addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
     const slide = getSlides(pres).at(-1)!;
     setSlideNotes(slide, 'A😀\nBeta');
+    expect(getSlideNotesLineBreaks(slide)).toEqual([{ position: 3, kind: 'paragraph' }]);
     setSlideNotesFormat(slide, { bold: true }, { range: { start: 1, end: 3 } });
     setSlideNotesFormat(slide, { italic: true }, { range: { start: 4, end: 8 } });
     expect(getSlideNotesTextFormats(slide)).toEqual(
@@ -68,6 +70,40 @@ describe('fn API: speaker-notes run formats', () => {
     const restored = getSlides(await loadPresentation(before)).at(-1)!;
     expect(getSlideNotes(restored)).toBe('A😀\nBeta');
     expect(getSlideNotesTextFormats(restored)).toEqual(getSlideNotesTextFormats(slide));
+  });
+
+  it('preserves soft line breaks separately from paragraph breaks', async () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    setSlideNotes(slide, '😀');
+    setSlideNotes(slide, '😀\nB', { newlines: 'break' });
+    setSlideNotes(slide, '\nC', { range: { start: 4, end: 4 }, newlines: 'paragraph' });
+    expect(getSlideNotes(slide)).toBe('😀\nB\nC');
+    expect(getSlideNotesLineBreaks(slide)).toEqual([
+      { position: 2, kind: 'break' },
+      { position: 4, kind: 'paragraph' },
+    ]);
+    const pkg = _internalPackageOf(pres);
+    const notes = pkg.parts.find((part) => part.contentType.endsWith('notesSlide+xml'))!;
+    expect(new TextDecoder().decode(notes.data)).toMatch(/<a:br(?:\s|>)/);
+    const restored = getSlides(await loadPresentation(await savePresentation(pres))).at(-1)!;
+    expect(getSlideNotes(restored)).toBe('😀\nB\nC');
+    expect(getSlideNotesLineBreaks(restored)).toEqual([
+      { position: 2, kind: 'break' },
+      { position: 4, kind: 'paragraph' },
+    ]);
+    const restoredNotes = _internalPackageOf(
+      await loadPresentation(await savePresentation(pres)),
+    ).parts.find((part) => part.contentType.endsWith('notesSlide+xml'))!;
+    expect(new TextDecoder().decode(restoredNotes.data)).toMatch(/<a:br(?:\s|>)/);
+
+    const absentSlide = addBlankSlide(pres);
+    setSlideNotes(absentSlide, 'C\nD', { newlines: 'break' });
+    expect(getSlideNotes(absentSlide)).toBe('C\nD');
+    const absentNotes = _internalPackageOf(pres)
+      .parts.filter((part) => part.contentType.endsWith('notesSlide+xml'))
+      .at(-1)!;
+    expect(new TextDecoder().decode(absentNotes.data)).toMatch(/<a:br(?:\s|>)/);
   });
 
   it('creates an empty notes part for paragraph-end typing format and round-trips it', async () => {
