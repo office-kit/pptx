@@ -61,7 +61,7 @@ does not define a percentage denominator for all PowerPoint operations.
 
 ## Zoom controls and View ribbon
 
-- Status percentage opens the Zoom dialog. Added the two-segment zoom slider (10–100–400%), keyboard percentage changes, Home/End and 10-point increment/decrement controls from the earlier implementation. Native exact stepping still needs direct comparison.
+- Status percentage opens the Zoom dialog. Added the two-segment zoom slider (10–100–400%), keyboard percentage changes, Home/End and 10-point increment/decrement controls from the earlier implementation. Native button comparison on 2026-10-03 confirmed 120 → 130, custom 123 → 130, and 130 → 120, matching the controller's next/previous multiple-of-ten behavior. Slider keyboard stepping remains unverified.
 - Added a View ribbon surface for Normal/Slide Sorter, thumbnail visibility, drawing guides, Grid Options, Zoom and Fit to Window. View state does not change document history. This is an incremental subset, not the complete native View ribbon.
 - Ribbon tabs expose tablist/tab/tabpanel semantics with arrow/Home/End navigation. Existing browser locators now address tabs by their semantic role.
 - Zoom browser tests cover endpoints, keyboard adjustment, view-specific zoom and dialog cancellation; rich-text tests verify scaled text and selection preservation.
