@@ -16,6 +16,8 @@ export function browserTextMeasurer(): TextMeasurer | undefined {
       ascentPx: metrics.fontBoundingBoxAscent,
       descentPx: metrics.fontBoundingBoxDescent,
       lineGapPx: 0,
+      inkAscentPx: metrics.actualBoundingBoxAscent,
+      inkDescentPx: metrics.actualBoundingBoxDescent,
     };
   };
 }

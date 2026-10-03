@@ -35,6 +35,11 @@ export interface MeasureResult {
   readonly ascentPx?: number;
   readonly descentPx?: number;
   readonly lineGapPx?: number;
+  /** Ink bounds of the measured glyphs, relative to the baseline. These are
+   * signed distances, separate from font line metrics, and optional because heuristic
+   * measurers cannot determine them. */
+  readonly inkAscentPx?: number;
+  readonly inkDescentPx?: number;
   /** True when the width is an estimate rather than a glyph measurement —
    *  the heuristic measurer always, the fontkit measurer when the resolved
    *  font lacks a glyph and per-character ratios filled the gap. The audit

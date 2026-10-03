@@ -151,12 +151,40 @@ export const buildFontkitMeasurer = (options: FontkitMeasurerOptions = {}): Text
     let widthPx = 0;
     let approximate = false;
     let metricsFont: fontkit.Font | null = null;
+    // Keep the bounds signed until the end. Initialising either side at zero
+    // would turn a glyph entirely above/below the baseline into a false ink
+    // extent on the opposite side.
+    let inkTop = Number.NEGATIVE_INFINITY;
+    let inkBottom = Number.POSITIVE_INFINITY;
     let segment = '';
     let segmentFont: fontkit.Font | null = null;
     const flush = (): void => {
       if (segment === '' || segmentFont === null) return;
       const scale = spec.sizePx / segmentFont.unitsPerEm;
-      widthPx += segmentFont.layout(segment, { kern: spec.kerning !== false }).advanceWidth * scale;
+      const run = segmentFont.layout(segment, { kern: spec.kerning !== false });
+      widthPx += run.advanceWidth * scale;
+      let penY = 0;
+      for (const [index, glyph] of run.glyphs.entries()) {
+        const box = glyph.bbox;
+        if (
+          !box ||
+          !Number.isFinite(box.minY) ||
+          !Number.isFinite(box.maxY) ||
+          box.maxY <= box.minY
+        ) {
+          penY += run.positions[index]?.yAdvance ?? 0;
+          continue;
+        }
+        // fontkit reports the glyph bbox in font units and shaping can move a
+        // glyph vertically (combining marks are the common case). Include the
+        // shaped position so the result describes the painted glyph, rather
+        // than the unpositioned outline.
+        const position = run.positions[index];
+        const glyphY = penY + (position?.yOffset ?? 0);
+        inkTop = Math.max(inkTop, (box.maxY + glyphY) * scale);
+        inkBottom = Math.min(inkBottom, (box.minY + glyphY) * scale);
+        penY += position?.yAdvance ?? 0;
+      }
       metricsFont ??= segmentFont;
       segment = '';
     };
@@ -184,6 +212,13 @@ export const buildFontkitMeasurer = (options: FontkitMeasurerOptions = {}): Text
       ascentPx: vm.ascent * vmScale,
       descentPx: vm.descent * vmScale,
       lineGapPx: vm.lineGap * vmScale,
+      ...(!approximate && metricsFont !== null
+        ? {
+            inkAscentPx: inkTop === Number.NEGATIVE_INFINITY ? 0 : inkTop,
+            inkDescentPx:
+              inkBottom === Number.POSITIVE_INFINITY || inkBottom === 0 ? 0 : -inkBottom,
+          }
+        : {}),
       ...(approximate ? { approximate } : {}),
     };
   };
