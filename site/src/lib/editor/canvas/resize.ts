@@ -2,6 +2,47 @@ import type { Rect } from './snapping.ts';
 
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
+const handleVectors: Record<ResizeHandle, readonly [number, number]> = {
+  nw: [-1, -1],
+  n: [0, -1],
+  ne: [1, -1],
+  e: [1, 0],
+  se: [1, 1],
+  s: [0, 1],
+  sw: [-1, 1],
+  w: [-1, 0],
+};
+const vectorHandles: Record<string, ResizeHandle> = {
+  '-1,-1': 'nw',
+  '0,-1': 'n',
+  '1,-1': 'ne',
+  '1,0': 'e',
+  '1,1': 'se',
+  '0,1': 's',
+  '-1,1': 'sw',
+  '-1,0': 'w',
+};
+
+/**
+ * Map a source local handle into a target whose rotation differs by quarters.
+ * PowerPoint snaps the relative rotation to the nearest quarter turn while
+ * resizing a multi-selection, rather than continuously changing the handle.
+ */
+function relativeResizeHandle(handle: ResizeHandle, quarterTurns: number): ResizeHandle {
+  const [x, y] = handleVectors[handle]!;
+  const turns = ((quarterTurns % 4) + 4) % 4;
+  if (turns === 0) return handle;
+  if (turns === 1) return vectorHandles[`${y},${-x}`]!;
+  if (turns === 2) return vectorHandles[`${-x},${-y}`]!;
+  return vectorHandles[`${-y},${x}`]!;
+}
+
+/** Return the nearest quarter-turn, with +/-45 degree ties rounding symmetrically. */
+function relativeQuarterTurns(sourceRotation: number, targetRotation: number): number {
+  const relative = ((((targetRotation - sourceRotation + 180) % 360) + 360) % 360) - 180;
+  return Math.sign(relative) * Math.round(Math.abs(relative) / 90);
+}
+
 /** Resize in the shape's local axes, keeping the opposite handle fixed on the slide. */
 export function resizeRect(
   rect: Rect,
@@ -58,16 +99,21 @@ export function resizeSelectionRects(
   const target = resizeRect(grabbed, handle, delta, grabbed.rotation ?? 0, minimum, keepAspect);
   const scaleX = grabbed.w > 0 ? target.w / grabbed.w : 1;
   const scaleY = grabbed.h > 0 ? target.h / grabbed.h : 1;
-  const sx = handle.includes('e') ? 1 : handle.includes('w') ? -1 : 0;
-  const sy = handle.includes('s') ? 1 : handle.includes('n') ? -1 : 0;
+  const sourceRotation = grabbed.rotation ?? 0;
   return rects.map((rect) => {
     const rotation = rect.rotation ?? 0;
     const angle = (rotation * Math.PI) / 180;
-    const dx = sx * rect.w * (scaleX - 1);
-    const dy = sy * rect.h * (scaleY - 1);
+    const quarterTurns = relativeQuarterTurns(sourceRotation, rotation);
+    const targetHandle = relativeResizeHandle(handle, quarterTurns);
+    const [sx, sy] = handleVectors[targetHandle]!;
+    const swapsAxes = Math.abs(quarterTurns % 2) === 1;
+    const targetScaleX = swapsAxes ? scaleY : scaleX;
+    const targetScaleY = swapsAxes ? scaleX : scaleY;
+    const dx = sx * rect.w * (targetScaleX - 1);
+    const dy = sy * rect.h * (targetScaleY - 1);
     return resizeRect(
       rect,
-      handle,
+      targetHandle,
       {
         x: dx * Math.cos(angle) - dy * Math.sin(angle),
         y: dx * Math.sin(angle) + dy * Math.cos(angle),
