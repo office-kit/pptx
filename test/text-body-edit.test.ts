@@ -16,6 +16,23 @@ const rich =
   '<a:p><a:pPr algn="ctr"/><a:r><a:rPr b="1"/><a:t>Hello </a:t></a:r><a:r><a:rPr i="1"/><a:t>世界🌎</a:t></a:r><a:endParaRPr sz="1800"/></a:p><a:p><a:pPr lvl="2"/><a:r><a:rPr u="sng"/><a:t>Tail</a:t></a:r></a:p>';
 
 describe('incremental text replacement', () => {
+  it('changes an explicitly replaced separator without changing visible text', () => {
+    const doc = body(
+      '<a:p><a:r><a:rPr b="1"/><a:t>🌎</a:t></a:r></a:p><a:p><a:fld id="{id}" type="slidenum"><a:rPr i="1"/><a:t>1</a:t></a:fld></a:p>',
+    );
+    editTextBody(doc.root, '\n', { start: 2, end: 3 }, 'break');
+    expect(textBodyText(doc.root)).toBe('🌎\n1');
+    expect(serializeXml(doc)).toContain('<a:br>');
+    expect(serializeXml(doc)).toContain('<a:fld id="{id}" type="slidenum">');
+    expect(serializeXml(doc).match(/<a:p>/g)).toHaveLength(1);
+
+    editTextBody(doc.root, '\n', { start: 2, end: 3 }, 'paragraph');
+    expect(textBodyText(doc.root)).toBe('🌎\n1');
+    expect(serializeXml(doc)).not.toContain('<a:br');
+    expect(serializeXml(doc)).toContain('<a:fld id="{id}" type="slidenum">');
+    expect(serializeXml(doc).match(/<a:p>/g)).toHaveLength(2);
+  });
+
   it('round-trips arbitrary insertions and paragraph changes', () => {
     fc.assert(
       fc.property(
