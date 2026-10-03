@@ -52,7 +52,7 @@ const FILL_CHOICE_LOCAL_NAMES = new Set([
   'grpFill',
 ]);
 
-const removeAnyFill = (host: XmlElement): void => {
+export const removeAnyFill = (host: XmlElement): void => {
   host.children = host.children.filter(
     (c) =>
       !(
