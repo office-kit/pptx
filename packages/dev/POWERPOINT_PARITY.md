@@ -14,10 +14,11 @@ The earlier implementation remains preserved on `feat/mac-powerpoint-parity` at 
 
 Reconcile the remaining operations from the earlier branch. Continue native visual/interaction comparison. All-operation Mac PowerPoint UI parity remains incomplete. The older branch contains the detailed comparison history in its version of this file.
 
-Current unresolved areas (2026-10-01; the sections below retain the comparison history):
+Current unresolved areas (2026-10-03; the sections below retain the comparison history):
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| WordArt                  | Native captures exist for all 20 presets; gallery application, text gradient/pattern fills, inner shadows, body 3D and complete reflection rendering/interaction remain incomplete.              |
 | Outline                  | Exact formatting-display metrics/persistence, remaining text menu commands and native comparison of cross-slide selection and drag gestures.                                                     |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
