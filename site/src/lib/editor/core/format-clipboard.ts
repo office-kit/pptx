@@ -83,6 +83,11 @@ interface ShapePaint {
     offsetEmu: number;
     angleDeg: number;
     opacity?: number;
+    alignment?: Extract<
+      ReturnType<typeof getShapeEffects>[number],
+      { kind: 'outerShdw' }
+    >['alignment'];
+    rotateWithShape?: boolean;
   } | null;
   readonly glow: { color: string; radiusEmu: number } | null;
 }
@@ -157,6 +162,10 @@ const paintOf = (pres: PresentationData, shape: SlideShapeData): ShapePaint => {
           blurEmu: shadow.blurEmu,
           offsetEmu: shadow.distEmu,
           angleDeg: shadow.angleDeg,
+          ...(shadow.alignment === undefined ? {} : { alignment: shadow.alignment }),
+          ...(shadow.rotateWithShape === undefined
+            ? {}
+            : { rotateWithShape: shadow.rotateWithShape }),
           ...(shadow.opacity === undefined ? {} : { opacity: shadow.opacity }),
         }
       : null,
