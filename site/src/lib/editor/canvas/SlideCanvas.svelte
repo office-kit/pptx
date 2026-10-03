@@ -79,7 +79,6 @@
   import { shapeScope, invert, project } from './group-space.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { resizeRect, resizeSelectionRects, type ResizeHandle } from './resize.ts';
-  import { rotateRect, selectionBounds } from './rotation.ts';
   import { type Guide, type Rect } from './snapping.ts';
   import { getGridSpacing, getSnapToGrid } from '@office-kit/pptx';
   import { snapTransformedGrid, snapTransformedMove } from './transformed-snapping.ts';
@@ -203,7 +202,7 @@
     startRects: Map<number, Rect>;
     startRot: number;
     startRotations: Map<number, number>;
-    selectionRect: Rect;
+    grabbedRect: Rect;
     startAngle: number;
     turn: number;
     center: { x: number; y: number }; // rotate center, EMU
@@ -213,12 +212,6 @@
     moved: boolean;
   }
   let drag = $state<Drag | null>(null);
-  const multiFrame = $derived.by(() => {
-    if (selectedIds.size < 2) return null;
-    if (drag?.mode === 'rotate' && drag.ids.length > 1) return { ...drag.selectionRect, rotation: drag.turn };
-    const rects = boxes.filter(box => selectedIds.has(box.id)).map(box => ({ ...resolvedRect(box.id)!, rotation: box.rotation }));
-    return rects.length > 1 ? { ...selectionBounds(rects), rotation: 0 } : null;
-  });
   let guides = $state<readonly Guide[]>([]);
   let textInput = $state<RichTextInput>();
   let textRange = $state({ start: 0, end: 0 });
@@ -332,10 +325,8 @@
       if (r) startRects.set(id, r);
     }
     const startRotations = new Map(boxes.map(box => [box.id, box.rotation]));
-    const selectionRect = ids.length > 1
-      ? selectionBounds([...startRects].map(([id, rect]) => ({ ...rect, rotation: startRotations.get(id)! })))
-      : startRects.get(ids[0]!)!;
-    const center = { x: selectionRect.x + selectionRect.w / 2, y: selectionRect.y + selectionRect.h / 2 };
+    const grabbedRect = startRects.get(ids[0]!)!;
+    const center = { x: grabbedRect.x + grabbedRect.w / 2, y: grabbedRect.y + grabbedRect.h / 2 };
     const pointer = localPoint({ x: e.clientX, y: e.clientY });
     const startAngle = Math.atan2(pointer.y - center.y, pointer.x - center.x) * 180 / Math.PI;
     const singleShape = ids.length === 1 ? doc.shapeById(doc.selection.slideIndex, ids[0]!) : undefined;
@@ -347,7 +338,7 @@
       startRects,
       startRot: startRotations.get(ids[0]!) ?? 0,
       startRotations,
-      selectionRect,
+      grabbedRect,
       startAngle,
       turn: 0,
       center,
@@ -430,7 +421,7 @@
       // PowerPoint applies the saved ratio to corner handles; edge handles still stretch one axis.
       const keepAspect = drag.shift || (drag.aspectLocked && drag.handle!.length === 2);
       const resized = drag.ids.length > 1
-        ? resizeSelectionRects(entries.map(([, rect]) => rect), drag.selectionRect, drag.handle!, delta, minimum)
+        ? resizeSelectionRects(entries.map(([id, rect]) => ({ ...rect, rotation: drag!.startRotations.get(id)! })), { ...drag.grabbedRect, rotation: drag.startRot }, drag.handle!, delta, minimum, keepAspect)
         : [resizeRect(entries[0]![1], drag.handle!, delta, drag.startRot, minimum, keepAspect)];
       guides = [];
       doc.applyLive(() => {
@@ -444,15 +435,13 @@
       const angle = Math.atan2(last.y - drag.center.y, last.x - drag.center.x) * 180 / Math.PI;
       const delta = ((angle - drag.startAngle + 540) % 360) - 180;
       const step = drag.shift ? 15 : 1;
-      const base = drag.ids.length === 1 ? drag.startRot : 0;
+      const base = drag.startRot;
       drag.turn = Math.round((base + delta) / step) * step - base;
       doc.applyLive(() => {
-        for (const [id, bounds] of drag!.startRects) {
+        for (const id of drag!.startRects.keys()) {
           const s = doc.shapeById(doc.selection.slideIndex, id);
           if (!s) continue;
-          const rotated = rotateRect({ ...bounds, rotation: drag!.startRotations.get(id)! }, drag!.center, drag!.turn);
-          if (drag!.ids.length > 1) setShapeBounds(s, { x: Math.round(rotated.x) as never, y: Math.round(rotated.y) as never, w: bounds.w as never, h: bounds.h as never });
-          setShapeRotation(s, rotated.rotation);
+          setShapeRotation(s, (drag!.startRotations.get(id)! + drag!.turn + 360) % 360);
         }
       });
     }
@@ -526,26 +515,12 @@
   function onHandleDown(e: PointerEvent, box: Box, handle: Handle) {
     if (e.button !== 0 || cancelling) return;
     e.stopPropagation();
-    doc.selectShape(doc.selection.slideIndex, box.id);
-    startDrag('resize', handle, [box.id], e);
+    startDrag('resize', handle, [box.id, ...[...selectedIds].filter(id => id !== box.id)], e);
   }
   function onRotateDown(e: PointerEvent, box: Box) {
     if (e.button !== 0 || cancelling) return;
     e.stopPropagation();
-    doc.selectShape(doc.selection.slideIndex, box.id);
-    startDrag('rotate', undefined, [box.id], e);
-  }
-
-  function onMultiResizeDown(e: PointerEvent, handle: Handle) {
-    if (e.button !== 0 || cancelling) return;
-    e.stopPropagation();
-    startDrag('resize', handle, [...selectedIds], e);
-  }
-
-  function onMultiRotateDown(e: PointerEvent) {
-    if (e.button !== 0 || cancelling) return;
-    e.stopPropagation();
-    startDrag('rotate', undefined, [...selectedIds], e);
+    startDrag('rotate', undefined, [box.id, ...[...selectedIds].filter(id => id !== box.id)], e);
   }
 
   // ---- Text editing ------------------------------------------------------
@@ -1414,11 +1389,11 @@
                 <div class="cell-selection" aria-hidden="true" style="left:{cell.left}%; top:{cell.top}%; width:{cell.width}%; height:{cell.height}%;"></div>
               {/each}
             {/if}
-            {#if isSel && !editing && selectedIds.size === 1}
-              {#if !lockedIds.has(box.id)}<button class="rotate" aria-label={t('Rotate')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={(e) => onRotateDown(e, box)}></button>{/if}
+            {#if isSel && !editing}
+              {#if !selectionLocked}<button class="rotate" aria-label={t('Rotate')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={(e) => onRotateDown(e, box)}></button>{/if}
               {#each HANDLES as hd (hd.h)}
                 <button
-                  class="handle" class:locked={lockedIds.has(box.id)} disabled={lockedIds.has(box.id)}
+                  class="handle" class:locked={selectionLocked} disabled={selectionLocked}
                   aria-label={t(`Resize ${hd.h}`)}
                   title={t('Hold Shift to preserve aspect ratio')}
                   style="left:{hd.cx}%; top:{hd.cy}%; cursor:{hd.cur};"
@@ -1428,17 +1403,6 @@
             {/if}
           </div>
         {/each}
-
-        {#if multiFrame && !editing}
-          <div class="multi-selection" style="left:{multiFrame.x * pxPerEmuX()}px; top:{multiFrame.y * pxPerEmuY()}px; width:{multiFrame.w * pxPerEmuX()}px; height:{multiFrame.h * pxPerEmuY()}px; transform: rotate({multiFrame.rotation}deg);">
-            {#if !selectionLocked}<button class="rotate" aria-label={t('Rotate selected objects')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={onMultiRotateDown}></button>{/if}
-            {#each HANDLES.filter(handle => handle.h.length === 2) as hd (hd.h)}
-              <button class="handle" class:locked={selectionLocked} disabled={selectionLocked} aria-label={t(`Scale selection ${hd.h}`)} title={t('Resize selection proportionally')}
-                style="left:{hd.cx}%; top:{hd.cy}%; cursor:{hd.cur};" onpointerdown={e => onMultiResizeDown(e, hd.h)}></button>
-            {/each}
-          </div>
-        {/if}
-
 
         <!-- marquee -->
         {#if marquee}
@@ -1596,7 +1560,6 @@
     outline: 1.5px solid var(--ok-selected-border);
   }
   .cell-selection { position: absolute; pointer-events: none; background: color-mix(in srgb, var(--ok-selected-border) 16%, transparent); outline: 2px solid var(--ok-selected-border); outline-offset: -2px; }
-  .multi-selection { position: absolute; pointer-events: none; outline: 1px dashed var(--ok-selected-border); transform-origin: center; }
   .handle.locked { background: linear-gradient(135deg, white 43%, #777 44%, #777 56%, white 57%); cursor: default !important; }
   .handle {
     position: absolute;

@@ -46,24 +46,35 @@ export function resizeRect(
   };
 }
 
-/** Uniformly scale a selection without introducing shear into rotated objects. */
+/** PowerPoint resizes each selected object about its own opposite handle. */
 export function resizeSelectionRects(
-  rects: readonly Rect[],
-  frame: Rect,
+  rects: readonly (Rect & { rotation?: number })[],
+  grabbed: Rect & { rotation?: number },
   handle: ResizeHandle,
   delta: { x: number; y: number },
   minimum: { w: number; h: number },
+  keepAspect = false,
 ): Rect[] {
-  const target = resizeRect(frame, handle, delta, 0, minimum, true);
-  const scale = frame.w > 0 ? target.w / frame.w : frame.h > 0 ? target.h / frame.h : 1;
-  const anchor = {
-    x: frame.x + (handle.includes('w') ? frame.w : handle.includes('e') ? 0 : frame.w / 2),
-    y: frame.y + (handle.includes('n') ? frame.h : handle.includes('s') ? 0 : frame.h / 2),
-  };
-  return rects.map((rect) => ({
-    x: anchor.x + (rect.x - anchor.x) * scale,
-    y: anchor.y + (rect.y - anchor.y) * scale,
-    w: rect.w * scale,
-    h: rect.h * scale,
-  }));
+  const target = resizeRect(grabbed, handle, delta, grabbed.rotation ?? 0, minimum, keepAspect);
+  const scaleX = grabbed.w > 0 ? target.w / grabbed.w : 1;
+  const scaleY = grabbed.h > 0 ? target.h / grabbed.h : 1;
+  const sx = handle.includes('e') ? 1 : handle.includes('w') ? -1 : 0;
+  const sy = handle.includes('s') ? 1 : handle.includes('n') ? -1 : 0;
+  return rects.map((rect) => {
+    const rotation = rect.rotation ?? 0;
+    const angle = (rotation * Math.PI) / 180;
+    const dx = sx * rect.w * (scaleX - 1);
+    const dy = sy * rect.h * (scaleY - 1);
+    return resizeRect(
+      rect,
+      handle,
+      {
+        x: dx * Math.cos(angle) - dy * Math.sin(angle),
+        y: dx * Math.sin(angle) + dy * Math.cos(angle),
+      },
+      rotation,
+      minimum,
+      keepAspect,
+    );
+  });
 }

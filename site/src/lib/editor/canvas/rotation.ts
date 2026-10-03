@@ -23,21 +23,3 @@ export function selectionBounds(rects: readonly RotatedRect[]): Rect {
   }
   return { x: left, y: top, w: right - left, h: bottom - top };
 }
-
-/** Rotate centres and orientations together, preserving sizes and spacing. */
-export function rotateRect(
-  rect: RotatedRect,
-  centre: { x: number; y: number },
-  degrees: number,
-): RotatedRect {
-  const angle = (degrees * Math.PI) / 180;
-  const x = rect.x + rect.w / 2 - centre.x,
-    y = rect.y + rect.h / 2 - centre.y;
-  return {
-    x: centre.x + x * Math.cos(angle) - y * Math.sin(angle) - rect.w / 2,
-    y: centre.y + x * Math.sin(angle) + y * Math.cos(angle) - rect.h / 2,
-    w: rect.w,
-    h: rect.h,
-    rotation: (((rect.rotation + degrees) % 360) + 360) % 360,
-  };
-}

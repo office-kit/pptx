@@ -14,7 +14,7 @@ import {
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
 test(
-  'multiple objects rotate around their shared centre, with bilingual history and cancellation',
+  'multiple objects rotate around their own centres, with bilingual history and cancellation',
   { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-multi-rotate-'));
@@ -55,15 +55,16 @@ test(
         .click({ modifiers: ['Shift'] });
       assert.equal(await editor.locator('.hit.selected').count(), 2);
       const handle = () =>
-        editor.getByRole('button', {
-          name: ja ? '選択したオブジェクトを回転' : 'Rotate selected objects',
-          exact: true,
-        });
-      assert.equal(await handle().count(), 1, 'multiple selection has a shared rotation handle');
+        editor
+          .locator('.hit')
+          .nth(0)
+          .getByRole('button', {
+            name: ja ? '回転' : 'Rotate',
+            exact: true,
+          });
+      assert.equal(await handle().count(), 1, 'each selected object has its own rotation handle');
       const beginTurn = async (degrees, single = false) => {
-        const frame = await editor
-          .locator(single ? '.hit.selected' : '.multi-selection')
-          .boundingBox();
+        const frame = await editor.locator('.hit.selected').first().boundingBox();
         const button = await (
           single ? editor.getByRole('button', { name: '回転', exact: true }) : handle()
         ).boundingBox();
@@ -91,18 +92,9 @@ test(
       assert.equal(turned[0].rotation, 90);
       assert.equal(turned[1].rotation, 120);
       assert.deepEqual(turned[2], original[2]);
-      // Initial centres differ by four inches horizontally; the same vector is
-      // vertical after rotating the selection, while object sizes stay unchanged.
-      const centre = (rect) => ({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
-      const a = centre(turned[0]),
-        b = centre(turned[1]);
-      const pivotX = ((2 + 7 + Math.cos(Math.PI / 6) + 0.5 * Math.sin(Math.PI / 6)) / 2) * 914400;
-      const pivotY = 2.5 * 914400;
-      assert.ok(Math.abs(a.x - pivotX) <= 1);
-      assert.ok(Math.abs(a.y - (pivotY + 3 * 914400 - pivotX)) <= 1);
-      assert.ok(Math.abs(a.x - b.x) <= 1);
-      assert.ok(Math.abs(b.y - a.y - 4 * 914400) <= 1);
       for (let i = 0; i < 2; i++) {
+        assert.equal(turned[i].x, original[i].x);
+        assert.equal(turned[i].y, original[i].y);
         assert.equal(turned[i].w, original[i].w);
         assert.equal(turned[i].h, original[i].h);
       }
