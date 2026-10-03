@@ -36,18 +36,80 @@ npm install -D @office-kit/pptx-dev@latest
 npm run dev
 ```
 
-Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
-has a vertical thumbnail strip, a large slide canvas and an AI chat panel on the right. Click a thumbnail or use
-arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
-exit) are viewing controls. Click an object or drag an area for an AI instruction, or double-click text
-to save a literal directly. All edits are persisted in TSX.
-Keep the server running throughout the edit/review loop. Saving updates only the
-changed thumbnails and slide view, preserving zoom, scroll position and presentation
-mode. The previous slide stays visible until its replacement is ready. Rapid edits
-cancel obsolete evaluations; only the latest successful result is published.
-Download PPTX exports the last successful build.
-A syntax or runtime error is shown without discarding the last successful preview.
-DSL evaluation errors include the TSX element's source file and line number.
+Open the local URL printed by the server. The default editor lets you edit text,
+move and resize objects, and use the slide, insert and formatting tools directly
+in the preview. Switch between English and Japanese from the editor header.
+Committed edits save automatically; **Save** or Ctrl/Cmd+S saves immediately.
+The browser keeps recovery copies of committed, unsaved changes. After reloading,
+choose **Restore changes** or **Discard recovery copy**. Copies are separate for
+each project and editing tab, and stay in this browser at the same preview URL
+(including its port). A restored copy still requires conflict resolution if the
+source or saved deck changed. Text still being typed must be committed first.
+
+Resize handles follow each object's rotation and keep the opposite corner or edge
+fixed. Hold Shift while resizing to preserve the starting aspect ratio. Undo/Redo
+restores the complete gesture; Escape cancels it. Multiple selected objects share
+a rotation handle that turns the selection around its centre while preserving
+spacing and relative angles. Hold Shift to rotate in 15-degree steps. The four
+corners of a multiple selection resize all selected object positions and dimensions
+proportionally, including rotated objects. Font sizes, line widths and other
+appearance attributes keep their existing values.
+
+The text input displays explicit character formatting while editing shapes and
+table cells, and resolves inherited run styles for shapes. Text follows the canvas
+zoom while saved font sizes remain unchanged. Ctrl/Cmd+Z and Ctrl/Cmd+Y undo and
+redo pending text edits and continue through committed formatting changes without
+leaving the text input. Ctrl/Cmd+Shift+Z also redoes edits. Escape cancels pending
+text edits. Japanese composition is kept together
+as one undo step. Paragraph alignment, line spacing, spacing before and after,
+indentation and text direction are visible while editing. Bullets and numbered
+lists show their markers without adding characters to the editable text; nested
+numbered lists keep separate counters by level. Tab / Shift+Tab changes the
+selected list paragraphs' levels; Ctrl/Cmd+[ / ] also changes paragraph levels,
+including inside table cells. Tab in tables still moves to the next cell.
+Picture bullets, custom bullet
+font/size overrides, vertical text placement and inherited table character styles
+still use the presentation renderer after committing the edit.
+
+Selected text copied or cut within the editor keeps its character formatting
+when pasted into another shape or table cell, including text still being edited.
+Ctrl/Cmd+Shift+V pastes plain text (the browser may request clipboard access).
+Copy also supplies HTML for other applications. Pasting external HTML imports
+inline bold, italic, underline, strike, font, size, color, highlight and baseline
+formatting when its text matches the plain-text clipboard. Unsupported markup
+falls back to plain text; spreadsheet tables keep their cell-aware paste behavior.
+Paragraph styles, hyperlinks, stylesheets and theme inheritance are not transferred.
+
+**Download** exports the edited PPTX. **Preview** switches to the presentation
+viewer with thumbnails, zoom and presentation mode. Presentation playback animates
+fade, push, wipe, cover, uncover, and zoom using the saved speed and direction.
+Other effects currently switch immediately. Reduced-motion preferences disable
+these animations; automatic slide timing starts after each animation completes.
+
+The viewer has a vertical thumbnail strip, a large slide canvas and an AI chat
+panel on the right. Click a thumbnail or use arrow keys, Page Up/Down, Home/End
+to navigate; Fit/zoom and Present (Escape to exit) are viewing controls. Click an
+object or drag an area for an AI instruction.
+
+Canvas edits are saved beside the entry in `.office-kit/<entry-name>.editor.zip`;
+for example, `.office-kit/deck.tsx.editor.zip`. Keep this file with your project:
+it contains the edited presentation and its source fingerprint. Canvas edits do
+not rewrite TSX. CLI `build`, `buildDeck` and `exportDeck` use the saved edited
+presentation, including after restarting the server.
+
+Saving a slide file, `theme.ts` or `deck.tsx` rebuilds the source. If its generated
+presentation changes while canvas edits exist, the editor asks you to choose
+**Keep my edits** or **Use source**. Keeping edits preserves the entire edited
+deck; it does not merge changes from TSX. Using source discards the saved canvas
+version. You can download the source version before choosing. CLI export refuses
+an unresolved conflict so that it cannot silently export the wrong version.
+
+Keep the server running throughout the edit/review loop. In Preview mode, saving
+updates changed thumbnails and slides while preserving zoom, scroll and
+presentation mode. Rapid source edits cancel obsolete evaluations; only the latest successful result
+is published. Syntax and
+runtime errors remain visible alongside the last successful preview; DSL errors
+include the TSX element's source file and line number.
 
 ```sh
 npm run check

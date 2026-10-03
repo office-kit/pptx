@@ -19,11 +19,14 @@ import {
   loadPresentation,
   savePresentation,
   setShapeTextAutoFit,
+  setShapeTextAnchor,
   setShapeTextColumns,
   setShapeTextDirection,
+  setShapeTextMargins,
+  setParagraphTypography,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
-import { renderSlideToSvg } from '../packages/preview/src/index.ts';
+import { renderSlideToSvg, shapeTextAnchorOffset } from '../packages/preview/src/index.ts';
 import { attrsOf, countTags } from './lib/svg-query.ts';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
@@ -43,6 +46,25 @@ const textXs = (svg: string): number[] =>
   attrsOf(svg, 'text')
     .filter((a) => a['text-anchor'] !== undefined)
     .map((a) => Number(a.x));
+
+it('emergency-wraps overlong Latin words in SVG even with latinLnBrk disabled', async () => {
+  const { pres, slide } = await blankSlide();
+  const box = addSlideTextBox(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(0.35),
+    h: inches(2),
+    text: 'ABCDE',
+  });
+  // Mac PowerPoint still splits words wider than the whole text box when
+  // latinLnBrk is false; that flag only keeps words intact when they can fit.
+  setParagraphTypography(box, 0, { latinLineBreak: false });
+  const kept = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+  setParagraphTypography(box, 0, { latinLineBreak: true });
+  const split = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+  expect(countTags(kept, 'text')).toBeGreaterThan(1);
+  expect(countTags(split, 'text')).toBe(countTags(kept, 'text'));
+});
 
 describe('renderSlideToSvg — vertical text (svg mode)', () => {
   it('vert: emitted text is wrapped in a clockwise rotate() transform', async () => {
@@ -74,6 +96,29 @@ describe('renderSlideToSvg — vertical text (svg mode)', () => {
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
     expect(svg).toContain('transform="rotate(270');
     expect(svg).not.toContain('transform="rotate(90');
+  });
+
+  it('keeps the SVG vertical pivot stable with asymmetric margins', async () => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(3),
+      text: 'AB',
+    });
+    setShapeTextDirection(box, 'vert');
+    setShapeTextMargins(box, { left: 100000, top: 500000, right: 700000, bottom: 200000 });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    const text = attrsOf(svg, 'text').find((a) => a['text-anchor'] !== undefined);
+    expect(text).toMatchObject({ x: '104.99', y: '172.78' });
+    expect(svg).toContain('rotate(90 207.75 208.5');
+
+    setShapeTextDirection(box, 'vert270');
+    const svg270 = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    const text270 = attrsOf(svg270, 'text').find((a) => a['text-anchor'] !== undefined);
+    expect(text270).toMatchObject({ x: '104.99', y: '172.78' });
+    expect(svg270).toContain('rotate(270 207.75 208.5');
   });
 
   it('foreignObject mode still expresses vert as CSS writing-mode', async () => {
@@ -248,5 +293,35 @@ describe('renderSlideToSvg — horizontal parity (svg mode)', () => {
     expect(svg).not.toContain('transform="rotate(');
     // The body lays out as a single left-anchored column.
     expect(new Set(textXs(svg)).size).toBe(1);
+  });
+});
+
+describe('centered anchor rendering', () => {
+  it('moves the text block without changing paragraph alignment in both rendering modes', async () => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(2),
+      text: 'Long line\nA',
+    });
+    const original = textXs(renderSlideToSvg(pres, slide, { textLayout: 'svg' }));
+    setShapeTextAnchor(box, 'top', { centered: true });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    const centered = textXs(svg);
+    expect(centered[0]).toBeGreaterThan(original[0]!);
+    expect(shapeTextAnchorOffset(pres, box).x).toBeCloseTo(centered[0]! - original[0]!, 1);
+    expect(centered[1]).toBe(centered[0]);
+    expect(
+      attrsOf(svg, 'text')
+        .filter((a) => a['text-anchor'])
+        .map((a) => a['text-anchor']),
+    ).toEqual(['start', 'start']);
+    expect(renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' })).toContain(
+      `translate:${shapeTextAnchorOffset(pres, box).x}px 0px;`,
+    );
+    setShapeTextAnchor(box, 'top', { centered: false });
+    expect(textXs(renderSlideToSvg(pres, slide, { textLayout: 'svg' }))).toEqual(original);
   });
 });

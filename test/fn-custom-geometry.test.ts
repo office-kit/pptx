@@ -278,6 +278,44 @@ const deckWithCustGeom = async (custGeom: string) => {
   return { pres: reloaded, shape: custGeomShapeOf(reloaded) };
 };
 
+// The rectangle a custom shape lays its text into (`<a:rect>`, §20.1.9.22).
+// Written in the guide coordinate space rather than a path's, so its sides are
+// either literal EMU or guide names — the same tokens a path command takes.
+describe('custGeom text rectangle', () => {
+  const parse = (inner: string, w = 1000, h = 800) =>
+    parseCustomGeometry(parseXml(`<a:custGeom${A_NS}>${inner}</a:custGeom>`).root, w, h);
+  const path = `<a:pathLst><a:path><a:moveTo><a:pt x="0" y="0"/></a:moveTo></a:path></a:pathLst>`;
+
+  it('is null when the shape states none', () => {
+    expect(parse(path)!.textRect).toBeNull();
+  });
+
+  it('resolves literal sides', () => {
+    expect(parse(`<a:rect l="100" t="200" r="900" b="700"/>${path}`)!.textRect).toEqual({
+      l: 100,
+      t: 200,
+      r: 900,
+      b: 700,
+    });
+  });
+
+  it('resolves guide names, including the built-ins', () => {
+    const geom = parse(
+      `<a:gdLst>${gd('inset', 'val 250')}</a:gdLst>` +
+        `<a:rect l="inset" t="t" r="hc" b="b"/>${path}`,
+    )!;
+    // `t` is 0, `hc` half the width, `b` the height — all from the extents.
+    expect(geom.textRect).toEqual({ l: 250, t: 0, r: 500, b: 800 });
+  });
+
+  // A rect with no room in it describes nothing a caller can lay text into.
+  // Reporting it as "no rect" would hand the text the whole shape instead.
+  it('is null when it has no room', () => {
+    expect(parse(`<a:rect l="900" t="200" r="100" b="700"/>${path}`)!.textRect).toBeNull();
+    expect(parse(`<a:rect l="100" t="200" r="900" b="200"/>${path}`)!.textRect).toBeNull();
+  });
+});
+
 describe('getShapeCustomGeometry (public reader)', () => {
   it('returns null for a preset-geometry shape', async () => {
     const pres = await loadPresentation(await readFile(fixturePath));

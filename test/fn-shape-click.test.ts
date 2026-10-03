@@ -8,11 +8,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   readPackagePart,
+  getShapeClickAction,
   getSlideShapes,
   getSlideXmlString,
   getSlides,
   loadPresentation,
   savePresentation,
+  setCustomShows,
   setShapeClickAction,
 } from '../src/api/index.ts';
 
@@ -64,5 +66,50 @@ describe('fn API: setShapeClickAction', () => {
     setShapeClickAction(shape, { kind: 'nextSlide' });
     const xml = await slideXml(await savePresentation(pres), 0);
     expect(xml).toContain('hlinkshowjump?jump=nextslide');
+  });
+
+  it('emits end-show and last-viewed preset actions', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    for (const [kind, action] of [
+      ['endShow', 'endshow'],
+      ['lastSlideViewed', 'lastslideviewed'],
+    ] as const) {
+      setShapeClickAction(shape, { kind });
+      expect(await slideXml(await savePresentation(pres), 0)).toContain(
+        `hlinkshowjump?jump=${action}`,
+      );
+    }
+  });
+
+  it('round-trips custom-show actions and validates the referenced show', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slides = getSlides(pres);
+    setCustomShows(pres, [{ id: 42, name: 'Details', slides: [slides[1]!] }]);
+    const shape = getSlideShapes(slides[0]!)[0]!;
+
+    setShapeClickAction(shape, { kind: 'customShow', id: 42, returnToShow: true });
+    const bytes = await savePresentation(pres);
+    expect(await slideXml(bytes, 0)).toContain('ppaction://customshow?id=42&amp;return=true');
+
+    const loaded = await loadPresentation(bytes);
+    const loadedShape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+    expect(getShapeClickAction(loadedShape)).toEqual({
+      kind: 'customShow',
+      id: 42,
+      returnToShow: true,
+    });
+
+    expect(() =>
+      setShapeClickAction(shape, { kind: 'customShow', id: 99, returnToShow: false }),
+    ).toThrow('custom show 99 does not exist');
+
+    setShapeClickAction(shape, { kind: 'customShow', id: 42, returnToShow: false });
+    const withoutReturn = await loadPresentation(await savePresentation(pres));
+    expect(getShapeClickAction(getSlideShapes(getSlides(withoutReturn)[0]!)[0]!)).toEqual({
+      kind: 'customShow',
+      id: 42,
+      returnToShow: false,
+    });
   });
 });

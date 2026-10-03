@@ -15,7 +15,7 @@
 // Emitting an attribute on an effect that doesn't allow it is schema-invalid, so
 // buildEffectElement gates each attribute by the effect that accepts it.
 
-import { oneOf, unsignedIntMs } from '../bounds.ts';
+import { boundedInt, oneOf, unsignedIntMs } from '../bounds.ts';
 import { type XmlElement, NS, attr, elem, qname } from '../xml/index.ts';
 
 const NAME_TRANSITION = qname('p', 'transition', NS.pml);
@@ -79,6 +79,8 @@ export interface TransitionOptions {
    * `direction` is ignored.
    */
   direction?: string;
+  /** For `wheel`: number of spokes (unsigned integer). Omitted means 4. */
+  spokes?: number;
   /** For `split`: orientation token (`horz` / `vert`). */
   orientation?: 'horz' | 'vert';
   /** For `fade`: pass `true` to fade through black. */
@@ -146,6 +148,12 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
       }
       attrs.push(attr(ATTR_DIR, opts.direction));
     }
+  }
+  if (opts.spokes !== undefined && opts.effect === 'wheel') {
+    if (!Number.isInteger(opts.spokes))
+      throw new RangeError('setSlideTransition: spokes must be an integer');
+    const spokes = boundedInt(opts.spokes, 'unsignedInt', 'setSlideTransition: spokes');
+    attrs.push(attr(qname('', 'spokes', ''), String(spokes)));
   }
   // `orient` only exists on CT_SplitTransition.
   if (opts.orientation !== undefined && opts.effect === 'split') {

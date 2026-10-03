@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   addSlideTextBox,
+  addSlideImage,
+  setShapeClickAction,
+  type ShapeClickAction,
   getShapeHyperlinkTooltip,
   getShapeRunHyperlinkTooltip,
   getSlideShapes,
@@ -18,6 +21,8 @@ import {
   setShapeHyperlink,
   setShapeRunHyperlink,
 } from '../src/api/index.ts';
+
+import { buildPng } from './lib/build-png.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
@@ -77,3 +82,43 @@ describe('fn API: setShapeRunHyperlink tooltip', () => {
     expect(getShapeRunHyperlinkTooltip(reShapes[reShapes.length - 1]!, 0, 0)).toBe('per-run tip');
   });
 });
+
+it.each(['picture', 'range'] as const)(
+  'round-trips %s descriptions for every click action and clears old descriptions',
+  async (kind) => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const bounds = { x: inches(1), y: inches(1), w: inches(3), h: inches(1) };
+    const shape =
+      kind === 'picture'
+        ? addSlideImage(slide, buildPng(2, 2, [0, 80, 160]), bounds)
+        : addSlideTextBox(slide, { ...bounds, text: 'ABC' });
+    const range = kind === 'range' ? { start: 1, end: 2 } : undefined;
+    const actions: ShapeClickAction[] = [
+      { kind: 'url', url: 'https://example.com' },
+      { kind: 'slide', slide: getSlides(pres)[1]! },
+      { kind: 'nextSlide' },
+      { kind: 'prevSlide' },
+      { kind: 'firstSlide' },
+      { kind: 'lastSlide' },
+    ];
+    for (const action of actions) {
+      setShapeClickAction(shape, action, {
+        ...(range ? { range } : {}),
+        tooltip: '説明 <日本語> & English',
+      });
+      const loaded = await loadPresentation(await savePresentation(pres));
+      const result = getSlideShapes(getSlides(loaded)[0]!).at(-1)!;
+      expect(getShapeHyperlinkTooltip(result)).toBe('説明 <日本語> & English');
+      if (range) {
+        expect(getShapeRunHyperlinkTooltip(result, 0, 0)).toBeNull();
+        expect(getShapeRunHyperlinkTooltip(result, 0, 1)).toBe('説明 <日本語> & English');
+        expect(getShapeRunHyperlinkTooltip(result, 0, 2)).toBeNull();
+      }
+      setShapeClickAction(shape, action, range ? { range } : {});
+      expect(getShapeHyperlinkTooltip(shape)).toBeNull();
+    }
+    setShapeClickAction(shape, null, { ...(range ? { range } : {}), tooltip: 'Unused' });
+    expect(getShapeHyperlinkTooltip(shape)).toBeNull();
+  },
+);

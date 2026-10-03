@@ -117,8 +117,10 @@ export const readFlip = (
 ): { horizontal: boolean; vertical: boolean } | null => {
   const xfrm = findTransform(shape, kind);
   if (xfrm === null) return null;
+  const horizontal = getAttrValue(xfrm, ATTR_FLIP_H_R)?.trim();
+  const vertical = getAttrValue(xfrm, ATTR_FLIP_V_R)?.trim();
   return {
-    horizontal: getAttrValue(xfrm, ATTR_FLIP_H_R) === '1',
-    vertical: getAttrValue(xfrm, ATTR_FLIP_V_R) === '1',
+    horizontal: horizontal === '1' || horizontal === 'true',
+    vertical: vertical === '1' || vertical === 'true',
   };
 };

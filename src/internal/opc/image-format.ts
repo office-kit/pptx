@@ -158,3 +158,48 @@ export const contentTypeForFormat = (format: ImageFormat): string => {
       return 'image/svg+xml';
   }
 };
+
+/** Physical resolution recorded by PNG pHYs or JPEG JFIF, in dots per inch. */
+export const readImageResolution = (bytes: Uint8Array): { x: number; y: number } | null => {
+  const format = detectImageFormat(bytes);
+  if (format === 'png') {
+    let offset = 8;
+    while (offset + 12 <= bytes.length) {
+      const length = readUint32Be(bytes, offset);
+      if (length > bytes.length - offset - 12) return null;
+      const type = decoder.decode(bytes.subarray(offset + 4, offset + 8));
+      if (type === 'pHYs' && length === 9 && bytes[offset + 16] === 1) {
+        const x = readUint32Be(bytes, offset + 8) * 0.0254;
+        const y = readUint32Be(bytes, offset + 12) * 0.0254;
+        return x > 0 && y > 0 ? { x, y } : null;
+      }
+      if (type === 'IDAT' || type === 'IEND') break;
+      offset += length + 12;
+    }
+  } else if (format === 'jpeg') {
+    let offset = 2;
+    while (offset + 4 <= bytes.length && bytes[offset] === 0xff) {
+      const marker = bytes[offset + 1];
+      if (marker === 0xda || marker === 0xd9) break;
+      if (marker === 0xff || marker === 0x01 || (marker! >= 0xd0 && marker! <= 0xd8)) {
+        offset += marker === 0xff ? 1 : 2;
+        continue;
+      }
+      const length = readUint16Be(bytes, offset + 2);
+      if (length < 2 || length > bytes.length - offset - 2) return null;
+      if (
+        marker === 0xe0 &&
+        length >= 16 &&
+        decoder.decode(bytes.subarray(offset + 4, offset + 9)) === 'JFIF\0'
+      ) {
+        const unit = bytes[offset + 11];
+        const scale = unit === 1 ? 1 : unit === 2 ? 2.54 : 0;
+        const x = readUint16Be(bytes, offset + 12) * scale;
+        const y = readUint16Be(bytes, offset + 14) * scale;
+        if (x > 0 && y > 0) return { x, y };
+      }
+      offset += length + 2;
+    }
+  }
+  return null;
+};

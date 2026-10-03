@@ -1,3 +1,12 @@
+import { readImageCrop } from './_image-crop.ts';
+import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
+import { asColor, type Color, buildColorElement } from '../../internal/drawingml/index.ts';
+import {
+  buildColorTransforms,
+  type ColorTransform,
+  readColorTransforms,
+} from '../../internal/drawingml/color-transforms.ts';
 // Picture opacity and cropping.
 import { getSlides } from './slide-query.ts';
 
@@ -41,6 +50,25 @@ import {
 } from './shapes.ts';
 import { getSlideSize } from './features.ts';
 
+/** A color used by a two-color image recolor, with optional DrawingML transforms. */
+export type ImageRecolorColor =
+  | Color
+  | {
+      readonly color: Color;
+      readonly colorTransforms?: readonly ColorTransform[];
+    };
+
+/**
+ * A PowerPoint image recolor operation. Threshold is expressed as a percent
+ * (0..100), matching `getShapeImageBiLevelThreshold` and PowerPoint's UI.
+ */
+export type ImageRecolor =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'grayscale' }
+  | { readonly kind: 'duotone'; readonly colors: readonly [ImageRecolorColor, ImageRecolorColor] }
+  | { readonly kind: 'threshold'; readonly threshold: number }
+  | { readonly kind: 'washout' };
+
 // ---------------------------------------------------------------------------
 // Picture opacity — `<a:alphaModFix>` inside the picture's `<a:blip>`.
 //
@@ -48,16 +76,6 @@ import { getSlideSize } from './features.ts';
 // of a percent). PowerPoint defaults to fully opaque when the element
 // is absent. Pass `null` to remove a prior `<a:alphaModFix>`.
 
-const NAME_ALPHA_MOD_FIX_FN = qname('a', 'alphaModFix', NS.dml);
-const ATTR_AMT_FN = qname('', 'amt', '');
-
-/**
- * Sets the picture's opacity (0–1 fraction; `1` is fully opaque, `0`
- * fully transparent). Pass `null` to remove an existing opacity
- * override and restore PowerPoint's default behavior.
- *
- * Throws for non-picture shapes and on opacities outside `[0, 1]`.
- */
 /**
  * Returns the embedded image bytes for a picture shape, or `null`
  * when the shape isn't a picture or has no `r:embed` reference
@@ -308,22 +326,51 @@ export const getShapeImageBiLevelThreshold = (shape: SlideShapeData): number | n
   if (!biLevel) return null;
   const t = getAttrValue(biLevel, qname('', 'thresh', ''));
   if (t === null) return null;
-  let n = Number.parseFloat(t);
-  if (!Number.isFinite(n)) return null;
-  if (Math.abs(n) > 1) n = n / 100000;
-  return n * 100;
+  const fraction = readDrawingmlPercentage(t, Number.NaN);
+  return Number.isFinite(fraction) ? fraction * 100 : null;
 };
 
 /**
  * Reads the picture's duotone color transform from `<a:blip><a:duotone>`.
  * PowerPoint emits two `<a:srgbClr>` (or scheme color) children for a
  * two-color duotone effect — typical "Picture Tools › Recolor".
- * Returns `null` when no duotone is set.
+ * By default colors are resolved to RGB for rendering. Pass
+ * `{ resolveColors: false }` to preserve authoring color models and
+ * transforms for a read-edit-write cycle. Only sRGB and scheme colors can
+ * retain their authoring model; other DrawingML models are returned as their
+ * resolved base color with the original transforms. Returns `null` when no
+ * duotone is set.
  */
-export const getShapeImageDuotone = (
+export function getShapeImageDuotone(
   pres: PresentationData,
   shape: SlideShapeData,
-): { firstColor: string | null; secondColor: string | null } | null => {
+): { firstColor: string | null; secondColor: string | null } | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options: { readonly resolveColors: false },
+): Extract<ImageRecolor, { kind: 'duotone' }> | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options: { readonly resolveColors: true },
+): { firstColor: string | null; secondColor: string | null } | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options: { readonly resolveColors: boolean },
+):
+  | { firstColor: string | null; secondColor: string | null }
+  | Extract<ImageRecolor, { kind: 'duotone' }>
+  | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options?: { readonly resolveColors?: boolean },
+):
+  | { firstColor: string | null; secondColor: string | null }
+  | Extract<ImageRecolor, { kind: 'duotone' }>
+  | null {
   let blip: XmlElement | null = null;
   if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
     const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
@@ -340,23 +387,49 @@ export const getShapeImageDuotone = (
   if (!duotone) return null;
   const theme = getPresentationTheme(pres);
   const colors: Array<string | null> = [];
+  const rawColors: ImageRecolorColor[] = [];
   for (const c of duotone.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
     if (
       c.name.localName === 'srgbClr' ||
+      c.name.localName === 'scrgbClr' ||
+      c.name.localName === 'hslClr' ||
       c.name.localName === 'schemeClr' ||
       c.name.localName === 'sysClr' ||
       c.name.localName === 'prstClr'
     ) {
-      colors.push(resolveDrawingColor(c, theme));
+      if (options?.resolveColors === false) {
+        const value = getAttrValue(c, qname('', 'val', ''));
+        const raw =
+          c.name.localName === 'schemeClr' && value
+            ? asColor(`scheme:${value}`)
+            : c.name.localName === 'srgbClr' && value
+              ? asColor(`#${value}`)
+              : null;
+        const base = raw ?? asColor(resolveDrawingColor({ ...c, children: [] }, null) ?? '');
+        if (base) {
+          const transforms = readColorTransforms(c);
+          rawColors.push(
+            transforms.length === 0 ? base : { color: base, colorTransforms: transforms },
+          );
+        }
+      } else {
+        colors.push(resolveDrawingColor(c, theme));
+      }
       if (colors.length === 2) break;
+      if (rawColors.length === 2) break;
     }
   }
-  return {
+  if (options?.resolveColors === false)
+    return rawColors.length === 2
+      ? { kind: 'duotone', colors: [rawColors[0]!, rawColors[1]!] }
+      : null;
+  const resolved = {
     firstColor: colors[0] ?? null,
     secondColor: colors[1] ?? null,
   };
-};
+  return resolved;
+}
 
 export const getShapeImageLinkUrl = (shape: SlideShapeData): string | null => {
   const slide = shape[SHAPE_SLIDE];
@@ -456,49 +529,45 @@ export const getShapeImageFormat = (shape: SlideShapeData): ImageFormat | null =
   return detectImageFormat(bytes);
 };
 
+const getImageOpacityBlip = (shape: SlideShapeData): XmlElement | null => {
+  const element = shape[SHAPE_ELEMENT];
+  const spPr = firstChildElement(element, qname('p', 'spPr', NS.pml));
+  const fill =
+    shape[SHAPE_SNAPSHOT].kind === 'picture'
+      ? firstChildElement(element, qname('p', 'blipFill', NS.pml))
+      : spPr && firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+  return fill ? firstChildElement(fill, qname('a', 'blip', NS.dml)) : null;
+};
+
 /**
- * Reads the picture's opacity (0–1 fraction). Returns `null` when no
+ * Reads the picture or image fill's opacity (0–1 fraction). Returns `null` when no
  * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
  * opaque); returns `1` when an explicit alphaModFix sets full opacity.
  */
 export const getShapeImageOpacity = (shape: SlideShapeData): number | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) return null;
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  const blip = getImageOpacityBlip(shape);
   if (!blip) return null;
-  const alpha = firstChildElement(blip, qname('a', 'alphaModFix', NS.dml));
-  if (!alpha) return null;
-  const amt = getAttrValue(alpha, qname('', 'amt', ''));
-  if (amt === null) return 1;
-  const n = Number.parseInt(amt, 10);
-  if (!Number.isFinite(n)) return null;
-  return n / 100000;
+  return readImageOpacity(blip);
+};
+
+const cropImageFill = (shape: SlideShapeData): XmlElement | null => {
+  const element = shape[SHAPE_ELEMENT];
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    return firstChildElement(element, qname('p', 'blipFill', NS.pml));
+  }
+  const spPr = firstChildElement(element, qname('p', 'spPr', NS.pml));
+  return spPr ? firstChildElement(spPr, qname('a', 'blipFill', NS.dml)) : null;
 };
 
 /**
- * Reads the picture's crop fractions. Returns `null` when no
+ * Reads a picture or image fill's crop fractions. Returns `null` when no
  * `<a:srcRect>` is present; otherwise returns a fully-populated object
  * with every side filled in (0 for omitted sides on disk).
  */
 export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  const blipFill = cropImageFill(shape);
   if (!blipFill) return null;
-  const srcRect = firstChildElement(blipFill, qname('a', 'srcRect', NS.dml));
-  if (!srcRect) return null;
-  const parseSide = (local: string): number => {
-    const v = getAttrValue(srcRect, qname('', local, ''));
-    if (v === null) return 0;
-    const n = Number.parseInt(v, 10);
-    return Number.isFinite(n) ? n / 100000 : 0;
-  };
-  return {
-    left: parseSide('l'),
-    top: parseSide('t'),
-    right: parseSide('r'),
-    bottom: parseSide('b'),
-  };
+  return readImageCrop(blipFill);
 };
 
 // Brightness and contrast are two attributes of a SINGLE `<a:lum>` effect
@@ -509,17 +578,10 @@ export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
 // other, and removing the last attribute drops the `<a:lum>` element entirely.
 const NAME_LUM = qname('a', 'lum', NS.dml);
 
-const requirePictureBlip = (shape: SlideShapeData, fnName: string): XmlElement => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `${fnName} only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
-  return blip;
+const requireImageBlip = (shape: SlideShapeData, fnName: string): XmlElement => {
+  const blip = getImageOpacityBlip(shape);
+  if (blip) return blip;
+  throw new Error(`${fnName} requires a picture or a shape with an image fill`);
 };
 
 const setLumAttr = (blip: XmlElement, local: 'bright' | 'contrast', value: number | null): void => {
@@ -544,21 +606,18 @@ const setLumAttr = (blip: XmlElement, local: 'bright' | 'contrast', value: numbe
 };
 
 const getLumAttr = (shape: SlideShapeData, local: 'bright' | 'contrast'): number | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) return null;
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  const blip = getImageOpacityBlip(shape);
   if (!blip) return null;
   const lum = firstChildElement(blip, NAME_LUM);
   if (!lum) return null;
   const v = getAttrValue(lum, qname('', local, ''));
   if (v === null) return null;
-  const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) ? n / 100000 : null;
+  const fraction = readDrawingmlPercentage(v, Number.NaN);
+  return Number.isFinite(fraction) ? fraction : null;
 };
 
 /**
- * Adjusts the picture's brightness via `<a:blip><a:lum bright="…"/>`. The value
+ * Adjusts a picture or image fill's brightness via `<a:blip><a:lum bright="…"/>`. The value
  * is a -1..1 fraction:
  *
  *   - `1`     → +100% brightness
@@ -566,10 +625,10 @@ const getLumAttr = (shape: SlideShapeData, local: 'bright' | 'contrast'): number
  *   - `-1`    → -100% brightness
  *
  * Brightness and contrast share the one `<a:lum>` element, so setting one keeps
- * the other. Throws for non-picture shapes and on values outside [-1, 1].
+ * the other. Throws for shapes without an image and on values outside [-1, 1].
  */
 export const setShapeImageBrightness = (shape: SlideShapeData, value: number | null): void => {
-  const blip = requirePictureBlip(shape, 'setShapeImageBrightness');
+  const blip = requireImageBlip(shape, 'setShapeImageBrightness');
   if (value !== null && value !== 0 && (!Number.isFinite(value) || value < -1 || value > 1)) {
     throw new RangeError(`brightness must be in [-1, 1], got ${value}`);
   }
@@ -578,7 +637,7 @@ export const setShapeImageBrightness = (shape: SlideShapeData, value: number | n
 };
 
 /**
- * Adjusts the picture's contrast via `<a:blip><a:lum contrast="…"/>`. The value
+ * Adjusts a picture or image fill's contrast via `<a:blip><a:lum contrast="…"/>`. The value
  * is a -1..1 fraction (ECMA-376 `ST_FixedPercentage`):
  *
  *   - `0` or `null` → no contrast change (the `contrast` attribute is removed)
@@ -586,10 +645,10 @@ export const setShapeImageBrightness = (shape: SlideShapeData, value: number | n
  *   - `-0.5`        → -50% contrast (washed out)
  *
  * Brightness and contrast share the one `<a:lum>` element, so setting one keeps
- * the other. Throws on non-picture shapes and on values outside [-1, 1].
+ * the other. Throws for shapes without an image and on values outside [-1, 1].
  */
 export const setShapeImageContrast = (shape: SlideShapeData, value: number | null): void => {
-  const blip = requirePictureBlip(shape, 'setShapeImageContrast');
+  const blip = requireImageBlip(shape, 'setShapeImageContrast');
   if (value !== null && value !== 0 && (!Number.isFinite(value) || value < -1 || value > 1)) {
     throw new RangeError(`contrast must be in [-1, 1], got ${value}`);
   }
@@ -598,58 +657,128 @@ export const setShapeImageContrast = (shape: SlideShapeData, value: number | nul
 };
 
 /**
- * Reads the picture's contrast (the `<a:lum contrast>` fraction in [-1, 1]).
+ * Reads a picture or image fill's contrast (the `<a:lum contrast>` fraction in [-1, 1]).
  * Returns `null` when no contrast adjustment is present.
  */
 export const getShapeImageContrast = (shape: SlideShapeData): number | null =>
   getLumAttr(shape, 'contrast');
 
 /**
- * Reads the picture's brightness (the `<a:lum bright>` fraction in [-1, 1]).
+ * Reads a picture or image fill's brightness (the `<a:lum bright>` fraction in [-1, 1]).
  * Returns `null` when no brightness adjustment is present.
  */
 export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
   getLumAttr(shape, 'bright');
 
-export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageOpacity only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
+// Mac PowerPoint's Video pane Reset clears these recolor/correction effects;
+// its ribbon Reset also clears shape formatting, which this operation preserves.
+const IMAGE_COLOR_EFFECT_NAMES = new Set(['grayscl', 'duotone', 'biLevel', 'lum']);
 
+const removeImageColorEffects = (blip: XmlElement): void => {
   blip.children = blip.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'alphaModFix'
-      ),
+    (child) =>
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.dml ||
+      !IMAGE_COLOR_EFFECT_NAMES.has(child.name.localName),
   );
+};
 
-  if (opacity !== null) {
-    if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) {
-      throw new RangeError(`opacity must be in [0, 1], got ${opacity}`);
-    }
-    blip.children.push(
-      elem(NAME_ALPHA_MOD_FIX_FN, {
-        attrs: [attr(ATTR_AMT_FN, String(Math.round(opacity * 100000)))],
-      }),
-    );
+const appendImageColorEffect = (blip: XmlElement, effect: XmlElement): void => {
+  const extensionIndex = blip.children.findIndex(
+    (child) =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName === 'extLst',
+  );
+  if (extensionIndex === -1) blip.children.push(effect);
+  else blip.children.splice(extensionIndex, 0, effect);
+};
+
+/**
+ * Clears PowerPoint's image color corrections from a picture or image fill.
+ * This removes grayscale (`grayscl`), duotone, bi-level recolor, and
+ * brightness/contrast (`lum`) effects while preserving opacity, media
+ * references, and all other known or extension effects.
+ */
+export const resetShapeImageColorEffects = (shape: SlideShapeData): void => {
+  const blip = getImageOpacityBlip(shape);
+  if (!blip) {
+    throw new Error('resetShapeImageColorEffects requires a picture or a shape with an image fill');
   }
+  removeImageColorEffects(blip);
+  commitAndRefresh(shape);
+};
+
+const makeImageRecolorColor = (value: ImageRecolorColor): XmlElement => {
+  const color =
+    typeof value === 'string' ? buildColorElement(value) : buildColorElement(value.color);
+  if (typeof value !== 'string' && value.colorTransforms !== undefined) {
+    color.children = buildColorTransforms(value.colorTransforms);
+  }
+  return color;
+};
+
+/**
+ * Applies a PowerPoint image recolor to a picture or image-filled shape.
+ * `none` removes the recolor while preserving opacity, media references, and
+ * unrelated DrawingML effects. Threshold is a percentage from 0 to 100.
+ */
+export const setShapeImageRecolor = (shape: SlideShapeData, recolor: ImageRecolor): void => {
+  const blip = getImageOpacityBlip(shape);
+  if (!blip)
+    throw new Error('setShapeImageRecolor requires a picture or a shape with an image fill');
+
+  if (recolor.kind === 'threshold') {
+    if (!Number.isFinite(recolor.threshold) || recolor.threshold < 0 || recolor.threshold > 100) {
+      throw new RangeError(`image recolor threshold must be in [0, 100], got ${recolor.threshold}`);
+    }
+  }
+
+  // Build the replacement before touching the live tree. Invalid colors or
+  // transforms must leave an existing correction intact.
+  let replacement: XmlElement | null = null;
+  if (recolor.kind === 'grayscale') {
+    replacement = elem(qname('a', 'grayscl', NS.dml));
+  } else if (recolor.kind === 'threshold') {
+    replacement = elem(qname('a', 'biLevel', NS.dml), {
+      attrs: [attr(qname('', 'thresh', ''), String(Math.round(recolor.threshold * 1000)))],
+    });
+  } else if (recolor.kind === 'duotone') {
+    replacement = elem(qname('a', 'duotone', NS.dml), {
+      children: recolor.colors.map(makeImageRecolorColor),
+    });
+  } else if (recolor.kind === 'washout') {
+    // PowerPoint's native Washout preset is a luminance correction, not a
+    // duotone: bright=70000 and contrast=-70000 in the blip effect.
+    replacement = elem(qname('a', 'lum', NS.dml), {
+      attrs: [attr(qname('', 'bright', ''), '70000'), attr(qname('', 'contrast', ''), '-70000')],
+    });
+  }
+
+  removeImageColorEffects(blip);
+  if (replacement !== null) appendImageColorEffect(blip, replacement);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets picture or image-fill opacity (0–1; `1` is fully opaque).
+ * Pass `null` to restore PowerPoint's default opacity.
+ * Rejects shapes without an image and values outside `[0, 1]` without changing them.
+ */
+export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | null): void => {
+  const blip = getImageOpacityBlip(shape);
+  if (!blip)
+    throw new Error('setShapeImageOpacity requires a picture or a shape with an image fill');
+  writeImageOpacity(blip, opacity);
   commitAndRefresh(shape);
 };
 
 // ---------------------------------------------------------------------------
 // Picture cropping — `<a:srcRect>` inside the picture's `<p:blipFill>`.
 //
-// Percentages are 0-1 fractions per side, converted to ECMA-376's
+// Percentages are fractions per side, converted to ECMA-376's signed
 // `ST_Percentage` units (1/1000 of a percent, so 0.25 → "25000"). Pass
-// `null` to remove an existing crop.
+// `null` to remove an existing crop. Negative values are source outsets.
 
 /** Crop a picture by fraction of each side. Omitted sides default to 0. */
 export interface ImageCrop {
@@ -659,7 +788,6 @@ export interface ImageCrop {
   readonly bottom?: number;
 }
 
-const NAME_BLIP_FILL_FN = qname('p', 'blipFill', NS.pml);
 const NAME_SRC_RECT_FN = qname('a', 'srcRect', NS.dml);
 const NAME_BLIP_FN = qname('a', 'blip', NS.dml);
 const ATTR_CROP_L = qname('', 'l', '');
@@ -667,53 +795,54 @@ const ATTR_CROP_T = qname('', 't', '');
 const ATTR_CROP_R = qname('', 'r', '');
 const ATTR_CROP_B = qname('', 'b', '');
 
+const MIN_CROP_PERCENTAGE = -2147483648;
+const MAX_CROP_PERCENTAGE = 2147483647;
+
 const fractionToST = (n: number | undefined): string | null => {
   if (n === undefined || n === 0) return null;
-  if (!Number.isFinite(n) || n < 0 || n >= 1) {
-    throw new RangeError(`crop fraction must be in [0, 1), got ${n}`);
+  const scaled = Math.round(n * 100000);
+  if (!Number.isFinite(n) || scaled < MIN_CROP_PERCENTAGE || scaled > MAX_CROP_PERCENTAGE) {
+    throw new RangeError(`crop fraction exceeds signed ST_Percentage bounds, got ${n}`);
   }
-  return String(Math.round(n * 100000));
+  return String(scaled);
 };
 
 /**
- * Sets (or clears) a `<a:srcRect>` on a picture shape, cropping the
+ * Sets (or clears) a `<a:srcRect>` on a picture or image-filled shape, cropping the
  * embedded image by the given fraction on each side. Pass `null` to
  * remove an existing crop.
  *
- * Fractions are in `[0, 1)` per side. `{ left: 0.25 }` clips 25% off
- * the left edge; the visible image stretches to fill the original
- * frame. The shape's geometry (`<a:xfrm>`) is unchanged.
+ * Fractions use the signed `ST_Percentage` range per side. `{ left: 0.25 }`
+ * clips 25% off the left edge; negative values extend the source rectangle.
+ * Stretch fills fit the remaining image to the frame;
+ * tiled fills repeat the remaining image. The shape's geometry (`<a:xfrm>`) is unchanged.
  */
 export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageCrop only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const pic = shape[SHAPE_ELEMENT];
-  const blipFill = firstChildElement(pic, NAME_BLIP_FILL_FN);
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+  const blipFill = cropImageFill(shape);
+  if (!blipFill) throw new Error('setShapeImageCrop requires a picture or image-filled shape');
 
-  // Remove any existing srcRect first.
+  // Validate all sides before touching the live tree, so a rejected edit
+  // cannot erase a crop that a later successful edit would then save.
+  const attrs: Array<ReturnType<typeof attr>> = [];
+  if (crop !== null) {
+    const l = fractionToST(crop.left);
+    const t = fractionToST(crop.top);
+    const r = fractionToST(crop.right);
+    const b = fractionToST(crop.bottom);
+    if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
+    if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
+    if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
+    if (b !== null) attrs.push(attr(ATTR_CROP_B, b));
+  }
+
   blipFill.children = blipFill.children.filter(
     (c) =>
       !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'srcRect'),
   );
-
   if (crop === null) {
     commitAndRefresh(shape);
     return;
   }
-
-  const attrs: Array<ReturnType<typeof attr>> = [];
-  const l = fractionToST(crop.left);
-  const t = fractionToST(crop.top);
-  const r = fractionToST(crop.right);
-  const b = fractionToST(crop.bottom);
-  if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
-  if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
-  if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
-  if (b !== null) attrs.push(attr(ATTR_CROP_B, b));
 
   // <a:srcRect> sits between <a:blip> and <a:stretch> per the schema.
   const srcRect = elem(NAME_SRC_RECT_FN, { attrs });

@@ -1,12 +1,22 @@
 // Shape reads: fill and stroke.
 
 import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
+import { readColorFromContainer } from './shape-gradient-read.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
+import {
+  getShapeStyleTheme,
+  readShapeStyleFill,
+  readShapeStyleLineElement,
+} from './shape-style-read.ts';
+import { containingGroupFillElement } from './shape-group-paint.ts';
+import { getEffectiveColorMap } from './color-map.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
 import {
   NS,
+  cloneElement,
+  elem,
   type XmlElement,
   firstChildElement,
   getAttrValue,
@@ -29,6 +39,7 @@ export type ShapeFill =
   | { readonly kind: 'gradient' }
   | { readonly kind: 'pattern' }
   | { readonly kind: 'image' }
+  | { readonly kind: 'background' }
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
 
@@ -43,6 +54,43 @@ export type ShapeStroke =
   | { readonly kind: 'solid'; readonly color: string; readonly widthEmu?: number }
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
+
+const readDirectFill = (element: XmlElement): ShapeFill | null => {
+  const spPr =
+    firstChildElement(element, qname('p', 'spPr', NS.pml)) ??
+    firstChildElement(element, qname('p', 'grpSpPr', NS.pml));
+  const choices = spPr ? spPr.children : element.name.namespaceURI === NS.dml ? [element] : [];
+  for (const child of choices) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    switch (child.name.localName) {
+      case 'noFill':
+        return { kind: 'none' };
+      case 'solidFill': {
+        const color = readColorFromContainer(child);
+        return { kind: 'solid', color: color ?? '' };
+      }
+      case 'gradFill':
+        return { kind: 'gradient' };
+      case 'pattFill':
+        return { kind: 'pattern' };
+      case 'blipFill':
+        return { kind: 'image' };
+    }
+  }
+  return null;
+};
+
+const hasDirectGroupFill = (shape: SlideShapeData): boolean => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  return Boolean(
+    spPr?.children.some(
+      (child) =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        child.name.localName === 'grpFill',
+    ),
+  );
+};
 
 // The DrawingML color element inside `<a:solidFill>` under `container`,
 // or null when there is no solid fill there.
@@ -60,11 +108,98 @@ const fillColorElement = (shape: SlideShapeData): XmlElement | null => {
   return spPr ? solidFillColorElement(spPr) : null;
 };
 
-const strokeColorElement = (shape: SlideShapeData): XmlElement | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  const ln = spPr ? firstChildElement(spPr, qname('a', 'ln', NS.dml)) : null;
-  return ln ? solidFillColorElement(ln) : null;
+const strokeColorElement = (shape: SlideShapeData, pres?: PresentationData): XmlElement | null => {
+  const line = pres ? readShapeStrokeLineElement(pres, shape) : directStrokeLineElement(shape);
+  return line ? solidFillColorElement(line) : null;
 };
+
+const directStrokeLineElement = (shape: SlideShapeData): XmlElement | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  return spPr ? firstChildElement(spPr, qname('a', 'ln', NS.dml)) : null;
+};
+
+const lineChildKey = (child: XmlElement): string => {
+  // These choices occupy the same slot in CT_LineProperties. Replacing the
+  // style choice as a group keeps a direct <a:noFill/> or gradient paint from
+  // leaving the inherited solid paint behind.
+  if (
+    child.name.localName === 'noFill' ||
+    child.name.localName === 'solidFill' ||
+    child.name.localName === 'gradFill' ||
+    child.name.localName === 'pattFill' ||
+    child.name.localName === 'blipFill'
+  ) {
+    return 'fill';
+  }
+  if (
+    child.name.localName === 'round' ||
+    child.name.localName === 'bevel' ||
+    child.name.localName === 'miter'
+  ) {
+    return 'join';
+  }
+  return child.name.localName;
+};
+
+/**
+ * Returns the effective line properties after the shape's direct `<a:ln>`
+ * overlays its style-matrix `lnRef`. DrawingML allows a direct line to carry
+ * only one property (for example `w`), so treating that line as a complete
+ * replacement drops the style's paint and dash settings.
+ */
+export const readShapeStrokeLineElement = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): XmlElement | null => {
+  const direct = directStrokeLineElement(shape);
+  const style = readShapeStyleLineElement(pres, shape);
+  if (!direct) return style;
+  // idx=0 is represented by a standalone <a:noFill/>. Normalize it to line
+  // properties before overlaying the direct line: a direct width alone must
+  // retain the explicit no-line choice, while a direct paint can replace it.
+  const styleLine =
+    style?.name.localName === 'noFill'
+      ? elem(qname('a', 'ln', NS.dml), { children: [cloneElement(style)] })
+      : style;
+  if (!styleLine) return direct;
+
+  const merged = cloneElement(styleLine);
+  const directAttrs = new Map(
+    direct.attrs.map((attribute) => [
+      `${attribute.name.namespaceURI}\u0000${attribute.name.localName}`,
+      attribute,
+    ]),
+  );
+  const mergedAttrKeys = new Set<string>();
+  merged.attrs = merged.attrs.map((attribute) => {
+    const key = `${attribute.name.namespaceURI}\u0000${attribute.name.localName}`;
+    mergedAttrKeys.add(key);
+    return directAttrs.get(key) ?? attribute;
+  });
+  for (const [key, attribute] of directAttrs) {
+    if (!mergedAttrKeys.has(key)) merged.attrs.push(attribute);
+  }
+  const directChildren = new Map<string, XmlElement>();
+  for (const child of direct.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    directChildren.set(lineChildKey(child), child);
+  }
+  const mergedChildKeys = new Set<string>();
+  merged.children = merged.children.map((child) => {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) return child;
+    const key = lineChildKey(child);
+    mergedChildKeys.add(key);
+    const replacement = directChildren.get(key);
+    return replacement ? cloneElement(replacement) : child;
+  });
+  for (const [key, child] of directChildren) {
+    if (!mergedChildKeys.has(key)) merged.children.push(cloneElement(child));
+  }
+  return merged;
+};
+
+const strokeLineElement = (shape: SlideShapeData, pres?: PresentationData): XmlElement | null =>
+  pres ? readShapeStrokeLineElement(pres, shape) : directStrokeLineElement(shape);
 
 /**
  * Convenience over `getShapeStroke(shape)`: returns the solid-
@@ -102,8 +237,14 @@ export const getShapeStrokeColorResolved = (
   pres: PresentationData,
   shape: SlideShapeData,
 ): string | null => {
-  const color = strokeColorElement(shape);
-  return color ? resolveDrawingColor(color, getPresentationTheme(pres)) : null;
+  const color = strokeColorElement(shape, pres);
+  return color
+    ? resolveDrawingColor(
+        color,
+        getShapeStyleTheme(pres, shape).theme,
+        getEffectiveColorMap(shape[SHAPE_SLIDE]),
+      )
+    : null;
 };
 
 /**
@@ -113,8 +254,11 @@ export const getShapeStrokeColorResolved = (
  * alpha transform (PowerPoint draws it fully opaque). Companion to
  * `getShapeStrokeColorResolved`, which never carries the alpha channel.
  */
-export const getShapeStrokeOpacity = (shape: SlideShapeData): number | null => {
-  const color = strokeColorElement(shape);
+export const getShapeStrokeOpacity = (
+  shape: SlideShapeData,
+  pres?: PresentationData,
+): number | null => {
+  const color = strokeColorElement(shape, pres);
   return color ? resolveDrawingColorOpacity(color) : null;
 };
 
@@ -123,10 +267,11 @@ export const getShapeStrokeOpacity = (shape: SlideShapeData): number | null => {
  * `'flat'`, or `null` when the attribute isn't set. Per ECMA-376
  * §20.1.2.3.10 (`ST_LineCap`).
  */
-export const getShapeStrokeCap = (shape: SlideShapeData): 'rnd' | 'sq' | 'flat' | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+export const getShapeStrokeCap = (
+  shape: SlideShapeData,
+  pres?: PresentationData,
+): 'rnd' | 'sq' | 'flat' | null => {
+  const ln = strokeLineElement(shape, pres);
   if (!ln) return null;
   const v = getAttrValue(ln, qname('', 'cap', ''));
   if (v === 'rnd' || v === 'sq' || v === 'flat') return v;
@@ -138,10 +283,11 @@ export const getShapeStrokeCap = (shape: SlideShapeData): 'rnd' | 'sq' | 'flat' 
  * or `null` when no explicit join element is present. Maps from the
  * three child-element variants `<a:round/>`, `<a:bevel/>`, `<a:miter/>`.
  */
-export const getShapeStrokeJoin = (shape: SlideShapeData): 'round' | 'bevel' | 'miter' | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+export const getShapeStrokeJoin = (
+  shape: SlideShapeData,
+  pres?: PresentationData,
+): 'round' | 'bevel' | 'miter' | null => {
+  const ln = strokeLineElement(shape, pres);
   if (!ln) return null;
   for (const c of ln.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
@@ -159,10 +305,9 @@ export const getShapeStrokeJoin = (shape: SlideShapeData): 'round' | 'bevel' | '
  */
 export const getShapeStrokeCompound = (
   shape: SlideShapeData,
+  pres?: PresentationData,
 ): 'sng' | 'dbl' | 'thickThin' | 'thinThick' | 'tri' | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  const ln = strokeLineElement(shape, pres);
   if (!ln) return null;
   const v = getAttrValue(ln, qname('', 'cmpd', ''));
   if (v === 'sng' || v === 'dbl' || v === 'thickThin' || v === 'thinThick' || v === 'tri') return v;
@@ -179,6 +324,11 @@ export const getShapeStrokeEffective = (
   shape: SlideShapeData,
 ): ShapeStroke => {
   const own = getShapeStroke(shape);
+  const effectiveLine = readShapeStrokeLineElement(pres, shape);
+  if (effectiveLine) {
+    const effectiveStroke = readStrokeElement(effectiveLine);
+    if (effectiveStroke) return effectiveStroke;
+  }
   if (own.kind !== 'inherit') return own;
 
   const phIdx = getShapePlaceholderIdx(shape);
@@ -199,29 +349,9 @@ export const getShapeStrokeEffective = (
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
       if (c.name.localName === 'noFill') return { kind: 'none' };
       if (c.name.localName === 'solidFill') {
-        for (const inner of c.children) {
-          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-          if (inner.name.localName === 'srgbClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) {
-              return {
-                kind: 'solid',
-                color: `#${val.toUpperCase()}`,
-                ...(widthEmu !== undefined ? { widthEmu } : {}),
-              };
-            }
-          }
-          if (inner.name.localName === 'schemeClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) {
-              return {
-                kind: 'solid',
-                color: `scheme:${val}`,
-                ...(widthEmu !== undefined ? { widthEmu } : {}),
-              };
-            }
-          }
-        }
+        const color = readColorFromContainer(c);
+        if (color !== null)
+          return { kind: 'solid', color, ...(widthEmu !== undefined ? { widthEmu } : {}) };
       }
     }
     return null;
@@ -262,50 +392,32 @@ export const getShapeStrokeEffective = (
   return own;
 };
 
+const readStrokeElement = (line: XmlElement): ShapeStroke | null => {
+  if (line.name.localName === 'noFill') return { kind: 'none' };
+  if (line.name.localName !== 'ln') return null;
+  const wRaw = getAttrValue(line, qname('', 'w', ''));
+  const widthEmu = wRaw !== null ? Number.parseInt(wRaw, 10) : undefined;
+  for (const c of line.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (c.name.localName === 'noFill') return { kind: 'none' };
+    if (c.name.localName === 'solidFill') {
+      const color = readColorFromContainer(c);
+      return {
+        kind: 'solid',
+        color: color ?? '',
+        ...(widthEmu !== undefined ? { widthEmu } : {}),
+      };
+    }
+  }
+  return null;
+};
+
 export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return { kind: 'inherit' };
   const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
   if (!ln) return { kind: 'inherit' };
-
-  const wRaw = getAttrValue(ln, qname('', 'w', ''));
-  const widthEmu = wRaw !== null ? Number.parseInt(wRaw, 10) : undefined;
-
-  for (const c of ln.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-    if (c.name.localName === 'noFill') return { kind: 'none' };
-    if (c.name.localName === 'solidFill') {
-      for (const inner of c.children) {
-        if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-        if (inner.name.localName === 'srgbClr') {
-          const val = getAttrValue(inner, qname('', 'val', ''));
-          if (val !== null) {
-            return {
-              kind: 'solid',
-              color: `#${val.toUpperCase()}`,
-              ...(widthEmu !== undefined ? { widthEmu } : {}),
-            };
-          }
-        }
-        if (inner.name.localName === 'schemeClr') {
-          const val = getAttrValue(inner, qname('', 'val', ''));
-          if (val !== null) {
-            return {
-              kind: 'solid',
-              color: `scheme:${val}`,
-              ...(widthEmu !== undefined ? { widthEmu } : {}),
-            };
-          }
-        }
-      }
-      return {
-        kind: 'solid',
-        color: '',
-        ...(widthEmu !== undefined ? { widthEmu } : {}),
-      };
-    }
-  }
-  return { kind: 'inherit' };
+  return readStrokeElement(ln) ?? { kind: 'inherit' };
 };
 
 /**
@@ -336,20 +448,54 @@ export const getShapeFillColorResolved = (
   shape: SlideShapeData,
 ): string | null => {
   const color = fillColorElement(shape);
-  return color ? resolveDrawingColor(color, getPresentationTheme(pres)) : null;
+  if (color) return resolveDrawingColor(color, getPresentationTheme(pres));
+  if (hasDirectGroupFill(shape)) {
+    const groupFill = containingGroupFillElement(shape);
+    const groupColor =
+      groupFill?.name.localName === 'solidFill'
+        ? groupFill.children.find(
+            (child): child is XmlElement =>
+              child.kind === 'element' && child.name.namespaceURI === NS.dml,
+          )
+        : null;
+    if (!groupColor) return null;
+    const { theme } = getShapeStyleTheme(pres, shape);
+    return resolveDrawingColor(groupColor, theme, getEffectiveColorMap(shape[SHAPE_SLIDE]));
+  }
+  if (getShapeFill(shape).kind !== 'inherit') return null;
+  const style = readShapeStyleFill(pres, shape);
+  return style?.kind === 'solid' ? style.color || null : null;
 };
 
 /**
- * Returns the opacity (`0`–`1`) of the shape's own solid fill, read from
+ * Returns the opacity (`0`–`1`) of the shape's solid fill, read from
  * the `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children of its color
  * element, or `null` when the fill isn't solid or carries no alpha
  * transform (PowerPoint paints it fully opaque). Companion to
  * `getShapeFillColorResolved`, which never carries the alpha channel —
- * OOXML encodes color and alpha independently.
+ * OOXML encodes color and alpha independently. Pass `pres` to resolve the
+ * shape's theme fill reference when no direct fill is present.
  */
-export const getShapeFillOpacity = (shape: SlideShapeData): number | null => {
+export const getShapeFillOpacity = (
+  shape: SlideShapeData,
+  pres?: PresentationData,
+): number | null => {
   const color = fillColorElement(shape);
-  return color ? resolveDrawingColorOpacity(color) : null;
+  if (color) return resolveDrawingColorOpacity(color);
+  if (hasDirectGroupFill(shape)) {
+    const solid = containingGroupFillElement(shape);
+    const color =
+      solid?.name.localName === 'solidFill'
+        ? solid.children.find(
+            (child): child is XmlElement =>
+              child.kind === 'element' && child.name.namespaceURI === NS.dml,
+          )
+        : null;
+    return color ? resolveDrawingColorOpacity(color) : null;
+  }
+  if (!pres || getShapeFill(shape).kind !== 'inherit') return null;
+  const style = readShapeStyleFill(pres, shape);
+  return style?.kind === 'solid' ? resolveDrawingColorOpacity(style.colorElement) : null;
 };
 
 /**
@@ -363,6 +509,21 @@ export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeD
   const own = getShapeFill(shape);
   if (own.kind !== 'inherit') return own;
 
+  // `grpFill` is an explicit DrawingML choice: the child paints with its
+  // containing group's fill. It must not fall through to the child's style
+  // matrix reference, which would incorrectly paint with the theme default.
+  if (hasDirectGroupFill(shape))
+    return readDirectFill(containingGroupFillElement(shape) ?? shape[SHAPE_ELEMENT]) ?? own;
+
+  // A shape's own style reference supplies the default paint before the
+  // placeholder layout/master cascade. Direct `spPr` paint above remains
+  // authoritative, matching DrawingML's precedence rules.
+  const style = readShapeStyleFill(pres, shape);
+  if (style) {
+    if (style.kind === 'solid') return { kind: 'solid', color: style.color };
+    return style;
+  }
+
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
   if (phIdx === null && phType === null) return own;
@@ -371,6 +532,8 @@ export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeD
   if (!layout) return own;
 
   const readFillFromSpPr = (el: XmlElement): ShapeFill | null => {
+    const background = getAttrValue(el, qname('', 'useBgFill', ''))?.trim();
+    if (background === '1' || background === 'true') return { kind: 'background' };
     const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
     if (!spPr) return null;
     for (const c of spPr.children) {
@@ -379,17 +542,8 @@ export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeD
         case 'noFill':
           return { kind: 'none' };
         case 'solidFill': {
-          for (const inner of c.children) {
-            if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-            if (inner.name.localName === 'srgbClr') {
-              const val = getAttrValue(inner, qname('', 'val', ''));
-              if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-            }
-            if (inner.name.localName === 'schemeClr') {
-              const val = getAttrValue(inner, qname('', 'val', ''));
-              if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-            }
-          }
+          const color = readColorFromContainer(c);
+          if (color !== null) return { kind: 'solid', color };
           return { kind: 'solid', color: '' };
         }
         case 'gradFill':
@@ -440,6 +594,8 @@ export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeD
 };
 
 export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
+  const background = getAttrValue(shape[SHAPE_ELEMENT], qname('', 'useBgFill', ''))?.trim();
+  if (background === '1' || background === 'true') return { kind: 'background' };
   const spPrName = qname('p', 'spPr', NS.pml);
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], spPrName);
   if (!spPr) return { kind: 'inherit' };
@@ -451,17 +607,8 @@ export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
       case 'solidFill': {
         // Look for the immediate color choice; report sRGB verbatim,
         // scheme colors as "scheme:<token>".
-        for (const inner of c.children) {
-          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-          if (inner.name.localName === 'srgbClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-          }
-          if (inner.name.localName === 'schemeClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-          }
-        }
+        const color = readColorFromContainer(c);
+        if (color !== null) return { kind: 'solid', color };
         return { kind: 'solid', color: '' };
       }
       case 'gradFill':
@@ -470,6 +617,8 @@ export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
         return { kind: 'pattern' };
       case 'blipFill':
         return { kind: 'image' };
+      case 'grpFill':
+        return { kind: 'inherit' };
     }
   }
   return { kind: 'inherit' };

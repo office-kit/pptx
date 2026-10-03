@@ -19,8 +19,10 @@ export type {
 export type {
   CommentAuthor,
   CommentPosition,
+  CommentStatus,
   SlideComment,
 } from '../internal/presentationml/index.ts';
+export { COMMENT_STATUSES } from '../internal/presentationml/index.ts';
 export type { PresentationInput, PresentationSize, SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
@@ -69,11 +71,29 @@ export { isChartSpec } from '../internal/chartml/index.ts';
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
-export type { AnimationEffect, AnimationOptions } from './fn.ts';
+export type {
+  AnimationDirection,
+  AnimationEffect,
+  AnimationOptions,
+  AnimationPatch,
+  AnimationSequenceKind,
+  AnimationStart,
+  AnimationStartCondition,
+  AnimationTarget,
+  AnimationValueAfterEnd,
+  SlideAnimationStep,
+} from './fn.ts';
+export type { ImageFillLayout, ImageTileAlignment, ImageTileFlip } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
+export type { ImageRecolor, ImageRecolorColor } from './fn.ts';
 export type { ImageFit } from './fn.ts';
+export type { ShapeStyleFontReference, ShapeStyleOptions, ShapeStyleReference } from './fn.ts';
 export type {
   AudioFormat,
+  MediaFade,
+  MediaBookmark,
+  MediaPlayback,
+  MediaTrim,
   ShapeMedia,
   SlideMediaOptions,
   SlideMediaSource,
@@ -81,7 +101,9 @@ export type {
 } from './fn.ts';
 export type {
   ArrowOptions,
+  ColorTransform,
   GlowOptions,
+  InnerShadowOptions,
   GradientFillOptions,
   GradientStop,
   LineDash,
@@ -89,6 +111,7 @@ export type {
   LineEndType,
   PatternFillOptions,
   PatternPreset,
+  ReflectionOptions,
   ShadowOptions,
 } from '../internal/drawingml/index.ts';
 export type {
@@ -114,6 +137,7 @@ export type {
   PresentationTheme,
   TableCellBorder,
   TableCellBorders,
+  TableCellAppearanceEffective,
   PresentationThumbnail,
   ShapeBounds,
   ShapeEffect,
@@ -149,6 +173,8 @@ export {
   addSlideTable,
   addSlideTextBox,
   addTitleSlide,
+  getCustomShows,
+  setCustomShows,
   appendShapeText,
   appendSlideNotes,
   clearShapeEffects,
@@ -159,6 +185,7 @@ export {
   clearShapeStroke,
   clearSlideAnimations,
   clearSlideBackground,
+  clearSlideLayoutBackground,
   clearSlideComments,
   clearSlideHyperlinks,
   clearSlideShapes,
@@ -226,8 +253,11 @@ export {
   getCommentAuthor,
   getCommentAuthors,
   getCommentDate,
+  getCommentFormat,
+  getCommentParent,
   getCommentPosition,
   getCommentSlide,
+  getCommentStatus,
   getCommentText,
   getCommentsSortedByDate,
   getCoreProperties,
@@ -238,6 +268,7 @@ export {
   getGroupTransform,
   groupShapes,
   ungroupShapes,
+  updateSlideAnimation,
   getHiddenSlides,
   getExtendedProperties,
   getParagraphAlignment,
@@ -287,6 +318,8 @@ export {
   getShapeImageCrop,
   getShapeImageDuotone,
   getShapeImageFillBytes,
+  getShapeImageFillLayout,
+  getShapeImageIntrinsicSize,
   getShapeImageFormat,
   getShapeImageLinkUrl,
   getShapeImageOpacity,
@@ -294,6 +327,7 @@ export {
   getShapeIndex,
   getShapeKind,
   getShapeMedia,
+  getShapeMediaPlayback,
   getShapeName,
   getShapePatternFill,
   getShapeParagraphCount,
@@ -361,10 +395,15 @@ export {
   getShapeTextWrap,
   getShapeXmlString,
   getShapeZIndex,
+  getSlideAnimations,
   getSlideAt,
   getSlideBackground,
   getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
+  getSlideBackgroundImageCrop,
+  getSlideBackgroundImageFillLayout,
+  getSlideBackgroundImageIntrinsicSize,
+  getSlideBackgroundImageOpacity,
   getSlideBackgroundPatternFill,
   getSlideBody,
   getSlideCharts,
@@ -402,12 +441,18 @@ export {
   getSlideMasterUsageCounts,
   getSlideMediaPartNames,
   getSlideNotes,
+  getSlideNotesLineBreaks,
+  getSlideNotesTextFormats,
+  getSlideNotesParagraphEndFormat,
+  resolveSlideNotesTextColor,
   getSlideNotesLength,
+  transformSlideNotesCase,
   getSlideOutline,
   getSlidePartName,
   getSlideSections,
   getSlideShapes,
   getSlideTables,
+  getPresentationFirstSlideNumber,
   getSlideSize,
   getSlideText,
   getSlideTextLength,
@@ -428,9 +473,11 @@ export {
   getTableCellAlignment,
   getTableCellAnchor,
   getTableCellBorders,
+  getTableCellAppearanceEffective,
   getTableCellFill,
   getTableCellMargins,
   getTableCellParagraphs,
+  getTableCellRunFormatEffective,
   getTableCellPosition,
   getTableCellSpan,
   getTableCellText,
@@ -444,6 +491,7 @@ export {
   getTableStyleFlags,
   getTableStyleId,
   mergeTableCells,
+  splitTableCell,
   getThumbnail,
   getVisibleSlides,
   hasShapeText,
@@ -455,18 +503,26 @@ export {
   isChartShape,
   isParagraphBulletPicture,
   isShapeHidden,
+  isShapeLocked,
+  isShapeAspectRatioLocked,
+  setShapeLocked,
+  setShapeAspectRatioLocked,
   isShapeImageGrayscale,
   isShapePlaceholder,
   isShapeTextBox,
   isSlideHidden,
+  isSlideBackgroundGraphicsHidden,
+  isSlideLayoutBackgroundGraphicsHidden,
   isTableShape,
   listPackageParts,
   loadPresentation,
   mergePresentations,
   moveSlide,
+  moveSlideAnimation,
   readPackagePart,
   removeShape,
   removeSlide,
+  removeSlideAnimation,
   removeSlideComment,
   removeSlideNotes,
   removeThumbnail,
@@ -492,6 +548,7 @@ export {
   setCoreProperties,
   setExtendedProperties,
   setMediaPartBytes,
+  setShapePreset,
   setShapeAdjustValues,
   setShapeAlignment,
   setShapeAltTitle,
@@ -510,10 +567,15 @@ export {
   setShapeImageContrast,
   setShapeImageCrop,
   setShapeImageFill,
+  setShapeImageFillLayout,
   setShapeImageOpacity,
+  setShapeImageRecolor,
+  resetShapeImageColorEffects,
+  resetShapeVideoFormatting,
   setShapeClickAction,
   setShapeDescription,
   setShapeNoFill,
+  setShapeSlideBackgroundFill,
   setShapeNoStroke,
   setShapePatternFill,
   setShapeParagraphs,
@@ -521,6 +583,9 @@ export {
   setParagraphBullet,
   setParagraphLevel,
   setParagraphLineSpacing,
+  setParagraphTypography,
+  setParagraphTabs,
+  setParagraphIndent,
   setParagraphSpacing,
   setShapePosition,
   setShapeRotation,
@@ -529,6 +594,7 @@ export {
   setShapeRunText,
   setShapeSize,
   setShapeStroke,
+  setShapeStyle,
   setShapeStrokeArrow,
   setShapeStrokeCap,
   setShapeStrokeCompound,
@@ -536,6 +602,8 @@ export {
   setShapeStrokeJoin,
   setShapeText,
   setShapeTextAnchor,
+  setShapeMediaPlayback,
+  setShapeTextField,
   setShapeTextAutoFit,
   setShapeTextBodyRotationDeg,
   setShapeTextColumns,
@@ -547,11 +615,32 @@ export {
   setPresentationFonts,
   setPresentationTheme,
   setSlideBackground,
+  setSlideMasterBackgroundStyle,
+  getSlideMasterBackgroundStyles,
+  type SlideMasterBackgroundStyle,
+  setSlideBackgroundGradientFill,
+  setSlideBackgroundPatternFill,
+  applySlideBackgroundToAll,
+  copySlideBackground,
   setSlideBackgroundImage,
+  setSlideBackgroundImageFillLayout,
+  setSlideBackgroundImageOpacity,
+  setSlideLayoutBackground,
+  setSlideLayoutName,
+  setSlideLayoutPlaceholderBounds,
   setSlideBody,
   setSlideHidden,
+  setSlideBackgroundGraphicsHidden,
   setSlideLayout,
+  resetSlidePlaceholderGeometry,
+  resetSlideLayout,
+  resetSlidePlaceholderTextFormatting,
+  addMissingSlidePlaceholders,
+  addSlidePlaceholder,
+  setCommentStatus,
+  setCommentText,
   setSlideNotes,
+  setSlideNotesFormat,
   setSlidePlaceholders,
   setSlideSections,
   setSlideSize,
@@ -566,6 +655,7 @@ export {
   setTableCellText,
   setTableCellTextDirection,
   setTableCellTextFormat,
+  setTableCellClickAction,
   setTableColumnWidth,
   setTableRowHeight,
   setTableStyleFlags,
@@ -582,7 +672,9 @@ export {
   validatePresentation,
 } from './fn.ts';
 
-export { asColor } from '../internal/drawingml/index.ts';
+export type { CustomShow } from './fn/custom-shows.ts';
+
+export { asColor, toWritableTextFormat } from '../internal/drawingml/index.ts';
 export type {
   BulletStyle,
   Color,
@@ -596,9 +688,17 @@ export type {
   ReadTextFormat,
   RunSpec,
   TextFormat,
+  TextOutline,
 } from '../internal/drawingml/index.ts';
-export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
+export type {
+  ParagraphBulletDetail,
+  ParagraphProperties,
+  ParagraphTabStop,
+  ShapeParagraphElement,
+} from './fn.ts';
+export type { TextCase } from './fn/shape-text.ts';
 export type { TableCellParagraph } from './fn.ts';
+export type { SlideNotesTextFormatOptions } from './fn.ts';
 export type {
   PlaceholderType,
   PresetShape,
@@ -613,3 +713,24 @@ export type {
 declare const __PPTX_KIT_VERSION__: string;
 export const VERSION =
   typeof __PPTX_KIT_VERSION__ === 'string' ? __PPTX_KIT_VERSION__ : '0.0.0-dev';
+
+// Presentation view settings.
+export {
+  getSlideShowProperties,
+  setSlideShowProperties,
+  type SlideShowProperties,
+} from './fn/show-properties.ts';
+
+export {
+  getDrawingGuides,
+  setDrawingGuides,
+  getDrawingGuidesVisible,
+  setDrawingGuidesVisible,
+  getGridSpacing,
+  setGridSpacing,
+  getSnapToGrid,
+  setSnapToGrid,
+  type DrawingGuide,
+  getCollapsedOutlineSlides,
+  setSlideOutlineCollapsed,
+} from './fn/guides.ts';

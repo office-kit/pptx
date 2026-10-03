@@ -7,6 +7,7 @@ import {
   inches,
   loadPresentation,
   type ChartSpec,
+  type ComboChartSpec,
   type ReadChartSpec,
 } from '../src/api/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
@@ -32,6 +33,50 @@ type AxisOverrides = Pick<
   | 'categoryAxisMajorTickMark'
   | 'categoryAxisMinorTickMark'
 >;
+// `ChartSpec` is a union over `kind`, so spreading one and adding axis
+// properties loses the member. Bar / column / line / area share one member
+// (`ComboChartSpec`), so they are built through it.
+type PlainSpec = ComboChartSpec;
+// Only the axis knobs these tests set: `Omit<…, 'kind'>` would also carry the
+// mutually exclusive category-axis fields, whose `never` members cannot be
+// spread back in.
+type PlainOverrides = Partial<
+  Pick<
+    PlainSpec,
+    | 'series'
+    | 'valueAxis'
+    | 'valueAxisMajorGridlines'
+    | 'valueAxisMinorGridlines'
+    | 'valueAxisMinorGridlineColor'
+    | 'valueAxisMinorGridlineWidthEmu'
+    | 'valueAxisHidden'
+    | 'valueAxisLineHidden'
+    | 'categoryAxisHidden'
+    | 'categoryAxisLineHidden'
+    | 'categoryAxisMajorTickMark'
+    | 'categoryAxisMinorTickMark'
+  >
+>;
+
+function plainChart(
+  kind: 'column' | 'bar' | 'line' | 'area' | 'combo',
+  overrides: PlainOverrides = {},
+): PlainSpec {
+  const { series, ...rest } = overrides;
+  return {
+    categories: ['Alpha', 'Beta'],
+    valueAxis: { min: 0, max: 100, majorUnit: 20 },
+    valueAxisLineColor: VALUE_COLOR,
+    categoryAxisLineColor: CATEGORY_COLOR,
+    ...rest,
+    kind: kind === 'combo' ? 'column' : kind,
+    series: series ?? [
+      { name: 'S', values: [20, 60] },
+      ...(kind === 'combo' ? [{ name: 'Line', values: [30, 40], chartKind: 'line' as const }] : []),
+    ],
+  };
+}
+
 function chart(
   kind: 'column' | 'bar' | 'line' | 'area' | 'combo' | 'scatter' | 'bubble',
   overrides: AxisOverrides = {},
@@ -46,14 +91,7 @@ function chart(
   const xy = { name: 'S', values: [20, 60], xValues: [1, 2] };
   if (kind === 'scatter') return { ...common, kind, series: [xy] };
   if (kind === 'bubble') return { ...common, kind, series: [{ ...xy, bubbleSizes: [5, 10] }] };
-  return {
-    ...common,
-    kind: kind === 'combo' ? 'column' : kind,
-    series: [
-      { name: 'S', values: [20, 60] },
-      ...(kind === 'combo' ? [{ name: 'Line', values: [30, 40], chartKind: 'line' as const }] : []),
-    ],
-  };
+  return plainChart(kind, overrides);
 }
 const spines = (svg: string) =>
   attrsOf(svg, 'line').filter(
@@ -163,3 +201,99 @@ describe.each(['scatter', 'bubble'] as const)('%s numeric axis spines', (kind) =
     expect(hidden).not.toContain('>100</text>');
   });
 });
+
+it.each([0.01, 1e-100, Number.MIN_VALUE])(
+  'keeps dense value-axis interval %s responsive',
+  async (majorUnit) => {
+    const svg = await render(
+      plainChart('column', {
+        valueAxis: { min: 0, max: 100, majorUnit },
+        valueAxisMajorGridlines: true,
+      }),
+    );
+    expect(attrsOf(svg, 'line').length).toBeLessThan(2100);
+    expect(svg).toContain('>0</text>');
+    expect(svg).toContain('>100</text>');
+  },
+);
+
+it('renders fractional authored ticks without accumulation drift', async () => {
+  const svg = await render(
+    plainChart('bar', {
+      valueAxis: { min: -0.3, max: 0.3, majorUnit: 0.1, numberFormat: '0.0' },
+      valueAxisMajorGridlines: true,
+    }),
+  );
+  const grid = attrsOf(svg, 'line').filter((line) => line['stroke-width'] === '0.5');
+  expect(grid).toHaveLength(7);
+  expect(svg).toContain('>0.0</text>');
+});
+
+it('finishes automatic ticks when increments are below floating-point precision', async () => {
+  const svg = await render(
+    plainChart('column', {
+      valueAxis: { min: 1e16, max: 1e16 + 2 },
+      series: [{ name: 'Large values', values: [1e16, 1e16 + 2] }],
+    }),
+  );
+  expect(attrsOf(svg, 'line').length).toBeLessThan(2100);
+  expect(svg).not.toMatch(/(?:NaN|Infinity)/);
+});
+
+describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s minor gridlines', (kind) => {
+  it('renders authored spacing, color and width without duplicating major gridlines', async () => {
+    const svg = await render(
+      plainChart(kind, {
+        valueAxis: { min: 0, max: 100, majorUnit: 20, minorUnit: 4 },
+        valueAxisMajorGridlines: true,
+        valueAxisMinorGridlines: true,
+        valueAxisMinorGridlineColor: '#123456',
+        valueAxisMinorGridlineWidthEmu: 9525,
+      }),
+    );
+    const minor = attrsOf(svg, 'line').filter((line) => line.stroke === '#123456');
+    expect(minor).toHaveLength(20);
+    minor.forEach((line, i) => {
+      const fraction = (Math.floor(i / 4) * 20 + ((i % 4) + 1) * 4) / 100;
+      expect(Number(line['stroke-width'])).toBe(1);
+      if (kind === 'bar') {
+        expect(line.x1).toBe(line.x2);
+        expect(Number(line.x1)).toBeCloseTo(frame.left + frame.width * fraction);
+      } else {
+        expect(line.y1).toBe(line.y2);
+        expect(Number(line.y1)).toBeCloseTo(frame.bottom - frame.height * fraction);
+      }
+    });
+    expect(attrsOf(svg, 'line').filter((line) => line.stroke === '#D9D9D9')).toHaveLength(6);
+  });
+});
+
+it.each([undefined, 1e-100])(
+  'uses bounded automatic minor spacing for interval %s',
+  async (minorUnit) => {
+    const svg = await render(
+      plainChart('column', {
+        valueAxis: {
+          min: 0,
+          max: 100,
+          majorUnit: 20,
+          ...(minorUnit === undefined ? {} : { minorUnit }),
+        },
+        valueAxisMinorGridlines: true,
+      }),
+    );
+    expect(
+      attrsOf(svg, 'line').filter((line) => line['data-chart-gridline'] === 'minor'),
+    ).toHaveLength(20);
+  },
+);
+
+it.each([false, true])(
+  'does not draw minor gridlines when disabled or the axis is hidden (%s)',
+  async (hidden) => {
+    const svg = await render(
+      plainChart('column', { valueAxisMinorGridlines: hidden, valueAxisHidden: hidden }),
+    );
+    expect(svg).not.toContain('data-chart-gridline="minor"');
+  },
+);

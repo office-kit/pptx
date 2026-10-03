@@ -18,6 +18,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import {
   _internalPackageOf,
   addSlide,
@@ -130,6 +131,38 @@ describe('fn API: getEffectiveColorMap', () => {
     expect(clrMap['accent1']).toBe('accent1');
     expect(clrMap['accent2']).toBe('accent2');
   });
+
+  it.each(['inherit', 'master', 'override'] as const)(
+    'resolves layout color mapping with slide mode %s through save and reload',
+    async (mode) => {
+      const zip = unzipSync(
+        await readFile(new URL('./fixtures/minimal/two-slides.pptx', import.meta.url)),
+      );
+      const mapping =
+        'bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2" accent1="accent2" accent2="accent1" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"';
+      for (const [name, bytes] of Object.entries(zip)) {
+        if (!/^ppt\/(slides|slideLayouts)\/[^/]+\.xml$/.test(name)) continue;
+        let xml = strFromU8(bytes).replace(/<p:clrMapOvr\b[^>]*>[\s\S]*?<\/p:clrMapOvr>/g, '');
+        const isLayout = name.startsWith('ppt/slideLayouts/');
+        const child =
+          isLayout || mode === 'override'
+            ? `<a:overrideClrMapping ${isLayout ? mapping : mapping.replace('tx1="lt1"', 'tx1="accent3"')}/>`
+            : mode === 'master'
+              ? '<a:masterClrMapping/>'
+              : '';
+        if (child)
+          xml = xml.replace(/(<\/p:(?:sld|sldLayout)>)/, `<p:clrMapOvr>${child}</p:clrMapOvr>$1`);
+        zip[name] = strToU8(xml);
+      }
+      let pres = await loadPresentation(zipSync(zip));
+      for (let round = 0; round < 2; round++) {
+        const map = getEffectiveColorMap(getSlides(pres)[0]!);
+        expect(map.tx1).toBe(mode === 'master' ? 'dk1' : mode === 'override' ? 'accent3' : 'lt1');
+        expect(map.accent1).toBe(mode === 'master' ? 'accent1' : 'accent2');
+        pres = await loadPresentation(await savePresentation(pres));
+      }
+    },
+  );
 
   it('returns standard map for a slide added to blank.pptx', async () => {
     const pres = await loadPresentation(await readFile(blankFixture()));

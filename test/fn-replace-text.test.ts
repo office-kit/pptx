@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   getShapeText,
+  getShapeParagraphElements,
   getSlideShapes,
   getSlideText,
   getSlides,
@@ -13,6 +14,7 @@ import {
   replaceTextInSlide,
   savePresentation,
   setShapeText,
+  setShapeParagraphs,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -71,4 +73,29 @@ describe('fn API: free-text replace', () => {
 
     expect(getSlideShapes(slides[0]!).length).toBeGreaterThan(0);
   });
+});
+
+it('replaces text across formatting runs and preserves surviving run formats after save', async () => {
+  const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+  const slide = getSlides(pres)[0]!;
+  const shape = getSlideShapes(slide)[0]!;
+  setShapeParagraphs(shape, [
+    {
+      runs: [
+        { text: '前 日本', format: { bold: true } },
+        { text: '語 / Hel', format: { italic: true } },
+        { text: 'lo 後', format: { underline: true } },
+      ],
+    },
+  ]);
+  expect(replaceTextInSlide(slide, '日本語', 'English')).toBe(2);
+  expect(replaceTextInPresentation(pres, /hello/gi, 'こんにちは')).toBe(2);
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const result = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+  expect(getShapeText(result)).toBe('前 English / こんにちは 後');
+  expect(getShapeParagraphElements(result, 0)).toMatchObject([
+    { text: '前 English', format: { bold: true } },
+    { text: ' / こんにちは', format: { italic: true } },
+    { text: ' 後', format: { underline: true } },
+  ]);
 });

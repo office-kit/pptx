@@ -1,5 +1,5 @@
 // `getShapeRunFormatEffective` — resolves a run's character properties by
-// walking the ECMA-376 §21.1.2.4.7 inheritance chain (run → endParaRPr →
+// walking the ECMA-376 §21.1.2.4.7 inheritance chain (run →
 // defRPr → lstStyle → layout placeholder → master placeholder → master
 // txStyles → theme fontScheme). The literal `getShapeRunFormat` only
 // reports what's authored on the run itself, so any deck that relies on
@@ -19,11 +19,13 @@ import {
   getShapeRunFormat,
   getShapeRunFormatEffective,
   getSlides,
+  getSlideShapes,
   inches,
   loadPresentation,
   savePresentation,
   setPresentationFonts,
   setShapeRunFormat,
+  setShapeParagraphs,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 
@@ -31,6 +33,154 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: getShapeRunFormatEffective', () => {
+  it('honors XML false overrides of inherited bold and italic after saving', async () => {
+    const original = createPresentation();
+    const box = addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'Regular',
+    });
+    setShapeRunFormat(box, 0, 0, { bold: false, italic: false });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                ...entry,
+                data: encoder.encode(
+                  decoder
+                    .decode(entry.data)
+                    .replace('<a:p>', '<a:p><a:pPr><a:defRPr b="true" i="true"/></a:pPr>')
+                    .replace('b="0"', 'b="false"')
+                    .replace('i="0"', 'i="false"'),
+                ),
+              }
+            : entry,
+        ),
+      ),
+    );
+    for (const loaded of [pres, await loadPresentation(await savePresentation(pres))]) {
+      const shape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+      expect(getShapeRunFormatEffective(loaded, shape, 0, 0)).toMatchObject({
+        bold: false,
+        italic: false,
+      });
+      expect(getShapeRunFormat(shape, 0, 0)).toMatchObject({ bold: false, italic: false });
+    }
+  });
+  it('inherits equalized character height and allows an explicit run override', async () => {
+    const original = createPresentation();
+    addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'AaBb',
+    });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                name: entry.name,
+                data: encoder.encode(
+                  decoder
+                    .decode(entry.data)
+                    .replace('<a:p>', '<a:p><a:pPr><a:defRPr normalizeH="1"/></a:pPr>'),
+                ),
+              }
+            : entry,
+        ),
+      ),
+    );
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(getShapeRunFormat(shape, 0, 0)?.normalizeHeight).toBeUndefined();
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).normalizeHeight).toBe(true);
+    setShapeRunFormat(shape, 0, 0, { normalizeHeight: false });
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).normalizeHeight).toBe(false);
+  });
+
+  it('treats uFillTx as an explicit underline-color cascade stop', async () => {
+    const original = createPresentation();
+    const box = addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'Underline',
+    });
+    setShapeRunFormat(box, 0, 0, { underlineColor: null });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                ...entry,
+                data: encoder.encode(
+                  decoder
+                    .decode(entry.data)
+                    .replace(
+                      '<a:p>',
+                      '<a:p><a:pPr><a:defRPr><a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill></a:defRPr></a:pPr>',
+                    ),
+                ),
+              }
+            : entry,
+        ),
+      ),
+    );
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(getShapeRunFormat(shape, 0, 0)?.underlineColor).toBeNull();
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).underlineColor).toBeNull();
+  });
+
+  it('resolves scheme colors through the slide master color map', async () => {
+    const original = createPresentation();
+    addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'Mapped',
+    });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) => {
+          if (entry.name === 'ppt/slides/slide1.xml') {
+            const xml = decoder
+              .decode(entry.data)
+              .replace(
+                /<a:rPr([^>]*)\/>/,
+                '<a:rPr$1><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:rPr>',
+              );
+            return { ...entry, data: encoder.encode(xml) };
+          }
+          if (entry.name.startsWith('ppt/slideMasters/slideMaster')) {
+            const xml = decoder.decode(entry.data).replace(/tx1="[^"]*"/, 'tx1="lt1"');
+            return { ...entry, data: encoder.encode(xml) };
+          }
+          return entry;
+        }),
+      ),
+    );
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).color).toBe('#FFFFFF');
+  });
+
   it('returns the literal rPr value when one is set on the run', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
@@ -195,4 +345,28 @@ describe('fn API: getShapeRunFormatEffective', () => {
     // inheritance), so this stays defined.
     expect(fmt.font).toBe('Calibri');
   });
+});
+
+it('keeps paragraph end formatting separate from existing shape text after round-trip', async () => {
+  const original = createPresentation();
+  const box = addSlideTextBox(addBlankSlide(original), {
+    x: inches(0),
+    y: inches(0),
+    w: inches(3),
+    h: inches(2),
+    text: 'Text',
+  });
+  setShapeParagraphs(box, [
+    {
+      runs: [{ text: 'Text' }],
+      endFormat: { size: 48, bold: true, font: 'Courier New', color: '#AA2244' },
+    },
+  ]);
+  const loaded = await loadPresentation(await savePresentation(original));
+  const shape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+  const format = getShapeRunFormatEffective(loaded, shape, 0, 0);
+  expect(format.size).not.toBe(48);
+  expect(format.bold).not.toBe(true);
+  expect(format.font).not.toBe('Courier New');
+  expect(format.color).not.toBe('#AA2244');
 });

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   addSlideShape,
+  getSlideShapes,
   getSlides,
   inches,
   isShapeHidden,
@@ -64,5 +65,29 @@ describe('fn API: isShapeHidden / setShapeHidden', () => {
     expect(isShapeHidden(s)).toBe(true);
     setShapeHidden(s, false);
     expect(isShapeHidden(s)).toBe(false);
+  });
+
+  it('hides a batch across slides with one refresh per owning slide', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slides = getSlides(pres);
+    const first = addSlideShape(slides[0]!, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+    });
+    const second = addSlideShape(slides[1]!, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+    });
+    setShapeHidden([first, second], true);
+    expect(isShapeHidden(first)).toBe(true);
+    expect(isShapeHidden(second)).toBe(true);
+    expect(getSlideShapes(slides[0]!).some((shape) => isShapeHidden(shape))).toBe(true);
+    expect(getSlideShapes(slides[1]!).some((shape) => isShapeHidden(shape))).toBe(true);
   });
 });

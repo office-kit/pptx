@@ -56,7 +56,9 @@ const chunk = (typeStr: string, data: Uint8Array): Uint8Array => {
 export const buildPng = (
   width: number,
   height: number,
-  rgb: readonly [number, number, number],
+  rgb:
+    | readonly [number, number, number]
+    | ((x: number, y: number) => readonly [number, number, number]),
 ): Uint8Array => {
   const SIG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -73,9 +75,10 @@ export const buildPng = (
     raw[y * rowSize] = 0; // filter: None
     for (let x = 0; x < width; x++) {
       const idx = y * rowSize + 1 + x * 3;
-      raw[idx] = rgb[0];
-      raw[idx + 1] = rgb[1];
-      raw[idx + 2] = rgb[2];
+      const color = typeof rgb === 'function' ? rgb(x, y) : rgb;
+      raw[idx] = color[0];
+      raw[idx + 1] = color[1];
+      raw[idx + 2] = color[2];
     }
   }
 

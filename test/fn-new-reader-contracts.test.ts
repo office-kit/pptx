@@ -6,6 +6,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import {
   addSlide,
   addSlideTable,
@@ -137,6 +138,102 @@ describe('getShapeGradientFillEffective', () => {
     });
     expect(getShapeGradientFillEffective(pres, box)).toBeNull();
   });
+
+  it.each([
+    ['noFill', '<a:noFill/>'],
+    ['solidFill', '<a:solidFill><a:srgbClr val="00FF00"/></a:solidFill>'],
+  ])('does not inherit a placeholder gradient through an explicit %s', async (_kind, fill) => {
+    const source = unzipSync(
+      await readFile(
+        fileURLToPath(new URL('./fixtures/minimal/one-text-slide.pptx', import.meta.url)),
+      ),
+    );
+    const gradient =
+      '<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs></a:gsLst></a:gradFill>';
+    const slideXml = strFromU8(source['ppt/slides/slide1.xml']!);
+    source['ppt/slides/slide1.xml'] = strToU8(
+      slideXml.replace('<p:spPr/>', `<p:spPr>${fill}</p:spPr>`),
+    );
+    const layoutXml = strFromU8(source['ppt/slideLayouts/slideLayout6.xml']!);
+    source['ppt/slideLayouts/slideLayout6.xml'] = strToU8(
+      layoutXml.replace('<p:spPr/>', `<p:spPr>${gradient}</p:spPr>`),
+    );
+    const pres = await loadPresentation(zipSync(source));
+    const shape = findSlidePlaceholder(getSlides(pres)[0]!, 'title');
+    if (!shape) throw new Error('expected title placeholder');
+
+    expect(getShapeGradientFillEffective(pres, shape)).toBeNull();
+  });
+
+  it('inherits a literal layout gradient when the shape has no fill choice', async () => {
+    const source = unzipSync(
+      await readFile(
+        fileURLToPath(new URL('./fixtures/minimal/one-text-slide.pptx', import.meta.url)),
+      ),
+    );
+    const gradient =
+      '<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs></a:gsLst></a:gradFill>';
+    const layoutXml = strFromU8(source['ppt/slideLayouts/slideLayout6.xml']!);
+    source['ppt/slideLayouts/slideLayout6.xml'] = strToU8(
+      layoutXml.replace('<p:spPr/>', `<p:spPr>${gradient}</p:spPr>`),
+    );
+    const pres = await loadPresentation(zipSync(source));
+    const shape = findSlidePlaceholder(getSlides(pres)[0]!, 'title');
+    if (!shape) throw new Error('expected title placeholder');
+
+    expect(getShapeGradientFillEffective(pres, shape)?.stops.map((stop) => stop.color)).toEqual([
+      '#FF0000',
+      '#0000FF',
+    ]);
+  });
+
+  it('stops at an explicit layout fill instead of inheriting a master gradient', async () => {
+    const source = unzipSync(
+      await readFile(
+        fileURLToPath(new URL('./fixtures/minimal/one-text-slide.pptx', import.meta.url)),
+      ),
+    );
+    const gradient =
+      '<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs></a:gsLst></a:gradFill>';
+    const layoutXml = strFromU8(source['ppt/slideLayouts/slideLayout6.xml']!);
+    source['ppt/slideLayouts/slideLayout6.xml'] = strToU8(
+      layoutXml.replace(
+        '<p:spPr/>',
+        '<p:spPr><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></p:spPr>',
+      ),
+    );
+    const masterXml = strFromU8(source['ppt/slideMasters/slideMaster1.xml']!);
+    source['ppt/slideMasters/slideMaster1.xml'] = strToU8(
+      masterXml.replace('<p:spPr>', `<p:spPr>${gradient}`),
+    );
+    const pres = await loadPresentation(zipSync(source));
+    const shape = findSlidePlaceholder(getSlides(pres)[0]!, 'title');
+    if (!shape) throw new Error('expected title placeholder');
+
+    expect(getShapeGradientFillEffective(pres, shape)).toBeNull();
+  });
+
+  it('inherits a literal master gradient when shape and layout have no fill choice', async () => {
+    const source = unzipSync(
+      await readFile(
+        fileURLToPath(new URL('./fixtures/minimal/one-text-slide.pptx', import.meta.url)),
+      ),
+    );
+    const gradient =
+      '<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs></a:gsLst></a:gradFill>';
+    const masterXml = strFromU8(source['ppt/slideMasters/slideMaster1.xml']!);
+    source['ppt/slideMasters/slideMaster1.xml'] = strToU8(
+      masterXml.replace('<p:spPr>', `<p:spPr>${gradient}`),
+    );
+    const pres = await loadPresentation(zipSync(source));
+    const shape = findSlidePlaceholder(getSlides(pres)[0]!, 'title');
+    if (!shape) throw new Error('expected title placeholder');
+
+    expect(getShapeGradientFillEffective(pres, shape)?.stops.map((stop) => stop.color)).toEqual([
+      '#FF0000',
+      '#0000FF',
+    ]);
+  });
 });
 
 describe('getParagraphPropertiesEffective bullet cascade', () => {
@@ -153,7 +250,17 @@ describe('getParagraphPropertiesEffective bullet cascade', () => {
 
     // python-pptx's master authors bodyStyle lvl1 buChar="•" (normalised to
     // the 'bullet' token) and an explicit <a:buNone> in titleStyle.
-    expect(getParagraphPropertiesEffective(pres, body, 0).bullet).toBe('bullet');
+    const bodyProperties = getParagraphPropertiesEffective(pres, body, 0);
+    expect(bodyProperties.bullet).toBe('bullet');
+    // This is read from the imported master bodyStyle lvl1pPr, rather than
+    // authored on the slide paragraph itself.
+    expect(bodyProperties.bulletDetail).toMatchObject({
+      font: 'Arial',
+      fontFollowText: false,
+      color: null,
+      sizePct: null,
+      sizePts: null,
+    });
     expect(getParagraphPropertiesEffective(pres, title, 0).bullet).toBe('none');
   });
 

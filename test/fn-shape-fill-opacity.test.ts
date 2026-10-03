@@ -1,6 +1,4 @@
-// getShapeFillOpacity / getShapeStrokeOpacity — the alpha channel OOXML keeps
-// beside the color. No authoring API writes `<a:alpha>`, so the element is
-// injected at the OPC zip layer, the same way the preview tests do it.
+// Imported color transforms and authored opacity must round-trip independently.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addSlide,
   addSlideShape,
+  clearShapeStroke,
   findSlideLayout,
   getShapeFillColorResolved,
   getShapeFillOpacity,
@@ -79,3 +78,79 @@ describe('fn API: getShapeFillOpacity / getShapeStrokeOpacity', () => {
     expect(getShapeStrokeColorResolved(pres, shape)).toBe('#000000');
   });
 });
+
+describe('solid paint opacity editing', () => {
+  it('replaces alpha transforms while preserving color transforms and line width', async () => {
+    const { pres, shape } = await loadRectWithAlpha(
+      '<a:alpha val="60000"/><a:alphaMod val="50000"/><a:tint val="10000"/>',
+      '<a:alpha val="50000"/><a:alphaOff val="10000"/>',
+    );
+    const fillColor = getShapeFillColorResolved(pres, shape);
+    setShapeFill(shape, { opacity: 0.25 });
+    setShapeStroke(shape, { opacity: 0.75 });
+    expect(getShapeFillColorResolved(pres, shape)).toBe(fillColor);
+    expect(getShapeFillOpacity(shape)).toBe(0.25);
+    expect(getShapeStrokeOpacity(shape)).toBe(0.75);
+    const bytes = await savePresentation(pres);
+    const xml = readZip(bytes)
+      .entries.filter((entry) => /slides\/slide\d+\.xml$/.test(entry.name))
+      .map((entry) => dec.decode(entry.data))
+      .join('');
+    expect(xml).toContain('<a:tint val="10000"/>');
+    expect(xml).not.toContain('<a:alphaMod');
+    expect(xml).not.toContain('<a:alphaOff');
+    expect(xml).toContain('w="12700"');
+    const loaded = await loadPresentation(bytes);
+    const restored = getSlideShapes(getSlides(loaded).at(-1)!).at(-1)!;
+    expect(getShapeFillOpacity(restored)).toBe(0.25);
+    expect(getShapeStrokeOpacity(restored)).toBe(0.75);
+  });
+
+  it('keeps opacity when editing colors with options and accepts transparent and opaque endpoints', async () => {
+    const { shape } = await loadRectWithAlpha('<a:alpha val="27000"/>', '<a:alpha val="50000"/>');
+    setShapeFill(shape, { color: 'accent1' });
+    setShapeStroke(shape, { color: 'accent2' });
+    expect(getShapeFillOpacity(shape)).toBe(0.27);
+    expect(getShapeStrokeOpacity(shape)).toBe(0.5);
+    setShapeFill(shape, { opacity: 0 });
+    setShapeStroke(shape, { opacity: 1 });
+    expect(getShapeFillOpacity(shape)).toBe(0);
+    expect(getShapeStrokeOpacity(shape)).toBe(1);
+    setShapeFill(shape, '#FFFFFF');
+    expect(getShapeFillOpacity(shape)).toBeNull();
+  });
+
+  it('rejects invalid opacity without changing the paint', async () => {
+    const { shape } = await loadRectWithAlpha('<a:alpha val="27000"/>', '<a:alpha val="50000"/>');
+    for (const opacity of [-0.1, 1.1, NaN, Infinity]) {
+      expect(() => setShapeFill(shape, { opacity })).toThrow(RangeError);
+      expect(() => setShapeStroke(shape, { opacity })).toThrow(RangeError);
+      expect(getShapeFillOpacity(shape)).toBe(0.27);
+      expect(getShapeStrokeOpacity(shape)).toBe(0.5);
+    }
+  });
+});
+
+it.each([false, true])(
+  'invalid stroke edits preserve XML (existing line: %s)',
+  async (existing) => {
+    const { pres, shape } = await loadRectWithAlpha('', '');
+    if (!existing) clearShapeStroke(shape);
+    const slidesXml = async () =>
+      readZip(await savePresentation(pres))
+        .entries.filter((entry) => /slides\/slide\d+\.xml$/.test(entry.name))
+        .map((entry) => dec.decode(entry.data));
+    setShapeFill(shape, '#3366CC');
+    const before = await slidesXml();
+    for (const options of [
+      { opacity: NaN },
+      { widthEmu: -1 },
+      { color: '#FFFFFF' as const, widthEmu: -1 },
+    ]) {
+      expect(() => setShapeStroke(shape, options)).toThrow();
+      // A later successful edit must not commit partial state from the failed edit.
+      setShapeFill(shape, '#3366CC');
+      expect(await slidesXml()).toEqual(before);
+    }
+  },
+);

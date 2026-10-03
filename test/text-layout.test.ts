@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultMeasurer,
   layoutTextSvg,
+  layoutCore,
   substituteFamily,
   type FontSpec,
   type ParaInput,
@@ -58,6 +59,84 @@ describe('defaultMeasurer', () => {
   });
 });
 
+describe('kerning propagation', () => {
+  it('keeps kerning mode in the layout measurer spec and cache key', () => {
+    const seen: boolean[] = [];
+    const measure: TextMeasurer = (text, s) => {
+      seen.push(s.kerning !== false);
+      return {
+        widthPx: [...text].length * (s.kerning === false ? 10 : 11),
+        ascentPx: 8,
+        descentPx: 2,
+        lineGapPx: 0,
+      };
+    };
+    layoutCore(
+      body([para([piece('AV', { kerning: false }), piece('AV', { kerning: true })])]),
+      measure,
+    );
+    expect(seen).toContain(false);
+    expect(seen).toContain(true);
+  });
+});
+
+describe('small caps sizing', () => {
+  it('measures lowercase-derived capitals smaller while preserving authored line metrics', () => {
+    const seenSizes: number[] = [];
+    const measure: TextMeasurer = (text, s) => {
+      seenSizes.push(s.sizePx);
+      return {
+        widthPx: [...text].length * s.sizePx,
+        ascentPx: s.sizePx * 0.8,
+        descentPx: s.sizePx * 0.2,
+        lineGapPx: 0,
+      };
+    };
+    const result = layoutCore(
+      body([para([piece('ABC', { sizePx: 20 }), piece('DEF', { sizePx: 20, smallCaps: true })])]),
+      measure,
+    );
+
+    expect(seenSizes).toContain(20);
+    expect(seenSizes).toContain(16);
+    expect(result.placements[0]!.line.advance).toBeCloseTo(20, 5);
+  });
+
+  it('keeps a mixed-case word together across small-caps piece boundaries', () => {
+    const result = layoutCore(
+      body([para([piece('A', { sizePx: 20 }), piece('BCD', { sizePx: 20, smallCaps: true })])], {
+        boxWpx: 70,
+      }),
+      stubMeasurer,
+    );
+
+    expect(result.placements).toHaveLength(1);
+    expect(result.placements[0]!.line.tokens.map((token) => token.text).join('')).toBe('ABCD');
+  });
+
+  it('moves a mixed-case word as one unit when only the preceding word fits', () => {
+    const result = layoutCore(
+      body(
+        [
+          para([
+            piece('X '),
+            piece('A', { sizePx: 20 }),
+            piece('BCD', { sizePx: 20, smallCaps: true }),
+          ]),
+        ],
+        {
+          boxWpx: 70,
+        },
+      ),
+      stubMeasurer,
+    );
+
+    expect(result.placements).toHaveLength(2);
+    expect(result.placements[0]!.line.tokens.map((token) => token.text).join('')).toBe('X');
+    expect(result.placements[1]!.line.tokens.map((token) => token.text).join('')).toBe('ABCD');
+  });
+});
+
 // A deterministic measurer: every glyph is `sizePx` wide; fixed vertical metrics.
 const stubMeasurer: TextMeasurer = (text, s) => ({
   widthPx: [...text].length * s.sizePx,
@@ -76,7 +155,7 @@ const piece = (text: string, over: Partial<PieceInput> = {}): PieceInput => ({
   fillHex: '#000000',
   underline: 'none',
   strike: false,
-  superSub: 0,
+  baseline: 0,
   href: null,
   isBreak: false,
   ...over,
@@ -111,6 +190,94 @@ const body = (paragraphs: ParaInput[], over: Partial<TextBodyInput> = {}): TextB
 const countText = (svg: string): number => (svg.match(/<text /g) ?? []).length;
 
 describe('layoutTextSvg', () => {
+  it.each(['left', 'center', 'right'] as const)(
+    'positions double strike independently of adjacent single strike for %s alignment',
+    (align) => {
+      const svg = layoutTextSvg(
+        body(
+          [
+            para([piece('A', { strike: true }), piece('B', { strike: 'double' }), piece('C')], {
+              align,
+            }),
+          ],
+          { boxWpx: 100 },
+        ),
+        stubMeasurer,
+      );
+      const lines = [...svg.matchAll(/<line x1="([^"]+)" x2="([^"]+)"/g)];
+      expect(lines).toHaveLength(2);
+      // The renderer applies its shared glyph-grid correction to text and lines.
+      const start = (align === 'left' ? 10 : align === 'center' ? 45 : 80) - 0.75;
+      for (const line of lines) {
+        expect(Number(line[1])).toBe(start);
+        expect(Number(line[2])).toBe(start + 10);
+      }
+      expect(svg).toMatch(/<tspan[^>]*text-decoration="line-through"[^>]*>A<\/tspan>/);
+      expect(svg).toMatch(/<tspan[^>]*>B<\/tspan>/);
+      expect(svg).toMatch(/<tspan[^>]*>C<\/tspan>/);
+    },
+  );
+  it.each(['left', 'center', 'right'] as const)(
+    'positions run highlights behind %s-aligned text',
+    (align) => {
+      const svg = layoutTextSvg(
+        body([para([piece('A'), piece('B', { highlightHex: '#ffff00' }), piece('C')], { align })], {
+          boxWpx: 100,
+        }),
+        stubMeasurer,
+      );
+      const rect =
+        /<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="#ffff00"\/>/.exec(
+          svg,
+        )!;
+      expect(rect).not.toBeNull();
+      expect(Number(rect[1])).toBeCloseTo(
+        (align === 'left' ? 10 : align === 'center' ? 45 : 80) - 0.75,
+        1,
+      );
+      expect(Number(rect[3])).toBe(10);
+      expect(Number(rect[4])).toBe(10);
+      expect(svg.indexOf('<rect')).toBeLessThan(svg.indexOf('<text'));
+      expect(svg).toContain('>A</tspan>');
+      expect(svg).toContain('>B</tspan>');
+    },
+  );
+  it.each([1, -1] as const)('measures highlighted script %s at its rendered size', (superSub) => {
+    const svg = layoutTextSvg(
+      body(
+        [
+          para(
+            [
+              piece('A'),
+              piece('B', { highlightHex: '#ffff00', baseline: superSub > 0 ? 0.33 : -0.16 }),
+              piece('C'),
+            ],
+            {
+              align: 'center',
+            },
+          ),
+        ],
+        { boxWpx: 100 },
+      ),
+      stubMeasurer,
+    );
+    const rect =
+      /<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="#ffff00"/.exec(svg)!;
+    expect(Number(rect[1])).toBe(46);
+    expect(Number(rect[3])).toBe(6.5);
+    expect(Number(rect[4])).toBe(6.5);
+  });
+  it('splits highlights across wrapped lines and leaves plain text without backgrounds', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('ABCD', { highlightHex: '#00ff00' })], { latinLineBreak: true })], {
+        boxWpx: 20,
+      }),
+      stubMeasurer,
+    );
+    expect((svg.match(/fill="#00ff00"/g) ?? []).length).toBe(2);
+    expect(layoutTextSvg(body([para([piece('plain')])]), stubMeasurer)).not.toContain('<rect');
+  });
+
   it('emits one <text> for a single line, left-anchored at the box edge', () => {
     const svg = layoutTextSvg(body([para([piece('Hello')])]), stubMeasurer);
     expect(countText(svg)).toBe(1);
@@ -152,10 +319,147 @@ describe('layoutTextSvg', () => {
     expect(countText(svg)).toBe(1);
   });
 
+  it('emergency-splits an overlong Latin word even when latinLnBrk is false', () => {
+    const word = piece('ABCDE');
+    const kept = layoutTextSvg(body([para([word])], { boxWpx: 20 }), stubMeasurer);
+    const split = layoutTextSvg(
+      body([para([word], { latinLineBreak: true })], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    // Office treats an omitted latinLnBrk as false for ordinary line fitting,
+    // but still splits a word that cannot fit on an empty line.
+    expect(countText(kept)).toBe(3);
+    expect(countText(split)).toBe(3);
+  });
+
+  it('keeps Japanese punctuation with its neighbor across formatting runs', () => {
+    for (const text of ['甲乙。', '甲（乙', '甲（乙）。丙', '甲乙、、。丙']) {
+      for (const width of [10, 20, 30, 40]) {
+        const lines = (pieces: PieceInput[]) =>
+          layoutCore(body([para(pieces)], { boxWpx: width }), stubMeasurer).placements.map(
+            ({ line }) => line.tokens.map((t) => t.text).join(''),
+          );
+        const expected = lines([piece(text)]);
+        for (let cut = 1; cut < text.length; cut++) {
+          expect(
+            lines([piece(text.slice(0, cut)), piece(text.slice(cut), { bold: true })]),
+          ).toEqual(expected);
+        }
+      }
+    }
+    const result = layoutCore(
+      body([para([piece('甲乙'), piece('。', { bold: true })])], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    expect(result.placements.map(({ line }) => line.tokens.map((t) => t.text).join(''))).toEqual([
+      '甲',
+      '乙。',
+    ]);
+    expect(result.placements[1]!.line.tokens.at(-1)!.piece.bold).toBe(true);
+  });
+
+  it('retains emergency CJK breaks and explicit separators across styled runs', () => {
+    const lines = (pieces: PieceInput[], width: number) =>
+      layoutCore(body([para(pieces)], { boxWpx: width }), stubMeasurer).placements.map(({ line }) =>
+        line.tokens.map((t) => t.text).join(''),
+      );
+    expect(lines([piece('甲乙。')], 10)).toEqual(['甲', '乙', '。']);
+    expect(lines([piece('甲（乙')], 10)).toEqual(['甲', '（', '乙']);
+    expect(lines([piece('甲（'), piece('乙', { bold: true })], 20)).toEqual(['甲', '（乙']);
+    expect(lines([piece('甲乙'), piece('', { isBreak: true }), piece('。')], 20)).toEqual([
+      '甲乙',
+      '。',
+    ]);
+    expect(lines([piece('甲乙 '), piece('。')], 20)).toEqual(['甲乙', '。']);
+    expect(lines([piece('甲乙'), piece('。', { sizePx: 20 })], 30)).toEqual(['甲', '乙。']);
+  });
+
+  it('does not introduce a Latin word break at a formatting run boundary', () => {
+    const input = body([para([piece('X AB'), piece('CD', { bold: true })])], { boxWpx: 50 });
+    const result = layoutCore(input, stubMeasurer);
+    expect(
+      result.placements.map(({ line }) => line.tokens.map((token) => token.text).join('')),
+    ).toEqual(['X', 'ABCD']);
+    expect(result.placements[1]!.line.tokens.map((token) => token.piece.bold)).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it('emergency-splits a styled overlong Latin word without losing run styles', () => {
+    const result = layoutCore(
+      body([para([piece('ABC'), piece('DEF', { italic: true })])], { boxWpx: 40 }),
+      stubMeasurer,
+    );
+    expect(
+      result.placements.map(({ line }) => line.tokens.map((token) => token.text).join('')),
+    ).toEqual(['ABCD', 'EF']);
+    expect(result.placements[0]!.line.tokens.map((token) => token.piece.italic)).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ]);
+    expect(result.placements[1]!.line.tokens.every((token) => token.piece.italic)).toBe(true);
+  });
+
+  it('uses the remaining line space only when latinLnBrk is enabled', () => {
+    const word = piece('ABC');
+    const defaultRules = layoutTextSvg(
+      body([para([piece('X '), word])], { boxWpx: 40 }),
+      stubMeasurer,
+    );
+    const latinEnabled = layoutTextSvg(
+      body([para([piece('X '), word], { latinLineBreak: true })], { boxWpx: 40 }),
+      stubMeasurer,
+    );
+    // The word fits the 40px line by itself, but not after the leading X.
+    // False moves it as a unit; true fills the remaining space character by
+    // character before continuing on the next line.
+    expect(countText(defaultRules)).toBe(2);
+    expect(countText(latinEnabled)).toBe(2);
+    expect(
+      layoutCore(body([para([piece('X '), word])], { boxWpx: 40 }), stubMeasurer)
+        .placements[0]!.line.tokens.map((t) => t.text)
+        .join(''),
+    ).toBe('X');
+    expect(
+      layoutCore(
+        body([para([piece('X '), word], { latinLineBreak: true })], { boxWpx: 40 }),
+        stubMeasurer,
+      )
+        .placements[0]!.line.tokens.map((t) => t.text)
+        .join(''),
+    ).toBe('X AB');
+  });
+
+  it('keeps East Asian closing punctuation attached when Latin wrapping is enabled', () => {
+    const result = layoutCore(
+      body([para([piece('日月。')], { latinLineBreak: true })], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    expect(
+      result.placements.map(({ line }) => line.tokens.map((token) => token.text).join('')),
+    ).toEqual(['日', '月。']);
+  });
+
+  it('splits mixed-script words only when latinLnBrk is explicitly enabled', () => {
+    const word = piece('AB日CD');
+    const defaultRules = layoutTextSvg(body([para([word])], { boxWpx: 15 }), stubMeasurer);
+    const latinEnabled = layoutTextSvg(
+      body([para([word], { latinLineBreak: true })], { boxWpx: 15 }),
+      stubMeasurer,
+    );
+    // Existing East Asian tokenization remains active. Overlong Latin
+    // segments are emergency-breakable even with the default flag.
+    expect(countText(defaultRules)).toBe(5);
+    expect(countText(latinEnabled)).toBe(5);
+  });
+
   it('emits run styling as tspan attributes', () => {
     const svg = layoutTextSvg(
       body([
-        para([piece('B', { bold: true, italic: true, underline: 'single', fillHex: '#FF0000' })]),
+        para([piece('B', { bold: true, italic: true, underline: 'sng', fillHex: '#FF0000' })]),
       ]),
       stubMeasurer,
     );
@@ -175,6 +479,53 @@ describe('layoutTextSvg', () => {
     expect(svg).toContain('stroke="#0000FF"');
   });
 
+  it('preserves DrawingML underline styles as explicit SVG geometry', () => {
+    const svgOf = (underline: PieceInput['underline'], text = 'text'): string =>
+      layoutTextSvg(body([para([piece(text, { underline })])]), stubMeasurer);
+    expect(svgOf('dbl').match(/<line /g)).toHaveLength(2);
+    expect(svgOf('dotted')).toContain('stroke-dasharray="1.5 3"');
+    expect(svgOf('dash')).toContain('stroke-dasharray="5 3"');
+    expect(svgOf('dashLong')).toContain('stroke-dasharray="9 3"');
+    expect(svgOf('dotDash')).toContain('stroke-dasharray="1.5 3 6 3"');
+    expect(svgOf('dotDotDash')).toContain('stroke-dasharray="1.5 3 1.5 3 6 3"');
+    expect(svgOf('wavyHeavy')).toContain('<path');
+    const strokeWidthOf = (svg: string): number => Number(/stroke-width="([\d.]+)"/.exec(svg)?.[1]);
+    expect(strokeWidthOf(svgOf('heavy'))).toBeGreaterThan(strokeWidthOf(svgOf('dash')));
+    expect(svgOf('words', 'one two').match(/<line /g)).toHaveLength(2);
+    const proportionalWords = layoutTextSvg(
+      body([
+        para([
+          piece('WW', { underline: 'words' }),
+          piece(' ', { underline: 'words' }),
+          piece('ii', { underline: 'words' }),
+        ]),
+      ]),
+      (text, spec) => ({
+        widthPx: text === 'WW' ? 20 : text === 'ii' ? 8 : 2,
+        ascentPx: spec.sizePx * 0.8,
+        descentPx: spec.sizePx * 0.2,
+        lineGapPx: 0,
+      }),
+    );
+    const wordWidths = [...proportionalWords.matchAll(/<line x1="([\d.-]+)" x2="([\d.-]+)"/g)].map(
+      (match) => Number(match[2]) - Number(match[1]),
+    );
+    expect(wordWidths).toEqual([20, 8]);
+    const doubleWave = layoutTextSvg(
+      body([para([piece('text', { underline: 'wavyDbl', fillHex: '#0000FF' })])]),
+      stubMeasurer,
+    );
+    expect(doubleWave.match(/<path /g)).toHaveLength(2);
+    expect(strokeWidthOf(doubleWave)).toBe(strokeWidthOf(svgOf('wavy')));
+    expect(strokeWidthOf(svgOf('wavyHeavy'))).toBeGreaterThan(strokeWidthOf(svgOf('wavy')));
+  });
+
+  it('keeps strike-through as valid text decoration XML', () => {
+    const svg = layoutTextSvg(body([para([piece('struck', { strike: true })])]), stubMeasurer);
+    expect(svg).toContain('text-decoration="line-through"');
+    expect(svg).not.toMatch(/\sline-through(?:\s|>)/);
+  });
+
   it('scales the wavy-underline path down for a superscript run, matching its shrunk glyph size', () => {
     // tspan() renders a super/subscript run's glyphs at 0.65x sizePx — the
     // wave must scale down the same way, or it reads oversized under the
@@ -189,7 +540,7 @@ describe('layoutTextSvg', () => {
       stubMeasurer,
     );
     const superscript = layoutTextSvg(
-      body([para([piece('wavy', { underline: 'wavy', sizePx: 20, superSub: 1 })])]),
+      body([para([piece('wavy', { underline: 'wavy', sizePx: 20, baseline: 0.33 })])]),
       stubMeasurer,
     );
     expect(strokeWidthOf(superscript)).toBeLessThan(strokeWidthOf(normal));
@@ -354,8 +705,133 @@ describe('layoutTextSvg horizontal parity', () => {
     // and space-inclusive line breaking — "aa bb" (50px incl. space) no longer
     // fits the 40px box, so each word wraps to its own line. See the fidelity
     // calibration notes in site/fidelity/README.md.
+    // The `<g data-pptx-paragraph>` wrappers group each paragraph's lines for
+    // a build player; they carry no transform, so every coordinate above is
+    // the one this guard was calibrated against.
     expect(svg).toMatchInlineSnapshot(
-      `"<text x="-0.75" y="78.36" text-anchor="start" xml:space="preserve" data-pptx-paragraph="0"><tspan font-family="Carlito" font-size="10" fill="#000000">aa</tspan></text><text x="-0.75" y="88.36" text-anchor="start" xml:space="preserve" data-pptx-paragraph="0"><tspan font-family="Carlito" font-size="10" fill="#000000">bb</tspan></text><text x="-0.75" y="98.36" text-anchor="start" xml:space="preserve" data-pptx-paragraph="0"><tspan font-family="Carlito" font-size="10" fill="#000000">cc</tspan></text><text x="-0.75" y="108.36" text-anchor="start" xml:space="preserve" data-pptx-paragraph="0"><tspan font-family="Carlito" font-size="10" fill="#000000">dd</tspan></text><text x="19.25" y="118.36" text-anchor="middle" xml:space="preserve" data-pptx-paragraph="1"><tspan font-family="Carlito" font-size="10" fill="#000000">ee</tspan></text><text x="19.25" y="128.36" text-anchor="middle" xml:space="preserve" data-pptx-paragraph="1"><tspan font-family="Carlito" font-size="10" fill="#000000">ff</tspan></text>"`,
+      `"<g data-pptx-paragraph="0"><text x="-0.75" y="78.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa</tspan></text><text x="-0.75" y="88.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">bb</tspan></text><text x="-0.75" y="98.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc</tspan></text><text x="-0.75" y="108.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">dd</tspan></text></g><g data-pptx-paragraph="1"><text x="19.25" y="118.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee</tspan></text><text x="19.25" y="128.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ff</tspan></text></g>"`,
     );
+  });
+});
+
+describe('centered text bounds', () => {
+  it('preserves the full paragraph frame with opposing alignment', () => {
+    const paragraphs = [para([piece('ABC')]), para([piece('A')], { align: 'right' })];
+    const normal = layoutCore(body(paragraphs, { boxWpx: 100 }), stubMeasurer);
+    const centered = layoutCore(
+      body(paragraphs, { boxWpx: 100, anchorCentered: true }),
+      stubMeasurer,
+    );
+    expect(centered.anchorShift).toBe(0);
+    expect(centered.placements).toEqual(normal.placements);
+  });
+  it.each(['top', 'center', 'bottom'] as const)(
+    'centers a left-aligned block independently of %s anchoring',
+    (anchor) => {
+      const paragraphs = [para([piece('ABCD')]), para([piece('A')])];
+      const normal = layoutCore(
+        body(paragraphs, { boxXpx: 20, boxWpx: 100, anchor }),
+        stubMeasurer,
+      );
+      const centered = layoutCore(
+        body(paragraphs, { boxXpx: 20, boxWpx: 100, anchor, anchorCentered: true }),
+        stubMeasurer,
+      );
+      expect(centered.placements.map((p) => p.line.anchorX + p.dx)).toEqual([50, 50]);
+      expect(centered.placements.map((p) => p.baselineY)).toEqual(
+        normal.placements.map((p) => p.baselineY),
+      );
+      expect(centered.placements.map((p) => p.line.textAnchor)).toEqual(['start', 'start']);
+    },
+  );
+  it('includes a hanging bullet and ignores trailing spaces', () => {
+    const line = para([piece('AB  ')], {
+      firstIndentPx: -10,
+      bullet: { text: '•', family: 'Carlito', sizePx: 10, fillHex: '#000000' },
+    });
+    const {
+      placements: [p],
+    } = layoutCore(body([line], { boxWpx: 100, anchorCentered: true }), stubMeasurer);
+    // Bullet at 30, a ten-pixel gap, then two ten-pixel glyphs to 70.
+    expect(p!.line.bullet!.x + p!.dx).toBe(30);
+    expect(p!.line.anchorX + p!.dx).toBe(50);
+  });
+  it('centers the reading dimension before rotating vertical text', () => {
+    const {
+      placements: [p],
+    } = layoutCore(
+      body([para([piece('AB')])], { boxWpx: 100, boxHpx: 200, vert: 'cw90', anchorCentered: true }),
+      stubMeasurer,
+    );
+    expect(p!.line.anchorX + p!.dx).toBe(40);
+  });
+});
+
+describe('paragraph tab stops', () => {
+  it.each([
+    ['left', 80],
+    ['center', 55],
+    ['right', 30],
+    ['decimal', 50],
+  ] as const)('aligns a mixed-format tab field using %s alignment', (alignment, gap) => {
+    const input = body([
+      para([piece('AB\t12'), piece('3.4', { bold: true })], {
+        tabStops: [{ positionPx: 100, alignment }],
+      }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines[0]!.tokens.find((token) => token.isTab)?.width).toBe(gap);
+    expect(layoutTextSvg(input, stubMeasurer)).toContain(`dx="${gap}"`);
+  });
+
+  it('uses default stops relative to the paragraph margin, accounting for first-line indent', () => {
+    const input = body([
+      para([piece('A\tB\tC')], { marLpx: 30, firstIndentPx: 10, defaultTabSizePx: 50 }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines[0]!.tokens.filter((token) => token.isTab).map((token) => token.width)).toEqual([
+      30, 40,
+    ]);
+  });
+
+  it('resets tab positions after a line break and right-aligns decimal fields without a point', () => {
+    const input = body([
+      para([piece('A\t12'), piece('', { isBreak: true }), piece('B\t123')], {
+        tabStops: [{ positionPx: 100, alignment: 'decimal' }],
+      }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines.map((line) => line.tokens.find((token) => token.isTab)?.width)).toEqual([70, 60]);
+  });
+});
+
+describe('adjacent character outlines', () => {
+  it.each([
+    [
+      { outlineHex: '#FF0000', outlineWidthPx: 1 },
+      { outlineHex: '#0000FF', outlineWidthPx: 1 },
+    ],
+    [
+      { outlineHex: '#FF0000', outlineWidthPx: 1 },
+      { outlineHex: '#FF0000', outlineWidthPx: 3 },
+    ],
+    [{}, { outlineHex: '#FF0000', outlineWidthPx: 1 }],
+    [{ outlineHex: '#FF0000', outlineWidthPx: 1 }, {}],
+  ])('preserves distinct run outlines %j and %j', (first, second) => {
+    const svg = layoutTextSvg(
+      body([para([piece('A', first), piece('B', second)])]),
+      defaultMeasurer,
+    );
+    for (const [text, format] of [
+      ['A', first],
+      ['B', second],
+    ] as const) {
+      const span = svg.match(new RegExp(`<tspan([^>]*)>${text}</tspan>`))?.[1];
+      expect(span).toBeDefined();
+      if ('outlineHex' in format) {
+        expect(span).toContain(`stroke="${format.outlineHex}"`);
+        expect(span).toContain(`stroke-width="${format.outlineWidthPx}"`);
+      } else expect(span).not.toContain('stroke=');
+    }
   });
 });

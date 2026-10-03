@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "fidelity": "tsx fidelity/run.ts"
+    "fidelity": "tsx fidelity/run.ts",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",

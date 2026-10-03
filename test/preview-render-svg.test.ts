@@ -22,8 +22,10 @@ import {
   groupShapes,
   inches,
   loadPresentation,
+  moveSlide,
   type PatternPreset,
   savePresentation,
+  setShapeClickAction,
   setShapeFill,
   setShapeFlip,
   setShapeGradientFill,
@@ -189,6 +191,75 @@ describe('renderSlideToSvg', () => {
     );
   });
 
+  it.each([
+    ['dbl', 'text-decoration-style:double'],
+    ['dotted', 'background-image:url('],
+    ['dash', 'background-image:url('],
+    ['heavy', 'text-decoration-thickness:0.1em'],
+    ['dotDash', 'background-image:url('],
+    ['wavyDbl', 'background-image:url('],
+  ])('foreignObject preserves the %s underline appearance', async (underline, css) => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'both',
+    });
+    setShapeRunFormat(box, 0, 0, { strike: true, underline });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    expect(svg).toContain(css);
+    expect(svg).toContain('text-decoration:line-through');
+    expect(svg).not.toContain('text-decoration:underline line-through');
+  });
+
+  it('foreignObject words-only underline leaves spaces undecorated', async () => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'one two',
+    });
+    setShapeRunFormat(box, 0, 0, { underline: 'words' });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    expect(svg).toContain(
+      '<span style="text-decoration:underline">one</span> <span style="text-decoration:underline">two</span>',
+    );
+  });
+
+  it('foreignObject mode applies the OOXML kerning threshold per run', async () => {
+    const render = async (
+      size: number,
+      kern: number | undefined,
+      textLayout: 'foreignObject' | 'svg',
+    ): Promise<string> => {
+      const { pres, slide } = await blankSlide();
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(5),
+        h: inches(2),
+        text: 'AV',
+      });
+      setShapeRunFormat(box, 0, 0, { size, ...(kern === undefined ? {} : { kern }) });
+      return renderSlideToSvg(pres, slide, { textLayout });
+    };
+
+    // PowerPoint's 1/100pt threshold is inclusive at the boundary.
+    expect(await render(10, 1200, 'foreignObject')).toContain('font-kerning:none');
+    expect(await render(12, 1200, 'foreignObject')).toContain('font-kerning:normal');
+    expect(await render(12, 0, 'foreignObject')).toContain('font-kerning:none');
+    expect(await render(12, undefined, 'foreignObject')).not.toContain('font-kerning:');
+
+    expect(await render(10, 1200, 'svg')).toContain('font-kerning="none"');
+    expect(await render(12, 1200, 'svg')).toContain('font-kerning="normal"');
+    expect(await render(12, 0, 'svg')).toContain('font-kerning="none"');
+    expect(await render(12, undefined, 'svg')).toContain('font-kerning="normal"');
+  });
+
   it('svg text mode emits <text> containing the run text and no <foreignObject>', async () => {
     const { pres, slide } = await blankSlide();
     addSlideTextBox(slide, {
@@ -218,6 +289,42 @@ describe('renderSlideToSvg', () => {
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
     expect(svg).toContain('font-weight="700"');
     expect(svg).toMatch(/fill="#[Cc][Cc]0+0+"/);
+  });
+
+  it('keeps a selected text link off the surrounding object', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'Before link after',
+    });
+    setShapeHyperlink(shape, 'https://selected.example', undefined, {
+      range: { start: 7, end: 11 },
+    });
+    const svg = renderSlideToSvg(pres, slide);
+    const links = attrsOf(svg, 'a').filter((a) => a.href === 'https://selected.example');
+    expect(links).toHaveLength(1);
+  });
+
+  it('renders escaped picture link descriptions after saved reload', async () => {
+    const { pres, slide } = await blankSlide();
+    const picture = addSlideImage(slide, buildPng(2, 2, [40, 80, 120]), {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    setShapeClickAction(
+      picture,
+      { kind: 'url', url: 'https://example.com' },
+      { tooltip: '資料 <日本語> & English' },
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const svg = renderSlideToSvg(loaded, getSlides(loaded)[0]!);
+    expect(svg).toContain('<title>資料 &lt;日本語&gt; &amp; English</title>');
+    expect(svg).toContain('href="https://example.com"');
   });
 
   it('addSlideImage: emits <image> element with a data: URL href', async () => {
@@ -422,6 +529,55 @@ describe('renderSlideToSvg', () => {
     setShapeHyperlink(shape, 'https://example.com');
     const svg = renderSlideToSvg(pres, slide);
     expect(svg).toContain('href="https://example.com"');
+  });
+
+  it('preserves runtime show actions for shape and text links', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Navigate',
+    });
+    for (const [kind, href] of [
+      ['nextSlide', '#pptx-next-slide'],
+      ['prevSlide', '#pptx-prev-slide'],
+      ['firstSlide', '#pptx-first-slide'],
+      ['lastSlide', '#pptx-last-slide'],
+      ['endShow', '#pptx-end-show'],
+      ['lastSlideViewed', '#pptx-last-slide-viewed'],
+    ] as const) {
+      setShapeClickAction(shape, { kind });
+      expect(renderSlideToSvg(pres, slide)).toContain(`href="${href}"`);
+      setShapeClickAction(shape, null);
+      setShapeClickAction(shape, { kind }, { range: { start: 0, end: 4 } });
+      expect(renderSlideToSvg(pres, slide)).toContain(`href="${href}"`);
+      const loaded = await loadPresentation(await savePresentation(pres));
+      expect(renderSlideToSvg(loaded, getSlides(loaded)[0]!)).toContain(`href="${href}"`);
+      setShapeClickAction(shape, null, { range: { start: 0, end: 4 } });
+    }
+  });
+
+  it('renders internal slide links using the current presentation order', async () => {
+    const { pres, slide } = await blankSlide();
+    const target = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Go to target',
+    });
+    setShapeClickAction(shape, { kind: 'slide', slide: target });
+    expect(renderSlideToSvg(pres, slide)).toContain(`href="#slide-${getSlides(pres).length}"`);
+    setShapeClickAction(shape, null);
+    setShapeClickAction(shape, { kind: 'slide', slide: target }, { range: { start: 0, end: 2 } });
+    expect(renderSlideToSvg(pres, slide)).toContain(`href="#slide-${getSlides(pres).length}"`);
+    moveSlide(pres, target, 0);
+    expect(renderSlideToSvg(pres, slide)).toContain('href="#slide-1"');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(renderSlideToSvg(reloaded, getSlides(reloaded).at(-1)!)).toContain('href="#slide-1"');
   });
 
   it('shapes carry data-pptx-shape-name for accessibility / DevTools', async () => {

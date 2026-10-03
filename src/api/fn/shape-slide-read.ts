@@ -9,13 +9,7 @@ import {
 import { setShapePosition } from './shape-fill-stroke.ts';
 import { replaceTokensInTree } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
-import {
-  basename,
-  emptyRels,
-  nextRelId,
-  partName,
-  resolveTarget,
-} from '../../internal/opc/index.ts';
+import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
 import {
   type PlaceholderType,
   REL_TYPES,
@@ -25,6 +19,7 @@ import {
 import { parseXml, serializeXml } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
+  LAYOUT_DOCUMENT,
   LAYOUT_PART,
   LAYOUT_PART_NAME,
   type PresentationData,
@@ -68,8 +63,9 @@ export const setSlideLayout = (slide: SlideData, layout: SlideLayoutData): void 
     throw new Error(`setSlideLayout: layout ${layoutPartName} not in package`);
   }
   const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
-  const layoutBase = basename(layoutPartName);
-  const newTarget = `../slideLayouts/${layoutBase}`;
+  // Imported layouts need not live in /ppt/slideLayouts. A package-root
+  // reference preserves the target regardless of either part's directory.
+  const newTarget = layoutPartName;
 
   // Replace any existing slideLayout rel. Keep the same rId where
   // possible so other parts that already reference it stay valid.
@@ -102,10 +98,12 @@ export const getSlideLayout = (slide: SlideData): SlideLayoutData | null => {
     : resolveTarget(slide[SLIDE_PART_NAME], layoutRel.target);
   const layoutPart = pkg.getPart(layoutName);
   if (layoutPart === null) return null;
-  const root = parseXml(decode(layoutPart.data)).root;
+  const doc = parseXml(decode(layoutPart.data));
   return {
+    [INTERNAL_PACKAGE]: pkg,
     [LAYOUT_PART_NAME]: layoutName,
-    [LAYOUT_PART]: readSlideLayoutPart(root),
+    [LAYOUT_DOCUMENT]: doc,
+    [LAYOUT_PART]: readSlideLayoutPart(doc.root),
   };
 };
 
