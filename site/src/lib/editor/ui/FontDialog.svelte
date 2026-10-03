@@ -76,13 +76,18 @@
     normalizeHeight = common(f => f.normalizeHeight ?? false);
     const spc = common(f => f.spc ?? 0);
     spacingMode = spc === undefined ? '' : spc === 0 ? 'normal' : spc > 0 ? 'expanded' : 'condensed';
-    spacingAmount = spc === undefined ? undefined : Math.abs(spc) / 100;
+    spacingAmount = spc === undefined || spc === 0 ? undefined : Math.abs(spc) / 100;
     const kern = common(f => f.kern ?? 1200);
     useKerning = kern === undefined ? undefined : kern !== 0;
     kerningThreshold = kern === undefined ? undefined : kern === 0 ? 12 : kern / 100;
   }
   function setSpacing() {
-    if (spacingMode && spacingAmount !== undefined) patch.spc = spacingMode === 'normal' ? 0 : Math.round(spacingAmount * 100) * (spacingMode === 'condensed' ? -1 : 1);
+    if (spacingMode === 'normal') patch.spc = 0;
+    else if (spacingMode && spacingAmount !== undefined) patch.spc = Math.round(spacingAmount * 100) * (spacingMode === 'condensed' ? -1 : 1);
+  }
+  function setSpacingAmount() {
+    if (spacingMode === 'normal' && spacingAmount !== undefined && spacingAmount > 0) spacingMode = 'expanded';
+    setSpacing();
   }
   function setKerning() {
     if (useKerning === false) patch.kern = 0;
@@ -105,7 +110,7 @@
     }
     editor.closeDialog();
   }
-  onMount(() => { readState(); dialog.showModal(); });
+  onMount(() => { tab = editor.fontDialogTab; readState(); dialog.showModal(); });
 </script>
 
 <dialog class="font-dialog" bind:this={dialog} aria-label={t('Font')} oncancel={() => editor.closeDialog()} onclose={() => editor.closeDialog()} onkeydown={event => event.stopPropagation()}>
@@ -163,8 +168,8 @@
       </div></fieldset>
     {:else}
       <div class="spacing-row">
-        <label>{t('Character spacing mode')}<select aria-label={t('Spacing')} bind:value={spacingMode} onchange={() => { spacingAmount ??= 0; setSpacing(); }}><option value="">{t('Mixed')}</option><option value="normal">{t('Normal')}</option><option value="expanded">{t('Expanded')}</option><option value="condensed">{t('Condensed')}</option></select></label>
-        <label>{t('By (pt)')}<input type="number" min="0" max="1000" step="any" disabled={!spacingMode || spacingMode === 'normal'} bind:value={spacingAmount} onchange={setSpacing} /></label>
+        <label>{t('Character spacing mode')}<select aria-label={t('Spacing')} bind:value={spacingMode} onchange={() => { if (spacingMode === 'normal') spacingAmount = undefined; else if (spacingAmount === undefined || spacingAmount === 0) spacingAmount = 1; setSpacing(); }}><option value="">{t('Mixed')}</option><option value="normal">{t('Normal')}</option><option value="expanded">{t('Expanded')}</option><option value="condensed">{t('Condensed')}</option></select></label>
+        <label>{t('By (pt)')}<input type="number" min="0" max="1000" step="any" disabled={!spacingMode} bind:value={spacingAmount} onchange={setSpacingAmount} /></label>
       </div>
       <div class="kerning-row">
         <label class="check"><input type="checkbox" checked={useKerning ?? false} indeterminate={useKerning === undefined} onchange={e => { useKerning = e.currentTarget.checked; kerningThreshold ??= 12; setKerning(); }} />{t('Use kerning for fonts')}</label>

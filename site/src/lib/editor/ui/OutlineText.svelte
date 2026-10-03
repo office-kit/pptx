@@ -310,7 +310,7 @@
     if (mod && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 't') {
       event.preventDefault();
       event.stopPropagation();
-      editor.activeDialog = 'font';
+      editor.openFontDialog();
       return;
     }
     if (mod && event.shiftKey && !event.altKey &&

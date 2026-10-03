@@ -1470,7 +1470,7 @@
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 't') {
                   e.preventDefault();
                   e.stopPropagation();
-                  editor.activeDialog = 'font';
+                  editor.openFontDialog('font', textInput?.getElement());
                   return;
                 }
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === 'v' || e.code === 'KeyV')) {
