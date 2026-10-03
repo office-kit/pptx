@@ -140,8 +140,8 @@
         {#each current.groups as group (group.title)}
           {#if group.title === 'Arrange'}
           <ArrangeMenu compact />
-          {:else if group.title !== 'Font'}
-          <button class="group-menu-trigger" class:paragraph-trigger={group.title === 'Paragraph'} aria-haspopup="menu" aria-expanded={openGroup === group.title} onclick={() => openGroup = openGroup === group.title ? null : group.title}>
+          {:else}
+          <button class="group-menu-trigger" class:font-trigger={group.title === 'Font'} class:paragraph-trigger={group.title === 'Paragraph'} aria-haspopup="menu" aria-expanded={openGroup === group.title} onclick={() => openGroup = openGroup === group.title ? null : group.title}>
             <span>{t(group.title)}</span><span aria-hidden="true">⌄</span>
           </button>
           {/if}
@@ -232,6 +232,7 @@
     overflow-x: auto;
   }
   .compact-groups, .group-menu { display: none; }
+  .group-menu-trigger.font-trigger { display: none; }
   @media (max-width: 2000px) {
     .groups.home-groups { position: relative; overflow: visible; }
     .groups.home-groups > .group { display: none; }
@@ -241,6 +242,10 @@
     .group-menu-trigger:hover, .group-menu-trigger[aria-expanded='true'] { background: var(--ok-hover); border-color: var(--ok-accent); }
     .group-menu { position: absolute; z-index: 400; display: block; left: 6px; right: 6px; top: calc(100% - 2px); padding: 7px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
     .group-menu-items { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+  }
+  @media (max-width: 799px) {
+    .groups.home-groups > .group.font-group { display: none; }
+    .group-menu-trigger.font-trigger { display: inline-flex; }
   }
   @media (min-width: 1100px) and (max-width: 2000px) {
     .groups.home-groups > .group.paragraph-group { display: flex; }
