@@ -289,7 +289,7 @@
   <RichTextInput bind:this={input} {value} html={noteHtml} label={t('Notes content')} style="position:static; width:100%; height:100%; min-height:40px; box-sizing:border-box;" textZoom={1}
     onfocus={() => { editor.inlineTextFormat = null; focused = true; }} onblur={() => { commit(); setTimeout(() => { if (document.activeElement !== input?.getElement?.()) focused = false; }, 0); }}
     onselect={(next) => { if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; formatForRange(next); }} onbeforeinput={(next) => { range = next; formatForRange(next); }} oninput={changed} onkeydown={keys}
-    onnewline={() => changed(`${value.slice(0, range.start)}\n${value.slice(range.end)}`)} oncomposition={(active) => { composing = active; if (active) clearTimeout(timer); }}
+    onnewline={() => changed(`${value.slice(0, range.start)}\n${value.slice(range.end)}`)} oncomposition={(active) => { composing = active; if (active) clearTimeout(timer); else if (pending) timer = setTimeout(commit, 600); }}
     onhistory={(backward) => { commit(); typingFormat = undefined; void (backward ? doc.undo() : doc.redo()); }} oncopy={() => {}} oncut={() => {}} onpaste={pasteNotes} />
 </section>
 
