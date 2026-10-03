@@ -73,13 +73,21 @@ test(
           .evaluate((n) => getComputedStyle(n).fontSize),
         '32px',
       );
+      const beforeZoom = await input.locator('span').first().boundingBox();
       // A keyboard/programmatic zoom leaves the input focused, including its selection.
       await editor.getByTitle('Zoom in (Ctrl+=)', { exact: true }).evaluate((n) => n.click());
-      await page.waitForFunction(() => {
+      await page.waitForFunction((before) => {
         const root = document.querySelector('#editor-frame')?.contentDocument;
         const span = root?.querySelector('.inline-edit span');
-        return span && Math.abs(parseFloat(getComputedStyle(span).fontSize) - 35.2) < 0.01;
-      });
+        if (!span) return false;
+        const bounds = span.getBoundingClientRect();
+        // Canvas zoom scales the editing box, keeping font metrics in slide coordinates.
+        return (
+          getComputedStyle(span).fontSize === '32px' &&
+          Math.abs(bounds.width - before.width * 1.1) < 0.1 &&
+          Math.abs(bounds.height - before.height * 1.1) < 0.1
+        );
+      }, beforeZoom);
       assert.equal(await input.evaluate(() => window.getSelection().toString()), 'b');
       const copiedHtml = await input.evaluate((node) => {
         const data = new DataTransfer();
