@@ -58,6 +58,21 @@ const box = (slide, x, text) =>
 const characterOf = (pres, shape) =>
   getShapeParagraphCount(shape) > 0 ? getShapeRunFormatEffective(pres, shape, 0, 0) : null;
 
+test('format painter preserves shadow anchor and rotation through save/load', async () => {
+  const { pres, slide } = deck();
+  const source = box(slide, 1, 'Source');
+  const target = box(slide, 5, 'Target');
+  setShapeShadow(source, { color: '#123456', alignment: 'ctr', rotateWithShape: true });
+  applyShapeFormat(target, readShapeFormat(pres, source, characterOf(pres, source)));
+  const restored = await loadPresentation(await savePresentation(pres));
+  const restoredTarget = getSlideShapes(getSlides(restored)[0])[1];
+  const shadow = getShapeEffects(restored, restoredTarget).find(
+    (effect) => effect.kind === 'outerShdw',
+  );
+  assert.equal(shadow.alignment, 'ctr');
+  assert.equal(shadow.rotateWithShape, true);
+});
+
 test('a copied format carries paint, character and paragraph formatting', () => {
   const { pres, slide } = deck();
   const source = box(slide, 1, 'Source');
@@ -208,13 +223,15 @@ test('a pasted format survives the save/load round trip', async () => {
   assert.equal(getParagraphPropertiesEffective(reloaded, saved, 0).align, 'right');
 });
 
-test('a character outline, shadow and glow travel with the text format', () => {
+test('character effects travel with the text format through save/load', async () => {
   const { pres, slide } = deck();
   const source = box(slide, 1, 'WordArt');
   setShapeTextFormat(source, {
     outline: { color: '#FF0000', widthEmu: 12700 },
     shadow: { color: '#000000', blurEmu: 50800, offsetEmu: 38100, angleDeg: 45 },
     glow: { color: '#00FF00', radiusEmu: 63500 },
+    innerShadow: { color: '#123456', blurEmu: 63500, offsetEmu: 50800, angleDeg: 225 },
+    reflection: { scaleY: -0.9, startOpacity: 0.53, endPosition: 0.355 },
   });
   const target = box(slide, 5, 'Plain');
 
@@ -225,10 +242,20 @@ test('a character outline, shadow and glow travel with the text format', () => {
     readTextFormat(pres, source, 0, characterOf(pres, source)),
   );
 
-  const pasted = getShapeRunFormatEffective(pres, target, 0, 0);
+  const restored = await loadPresentation(await savePresentation(pres));
+  const pasted = getShapeRunFormatEffective(
+    restored,
+    getSlideShapes(getSlides(restored)[0])[1],
+    0,
+    0,
+  );
   assert.deepEqual(pasted.outline, { color: '#FF0000', widthEmu: 12700 });
   assert.equal(pasted.glow?.color, '#00FF00');
   assert.equal(pasted.shadow?.offsetEmu, 38100);
+  assert.equal(pasted.innerShadow?.color, '#123456');
+  assert.equal(pasted.innerShadow?.angleDeg, 225);
+  assert.equal(pasted.reflection?.scaleY, -0.9);
+  assert.equal(pasted.reflection?.endPosition, 0.355);
 });
 
 test('format painter copies slide background fill', () => {
