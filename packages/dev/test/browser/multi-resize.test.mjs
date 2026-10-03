@@ -13,9 +13,13 @@ import {
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
-for (const rotation of [0, 90])
+for (const [rotation, otherRotation] of [
+  [0, 0],
+  [90, 90],
+  [0, 90],
+])
   test(
-    `individual handles resize objects at ${rotation} degrees about their own anchors and preserve history`,
+    `individual handles resize objects at ${rotation}/${otherRotation} degrees about their own anchors and preserve history`,
     { timeout: 60000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-multi-resize-'));
@@ -24,7 +28,7 @@ for (const rotation of [0, 90])
         const file = join(dir, 'deck.tsx');
         await writeFile(
           file,
-          `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={2} y={2} width={2} height={1} rotation={${rotation}}>English</Text><Text x={6} y={2} width={3} height={1.5} rotation={${rotation}}>日本語</Text><Text x={10} y={5} width={1} height={1}>Other</Text></Slide></Presentation>`,
+          `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={2} y={2} width={2} height={1} rotation={${rotation}}>English</Text><Text x={6} y={2} width={3} height={1.5} rotation={${otherRotation}}>日本語</Text><Text x={10} y={5} width={1} height={1}>Other</Text></Slide></Presentation>`,
         );
         preview = await startPreview(file);
         browser = await chromium.launch({ headless: true });
@@ -108,12 +112,17 @@ for (const rotation of [0, 90])
         const scaleY = enlarged[0].h / original[0].h;
         assert.ok(Math.abs(scaleY - scale) > 0.01);
         for (let i = 0; i < 2; i++) {
-          assert.ok(Math.abs(enlarged[i].h - original[i].h * scaleY) <= 2);
-          assert.ok(Math.abs(enlarged[i].w - original[i].w * scale) <= 2);
+          const mixed = i === 1 && rotation !== otherRotation;
+          assert.ok(Math.abs(enlarged[i].h - original[i].h * (mixed ? scale : scaleY)) <= 2);
+          assert.ok(Math.abs(enlarged[i].w - original[i].w * (mixed ? scaleY : scale)) <= 2);
           const dw = enlarged[i].w - original[i].w;
           const dh = enlarged[i].h - original[i].h;
-          const expectedX = original[i].x - (rotation === 90 ? (dw + dh) / 2 : 0);
-          const expectedY = original[i].y + (rotation === 90 ? (dw - dh) / 2 : 0);
+          const objectRotation = i === 0 ? rotation : otherRotation;
+          // A 90-degree object maps the first object's SE drag to its own NE;
+          // its local SW (screen NW) stays fixed, as in Mac PowerPoint.
+          const expectedX =
+            original[i].x + (objectRotation === 90 ? (-dw + (mixed ? dh : -dh)) / 2 : 0);
+          const expectedY = original[i].y + (objectRotation === 90 ? (dw - dh) / 2 : 0);
           assert.ok(Math.abs(enlarged[i].x - expectedX) <= 2);
           assert.ok(Math.abs(enlarged[i].y - expectedY) <= 2);
           assert.equal(enlarged[i].rotation, original[i].rotation);

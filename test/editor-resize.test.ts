@@ -18,6 +18,16 @@ function point(rect: Rect, handle: ResizeHandle, rotation: number, opposite = fa
     y: rect.y + rect.h / 2 + x * Math.sin(angle) + y * Math.cos(angle),
   };
 }
+const quarterTurnHandles: Record<ResizeHandle, ResizeHandle> = {
+  nw: 'sw',
+  n: 'w',
+  ne: 'nw',
+  e: 'n',
+  se: 'ne',
+  s: 'e',
+  sw: 'se',
+  w: 's',
+};
 describe('canvas resize geometry', () => {
   for (const rotation of [0, 45, 90, 180, 315]) {
     for (const handle of handles) {
@@ -93,7 +103,7 @@ describe('individual selection resize', () => {
     it(`keeps each opposite ${handle} anchor when resizing rotated selections`, () => {
       const shapes = [
         { ...original, rotation: 30 },
-        { x: 700, y: 500, w: 150, h: 80, rotation: 75 },
+        { x: 700, y: 500, w: 150, h: 80, rotation: 120 },
       ];
       const result = resizeSelectionRects(
         shapes,
@@ -104,12 +114,18 @@ describe('individual selection resize', () => {
       );
       result.forEach((rect, i) => {
         const shape = shapes[i]!;
-        const before = point(shape, handle, shape.rotation, true);
-        const after = point(rect, handle, shape.rotation, true);
+        const targetHandle = i === 0 ? handle : quarterTurnHandles[handle];
+        const before = point(shape, targetHandle, shape.rotation, true);
+        const after = point(rect, targetHandle, shape.rotation, true);
         expect(after.x).toBeCloseTo(before.x);
         expect(after.y).toBeCloseTo(before.y);
-        expect(rect.w / shape.w).toBeCloseTo(result[0]!.w / shapes[0]!.w);
-        expect(rect.h / shape.h).toBeCloseTo(result[0]!.h / shapes[0]!.h);
+        const swapsAxes = i === 1;
+        expect(rect.w / shape.w).toBeCloseTo(
+          swapsAxes ? result[0]!.h / shapes[0]!.h : result[0]!.w / shapes[0]!.w,
+        );
+        expect(rect.h / shape.h).toBeCloseTo(
+          swapsAxes ? result[0]!.w / shapes[0]!.w : result[0]!.h / shapes[0]!.h,
+        );
       });
     });
   }
@@ -135,6 +151,149 @@ describe('individual selection resize', () => {
       expect(after.x).toBeCloseTo(before.x);
       expect(after.y).toBeCloseTo(before.y);
     }
+  });
+  it('maps a screen south-east handle to the target local north-east handle at 90 degrees', () => {
+    const shapes = [
+      { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+      { x: 500, y: 300, w: 200, h: 80, rotation: 90 },
+    ];
+    const result = resizeSelectionRects(
+      shapes,
+      shapes[0]!,
+      'se',
+      { x: -28.8, y: 28.8 },
+      { w: 1, h: 1 },
+    );
+    // The 0-degree title establishes screen scaleX=.904, scaleY=1.288.
+    // For the 90-degree target those screen axes are its local height/width.
+    expect(result[1]!.w).toBeCloseTo(200 * 1.288);
+    expect(result[1]!.h).toBeCloseTo(80 * 0.904);
+    const before = point(shapes[1]!, 'ne', 90, true);
+    const after = point(result[1]!, 'ne', 90, true);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
+  });
+  it('maps a south-east handle at a positive 45-degree target', () => {
+    const shapes = [
+      { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+      { x: 500, y: 300, w: 200, h: 80, rotation: 45 },
+    ];
+    const result = resizeSelectionRects(
+      shapes,
+      shapes[0]!,
+      'se',
+      { x: -28.8, y: 28.8 },
+      { w: 1, h: 1 },
+    );
+    expect(result[1]!.w).toBeCloseTo(200 * 1.288);
+    expect(result[1]!.h).toBeCloseTo(80 * 0.904);
+    const before = point(shapes[1]!, 'ne', 45, true);
+    const after = point(result[1]!, 'ne', 45, true);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
+  });
+  it('maps a south-east handle at a negative 45-degree target', () => {
+    const shapes = [
+      { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+      { x: 500, y: 300, w: 200, h: 80, rotation: -45 },
+    ];
+    const result = resizeSelectionRects(
+      shapes,
+      shapes[0]!,
+      'se',
+      { x: -28.8, y: 28.8 },
+      { w: 1, h: 1 },
+    );
+    expect(result[1]!.w).toBeCloseTo(200 * 1.288);
+    expect(result[1]!.h).toBeCloseTo(80 * 0.904);
+    const before = point(shapes[1]!, 'sw', -45, true);
+    const after = point(result[1]!, 'sw', -45, true);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
+  });
+  it('treats a 315-degree target as equivalent to negative 45 degrees', () => {
+    const target = { x: 500, y: 300, w: 200, h: 80 };
+    const delta = { x: -28.8, y: 28.8 };
+    const negative = resizeSelectionRects(
+      [
+        { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+        { ...target, rotation: -45 },
+      ],
+      { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+      'se',
+      delta,
+      { w: 1, h: 1 },
+    )[1]!;
+    const normalized = resizeSelectionRects(
+      [
+        { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+        { ...target, rotation: 315 },
+      ],
+      { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+      'se',
+      delta,
+      { w: 1, h: 1 },
+    )[1]!;
+    expect(normalized.x).toBeCloseTo(negative.x);
+    expect(normalized.y).toBeCloseTo(negative.y);
+    expect(normalized.w).toBeCloseTo(negative.w);
+    expect(normalized.h).toBeCloseTo(negative.h);
+  });
+  it('keeps the local handle for a 30-to-60 degree relative rotation', () => {
+    const shapes = [
+      { x: 100, y: 200, w: 300, h: 100, rotation: 30 },
+      { x: 500, y: 300, w: 200, h: 80, rotation: 60 },
+    ];
+    const angle = (30 * Math.PI) / 180;
+    const delta = {
+      x: -30 * Math.cos(angle) - 20 * Math.sin(angle),
+      y: -30 * Math.sin(angle) + 20 * Math.cos(angle),
+    };
+    const result = resizeSelectionRects(shapes, shapes[0]!, 'se', delta, { w: 1, h: 1 });
+    expect(result[1]!.w).toBeCloseTo(180);
+    expect(result[1]!.h).toBeCloseTo(96);
+    const before = point(shapes[1]!, 'se', 60, true);
+    const after = point(result[1]!, 'se', 60, true);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
+  });
+  it('maps the opposite quarter-turn for a negative 90 degree target', () => {
+    const shapes = [
+      { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+      { x: 500, y: 300, w: 200, h: 80, rotation: -90 },
+    ];
+    const result = resizeSelectionRects(
+      shapes,
+      shapes[0]!,
+      'se',
+      { x: -28.8, y: 28.8 },
+      { w: 1, h: 1 },
+    );
+    expect(result[1]!.w).toBeCloseTo(200 * 1.288);
+    expect(result[1]!.h).toBeCloseTo(80 * 0.904);
+    const before = point(shapes[1]!, 'sw', -90, true);
+    const after = point(result[1]!, 'sw', -90, true);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
+  });
+  it('preserves axes and flips the local handle at a 180 degree target', () => {
+    const shapes = [
+      { x: 100, y: 200, w: 300, h: 100, rotation: 0 },
+      { x: 500, y: 300, w: 200, h: 80, rotation: 180 },
+    ];
+    const result = resizeSelectionRects(
+      shapes,
+      shapes[0]!,
+      'se',
+      { x: -28.8, y: 28.8 },
+      { w: 1, h: 1 },
+    );
+    expect(result[1]!.w).toBeCloseTo(200 * 0.904);
+    expect(result[1]!.h).toBeCloseTo(80 * 1.288);
+    const before = point(shapes[1]!, 'nw', 180, true);
+    const after = point(result[1]!, 'nw', 180, true);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
   });
   it('keeps zero-height lines flat and does not translate between objects', () => {
     const shapes = [
