@@ -89,10 +89,9 @@ for (const anchor of ['top', 'center', 'bottom'])
             const painted = editor
               .locator('.paint foreignObject > div')
               .filter({ hasText: '日本語 Text' });
-            const writingMode =
-              direction === 'vert270' || direction === 'mongolianVert'
-                ? 'vertical-lr'
-                : 'vertical-rl';
+            // vert270 is vertical-rl turned half way, so its columns run left to
+            // right like the SVG renderer's 270° layout.
+            const writingMode = direction === 'mongolianVert' ? 'vertical-lr' : 'vertical-rl';
             assert.equal(
               await painted.evaluate((node) => getComputedStyle(node).writingMode),
               writingMode,

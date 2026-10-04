@@ -220,3 +220,80 @@ test(
     }
   },
 );
+
+test(
+  'native video fullscreen during a full-screen show stays until the viewer leaves it',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-video-native-fullscreen-'));
+    let browser;
+    let preview;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: Slide({
+            children: Media({
+              kind: 'video',
+              // An MP4 header is enough for a <video> with native controls.
+              data: Uint8Array.from([
+                0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32, 0, 0, 0, 0, 0x6d,
+                0x70, 0x34, 0x32,
+              ]),
+              x: 1,
+              y: 1,
+              width: 4,
+              height: 2.25,
+            }),
+          }),
+        }),
+      );
+      await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(join(dir, 'source.pptx'))})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      await page.waitForFunction(() => document.fullscreenElement === document.documentElement);
+      const video = page.locator('video');
+      assert.equal(await video.evaluate((element) => element.controls), true);
+      // The video lives in a shadow root, so the document reports its host;
+      // `:fullscreen` tells the video itself apart from the page.
+      await video.evaluate((element) => {
+        window.fullscreenTrace = [];
+        document.addEventListener('fullscreenchange', () =>
+          window.fullscreenTrace.push(
+            element.matches(':fullscreen')
+              ? 'video'
+              : document.fullscreenElement === document.documentElement
+                ? 'page'
+                : null,
+          ),
+        );
+      });
+      // Playwright evaluates with a user gesture, as the native control's
+      // fullscreen button would provide.
+      await video.evaluate((element) => element.requestFullscreen());
+      await page.waitForFunction(() => window.fullscreenTrace.length === 1);
+      assert.equal(await video.evaluate((element) => element.matches(':fullscreen')), true);
+      // Leaving the video's fullscreen returns to the show's own fullscreen.
+      await page.evaluate(() => document.exitFullscreen());
+      await page.waitForFunction(() => window.fullscreenTrace.length === 2);
+      assert.deepEqual(await page.evaluate(() => window.fullscreenTrace), ['video', 'page']);
+      assert.equal(
+        await page.evaluate(() => document.fullscreenElement === document.documentElement),
+        true,
+      );
+      assert.equal(await page.evaluate(() => presenting), true);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

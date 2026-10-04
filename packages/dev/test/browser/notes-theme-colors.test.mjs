@@ -156,7 +156,7 @@ test(
       );
       assert.equal(await color(), 'rgb(18, 171, 52)');
       await input.press('Meta+z');
-      await waitForState(preview.url, (state) => state.revision !== edited.revision);
+      const undone = await waitForState(preview.url, (state) => state.revision !== edited.revision);
       assert.equal(await input.textContent(), 'Theme note');
       assert.equal(await color(), 'rgb(18, 171, 52)');
       assert.equal(await lastColor(), 'rgb(79, 129, 189)');
@@ -170,7 +170,9 @@ test(
       await input.press('Meta+a');
       await toolbarColor.click();
       await editor.getByRole('menuitemradio', { name: 'Red', exact: true }).click();
-      const red = await waitForState(preview.url, (state) => state.revision !== edited.revision);
+      // Wait for the Red edit itself; the Undo above already moved past
+      // `edited`, so Undo must not be pressed before Red is saved.
+      const red = await waitForState(preview.url, (state) => state.revision !== undone.revision);
       await input.press('Meta+z');
       await waitForState(preview.url, (state) => state.revision !== red.revision);
       assert.equal(

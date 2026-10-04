@@ -121,9 +121,12 @@ for (const grouped of [false, true]) {
               n.textContent.includes('日本語 English'),
             );
             const expected = text.getScreenCTM();
-            const actual = new DOMMatrix(getComputedStyle(node.parentElement).transform)
-              .multiply(new DOMMatrix(getComputedStyle(node).transform))
-              .scale(Number(getComputedStyle(node).getPropertyValue('--text-zoom')));
+            // The group overlay, the shell, the body wrapper and the input each
+            // carry part of the transform, so compose every ancestor's.
+            let actual = new DOMMatrix();
+            for (let layer = node; layer; layer = layer.parentElement)
+              actual = new DOMMatrix(getComputedStyle(layer).transform).multiply(actual);
+            actual = actual.scale(Number(getComputedStyle(node).getPropertyValue('--text-zoom')));
             return {
               actual: [actual.a, actual.b, actual.c, actual.d],
               expected: [expected.a, expected.b, expected.c, expected.d],
