@@ -66,9 +66,17 @@ for (const kind of ['audio', 'video']) {
         assert.equal(download.suggestedFilename(), kind === 'audio' ? 'media1.mp3' : 'media1.mp4');
         assert.deepEqual(Uint8Array.from(await readFile(await download.path())), mediaBytes[kind]);
       } finally {
-        await preview?.close();
-        await browser?.close();
-        await rm(dir, { recursive: true, force: true });
+        // Close the browser before the preview it is connected to; each step
+        // still runs when an earlier one fails.
+        try {
+          await browser?.close();
+        } finally {
+          try {
+            await preview?.close();
+          } finally {
+            await rm(dir, { recursive: true, force: true });
+          }
+        }
       }
     },
   );
