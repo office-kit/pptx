@@ -9,9 +9,13 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
 
-  let { formats, displayFormats = formats, selected, typing = false, onformat, oncase, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
+  let { formats, displayFormats, selected, typing = false, onformat, oncase, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
     formats: TextFormat[];
-    /** Optional display-only formats, used when stored colors are theme tokens. */
+    /**
+     * Optional display-only formats whose colors are already resolved, used when
+     * stored colors are theme tokens. Without them the stored color picks the
+     * swatch; a token such as `accent2` is not a CSS color.
+     */
     displayFormats?: TextFormat[];
     selected: boolean;
     typing?: boolean;
@@ -43,7 +47,7 @@
   const size = $derived(formats.length && formats.every((f) => f.size === formats[0]?.size) ? formats[0]?.size : undefined);
   const highlight = $derived(formats.length && formats.every(f => f.highlight === formats[0]?.highlight) && /^#[0-9a-f]{6}$/i.test(formats[0]?.highlight ?? '') ? formats[0]!.highlight! : null);
   const color = $derived(formats.length && formats.every((f) => f.color === formats[0]?.color) ? formats[0]?.color : undefined);
-  const resolvedColor = $derived(displayFormats.length && displayFormats.every((f) => f.color === displayFormats[0]?.color) ? displayFormats[0]?.color : undefined);
+  const resolvedColor = $derived(displayFormats?.length && displayFormats.every((f) => f.color === displayFormats[0]?.color) ? displayFormats[0]?.color : undefined);
 </script>
 
 <div class="text-format-bar" class:font-ribbon={ribbon} role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : context === 'objects' ? 'Format selected objects' : 'Selected text formatting')}>
