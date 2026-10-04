@@ -37,7 +37,7 @@
   });
   const activeTextFormat = $derived(editor.inlineTextFormat ?? editor.notesInlineTextFormat);
   const formats = $derived(activeTextFormat?.formats ?? cellFormats ?? objectFormats ?? []);
-  const displayFormats = $derived(activeTextFormat?.displayFormats ?? formats);
+  const displayFormats = $derived(activeTextFormat?.displayFormats);
   const themeFonts = $derived.by(() => {
     editor.doc.version;
     const fonts = getPresentationFonts(editor.doc.pres);
