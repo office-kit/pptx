@@ -84,6 +84,11 @@ jobs:
     name: Test (Node ${{ matrix.node-version }})
     needs: static
     runs-on: ubuntu-latest
+    # Upper bounds, not budgets: a stuck browser test otherwise runs until the
+    # 6 h default before anyone sees its output. Finished browser runs (with
+    # failures) took 39–48 min in early October 2026; an all-pass time is not
+    # measured yet.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -115,6 +120,7 @@ jobs:
         if: matrix.node-version == '24'
         run: pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium
       - name: Test live preview in Chromium
+        timeout-minutes: 90
         env:
           PLAYWRIGHT_CHANNEL: chromium
         if: matrix.node-version == '24'

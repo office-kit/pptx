@@ -37,9 +37,17 @@ async function openTextBox(t, wrap, value = text) {
     `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
   );
   const preview = await startPreview(file);
-  t.after(() => preview.close());
-  const browser = await chromium.launch({ headless: true });
-  t.after(() => browser.close());
+  let browser;
+  // One hook closes the browser before the preview it is connected to, and
+  // still stops the preview when closing the browser fails.
+  t.after(async () => {
+    try {
+      await browser?.close();
+    } finally {
+      await preview.close();
+    }
+  });
+  browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
   await page.goto(preview.url);
   await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
