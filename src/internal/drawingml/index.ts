@@ -23,7 +23,14 @@ export {
   setTextBodyParagraphs,
   updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
-export type { ReadTextFormat, ReadTextOutline, TextFormat, TextOutline } from './text-format.ts';
+export type {
+  ReadTextFill,
+  ReadTextFormat,
+  ReadTextOutline,
+  TextFill,
+  TextFormat,
+  TextOutline,
+} from './text-format.ts';
 export { toWritableTextFormat } from './text-format.ts';
 export {
   applyFormatToAllRuns,

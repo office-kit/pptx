@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mergeTextFormat } from '../core/merge-text-format.ts';
   import { lockedShapeIds } from '../core/shape-locks.ts';
   import { editTabStops, type TabStopEdit } from '../core/paragraph-tabs.ts';
   import SlideRulers from './SlideRulers.svelte';
@@ -1062,7 +1063,7 @@
   const rangeFormats = $derived.by(() => {
     doc.version;
     const formats = pendingTextShape ? selectedTextFormats(pendingTextShape) : [];
-    if (editing?.typing && textRange.start === textRange.end) return [{ ...(editing.typing.reset ? {} : formats[0]), ...editing.typing.format }];
+    if (editing?.typing && textRange.start === textRange.end) return [mergeTextFormat(editing.typing.reset ? undefined : formats[0], editing.typing.format)];
     return formats;
   });
   $effect(() => {
@@ -1193,7 +1194,7 @@
     if (!editing || restoringEditing) return;
     if (textRange.start === textRange.end) {
       const resolved = typeof format === 'function' ? format(rangeFormats) : format;
-      editing.typing = { format: { ...(reset ? {} : editing.typing?.format), ...resolved }, reset: reset || editing.typing?.reset || false };
+      editing.typing = { format: mergeTextFormat(reset ? undefined : editing.typing?.format, resolved), reset: reset || editing.typing?.reset || false };
       return;
     }
     const cur = editing;

@@ -1,7 +1,12 @@
 // Color transforms and rPr-like element parsing.
 
 import { NAME_A_RPR, requireRun } from './shape-runs.ts';
-import { type ReadTextFormat, type TextFormat } from '../../internal/drawingml/index.ts';
+import {
+  PATTERN_PRESETS,
+  type ReadGradientStop,
+  type ReadTextFormat,
+  type TextFormat,
+} from '../../internal/drawingml/index.ts';
 // Type-only: erased at compile time, so this does not make the modules cyclic.
 import type { ShapeEffectAny } from './shape-effects.ts';
 import {
@@ -15,6 +20,11 @@ import { type SlideShapeData } from '../_internal-symbols.ts';
 import { type PresentationTheme } from './theme.ts';
 import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
+import {
+  colorTransformBrightness,
+  colorTransformOpacity,
+  readColorTransforms,
+} from '../../internal/drawingml/color-transforms.ts';
 // -- Color transforms (ECMA-376 §20.1.2.3.x) --------------------------------
 //
 // DrawingML color elements (`<a:srgbClr>`, `<a:schemeClr>`, `<a:sysClr>`,
@@ -509,6 +519,124 @@ const colorOfFill = (
   return null;
 };
 
+const readTextGradientFill = (
+  gradFill: XmlElement,
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
+): ReadTextFormat['textFill'] => {
+  const gsList = firstChildElement(gradFill, qname('a', 'gsLst', NS.dml));
+  if (gsList === null) return undefined;
+  const stops: ReadGradientStop[] = [];
+  for (const gs of gsList.children) {
+    if (gs.kind !== 'element' || gs.name.localName !== 'gs') continue;
+    const pos = readDrawingmlPercentage(getAttrValue(gs, qname('', 'pos', '')) ?? '', Number.NaN);
+    const colorEl = gs.children.find(
+      (child) => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+    );
+    if (!Number.isFinite(pos) || colorEl?.kind !== 'element') continue;
+    const base = colorOfFill({ ...gs, children: [colorEl] }, ctx);
+    if (base === null) continue;
+    const transforms = readColorTransforms(colorEl);
+    const opacity = colorTransformOpacity(transforms);
+    const brightness = colorTransformBrightness(transforms);
+    const resolvedColor = ctx ? resolveDrawingColor(colorEl, ctx.theme, ctx.colorMap) : null;
+    stops.push({
+      offset: pos,
+      color: base,
+      ...(transforms.length ? { colorTransforms: transforms } : {}),
+      ...(opacity === undefined ? {} : { opacity }),
+      ...(brightness === undefined ? {} : { brightness }),
+      ...(resolvedColor === null ? {} : { resolvedColor }),
+    });
+  }
+  if (stops.length === 0) return undefined;
+  const lin = firstChildElement(gradFill, qname('a', 'lin', NS.dml));
+  const path = firstChildElement(gradFill, qname('a', 'path', NS.dml));
+  const rect = (el: XmlElement | null) => {
+    if (el === null) return undefined;
+    const read = (name: string) => {
+      const raw = getAttrValue(el, qname('', name, ''));
+      return raw === null ? 0 : Number.parseFloat(raw) / (raw.endsWith('%') ? 100 : 100000);
+    };
+    return { left: read('l'), top: read('t'), right: read('r'), bottom: read('b') };
+  };
+  const angle =
+    lin === null ? undefined : Number.parseInt(getAttrValue(lin, qname('', 'ang', '')) ?? '', 10);
+  const pathValue = getAttrValue(path ?? gradFill, qname('', 'path', ''));
+  const kind =
+    pathValue === 'circle' || pathValue === 'rect' || pathValue === 'shape' ? pathValue : undefined;
+  const tile = firstChildElement(gradFill, qname('a', 'tileRect', NS.dml));
+  return {
+    kind: 'gradient',
+    stops,
+    ...(angle !== undefined && Number.isFinite(angle) ? { angleDeg: angle / 60000 } : {}),
+    ...(lin !== null
+      ? {
+          scaled: ['1', 'true'].includes(getAttrValue(lin, qname('', 'scaled', '')) ?? ''),
+        }
+      : {}),
+    ...(getAttrValue(gradFill, qname('', 'rotWithShape', '')) !== null
+      ? {
+          rotateWithShape: !['0', 'false'].includes(
+            getAttrValue(gradFill, qname('', 'rotWithShape', '')) ?? '',
+          ),
+        }
+      : {}),
+    ...(kind ? { path: kind } : {}),
+    ...(path
+      ? (() => {
+          const f = rect(firstChildElement(path, qname('a', 'fillToRect', NS.dml)));
+          return f ? { focus: f } : {};
+        })()
+      : {}),
+    ...(tile
+      ? (() => {
+          const t = rect(tile);
+          return t ? { tileRect: t } : {};
+        })()
+      : {}),
+  };
+};
+
+const readTextPatternFill = (
+  pattFill: XmlElement,
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
+): ReadTextFormat['textFill'] => {
+  const preset = getAttrValue(pattFill, qname('', 'prst', ''));
+  if (preset === null) return undefined;
+  const read = (local: 'fgClr' | 'bgClr') => {
+    const holder = firstChildElement(pattFill, qname('a', local, NS.dml));
+    return holder === null ? null : colorOfFill(holder, ctx);
+  };
+  const foreground = read('fgClr');
+  const background = read('bgClr');
+  if (foreground === null || background === null) return undefined;
+  if (!PATTERN_PRESETS.includes(preset as (typeof PATTERN_PRESETS)[number])) return undefined;
+  const transforms = (local: 'fgClr' | 'bgClr') => {
+    const holder = firstChildElement(pattFill, qname('a', local, NS.dml));
+    const color = holder?.children.find(
+      (child) => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+    );
+    return color?.kind === 'element' ? readColorTransforms(color) : [];
+  };
+  const foregroundTransforms = transforms('fgClr');
+  const backgroundTransforms = transforms('bgClr');
+  const validatedPreset = preset as (typeof PATTERN_PRESETS)[number];
+  return {
+    kind: 'pattern',
+    preset: validatedPreset,
+    foreground,
+    background,
+    ...(foregroundTransforms.length ? { foregroundTransforms } : {}),
+    ...(backgroundTransforms.length ? { backgroundTransforms } : {}),
+  };
+};
+
 // Reads any element shaped like `CT_TextCharacterProperties` (the schema
 // shared by `<a:rPr>`, `<a:defRPr>`, and `<a:endParaRPr>`) into a partial
 // TextFormat. Used by both the literal-only `getShapeRunFormat` and the
@@ -595,6 +723,16 @@ export const parseRPrLikeElement = (
   if (solidFill !== null) {
     const color = colorOfFill(solidFill, ctx);
     if (color !== null) out.color = color;
+  }
+  const gradientFill = firstChildElement(rPr, qname('a', 'gradFill', NS.dml));
+  if (gradientFill !== null) {
+    const fill = readTextGradientFill(gradientFill, ctx);
+    if (fill) out.textFill = fill;
+  }
+  const patternFill = firstChildElement(rPr, qname('a', 'pattFill', NS.dml));
+  if (patternFill !== null) {
+    const fill = readTextPatternFill(patternFill, ctx);
+    if (fill) out.textFill = fill;
   }
   // Underline fill is a separate DrawingML choice from the run's text fill.
   // `uFillTx` is meaningful even without a color child: it explicitly follows

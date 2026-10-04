@@ -97,7 +97,15 @@ const mergeRPrLayer = (base: Partial<ReadTextFormat>, layer: Partial<ReadTextFor
     base.fontComplexScript = layer.fontComplexScript;
   }
   if (base.size === undefined && layer.size !== undefined) base.size = layer.size;
-  if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
+  // Text color and the explicit gradient/pattern fill are one OOXML choice.
+  // A more-specific layer must mask the other representation from inherited
+  // layers so callers never receive both competing paints.
+  if (base.color === undefined && base.textFill === undefined && layer.color !== undefined) {
+    base.color = layer.color;
+  }
+  if (base.color === undefined && base.textFill === undefined && layer.textFill !== undefined) {
+    base.textFill = layer.textFill;
+  }
   if (base.bold === undefined && layer.bold !== undefined) base.bold = layer.bold;
   if (base.italic === undefined && layer.italic !== undefined) base.italic = layer.italic;
   if (base.underline === undefined && layer.underline !== undefined) {

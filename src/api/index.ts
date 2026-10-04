@@ -685,9 +685,11 @@ export type {
   SchemeColorToken,
   ReadGradientFill,
   ReadGradientStop,
+  ReadTextFill,
   ReadTextFormat,
   RunSpec,
   TextFormat,
+  TextFill,
   TextOutline,
 } from '../internal/drawingml/index.ts';
 export type {
