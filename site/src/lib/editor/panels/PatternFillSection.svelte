@@ -15,7 +15,7 @@
   const fills = $derived(background ? slides.map(slide => readSlideBackground(editor.doc.pres, slide).pattern) : shapes.map(shape => getShapePatternFill(editor.doc.pres, shape)));
   const sourceFills = $derived(background ? slides.map(slide => readSlideBackground(editor.doc.pres, slide, { preserveTheme: true }).pattern) : shapes.map(shape => getShapePatternFill(editor.doc.pres, shape, { preserveTheme: true })));
   const locked = $derived(!background && editor.selectionLocked());
-  function common(field: keyof PatternFillOptions, source = false): string | undefined {
+  function common(field: 'preset' | 'foreground' | 'background', source = false): string | undefined {
     const values = new Set((source ? sourceFills : fills).map(fill => fill?.[field]));
     return values.size === 1 ? [...values][0] : undefined;
   }

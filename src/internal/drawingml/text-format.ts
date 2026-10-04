@@ -42,7 +42,16 @@ import {
   setShadow,
 } from './effects.ts';
 import { applySolidStroke } from './stroke.ts';
-import { removeAnyFill } from './fill.ts';
+import {
+  type GradientFillOptions,
+  type PatternFillOptions,
+  type ReadGradientFill,
+  setGradientFill,
+  setPatternFill,
+  validateGradientFillOptions,
+  validatePatternFillOptions,
+  removeAnyFill,
+} from './fill.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
@@ -122,6 +131,11 @@ export interface TextFormat {
    * (`tx1`, `accent1`, ...), or `null` to clear.
    */
   color?: Color | null;
+  /**
+   * Non-solid glyph fill. The `color` field remains the shorthand for a solid
+   * fill. Both are the same OOXML fill choice, so supplying both is rejected.
+   */
+  textFill?: TextFill;
   bold?: boolean;
   italic?: boolean;
   /**
@@ -194,6 +208,21 @@ export interface TextFormat {
   reflection?: ReflectionOptions | null;
 }
 
+export type TextFill =
+  | ({ readonly kind: 'gradient' } & GradientFillOptions)
+  | ({ readonly kind: 'pattern' } & PatternFillOptions);
+
+export type ReadTextFill =
+  | ({ readonly kind: 'gradient' } & ReadGradientFill)
+  | {
+      readonly kind: 'pattern';
+      readonly preset: PatternFillOptions['preset'];
+      readonly foreground: string;
+      readonly background: string;
+      readonly foregroundTransforms?: PatternFillOptions['foregroundTransforms'];
+      readonly backgroundTransforms?: PatternFillOptions['backgroundTransforms'];
+    };
+
 /** A run's outline: `CT_LineProperties` as far as text uses it. */
 export interface TextOutline {
   /** Same accepted forms as `TextFormat.color`. */
@@ -210,6 +239,7 @@ export interface TextOutline {
 export type ReadTextFormat = Omit<
   TextFormat,
   | 'color'
+  | 'textFill'
   | 'underlineColor'
   | 'highlight'
   | 'outline'
@@ -226,6 +256,7 @@ export type ReadTextFormat = Omit<
   innerShadow?: (Omit<InnerShadowOptions, 'color'> & { readonly color?: string }) | null;
   glow?: (Omit<GlowOptions, 'color'> & { readonly color: string }) | null;
   reflection?: ReflectionOptions | null;
+  textFill?: ReadTextFill;
 };
 
 /** A run outline read back from a deck. `color` widens for the same reason. */
@@ -241,6 +272,7 @@ export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: st
 export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
   const {
     color,
+    textFill,
     underlineColor,
     highlight,
     outline,
@@ -254,9 +286,11 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
   const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
   const innerShadowColor = innerShadow?.color === undefined ? null : asColor(innerShadow.color);
   const glowColor = glow == null ? null : asColor(glow.color);
+  const writableFill = textFill === undefined ? undefined : toWritableTextFill(textFill);
   return {
     ...rest,
     ...(color == null ? {} : { color: asColor(color) }),
+    ...(writableFill === undefined ? {} : { textFill: writableFill }),
     ...(underlineColor === undefined
       ? {}
       : { underlineColor: underlineColor === null ? null : asColor(underlineColor) }),
@@ -310,6 +344,52 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
   };
 };
 
+// A read fill can carry a color token this library cannot write back (for
+// example `phClr`). Omitting the fill leaves the run's paint untouched instead
+// of failing the whole format copy.
+const toWritableTextFill = (fill: ReadTextFill): TextFill | undefined => {
+  if (fill.kind === 'pattern') {
+    const foreground = asColor(fill.foreground);
+    const background = asColor(fill.background);
+    if (foreground === null || background === null) return undefined;
+    return {
+      kind: 'pattern',
+      preset: fill.preset,
+      foreground,
+      background,
+      ...(fill.foregroundTransforms === undefined
+        ? {}
+        : { foregroundTransforms: fill.foregroundTransforms }),
+      ...(fill.backgroundTransforms === undefined
+        ? {}
+        : { backgroundTransforms: fill.backgroundTransforms }),
+    };
+  }
+  const stops: Array<GradientFillOptions['stops'][number]> = [];
+  for (const stop of fill.stops) {
+    const color = asColor(stop.color);
+    // Dropping one stop would silently redraw the gradient; drop the fill.
+    if (color === null) return undefined;
+    stops.push({
+      offset: stop.offset,
+      color,
+      ...(stop.colorTransforms === undefined ? {} : { colorTransforms: stop.colorTransforms }),
+      ...(stop.opacity === undefined ? {} : { opacity: stop.opacity }),
+      ...(stop.brightness === undefined ? {} : { brightness: stop.brightness }),
+    });
+  }
+  return {
+    kind: 'gradient',
+    stops,
+    ...(fill.angleDeg === undefined ? {} : { angleDeg: fill.angleDeg }),
+    ...(fill.rotateWithShape === undefined ? {} : { rotateWithShape: fill.rotateWithShape }),
+    ...(fill.scaled === undefined ? {} : { scaled: fill.scaled }),
+    ...(fill.path === undefined ? {} : { path: fill.path }),
+    ...(fill.focus === undefined ? {} : { focus: fill.focus }),
+    ...(fill.tileRect === undefined ? {} : { tileRect: fill.tileRect }),
+  };
+};
+
 const setOrRemoveAttr = (
   attrs: XmlAttr[],
   name: ReturnType<typeof qname>,
@@ -336,6 +416,28 @@ const setSolidFill = (rPr: XmlElement, value: string | null): void => {
       : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
   const fill = elem(NAME_SOLID_FILL, { children: [inner] });
   insertChildByRank(rPr, fill, rprChildRank);
+};
+
+const setTextFill = (rPr: XmlElement, fill: TextFill): void => {
+  if (fill.kind === 'gradient') {
+    setGradientFill(rPr, fill);
+  } else {
+    setPatternFill(rPr, fill);
+  }
+  // The shape fill helpers place fills before `<a:ln>`. Character properties
+  // have the opposite order: `<a:ln>` precedes the fill choice.
+  const chosen = rPr.children.find(
+    (child) =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      ['noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill'].includes(
+        child.name.localName,
+      ),
+  );
+  if (chosen?.kind === 'element') {
+    rPr.children = rPr.children.filter((child) => child !== chosen);
+    insertChildByRank(rPr, chosen, rprChildRank);
+  }
 };
 
 const setUnderlineFill = (rPr: XmlElement, value: string | null): void => {
@@ -410,6 +512,19 @@ export const validateFormatEnums = (format: TextFormat, caller: string): void =>
   if (format.strike != null && typeof format.strike !== 'boolean')
     oneOf(format.strike, STRIKES, `${caller}: strike`);
   if (format.cap != null) oneOf(format.cap, ['none', 'small', 'all'], `${caller}: cap`);
+  if (format.textFill !== undefined) {
+    if (format.color !== undefined)
+      throw new Error(`${caller}: color and textFill are mutually exclusive; pass one`);
+    validateTextFill(format.textFill, `${caller}: textFill`);
+  }
+};
+
+const validateTextFill = (fill: TextFill, caller: string): void => {
+  if (fill.kind === 'pattern') {
+    validatePatternFillOptions(fill, caller);
+    return;
+  }
+  validateGradientFillOptions(fill, caller);
 };
 
 /** Mutates `rPr` in place per `format`. */
@@ -469,7 +584,8 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.font !== undefined) setLatin(rPr, format.font);
   if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
   if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
-  if (format.color !== undefined) setSolidFill(rPr, format.color);
+  if (format.textFill !== undefined) setTextFill(rPr, format.textFill);
+  else if (format.color !== undefined) setSolidFill(rPr, format.color);
   if (format.underlineColor !== undefined) setUnderlineFill(rPr, format.underlineColor);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
   if (format.outline !== undefined) setRunOutline(rPr, format.outline);

@@ -240,6 +240,55 @@ export const PATTERN_PRESETS = [
   'zigZag',
 ] as const;
 
+/** Validates a complete gradient before a caller mutates its XML host. */
+export const validateGradientFillOptions = (options: GradientFillOptions, caller: string): void => {
+  if (options.path !== undefined)
+    oneOf(options.path, ['linear', 'circle', 'rect', 'shape'], `${caller}: path`);
+  if (options.stops.length < 2) throw new Error('gradient fill requires at least two stops');
+  for (const stop of options.stops) {
+    if (!Number.isFinite(stop.offset) || stop.offset < 0 || stop.offset > 1)
+      throw new RangeError(`gradient stop offset must be in [0, 1], got ${stop.offset}`);
+    buildColorElement(stop.color);
+    buildColorTransforms(stop.colorTransforms ?? []);
+    if (
+      stop.opacity !== undefined &&
+      (!Number.isFinite(stop.opacity) || stop.opacity < 0 || stop.opacity > 1)
+    )
+      throw new RangeError('gradient stop opacity must be in [0, 1]');
+    if (
+      stop.brightness !== undefined &&
+      (!Number.isFinite(stop.brightness) || stop.brightness < -1 || stop.brightness > 1)
+    )
+      throw new RangeError('gradient stop brightness must be in [-1, 1]');
+  }
+  if (options.angleDeg !== undefined && !Number.isFinite(options.angleDeg))
+    throw new RangeError('gradient angle must be finite');
+  const checkRect = (rect: GradientFillOptions['focus'] | undefined, label: string): void => {
+    if (rect === undefined) return;
+    for (const value of Object.values(rect)) {
+      const wire = Math.round(value * 100000);
+      if (
+        !Number.isFinite(value) ||
+        !Number.isFinite(wire) ||
+        wire < -(2 ** 31) ||
+        wire > 2 ** 31 - 1
+      )
+        throw new RangeError(`${label} inset must fit an OOXML percentage`);
+    }
+  };
+  checkRect(options.focus, 'gradient focus');
+  checkRect(options.tileRect, 'gradient tile');
+};
+
+/** Validates a complete pattern before a caller mutates its XML host. */
+export const validatePatternFillOptions = (options: PatternFillOptions, caller: string): void => {
+  oneOf(options.preset, PATTERN_PRESETS, `${caller}: preset`);
+  buildColorElement(options.foreground);
+  buildColorElement(options.background);
+  buildColorTransforms(options.foregroundTransforms ?? []);
+  buildColorTransforms(options.backgroundTransforms ?? []);
+};
+
 /** One of ECMA-376's `ST_PresetPatternVal` tokens (`pct50`, `dkUpDiag`, ...). */
 export type PatternPreset = (typeof PATTERN_PRESETS)[number];
 
@@ -250,6 +299,8 @@ export interface PatternFillOptions {
   readonly foreground: string;
   /** Background (fill behind the pattern) color. */
   readonly background: string;
+  readonly foregroundTransforms?: readonly ColorTransform[];
+  readonly backgroundTransforms?: readonly ColorTransform[];
 }
 
 const NAME_PATT_FILL = qname('a', 'pattFill', NS.dml);
@@ -270,13 +321,21 @@ export const setPatternFill = (host: XmlElement, options: Partial<PatternFillOpt
     );
     pattFill.attrs.push(attr(ATTR_PRST, preset));
   }
-  for (const [name, color, fallback] of [
-    [NAME_FG_CLR, options.foreground, 'accent1'],
-    [NAME_BG_CLR, options.background, 'bg1'],
+  for (const [name, color, fallback, transforms] of [
+    [NAME_FG_CLR, options.foreground, 'accent1', options.foregroundTransforms],
+    [NAME_BG_CLR, options.background, 'bg1', options.backgroundTransforms],
   ] as const) {
     const current = firstChildElement(pattFill, name);
-    if (color === undefined && previous) continue;
-    const replacement = elem(name, { children: [buildColorElement(color ?? fallback)] });
+    if (color === undefined && transforms === undefined && previous) continue;
+    const currentColor = current?.children.find(
+      (child) => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+    );
+    const colorElement =
+      color === undefined && currentColor?.kind === 'element'
+        ? cloneElement(currentColor)
+        : buildColorElement(color ?? fallback);
+    if (transforms !== undefined) colorElement.children = buildColorTransforms(transforms);
+    const replacement = elem(name, { children: [colorElement] });
     if (current) pattFill.children.splice(pattFill.children.indexOf(current), 1, replacement);
     else
       pattFill.children.splice(name === NAME_FG_CLR ? 0 : pattFill.children.length, 0, replacement);
@@ -288,8 +347,7 @@ export const setPatternFill = (host: XmlElement, options: Partial<PatternFillOpt
 
 /** Sets `<a:gradFill>` on `host`, replacing any previous fill choice. */
 export const setGradientFill = (host: XmlElement, options: GradientFillOptions): void => {
-  if (options.path !== undefined)
-    oneOf(options.path, ['linear', 'circle', 'rect', 'shape'], 'setShapeGradientFill: path');
+  validateGradientFillOptions(options, 'setShapeGradientFill');
   if (options.stops.length < 2) {
     throw new Error('gradient fill requires at least two stops');
   }

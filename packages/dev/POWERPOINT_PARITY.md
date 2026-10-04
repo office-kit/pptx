@@ -912,6 +912,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Regression coverage includes all six fill choices, preservation of unrelated run properties, rejected-color preservation, and saved/reloaded PowerPoint-native gradient and pattern fixtures validated against the presentation schema.
 - This fixes color mutation and serialization; gradient and pattern text rendering and the full WordArt gallery remain incomplete.
 
+- `TextFormat.textFill` now represents gradient and pattern glyph fills, retaining theme references and color transforms. Effective formatting treats solid color and non-solid fills as one inherited choice.
+- Pending typing formats in the canvas, outline, and notes now replace the old fill choice when a font color is selected. A browser regression verifies pattern-filled notes, a pending Bold command, a new font color, subsequent typing, and save/reload while preserving the original text's pattern. This does not establish gradient/pattern rendering or native WordArt gallery parity.
+
 ## Speaker-notes paragraph and soft breaks
 
 - Enter inserts a paragraph separator; Shift+Enter inserts an OOXML `a:br` within the current paragraph. Notes editing tracks their UTF-16 positions independently so paragraph-end formatting is indexed by actual paragraphs.

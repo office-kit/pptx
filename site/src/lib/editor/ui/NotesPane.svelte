@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mergeTextFormat } from '../core/merge-text-format.ts';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { asColor, getSlideNotes, getSlideNotesLineBreaks, getSlideNotesParagraphEndFormat, getSlideNotesTextFormats, getSlides, resolveSlideNotesTextColor, setSlideNotes, setSlideNotesFormat, toWritableTextFormat, transformSlideNotesCase, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
@@ -235,7 +236,7 @@
         : undefined;
       const inherited = insertionCarrier?.format ?? replacementCarrier?.format ?? {};
       const typed = change.typing && change.text.length
-        ? { ...(change.typing.reset ? {} : inherited), ...change.typing.format }
+        ? mergeTextFormat(change.typing.reset ? undefined : inherited, change.typing.format)
         : null;
       if (typed?.color && !/^#[\da-f]{6}$/i.test(typed.color)) {
         const resolved = resolveSlideNotesTextColor(slide, typed.color);
@@ -328,18 +329,18 @@
           setSlideNotesFormat(slide, format, { paragraphEnd, reset });
         });
       }
-      const after = reset ? { ...format } : { ...(typingFormat?.format ?? noteFormat), ...format };
+      const after = mergeTextFormat(reset ? undefined : (typingFormat?.format ?? noteFormat), format);
       typingFormat = {
         format: after,
         reset: typingFormat?.reset === true || reset,
       };
-      noteFormat = reset ? {} : { ...noteFormat, ...format };
+      noteFormat = reset ? {} : mergeTextFormat(noteFormat, format);
       // Keep the display-only theme-resolved state in lockstep with the
       // literal typing state. The next commit will re-read the ranges, but
       // the toolbar must update immediately at a collapsed caret as well.
       if (reset) displayNoteFormat = {};
       else {
-        displayNoteFormat = { ...displayNoteFormat, ...displayFormat(format) };
+        displayNoteFormat = mergeTextFormat(displayNoteFormat, displayFormat(format));
       }
       return;
     }

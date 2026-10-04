@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mergeTextFormat } from '../core/merge-text-format.ts';
   import { onDestroy, onMount, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
@@ -468,7 +469,7 @@
       formats: (start, end) => {
         const shape = doc.shapeById(slideIndex, shapeId);
         const formats = shape ? textFormatsInRange(projectTextEdits(shape, changes, undefined, doc.pres), { start, end }, undefined, { pres: doc.pres, source: shape }) : [];
-        if (start === end && typingFormat) return [{ ...(typingFormat.reset ? {} : formats[0]), ...typingFormat.format }];
+        if (start === end && typingFormat) return [mergeTextFormat(typingFormat.reset ? undefined : formats[0], typingFormat.format)];
         return formats;
       },
       applyFormat: (start, end, format, reset) => {
@@ -478,7 +479,7 @@
           // successive toolbar commands (for example Bold then Italic) apply
           // to the same future input, while reset starts a fresh format.
           typingFormat = {
-            format: { ...(reset ? {} : typingFormat?.format), ...format },
+            format: mergeTextFormat(reset ? undefined : typingFormat?.format, format),
             reset: reset || typingFormat?.reset || false,
           };
           draftVersion++;
