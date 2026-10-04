@@ -1,4 +1,16 @@
-import { lstat, mkdir, readFile, readdir, realpath, unlink, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 
 const SNAPSHOT_LIMIT = 64 * 1024 * 1024;
@@ -123,10 +135,30 @@ export async function createHistory(directory: string, notify: () => void = () =
     if (!equal(await contents(change.file), expected))
       throw new Error(`History conflict in ${change.file}. Newer changes were preserved.`);
     const file = join(root, change.file);
-    if (next) {
-      await mkdir(dirname(file), { recursive: true });
-      await writeFile(file, next);
-    } else await unlink(file);
+    if (!next) return unlink(file);
+    await mkdir(dirname(file), { recursive: true });
+    // Write beside the target and rename over it, so a failed write leaves the
+    // file whole and the rollback below only has to revert completed writes.
+    // The `.tmp` suffix is outside `historyFile`, so snapshots never record it.
+    const temporary = `${file}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporary, next, { flag: 'wx' });
+      const mode = await lstat(file).then(
+        (info) => info.mode,
+        (cause: NodeJS.ErrnoException) => {
+          if (cause.code === 'ENOENT') return undefined;
+          throw cause;
+        },
+      );
+      if (mode !== undefined) await chmod(temporary, mode & 0o7777);
+      // Re-check after the slow write. Without OS file locking, an external
+      // save between this read and `rename` can still be overwritten.
+      if (!equal(await contents(change.file), expected))
+        throw new Error(`History conflict in ${change.file}. Newer changes were preserved.`);
+      await rename(temporary, file);
+    } finally {
+      await rm(temporary, { force: true });
+    }
   }
   try {
     record(await snapshot(), 'Initial state');

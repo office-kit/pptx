@@ -15,6 +15,17 @@ The script is implemented in `test/samples-generate.test.ts` and runs only
 when `GENERATE_SAMPLES=1`, so it does not churn artifacts in the normal CI
 test run.
 
+## Re-runnable save script
+
+`named-upsert-rerun.mjs` loads a deck, updates the text box named `kpi` (adding
+it only when missing), saves and reopens it. Run it twice on the same file
+after `pnpm build`; only the printed `kpiText` should change.
+
+```sh
+node samples/named-upsert-rerun.mjs samples/out/upsert.pptx Q1
+node samples/named-upsert-rerun.mjs samples/out/upsert.pptx Q2
+```
+
 ## What each sample exercises
 
 | File                        | Covers                                                                                                                                    |
