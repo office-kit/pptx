@@ -64,6 +64,14 @@ export class EditorDocument {
   // A requested restore may still be loading while another undo is requested.
   #requestedCursor = $state(-1);
   #operation = 0;
+  // Set while a failed edit's partial mutation is being replaced by the last
+  // committed snapshot. Only a completed whole-document replacement clears it,
+  // so no edit can snapshot (and thereby commit) the partial state meanwhile.
+  #rollbackBlock: string | null = null;
+  // What the pending rollback restores. Kept until a replacement completes, so
+  // a newer Open/Undo/Redo that wins the race but then fails can resume it.
+  #rollbackState: { selection: Selection; dirty: boolean } | null = null;
+  #rollback: Promise<void> = Promise.resolve();
   readonly regroupHistory = new RegroupHistory();
 
   constructor() {
@@ -121,30 +129,34 @@ export class EditorDocument {
    * undo. Returns whatever `fn` returns (e.g. a newly created shape/slide).
    */
   transact<T>(label: string, fn: () => T): T {
-    this.#invalidateRestore();
-    const current = this.#history[this.#cursor];
-    if (current)
-      this.#history = this.#history.map((snapshot, index) =>
-        index === this.#cursor ? { ...snapshot, selection: this.selection } : snapshot,
-      );
-    const result = fn();
-    this.version++;
-    this.dirty = true;
-    this.#snapshot(label);
-    return result;
+    return this.#atomic(() => {
+      this.#invalidateRestore();
+      const current = this.#history[this.#cursor];
+      if (current)
+        this.#history = this.#history.map((snapshot, index) =>
+          index === this.#cursor ? { ...snapshot, selection: this.selection } : snapshot,
+        );
+      const result = fn();
+      this.version++;
+      this.dirty = true;
+      this.#snapshot(label);
+      return result;
+    });
   }
 
   /** Persist a document setting without adding an undo step (as PowerPoint does for aspect locks). */
   setDocumentSetting(fn: () => void): void {
-    this.#invalidateRestore();
-    fn();
-    this.version++;
-    this.committedVersion = this.version;
-    this.dirty = true;
-    const bytes = savePresentation(this.pres);
-    this.#history = this.#history.map((snapshot, index) =>
-      index === this.#cursor ? { ...snapshot, bytes } : snapshot,
-    );
+    this.#atomic(() => {
+      this.#invalidateRestore();
+      fn();
+      this.version++;
+      this.committedVersion = this.version;
+      this.dirty = true;
+      const bytes = savePresentation(this.pres);
+      this.#history = this.#history.map((snapshot, index) =>
+        index === this.#cursor ? { ...snapshot, bytes } : snapshot,
+      );
+    });
   }
 
   /**
@@ -153,18 +165,76 @@ export class EditorDocument {
    * Call `commit()` once when the gesture ends.
    */
   applyLive<T>(fn: () => T): T {
-    this.liveEditing = true;
-    this.#invalidateRestore();
-    const result = fn();
-    this.version++;
-    this.dirty = true;
-    return result;
+    return this.#atomic(() => {
+      this.liveEditing = true;
+      this.#invalidateRestore();
+      const result = fn();
+      this.version++;
+      this.dirty = true;
+      return result;
+    });
   }
 
   /** Close a live gesture by taking a single undo snapshot. */
   commit(label: string): void {
-    this.liveEditing = false;
-    this.#snapshot(label);
+    this.#atomic(() => {
+      this.liveEditing = false;
+      this.#snapshot(label);
+    });
+  }
+
+  /**
+   * Settles once a failed edit has been replaced by the last committed state.
+   * Edits stay synchronous, so the replacement (an async load) runs after the
+   * failing call has already rethrown.
+   */
+  get rollback(): Promise<void> {
+    return this.#rollback;
+  }
+
+  /**
+   * Library mutations edit the package in place and are not transactional, so
+   * an exception can leave a half-applied change (for example a media part
+   * without its picture). Discard it by reloading the committed snapshot,
+   * which also ends any live gesture.
+   */
+  #atomic<T>(fn: () => T): T {
+    if (this.#rollbackBlock !== null) throw new Error(this.#rollbackBlock);
+    const state = { selection: this.selection, dirty: this.dirty };
+    try {
+      return fn();
+    } catch (error) {
+      this.#startRollback(state);
+      throw error;
+    }
+  }
+
+  #startRollback(state: { selection: Selection; dirty: boolean }): void {
+    this.#rollbackState = state;
+    this.#rollbackBlock = 'The previous edit failed and is being undone. Try again.';
+    this.#rollback = this.#restore(this.#cursor, state.selection, true).then(
+      (applied) => {
+        if (applied) this.dirty = state.dirty;
+      },
+      (cause: unknown) => {
+        // A newer New/Open/restore already replaced the partial document.
+        if (this.#rollbackBlock === null) return;
+        this.#rollbackBlock = `The previous edit failed and could not be undone (${
+          cause instanceof Error ? cause.message : String(cause)
+        }). Reopen the presentation.`;
+      },
+    );
+  }
+
+  /** A newer replacement superseded the rollback and then failed: finish the rollback. */
+  #resumeRollback(): void {
+    if (this.#rollbackState !== null && this.#rollbackBlock !== null)
+      this.#startRollback(this.#rollbackState);
+  }
+
+  #endRollback(): void {
+    this.#rollbackBlock = null;
+    this.#rollbackState = null;
   }
 
   #invalidateRestore(): void {
@@ -189,16 +259,18 @@ export class EditorDocument {
     this.#requestedCursor = this.#cursor;
   }
 
-  async #restore(index: number, selection?: Selection): Promise<void> {
+  /** Resolves to whether this restore replaced the document (a newer operation may win). */
+  async #restore(index: number, selection?: Selection, rollback = false): Promise<boolean> {
     const snap = this.#history[index];
-    if (!snap) return;
+    if (!snap) return false;
     const operation = ++this.#operation;
     this.#requestedCursor = index;
     try {
       const pres = await loadPresentation(await snap.bytes);
       // New/Open, another restore, or an edit takes precedence over stale work.
-      if (operation !== this.#operation) return;
+      if (operation !== this.#operation) return false;
       this.pres = pres;
+      this.#endRollback();
       this.regroupHistory.records = snap.formerGroups;
       this.selection = selection ?? snap.selection;
       this.liveEditing = false;
@@ -206,8 +278,12 @@ export class EditorDocument {
       this.version++;
       this.committedVersion = this.version;
       this.dirty = true;
+      return true;
     } catch (error) {
-      if (operation === this.#operation) this.#requestedCursor = this.#cursor;
+      if (operation === this.#operation) {
+        this.#requestedCursor = this.#cursor;
+        if (!rollback) this.#resumeRollback();
+      }
       throw error;
     }
   }
@@ -288,9 +364,16 @@ export class EditorDocument {
   async loadBytes(bytes: Uint8Array, name: string): Promise<void> {
     this.#invalidateRestore();
     const operation = this.#operation;
-    const pres = await loadPresentation(bytes);
+    let pres: PresentationData;
+    try {
+      pres = await loadPresentation(bytes);
+    } catch (error) {
+      if (operation === this.#operation) this.#resumeRollback();
+      throw error;
+    }
     if (operation !== this.#operation) return;
     this.pres = pres;
+    this.#endRollback();
     this.fileName = name;
     this.regroupHistory.records = [];
     this.rememberedFills.clear();
@@ -304,6 +387,11 @@ export class EditorDocument {
   }
 
   async toBytes(): Promise<Uint8Array> {
+    // Never serialize a half-applied edit; save the state the rollback restores.
+    if (this.#rollbackBlock !== null) {
+      await this.#rollback;
+      if (this.#rollbackBlock !== null) throw new Error(this.#rollbackBlock);
+    }
     return savePresentation(this.pres);
   }
 
@@ -314,6 +402,7 @@ export class EditorDocument {
   resetBlank(): void {
     this.#invalidateRestore();
     this.pres = createInitial();
+    this.#endRollback();
     this.fileName = 'Untitled.pptx';
     this.regroupHistory.records = [];
     this.rememberedFills.clear();

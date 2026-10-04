@@ -17,6 +17,8 @@ const planErrors: Record<Extract<TextEditPlan, { ok: false }>['reason'], string>
   ambiguous: 'Text is computed or has multiple source matches. Use Apply with AI.',
 };
 
+const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 /** Literal edits are deliberately conservative: computed and ambiguous text goes to the agent. */
 export function createTextEditor(
   entry: string,
@@ -99,8 +101,14 @@ export function createTextEditor(
           )
             throw new Error('Source changed during editing.');
         } catch (error) {
-          await restore(change);
-          await verify();
+          try {
+            await restore(change);
+            await verify();
+          } catch (cleanup) {
+            // Keep the reason the edit was refused; the cleanup failure alone
+            // would hide it.
+            throw new Error(`${message(error)} ${message(cleanup)}`, { cause: error });
+          }
           throw error;
         }
       } finally {
