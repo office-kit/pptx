@@ -212,6 +212,133 @@ that a user can complete the corresponding editing workflow.
 
 ## Outstanding work
 
+### Failed-edit rollback and text fill choice — focused checks only
+
+Passed on 2026-10-03, 18:55–18:58 UTC, with Node 24.16.0 (installed CLIs invoked directly because
+the pinned pnpm 12.5.1 launcher failed with ENOEXEC): the core, preview, dsl
+and dev builds; `site/test/document-rollback.test.mjs` (12) and
+`site/test/document.test.mjs` (46); the dev history/text-edit tests (10);
+`test/text-fill-exclusive.test.ts` and `test/named-shape-upsert-rerun.test.ts`
+(3); `tsc --noEmit` for the root and dev packages; site `svelte-check` (0
+errors); and a public-API script applied twice to one deck (no duplicate
+shape, stable IDs and part count).
+
+The public-API run used scratchpad copies of what is now
+`samples/named-upsert-rerun.mjs`, importing the built `dist/index.js`:
+
+```sh
+node make-deck.mjs deck.pptx            # createPresentation + addTitleSlide
+node upsert-twice.mjs deck.pptx Q1      # {"kpiCount":1,"kpiText":"Q1","ids":[2,3,4],"parts":19}
+node upsert-twice.mjs deck.pptx Q2      # {"kpiCount":1,"kpiText":"Q2","ids":[2,3,4],"parts":19}
+```
+
+The repository sample merges those two scripts (it creates the deck when the
+file is missing) and imports `@office-kit/pptx`. It passed on 2026-10-03 at
+19:05 UTC against a new scratchpad deck, with the same two outputs:
+
+```sh
+node samples/named-upsert-rerun.mjs <scratchpad>/sample-upsert.pptx Q1   # exit 0
+node samples/named-upsert-rerun.mjs <scratchpad>/sample-upsert.pptx Q2   # exit 0
+```
+
+Also passed on 2026-10-03 around 19:05 UTC: `test/text-run-fill-choice.test.ts`
+and `test/text-fill-inheritance.test.ts` (26), `site/test/merge-text-format.test.mjs`
+(2), `oxfmt --check` (1085 files, after formatting the new rollback test file)
+and `oxlint` (0 warnings, 0 errors).
+
+Browser checks on 2026-10-03 (19:16–19:18 UTC), one file at a time with
+`node --test --test-concurrency=1` from `packages/dev`, Playwright 1.63.0 and
+the cached Chromium headless shell 1243 against the built `dist/`:
+
+| File                                       | Result | Time | Page errors | Console errors |
+| ------------------------------------------ | ------ | ---- | ----------- | -------------- |
+| `test/browser/notes-text-fill.test.mjs`    | 1 pass | 3 s  | none        | not collected  |
+| `test/browser/home-ribbon.test.mjs`        | 1 pass | 5 s  | not checked | not collected  |
+| `test/browser/history-save-smoke.test.mjs` | 1 pass | 3 s  | none        | none           |
+
+The new smoke drags a shape, waits for the autosave, clicks Undo, reads the
+saved deck as `/deck.pptx` bytes over HTTP, and reloads the page.
+
+Each test's own preview stopped through `close()` and no preview or browser
+process remained. No browser check forces a failed edit; the rollback path is
+covered only by `site/test/document-rollback.test.mjs`. The smoke reads the
+saved deck by fetching `/deck.pptx`; it does not click the UI Download button.
+
+The UI Download button was checked separately on 2026-10-03 at 21:02 UTC with
+`node --test --test-concurrency=1 test/browser/download-button.test.mjs` from
+`packages/dev` (exit 0, 1 pass, 6 s, no page or console errors, no warnings or
+skips). It drags a shape twice, clicks Undo, Redo and Undo, clicks Download,
+reloads the received file with the public API (first-drag `x` and the slide
+text), then opens that file through the editor's Open input and confirms the
+text and a fresh, empty undo history. Its preview stopped through `close()`.
+The `dist/` build from 03:55 JST was reused because no source was newer.
+PowerPoint/Keynote were not used to open the file.
+
+Known minor gaps from the final source review, not fixed:
+
+- A caller that catches a failed nested `transact` inside another `transact`
+  and keeps going lets the outer snapshot commit the partial state. No current
+  caller does this.
+- After a live gesture frame fails, `dirty` is restored to its value from after
+  the gesture started, which can leave an unchanged deck marked unsaved.
+- A schema-invalid `<a:rPr>` holding both `solidFill` and `gradFill`/`pattFill`
+  reads back with both `color` and `textFill`, and writing that format back is
+  rejected.
+
+On 2026-10-04 (10:27–11:17 UTC, same toolchain) the full vitest suite with
+one worker ran 496 files: 492 passed, 3 skipped and 1 failed (3549 tests
+passed, 109 skipped). The failure was not a flake: the WordArt fill validator
+ran before `setShapeGradientFill`'s own check and reported an invalid
+`path` as `gradient fill: path …` instead of `setShapeGradientFill: path …`.
+The validators now take the public caller's name (`setShapeTextFormat:
+textFill: path …` for text fills), and `test/text-fill-exclusive.test.ts`
+pins both messages and that the slide XML is unchanged. That fix landed while
+the full run was still going, so the full run mixed old and new source and is
+not a pass for either. After the fix, from a fresh build: 21 fill-, gradient-,
+pattern-, text-fill-, schema- and fuzz-related vitest files (169 tests) passed;
+root, preview, dsl and dev `tsc --noEmit`, `oxfmt --check` (1087 files) and
+`oxlint` passed; the dev node tests (11 files, 22 tests) and site node tests
+(19 files, 166 tests) passed; and the three browser files in the table plus
+`download-button.test.mjs` passed again one at a time (`--test-timeout=120000`,
+each 1 pass, no process left behind). Editor screenshots of the WordArt font
+color change are in [docs/qa/pptx-editor-20261004](qa/pptx-editor-20261004/README.md).
+
+**NOT RUN:** a full vitest run on the final source, the rest of the browser
+suite, site `svelte-check` after 2026-10-03 (no site source changed since),
+and PowerPoint/Keynote. Do not list these items under "Verified so far" until
+those pass.
+
+- `EditorDocument` rolls a throwing `transact`/`applyLive`/`commit`/
+  `setDocumentSetting` back to the last committed snapshot. The call still
+  rethrows synchronously; the reload completes in microtasks, edits in the same
+  synchronous turn are refused, and `toBytes()` waits for it. Even a validation
+  error thrown before any mutation replaces `doc.pres`, so callers must
+  re-resolve shapes by ID after a failure, as SlideCanvas and VideoSection do.
+  A newer Open/Undo/Redo issued before the rollback lands wins; if it fails,
+  the rollback resumes, so the model, history and selection stay editable and
+  savable.
+- Project Undo/Redo writes through a temporary file and `rename`, re-checking
+  the target immediately before the rename. Without OS file locking an external
+  save landing between that check and the rename is still overwritten. Literal
+  text edits from the editor UI are serialized with history because the
+  preview server wraps them in `history.begin`/`history.end`; only a caller
+  that uses `createTextEditor` directly bypasses that. A file in a read-only
+  directory can no longer be restored in place.
+- A refused literal text edit keeps its reason when restoring the source fails.
+- `color` with `textFill` still type-checks, but every run-format write rejects
+  it at runtime with a "mutually exclusive" error before mutating. A
+  compile-time error would need `TextFormat` to become a union, which is a
+  public type change and was not made. A read fill whose color cannot be
+  written back is omitted by `toWritableTextFormat` instead of failing the
+  whole copy.
+
+Run, in order, once the machine is free:
+
+```sh
+pnpm test
+pnpm --filter @office-kit/pptx-dev test:browser
+```
+
 Complete workflow coverage, remaining UI translations, accessibility and draft
 recovery are still being audited. Mixed-format text editing, table and chart
 editing, image operations, slide operations and presentation tools require
