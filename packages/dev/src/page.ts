@@ -36,7 +36,10 @@ body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
 let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
 let showOrder=[],showCursor=0,lastViewed=null,linkedShowId=null;
 let showReturns=[];
-let presentationFullscreen=false;
+// The fullscreen request of the show now starting. Starting or ending any show
+// (Present, presenter view, Escape) drops it, so a grant arriving after that
+// belongs to no show and is released instead of adopted.
+let presentationFullscreen=false,fullscreenRequest=null;
 function loopShow(){return showReturns.length===0&&(state.showProperties?.loop||state.showProperties?.mode?.kind==='kiosk');}
 let displayedSvg;
 let presenterWindow;
@@ -472,6 +475,7 @@ function update(updated){
 }
 function setPresenting(value){
   if(!value)presentationFullscreen=false;
+  fullscreenRequest=null;
   clearKioskRestart();
   linkedShowId=null;showReturns=[];
   lastViewed=null;
@@ -543,8 +547,9 @@ async function exitPresentation(){
 byId('present').onclick=async()=>{
   setPresenting(true);
   if(state.showProperties?.mode?.kind==='browse')return;
+  const request=fullscreenRequest={};
   try{await document.documentElement.requestFullscreen();}
-  catch{byId('exit-present').textContent=pt('Exit view · Esc');}
+  catch{if(fullscreenRequest===request){fullscreenRequest=null;byId('exit-present').textContent=pt('Exit view · Esc');}}
 };
 function updatePresenter(){
  if(!presenterWindow||presenterWindow.closed)return;
@@ -626,7 +631,14 @@ browseScrollbar.onkeydown=event=>{
 byId('animation-retry').onclick=()=>{loadAnimationPlayer();};
 loadAnimationPlayer();
 document.addEventListener('fullscreenchange',()=>{
- if(document.fullscreenElement)presentationFullscreen=true;
+ // Only the page itself is ever requested here. A native video control can put
+ // its <video> into fullscreen (and return to the page) on its own; that is the
+ // viewer's choice, not a stale grant.
+ if(document.fullscreenElement){
+  if(document.fullscreenElement!==document.documentElement||presentationFullscreen)return;
+  if(fullscreenRequest){fullscreenRequest=null;presentationFullscreen=true;}
+  else void document.exitFullscreen();
+ }
  else if(presentationFullscreen){presentationFullscreen=false;if(presenting)setPresenting(false);}
 });
 for(const id of ['prev','present-prev'])byId(id).onclick=()=>{if(!presenting||state.showProperties?.mode?.kind!=='kiosk')moveSlide(-1);};

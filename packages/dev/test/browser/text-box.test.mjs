@@ -168,10 +168,23 @@ test(
       assert.ok(await textBlock.isVisible());
       const previewTranslation = await textBlock.evaluate((el) => parseFloat(el.style.translate));
       assert.ok(previewTranslation > 0);
+      const glyphTop = (el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return range.getClientRects()[0].top;
+      };
+      const previewTop = await textBlock.evaluate(glyphTop);
       await editor.locator('.hit').first().dblclick();
       const textEditor = editor.getByRole('textbox', { name: 'Edit text', exact: true });
       await textEditor.waitFor();
-      assert.match(await textEditor.evaluate((el) => el.style.transform), /translate\([1-9]/);
+      // The anchor translation lives on the body wrapper around the input, and
+      // the edited glyphs must land where the preview drew them.
+      assert.match(
+        await textEditor.evaluate((el) => el.closest('.inline-edit-body').style.transform),
+        /translate\([1-9]/,
+      );
+      const editingTop = await textEditor.evaluate(glyphTop);
+      assert.ok(Math.abs(editingTop - previewTop) < 2, JSON.stringify({ previewTop, editingTop }));
       await textEditor.press('ControlOrMeta+a');
       await textEditor.press('Backspace');
       await textEditor.pressSequentially('Centered');

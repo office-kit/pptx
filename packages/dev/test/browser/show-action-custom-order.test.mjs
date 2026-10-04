@@ -178,3 +178,46 @@ test(
     }
   },
 );
+
+test(
+  'a fullscreen grant arriving after presenter view starts does not end presenter view',
+  { timeout: 60000 },
+  async () => {
+    const { dir, preview } = await createPreview();
+    let browser;
+    try {
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      const popupPromise = page.waitForEvent('popup');
+      // Present, Escape and Presenter view all run in one task, so the
+      // fullscreen request from Present is still pending when presenter view
+      // starts its own show.
+      // Chromium may deliver the grant and its release in one frame, both
+      // reporting the released state, so only the count and `presenting` are
+      // recorded per event.
+      await page.evaluate(() => {
+        window.fullscreenTrace = [];
+        document.addEventListener('fullscreenchange', () =>
+          window.fullscreenTrace.push({ presenting }),
+        );
+        document.getElementById('present').click();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        document.getElementById('presenter').click();
+      });
+      await popupPromise;
+      await page.waitForFunction(() => window.fullscreenTrace.length === 2);
+      assert.deepEqual(await page.evaluate(() => window.fullscreenTrace), [
+        { presenting: true },
+        { presenting: true },
+      ]);
+      assert.equal(await page.evaluate(() => document.fullscreenElement), null);
+      assert.equal(await page.evaluate(() => presenting), true);
+    } finally {
+      await browser?.close();
+      await preview.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

@@ -1028,7 +1028,12 @@
     const shape = pendingTextShape;
     if (!box || !shape || !scope) return 'position:absolute; inset:0;';
     if (editing?.cell) {
-      return `position:absolute; inset:0; transform:rotate(${textBodyTurn}deg); transform-origin:center;`;
+      // The renderer turns the cell's inner rectangle, so pivot on its center
+      // rather than the cell's; uneven margins would otherwise shift glyphs.
+      const margins = getTableCellMargins(getTableCells(box.shape)[editing.cell.row]![editing.cell.col]!);
+      const originX = ((margins.left ?? 91440) - (margins.right ?? 91440)) / 2 / 9525;
+      const originY = ((margins.top ?? 45720) - (margins.bottom ?? 45720)) / 2 / 9525;
+      return `position:absolute; inset:0; transform:rotate(${textBodyTurn}deg); transform-origin:calc(50% + ${originX}px) calc(50% + ${originY}px);`;
     }
     const bodyRotation = getShapeTextBodyRotationDeg(shape) ?? 0;
     const body = getShapeBodyPrEffective(doc.pres, shape);
