@@ -170,6 +170,8 @@
     <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
   {:else if name === 'format-pane'}
     <rect x="3" y="4" width="18" height="16" rx="1.5" /><path d="M14 4v16M16.5 8h2M16.5 11h2M16.5 14h2" />
+  {:else if name === 'swap'}
+    <path d="M4 8h13l-3-3M20 16H7l3 3" />
   {:else if name === 'share'}
     <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
   {:else if name === 'columns'}

@@ -3,7 +3,7 @@
   // tabs (Shape Format, Table) only appear when the matching selection is
   // active, mirroring PowerPoint. Buttons dispatch through runOrPrompt, so a
   // command needing arguments opens its (auto-generated or bespoke) dialog.
-  import { getShapeMedia, getShapeMediaPlayback } from '@office-kit/pptx';
+  import { getShapeChartSpec, getShapeMedia, getShapeMediaPlayback, isTableShape } from '@office-kit/pptx';
   import MediaPlaybackRibbon from './MediaPlaybackRibbon.svelte';
   import { getEditor } from '../core/context.ts';
   import { RIBBON, type RibbonTab } from './config.ts';
@@ -44,14 +44,19 @@
     const shapes = editor.selectedShapes();
     const media = shapes.length === 1 && getShapeMediaPlayback(shapes[0]!) !== null;
     const kind = shapes.length === 1 ? getShapeMedia(shapes[0]!)?.kind : undefined;
+    const chart = shapes.length === 1 && getShapeChartSpec(shapes[0]!) !== null;
+    // PowerPoint shows Table Design and Layout for a selected table as well as
+    // for cells being edited, and replaces Shape Format with them.
+    const table = sel.kind === 'cell' || (shapes.length === 1 && isTableShape(shapes[0]!));
     return RIBBON.filter((t) => {
       if (!t.contextual) return true;
       if (t.contextual === 'master') return editor.masterView;
       if (t.contextual === 'media') return media;
-      if (t.contextual === 'shape') return sel.kind === 'shape';
-      if (t.contextual === 'cell' || t.contextual === 'table') return sel.kind === 'cell';
+      if (t.contextual === 'chart') return chart;
+      if (t.contextual === 'shape') return sel.kind === 'shape' && !table;
+      if (t.contextual === 'cell' || t.contextual === 'table') return table;
       return false;
-    }).map(tab => tab.id === 'shape' && kind === 'video' ? { ...tab, title: 'Video Format' } : tab);
+    }).map(tab => tab.id !== 'shape' ? tab : kind === 'video' ? { ...tab, title: 'Video Format' } : chart ? { ...tab, title: 'Format' } : tab);
   });
 
   // Entering Slide Master view opens its tab, as PowerPoint does.

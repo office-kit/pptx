@@ -51,7 +51,7 @@ export interface RibbonTab {
   readonly id: string;
   readonly title: string;
   /** When set, the tab only shows for this selection kind (contextual tab). */
-  readonly contextual?: 'shape' | 'cell' | 'image' | 'table' | 'media' | 'master';
+  readonly contextual?: 'shape' | 'cell' | 'image' | 'table' | 'chart' | 'media' | 'master';
   readonly groups: readonly RibbonGroup[];
 }
 
@@ -298,42 +298,109 @@ export const RIBBON: readonly RibbonTab[] = [
   { id: 'review', title: 'Review', groups: [] },
   { id: 'view', title: 'View', groups: [] },
   {
+    // PowerPoint's Chart Design tab. The chart dialog edits the data, type and
+    // elements in one place, so those commands open it.
+    id: 'chartDesign',
+    title: 'Chart Design',
+    contextual: 'chart',
+    groups: [
+      {
+        title: 'Chart Layouts',
+        items: [
+          { id: 'setChartSpec', icon: 'chart', label: 'Add Chart Element' },
+          {
+            id: 'setChartSpec',
+            icon: 'layout',
+            label: 'Quick Layout',
+            unavailable: 'Quick layouts are not available in this editor yet.',
+          },
+        ],
+      },
+      {
+        title: 'Chart Styles',
+        items: [
+          {
+            id: 'setChartSpec',
+            icon: 'theme',
+            label: 'Change Colors',
+            unavailable: 'Change series colors in Edit Data.',
+          },
+          {
+            id: 'setChartSpec',
+            icon: 'quick-styles',
+            label: 'Chart Styles',
+            unavailable: 'Chart styles are not available in this editor yet.',
+          },
+        ],
+      },
+      {
+        title: 'Data',
+        items: [
+          {
+            id: 'setChartSpec',
+            icon: 'swap',
+            label: 'Switch Row/Column',
+            unavailable: 'Switching rows and columns is not available in this editor yet.',
+          },
+          { id: 'setChartSpec', icon: 'table', label: 'Select Data' },
+          { id: 'setChartSpec', icon: 'table', label: 'Edit Data' },
+        ],
+      },
+      {
+        title: 'Type',
+        items: [{ id: 'setChartSpec', icon: 'chart', label: 'Change Chart Type' }],
+      },
+    ],
+  },
+  {
     id: 'shape',
     title: 'Shape Format',
     contextual: 'shape',
     groups: [],
   },
   {
-    id: 'table',
-    title: 'Table',
-    contextual: 'cell',
+    id: 'tableDesign',
+    title: 'Table Design',
+    contextual: 'table',
     groups: [
       {
-        title: 'Rows & columns',
+        title: 'Table Styles',
+        items: [{ id: 'setTableStyleId', icon: 'theme', label: 'Table Styles' }],
+      },
+      {
+        title: 'Table Style Shading',
         items: [
-          { id: 'insertTableRow', icon: 'cells-row' },
-          { id: 'insertTableColumn', icon: 'cells-col' },
-          { id: 'removeTableRow', icon: 'cells-row' },
-          { id: 'removeTableColumn', icon: 'cells-col' },
-          { id: 'mergeTableCells', icon: 'merge' },
+          { id: 'setTableCellFill', icon: 'fill', label: 'Shading' },
+          { id: 'setTableCellBorders', icon: 'border', label: 'Borders' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'table',
+    title: 'Layout',
+    contextual: 'table',
+    groups: [
+      {
+        title: 'Rows & Columns',
+        items: [
+          { id: 'removeTableRow', icon: 'cells-row', label: 'Delete Rows' },
+          { id: 'removeTableColumn', icon: 'cells-col', label: 'Delete Columns' },
+          { id: 'insertTableRow', icon: 'cells-row', label: 'Insert Rows' },
+          { id: 'insertTableColumn', icon: 'cells-col', label: 'Insert Columns' },
+        ],
+      },
+      { title: 'Merge', items: [{ id: 'mergeTableCells', icon: 'merge', label: 'Merge Cells' }] },
+      {
+        title: 'Cell Size',
+        items: [
+          { id: 'setTableRowHeight', icon: 'cells-row', label: 'Height' },
+          { id: 'setTableColumnWidth', icon: 'cells-col', label: 'Width' },
         ],
       },
       {
-        title: 'Cell',
-        items: [
-          { id: 'setTableCellFill', icon: 'fill' },
-          { id: 'setTableCellBorders', icon: 'border' },
-          { id: 'setTableCellText', icon: 'text-format' },
-          { id: 'setTableCellAlignment', icon: 'align' },
-        ],
-      },
-      {
-        title: 'Table style',
-        items: [
-          { id: 'setTableStyleId', icon: 'theme' },
-          { id: 'setTableColumnWidth', icon: 'cells-col' },
-          { id: 'setTableRowHeight', icon: 'cells-row' },
-        ],
+        title: 'Alignment',
+        items: [{ id: 'setTableCellAlignment', icon: 'align', label: 'Alignment' }],
       },
     ],
   },
