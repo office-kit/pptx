@@ -1494,4 +1494,26 @@ export const ja: Record<string, string> = {
   'Restrict Permission': 'アクセスの制限',
   'Document protection is not available here.': 'ドキュメントの保護はここでは使用できません。',
   'Hide Ink': 'インクを非表示',
+  'Notes Page': 'ノート',
+  'Edit slide': 'スライドを編集',
+  'Slide Master': 'スライド マスター',
+  'Handout Master': '配布資料マスター',
+  'Notes Master': 'ノート マスター',
+  'Handouts are not supported by the library yet.':
+    '配布資料はまだライブラリでサポートされていません。',
+  'Notes master editing is not supported by the library yet.':
+    'ノート マスターの編集はまだライブラリでサポートされていません。',
+  Macros: 'マクロ',
+  'Macros (VBA) do not run outside PowerPoint.':
+    'マクロ (VBA) は PowerPoint 以外では実行できません。',
+  'Insert Slide Master': 'スライド マスターの挿入',
+  'Insert Layout': 'レイアウトの挿入',
+  'Adding masters and layouts is not supported by the library yet.':
+    'マスターとレイアウトの追加はまだライブラリでサポートされていません。',
+  'Deleting layouts is not supported by the library yet.':
+    'レイアウトの削除はまだライブラリでサポートされていません。',
+  Rename: '名前の変更',
+  'Master Layout': 'マスターのレイアウト',
+  'Reset Background': '背景のリセット',
+  'Close Master': 'マスター表示を閉じる',
 };

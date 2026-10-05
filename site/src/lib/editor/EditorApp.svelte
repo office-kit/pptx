@@ -33,6 +33,7 @@
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
   import HeaderFooterDialog from './ui/HeaderFooterDialog.svelte';
   import SymbolPicker from './ui/SymbolPicker.svelte';
+  import NotesPageView from './ui/NotesPageView.svelte';
   import TableDialog from './ui/TableDialog.svelte';
   import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
   import FontDialog from './ui/FontDialog.svelte';
@@ -198,9 +199,9 @@
 <div class="ok-editor ok-shell" class:compact-host={compactHost} style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
   <TopBar {onsave} {status} compact={compactHost} />
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
-  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode !== 'sorter' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
-    {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
-    {#if editor.viewMode !== 'sorter'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
+  <div class="ok-body" class:sorter={editor.viewMode === 'sorter' || editor.viewMode === 'notesPage'} class:thumbnails-hidden={editor.viewMode !== 'sorter' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
+    {#if editor.viewMode === 'notesPage'}<NotesPageView />{:else if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
+    {#if editor.viewMode !== 'sorter' && editor.viewMode !== 'notesPage'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
   </div>
   <StatusBar />
 

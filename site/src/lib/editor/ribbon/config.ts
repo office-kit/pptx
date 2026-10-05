@@ -51,11 +51,76 @@ export interface RibbonTab {
   readonly id: string;
   readonly title: string;
   /** When set, the tab only shows for this selection kind (contextual tab). */
-  readonly contextual?: 'shape' | 'cell' | 'image' | 'table' | 'media';
+  readonly contextual?: 'shape' | 'cell' | 'image' | 'table' | 'media' | 'master';
   readonly groups: readonly RibbonGroup[];
 }
 
 export const RIBBON: readonly RibbonTab[] = [
+  {
+    id: 'slideMaster',
+    title: 'Slide Master',
+    contextual: 'master',
+    // Mac PowerPoint's Slide Master tab. Edits act on the layout behind the
+    // current slide, so every slide sharing it follows.
+    groups: [
+      {
+        title: 'Edit Master',
+        items: [
+          {
+            id: 'insertSlideMaster',
+            icon: 'new-slide',
+            label: 'Insert Slide Master',
+            unavailable: 'Adding masters and layouts is not supported by the library yet.',
+          },
+          {
+            id: 'insertLayout',
+            icon: 'slide-content',
+            label: 'Insert Layout',
+            unavailable: 'Adding masters and layouts is not supported by the library yet.',
+          },
+          {
+            id: 'deleteLayout',
+            icon: 'trash',
+            label: 'Delete',
+            unavailable: 'Deleting layouts is not supported by the library yet.',
+          },
+          { id: 'setSlideLayoutName', icon: 'rename', label: 'Rename' },
+        ],
+      },
+      {
+        title: 'Master Layout',
+        items: [{ id: 'setSlideLayoutPlaceholderBounds', icon: 'align', label: 'Master Layout' }],
+      },
+      {
+        title: 'Edit Theme',
+        items: [
+          { id: 'setPresentationTheme', icon: 'theme', label: 'Colors' },
+          { id: 'setPresentationFonts', icon: 'font', label: 'Fonts' },
+        ],
+      },
+      {
+        title: 'Background',
+        items: [
+          { id: 'setSlideMasterBackgroundStyle', icon: 'background', label: 'Background Styles' },
+          { id: 'setSlideLayoutBackground', icon: 'background', label: 'Format Background' },
+          { id: 'clearSlideLayoutBackground', icon: 'trash', label: 'Reset Background' },
+        ],
+      },
+      { title: 'Size', items: [{ id: 'setSlideSize', icon: 'resize', label: 'Slide Size' }] },
+      {
+        title: 'Close',
+        items: [
+          {
+            id: 'closeMasterView',
+            icon: 'close-master',
+            label: 'Close Master',
+            run: (editor) => (editor.masterView = false),
+            enabled: () => true,
+          },
+        ],
+      },
+    ],
+  },
   {
     id: 'home',
     title: 'Home',
@@ -227,6 +292,7 @@ export const RIBBON: readonly RibbonTab[] = [
     groups: [
       // Mac PowerPoint's Variants group (Colors, Fonts, Background Styles) and
       // Slide Size; there is no Office theme gallery to pick whole themes from.
+      // Layout editing lives on the Slide Master tab (View ▸ Slide Master).
       {
         title: 'Variants',
         items: [
@@ -241,21 +307,6 @@ export const RIBBON: readonly RibbonTab[] = [
       {
         title: 'Customize',
         items: [{ id: 'setSlideSize', icon: 'resize', label: 'Slide Size' }],
-      },
-      {
-        // Acts on the layout behind the current slide, so every slide sharing
-        // it follows — Google Slides' theme builder, without a separate view.
-        title: 'Layout',
-        items: [
-          { id: 'setSlideLayoutName', icon: 'slide-content', compactLabel: 'Rename layout' },
-          { id: 'setSlideLayoutBackground', icon: 'background', compactLabel: 'Layout background' },
-          { id: 'clearSlideLayoutBackground', icon: 'trash', compactLabel: 'Reset background' },
-          {
-            id: 'setSlideLayoutPlaceholderBounds',
-            icon: 'align',
-            compactLabel: 'Move placeholder',
-          },
-        ],
       },
     ],
   },

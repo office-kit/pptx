@@ -36,11 +36,17 @@
     const kind = shapes.length === 1 ? getShapeMedia(shapes[0]!)?.kind : undefined;
     return RIBBON.filter((t) => {
       if (!t.contextual) return true;
+      if (t.contextual === 'master') return editor.masterView;
       if (t.contextual === 'media') return media;
       if (t.contextual === 'shape') return sel.kind === 'shape';
       if (t.contextual === 'cell' || t.contextual === 'table') return sel.kind === 'cell';
       return false;
     }).map(tab => tab.id === 'shape' && kind === 'video' ? { ...tab, title: 'Video Format' } : tab);
+  });
+
+  // Entering Slide Master view opens its tab, as PowerPoint does.
+  $effect(() => {
+    if (editor.masterView) activeTab = 'slideMaster';
   });
 
   // If the active tab disappears (selection changed), fall back to Home.

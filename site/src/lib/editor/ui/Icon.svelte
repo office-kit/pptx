@@ -182,6 +182,10 @@
     <rect x="3" y="5" width="13" height="14" rx="1" /><path d="M16 10l5-3v10l-5-3" /><path d="M3 9h13M3 15h13" />
   {:else if name === 'audio'}
     <path d="M4 9h4l5-4v14l-5-4H4z" /><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" />
+  {:else if name === 'rename'}
+    <rect x="3" y="7" width="18" height="10" rx="1" /><path d="M7 10v4M14 5v14M12 5h4M12 19h4" />
+  {:else if name === 'close-master'}
+    <rect x="3" y="4" width="18" height="16" rx="1" /><path d="m9 9 6 6M15 9l-6 6" stroke="#d13438" />
   {:else}
     <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
   {/if}

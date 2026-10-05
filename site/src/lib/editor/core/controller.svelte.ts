@@ -154,7 +154,9 @@ export class EditorController {
   thumbnailWidth = $state<number | null>(null);
   outlineWidth = $state<number | null>(null);
   outlineShowFormatting = $state(false);
-  viewMode = $state<'normal' | 'outline' | 'sorter'>('normal');
+  viewMode = $state<'normal' | 'outline' | 'sorter' | 'notesPage'>('normal');
+  /** View ▸ Slide Master: shows the Slide Master tab that edits the current slide's layout. */
+  masterView = $state(false);
   sorterZoom = $state(1);
   // Normal view shows the notes pane by default, as PowerPoint does.
   notesVisible = $state(true);
@@ -243,7 +245,7 @@ export class EditorController {
   }
 
   showNotes(): void {
-    if (this.viewMode === 'sorter') this.setViewMode('normal');
+    if (this.viewMode === 'sorter' || this.viewMode === 'notesPage') this.setViewMode('normal');
     this.notesVisible = true;
     this.notesFocusRequest++;
   }
@@ -268,7 +270,7 @@ export class EditorController {
     this.rotationFocusRequested = true;
   }
 
-  setViewMode(mode: 'normal' | 'outline' | 'sorter'): void {
+  setViewMode(mode: 'normal' | 'outline' | 'sorter' | 'notesPage'): void {
     this.contextMenu = null;
     if (mode === 'outline') this.thumbnailsVisible = true;
     this.viewMode = mode;
