@@ -55,6 +55,12 @@ test(
       for (const name of ['Add-ins', 'Designer', 'Convert to SmartArt'])
         assert.equal(await button(name).isDisabled(), true, name);
 
+      // New Slide ▾ is a gallery of layout thumbnails, as in PowerPoint.
+      await button('New Slide options').click();
+      const gallery = panel.getByRole('menu', { name: 'New Slide', exact: true });
+      assert.ok((await gallery.locator('.layout-item svg.layout-thumbnail').count()) > 0);
+      await page.keyboard.press('Escape');
+
       // Section ▸ Add Section on slide 2 puts slide 1 in "Default Section".
       await editor.locator('.thumb-row').nth(1).click();
       await button('Section').click();

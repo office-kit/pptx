@@ -21,6 +21,7 @@
   import { selectedSlideIndices } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
+  import LayoutThumbnail from '../ui/LayoutThumbnail.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
 
   const editor = getEditor();
@@ -129,9 +130,11 @@
       {@render trigger('layout', 'layout', 'Layout', !!doc.currentSlide)}
       {#if open === 'layout'}
         <div class="menu" role="menu" aria-label={t('Layout')}>
-          {#each layouts as item (getSlideLayoutPartName(item))}
-            <button role="menuitemradio" aria-checked={getSlideLayoutPartName(item) === currentLayout} onclick={() => layout(item)}><Icon name="layout" size={16} />{t(getSlideLayoutName(item))}</button>
-          {/each}
+          <div class="layout-grid">
+            {#each layouts as item (getSlideLayoutPartName(item))}
+              <button class="layout-item" role="menuitemradio" aria-checked={getSlideLayoutPartName(item) === currentLayout} onclick={() => layout(item)}><LayoutThumbnail pres={doc.pres} layout={item} /><span>{t(getSlideLayoutName(item))}</span></button>
+            {/each}
+          </div>
         </div>
       {/if}
     </div>
@@ -174,6 +177,9 @@
   .menu { position: absolute; top: 100%; left: 0; z-index: 400; display: flex; flex-direction: column; min-width: 240px; max-height: 70vh; overflow-y: auto; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { display: flex; align-items: center; gap: 8px; padding: 5px 8px; text-align: left; font-size: 12px; white-space: nowrap; }
   .menu button[aria-checked='true'] { background: var(--ok-selected); }
+  .layout-grid { display: grid; grid-template-columns: repeat(3, 120px); gap: 6px; padding: 2px 4px; }
+  .menu .layout-item { flex-direction: column; align-items: stretch; gap: 3px; padding: 4px; text-align: center; font-size: 11px; white-space: normal; }
+  .layout-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .menu hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }
   .chips { display: inline-flex; gap: 1px; }
   .chips span { width: 10px; height: 14px; border: 1px solid #0002; }

@@ -25,6 +25,7 @@
   import Icon from '../ui/Icon.svelte';
   import ParagraphLayoutMenus from './ParagraphLayoutMenus.svelte';
   import SectionMenu from './SectionMenu.svelte';
+  import LayoutThumbnail from '../ui/LayoutThumbnail.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import FontRibbon from './FontRibbon.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
@@ -176,13 +177,16 @@
 {#snippet layoutMenu(kind: 'newSlide' | 'layout')}
   <div class="home-menu" role="menu" tabindex="-1" aria-label={t(kind === 'newSlide' ? 'New Slide' : 'Layout')} use:place>
     <div class="heading">{t('Layouts')}</div>
-    {#each layouts as layout (getSlideLayoutPartName(layout))}
-      {#if kind === 'newSlide'}
-        <button role="menuitem" onclick={() => insertSlide(layout)}><Icon name="layout" size={16} />{t(getSlideLayoutName(layout))}</button>
-      {:else}
-        <button role="menuitemradio" aria-checked={getSlideLayoutPartName(layout) === currentLayout} onclick={() => applyLayout(layout)}><Icon name="layout" size={16} />{t(getSlideLayoutName(layout))}</button>
-      {/if}
-    {/each}
+    <!-- PowerPoint shows the layouts as a gallery of thumbnails. -->
+    <div class="layout-grid">
+      {#each layouts as layout (getSlideLayoutPartName(layout))}
+        {#if kind === 'newSlide'}
+          <button class="layout-item" role="menuitem" onclick={() => insertSlide(layout)}><LayoutThumbnail pres={doc.pres} {layout} /><span>{t(getSlideLayoutName(layout))}</span></button>
+        {:else}
+          <button class="layout-item" role="menuitemradio" aria-checked={getSlideLayoutPartName(layout) === currentLayout} onclick={() => applyLayout(layout)}><LayoutThumbnail pres={doc.pres} {layout} /><span>{t(getSlideLayoutName(layout))}</span></button>
+        {/if}
+      {/each}
+    </div>
     {#if kind === 'newSlide'}
       <hr />
       <button role="menuitem" disabled={!hasSlide} onclick={() => { openMenu = null; editor.invoke('duplicateSlide'); }}>{t('Duplicate Selected Slides')}</button>
@@ -313,6 +317,10 @@
   .home-menu { display: flex; flex-direction: column; min-width: 220px; max-height: 70vh; overflow-y: auto; }
   .home-menu button { display: flex; align-items: center; gap: 8px; padding: 5px 8px; text-align: left; font-size: 12px; }
   .home-menu button[aria-checked='true'] { background: var(--ok-selected); }
+  .layout-grid { display: grid; grid-template-columns: repeat(3, 120px); gap: 6px; padding: 2px 4px; }
+  .home-menu .layout-item { flex-direction: column; align-items: stretch; gap: 3px; padding: 4px; text-align: center; font-size: 11px; }
+  .layout-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-menu .layout-item[aria-checked='true'] { background: var(--ok-selected); }
   .home-menu .heading { padding: 4px 8px; font-size: 11px; font-weight: 600; color: var(--ok-text-2); }
   .home-menu hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }
 </style>
