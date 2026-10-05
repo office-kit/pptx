@@ -1648,4 +1648,5 @@ export const ja: Record<string, string> = {
   Merge: '結合',
   'Merge Cells': 'セルの結合',
   'Cell Size': 'セルのサイズ',
+  'More Commands': 'その他のコマンド',
 };

@@ -10,6 +10,7 @@
   const editor = getEditor();
   const doc = editor.doc;
   let fileInput = $state<HTMLInputElement>();
+  let moreOpen = $state(false);
 
   async function onOpen(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
@@ -37,6 +38,8 @@
   }
 </script>
 
+<svelte:window onpointerdown={(event) => { if (moreOpen && !(event.target as Element).closest?.('.more-anchor')) moreOpen = false; }} onkeydown={(event) => { if (moreOpen && event.key === 'Escape') moreOpen = false; }} />
+
 <div class="topbar" class:compact>
   <div class="brand">
     <span class="mark">◈</span>
@@ -49,13 +52,20 @@
       <!-- Mac PowerPoint's AutoSave switch leads the title bar. -->
       <label class="autosave"><span>{t('AutoSave')}</span><input type="checkbox" role="switch" bind:checked={editor.autoSave} /></label>
     {/if}
-    <button class="ok-btn" title={t('New')} onclick={() => { doc.resetBlank(); if (onsave) doc.dirty = true; }}>{t('New')}</button>
-    <button class="ok-btn" title={t('Open .pptx')} onclick={() => fileInput?.click()}>{t('Open')}</button>
-    <button class="ok-btn" title={t('Save as .pptx')} onclick={onsave ?? onSave}>{t('Save')}</button>
-    {#if onsave}<button class="ok-btn" onclick={onSave}>{t('Download')}</button>{/if}
-    <span class="sep"></span>
-    <button class="ok-btn" title={t('Undo (Ctrl+Z)')} disabled={!doc.canUndo} onclick={() => doc.undo()}>↶</button>
-    <button class="ok-btn" title={t('Redo (Ctrl+Y)')} disabled={!doc.canRedo} onclick={() => doc.redo()}>↷</button>
+    <!-- Mac PowerPoint's Quick Access Toolbar: icons, with the rest under ⋯. -->
+    <button class="ok-btn qat" title={t('Save as .pptx')} aria-label={t('Save')} onclick={onsave ?? onSave}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 2.5h9l2 2v9h-11z M5 2.5v4h6v-4 M5 13.5v-4h6v4" /></svg></button>
+    <button class="ok-btn qat" title={t('Undo (Ctrl+Z)')} aria-label={t('Undo')} disabled={!doc.canUndo} onclick={() => doc.undo()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3 2.5 6l3 3 M2.5 6H10a3.5 3.5 0 0 1 0 7H7" /></svg></button>
+    <button class="ok-btn qat" title={t('Redo (Ctrl+Y)')} aria-label={t('Redo')} disabled={!doc.canRedo} onclick={() => doc.redo()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 3l3 3-3 3 M13.5 6H6a3.5 3.5 0 0 0 0 7h3" /></svg></button>
+    <div class="more-anchor">
+      <button class="ok-btn qat" title={t('More Commands')} aria-label={t('More Commands')} aria-haspopup="menu" aria-expanded={moreOpen} onclick={() => (moreOpen = !moreOpen)}>⋯</button>
+      {#if moreOpen}
+        <div class="more-menu" role="menu" aria-label={t('More Commands')}>
+          <button role="menuitem" class="ok-btn" title={t('New')} onclick={() => { moreOpen = false; doc.resetBlank(); if (onsave) doc.dirty = true; }}>{t('New')}</button>
+          <button role="menuitem" class="ok-btn" title={t('Open .pptx')} onclick={() => { moreOpen = false; fileInput?.click(); }}>{t('Open')}</button>
+          {#if onsave}<button role="menuitem" class="ok-btn" onclick={() => { moreOpen = false; void onSave(); }}>{t('Download')}</button>{/if}
+        </div>
+      {/if}
+    </div>
   </div>
 
   <div class="filename">
@@ -143,14 +153,13 @@
   .autosave input:checked { background: var(--ok-accent); }
   .autosave input:checked::after { transform: translateX(12px); }
   .autosave input:focus-visible { outline: 2px solid var(--ok-accent); outline-offset: 2px; }
+  .qat { padding: 3px 5px; }
+  .qat svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+  .more-anchor { position: relative; }
+  .more-menu { position: absolute; top: 100%; left: 0; z-index: 500; display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .more-menu .ok-btn { justify-content: flex-start; }
   .quick :global(.ok-btn:hover) {
     border-color: transparent;
-  }
-  .sep {
-    width: 1px;
-    height: 20px;
-    background: var(--ok-border);
-    margin: 0 4px;
   }
   .filename {
     flex: 1;
