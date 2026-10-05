@@ -6,9 +6,6 @@
 
   const editor = getEditor();
   const doc = editor.doc;
-  // The slide show runs in the preview page around the editor; the standalone
-  // editor has no stage to present on.
-  const embedded = typeof window !== 'undefined' && window.parent !== window;
   const slides = $derived.by(() => {
     doc.version;
     const all = getSlides(doc.pres);
@@ -16,12 +13,6 @@
   });
   const hidden = $derived(slides.length > 0 && slides.every(isSlideHidden));
 
-  function present(action: 'start' | 'current' | 'presenter') {
-    window.parent.postMessage(
-      { type: 'editor-command', action, slide: doc.selection.slideIndex },
-      window.location.origin,
-    );
-  }
   function toggleHidden() {
     const value = !hidden;
     doc.transact(t('Hide Slide'), () => {
@@ -31,15 +22,15 @@
 </script>
 
 <div class="group">
-  <button disabled={!embedded} onclick={() => present('start')}>
+  <button disabled={!editor.canPresent} onclick={() => editor.present('start')}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="1" /><path d="M12 16v5M8 21h8M10 7l5 2.5-5 2.5z" /></svg>
     {t('Play from Start')}
   </button>
-  <button disabled={!embedded} onclick={() => present('current')}>
+  <button disabled={!editor.canPresent} onclick={() => editor.present('current')}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="1" /><path d="M12 16v5M8 21h8M7 7h5v5H7zM14 8h3M14 11h3" /></svg>
     {t('Play from Current Slide')}
   </button>
-  <button disabled={!embedded} onclick={() => present('presenter')}>
+  <button disabled={!editor.canPresent} onclick={() => editor.present('presenter')}>
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="1" /><path d="M12 16v5M8 21h8" /></svg>
     {t('Presenter View')}
   </button>

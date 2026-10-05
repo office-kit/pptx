@@ -810,6 +810,21 @@ export class EditorController {
     else this.invoke('addBlankSlide');
   }
 
+  /**
+   * The slide show runs in the preview page around the editor; the standalone
+   * editor has no stage to present on.
+   */
+  readonly canPresent = typeof window !== 'undefined' && window.parent !== window;
+
+  /** Asks the preview page to present: full screen, in the window, or with presenter view. */
+  present(action: 'start' | 'current' | 'reading' | 'presenter'): void {
+    if (!this.canPresent) return;
+    window.parent.postMessage(
+      { type: 'editor-command', action, slide: this.doc.selection.slideIndex },
+      window.location.origin,
+    );
+  }
+
   /** Pastes the copied formatting onto every selected object. */
   pasteObjectFormat(): void {
     const format = this.formatClipboard;

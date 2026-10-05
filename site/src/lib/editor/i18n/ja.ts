@@ -1401,4 +1401,11 @@ export const ja: Record<string, string> = {
   'Transition to This Slide': '画面切り替え',
   Review: '校閲',
   'New Comment': '新しいコメント',
+  'Accessibility: Investigate': 'アクセシビリティ: 検討が必要です',
+  'Accessibility: Good to go': 'アクセシビリティ: 問題ありません',
+  'No accessibility issues found.': 'アクセシビリティの問題は見つかりませんでした。',
+  'Missing alternative text': '代替テキストがありません',
+  'Missing slide title': 'スライド タイトルがありません',
+  'Slide {n}': 'スライド {n}',
+  'Reading View': '閲覧表示',
 };

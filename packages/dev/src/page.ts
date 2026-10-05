@@ -544,9 +544,9 @@ async function exitPresentation(){
   setPresenting(false);
   if(document.fullscreenElement)await document.exitFullscreen();
 }
-async function startPresentation(from){
+async function startPresentation(from,windowed=false){
   setPresenting(true,from);
-  if(state.showProperties?.mode?.kind==='browse')return;
+  if(windowed||state.showProperties?.mode?.kind==='browse')return;
   const request=fullscreenRequest={};
   try{await document.documentElement.requestFullscreen();}
   catch{if(fullscreenRequest===request){fullscreenRequest=null;byId('exit-present').textContent=pt('Exit view · Esc');}}
@@ -730,7 +730,7 @@ window.addEventListener('message',event=>{
  if(byId('present').disabled)return;
  const slide=event.data.slide;
  if(event.data.action==='start')void startPresentation();
- else if(event.data.action==='current'&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide);
+ else if((event.data.action==='current'||event.data.action==='reading')&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide,event.data.action==='reading');
  else if(event.data.action==='presenter')byId('presenter').click();
 });
 window.addEventListener('message',event=>{
