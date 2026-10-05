@@ -21,7 +21,7 @@
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds, selectedSlideIndices } from '../core/selection.ts';
   import { editTargetParagraphs, targetParagraphProperties } from '../core/paragraph-targets.ts';
-  import { t } from '../i18n/i18n.svelte.ts';
+  import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import FontRibbon from './FontRibbon.svelte';
@@ -47,14 +47,34 @@
   // The ribbon spans the window, so start from its width: measuring only after
   // mount would paint the expanded layout first and shift the canvas below.
   let width = $state(typeof window === 'undefined' ? Number.POSITIVE_INFINITY : window.innerWidth);
-  const small = $derived(width < SMALL_ICONS_BELOW);
+  // The steps above, in order; 0 is fully expanded.
+  const stepAt = (value: number) =>
+    value < FONT_COLLAPSES_BELOW ? 3 : value < GROUPS_COLLAPSE_BELOW ? 2 : value < SMALL_ICONS_BELOW ? 1 : 0;
+  // The thresholds fit PowerPoint's English labels. Longer labels (Japanese,
+  // or a platform with wider fonts) can still overflow near a threshold, so
+  // the ribbon takes the next step while its content does not fit.
+  let extraSteps = $state(0);
+  let home = $state<HTMLDivElement>();
+  const step = $derived(Math.min(3, stepAt(width) + extraSteps));
+  const small = $derived(step >= 1);
   const collapsed = $derived<ReadonlySet<Group>>(
     new Set<Group>([
-      ...(small ? (['Drawing'] as const) : []),
-      ...(width < GROUPS_COLLAPSE_BELOW ? (['Slides', 'Paragraph', 'Insert'] as const) : []),
-      ...(width < FONT_COLLAPSES_BELOW ? (['Font'] as const) : []),
+      ...(step >= 1 ? (['Drawing'] as const) : []),
+      ...(step >= 2 ? (['Slides', 'Paragraph', 'Insert'] as const) : []),
+      ...(step >= 3 ? (['Font'] as const) : []),
     ]),
   );
+  $effect.pre(() => {
+    width;
+    getLocale();
+    extraSteps = 0;
+  });
+  $effect(() => {
+    step;
+    width;
+    getLocale();
+    if (home && step < 3 && home.scrollWidth > home.clientWidth + 1) extraSteps += 1;
+  });
   let openGroup = $state<Group | null>(null);
   let paragraphOptions = $state(false);
   let openMenu = $state<'newSlide' | 'layout' | null>(null);
@@ -232,7 +252,7 @@
 
 {#snippet font()}<FontRibbon />{/snippet}
 
-<div class="home" bind:clientWidth={width}>
+<div class="home" bind:this={home} bind:clientWidth={width}>
   <section class="cluster" aria-label={t('Clipboard')}>
     <button class="big" aria-label={t('Paste')} onclick={() => editor.paste()}><Icon name="paste" size={32} /><span>{t('Paste')}</span></button>
     <div class="stack small tools">
@@ -256,7 +276,7 @@
 
 <style>
   .home { display: flex; align-items: stretch; min-width: 0; width: 100%; gap: 0; }
-  .cluster { position: relative; display: flex; align-items: center; gap: 4px; padding: 0 10px; border-right: 1px solid var(--ok-border); flex: none; }
+  .cluster { position: relative; display: flex; align-items: center; gap: 4px; padding: 0 7px; border-right: 1px solid var(--ok-border); flex: none; }
   .cluster:last-child { border-right: none; }
   button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
@@ -265,7 +285,7 @@
   .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 52px; padding: 3px 4px; font-size: 11px; line-height: 1.15; }
   .big > span { max-width: 64px; text-align: center; }
   .icon-row { display: flex; align-items: center; gap: 2px; max-width: none !important; }
-  .row { display: flex; align-items: center; gap: 5px; padding: 2px 5px; font-size: 11px; white-space: nowrap; }
+  .row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 11px; white-space: nowrap; }
   .tool { display: flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 0; }
   .stack { display: flex; align-items: center; gap: 4px; }
   .stack.small { flex-direction: column; align-items: flex-start; gap: 2px; }
