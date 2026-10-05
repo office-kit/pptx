@@ -52,8 +52,8 @@ test(
       const tableText = async () =>
         getTableCellText(getTableCells(getSlideShapes((await slides())[1])[0])[0][0]);
       await saved();
-      await editor.getByRole('button', { name: 'Editing', exact: true }).click();
-      await editor.getByRole('menuitem', { name: 'Replace', exact: true }).click();
+      await editor.getByRole('button', { name: 'Edit', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'Replace...', exact: true }).click();
       let dialog = editor.getByRole('dialog', { name: 'Find and replace', exact: true });
       await dialog.getByLabel('Find text', { exact: true }).fill('Hello');
       await dialog.getByText('Match 1 / 4', { exact: true }).waitFor();
@@ -68,8 +68,8 @@ test(
       await dialog.getByRole('button', { name: 'Close', exact: true }).click();
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
-      await editor.getByRole('button', { name: 'Editing', exact: true }).click();
-      await editor.getByRole('menuitem', { name: 'Replace', exact: true }).click();
+      await editor.getByRole('button', { name: 'Edit', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'Replace...', exact: true }).click();
       await dialog.getByLabel('Find text', { exact: true }).fill('Hello');
       await dialog.getByRole('button', { name: 'Next match', exact: true }).click();
       await dialog.getByText('Match 2 / 4', { exact: true }).waitFor();

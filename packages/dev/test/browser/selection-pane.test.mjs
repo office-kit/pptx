@@ -136,7 +136,7 @@ test(
         true,
       );
       await page.keyboard.press('Escape');
-      const drawingMenu = editor.getByRole('menu', { name: 'Drawing', exact: true });
+      const drawingMenu = editor.getByRole('dialog', { name: 'Drawing', exact: true });
       if (await drawingMenu.isVisible()) await page.keyboard.press('Escape');
       await pane.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
       await editor.locator('.hit.selected').click({ button: 'right' });

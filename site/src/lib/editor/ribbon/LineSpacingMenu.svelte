@@ -1,9 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getShapeKind, getShapeParagraphCount, getParagraphPropertiesEffective, setParagraphLineSpacing, getTableCells, getTableCellParagraphs, getTableCellSpan, type ParagraphProperties } from '@office-kit/pptx';
-  import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
+  import { setParagraphLineSpacing, type ParagraphProperties } from '@office-kit/pptx';
+  import { editTargetParagraphs, targetParagraphProperties, type ParagraphEdit } from '../core/paragraph-targets.ts';
   import { getEditor } from '../core/context.ts';
-  import { tableCellsInRange, tableSelectionBlock } from '../core/table-selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
   import ParagraphDialog from '../ui/ParagraphDialog.svelte';
@@ -13,29 +12,14 @@
   let options = $state(false);
   let trigger: HTMLButtonElement;
   let menu = $state<HTMLDivElement>();
-  const targets = $derived.by(() => {
-    doc.version;
-    const selection = doc.selection;
-    if (selection.kind === 'cell') {
-      const table = doc.shapeById(selection.slideIndex, selection.shapeId);
-      return table ? [...tableCellsInRange(getTableCells(table), tableSelectionBlock(selection))].filter(cell => {
-        const span = getTableCellSpan(cell);
-        return !span.hMerge && !span.vMerge;
-      }).flatMap(shape => getTableCellParagraphs(shape).map((_, index) => ({ shape, index, defaultAlign: 'left' as const }))) : [];
-    }
-    const shapes = editor.selectedShapes();
-    return shapes.every(shape => getShapeKind(shape) === 'shape') ? shapes.flatMap(shape => Array.from({ length: getShapeParagraphCount(shape) }, (_, index) => ({ shape, index, defaultAlign: shapeTextDefaults(shape).align }))) : [];
-  });
-  const properties = $derived<ParagraphProperties[]>(editor.inlineTextFormat?.paragraphs ?? targets.map(({ shape, index, defaultAlign }) => { const props = getParagraphPropertiesEffective(doc.pres, shape, index); return { ...props, align: props.align ?? defaultAlign }; }));
+  const properties = $derived.by<ParagraphProperties[]>(() => { doc.version; return targetParagraphProperties(editor); });
   const enabled = $derived(properties.length > 0 && !editor.selectionLocked());
   const spacing = $derived.by(() => {
     const values = properties.map(p => !p.lineSpacing ? 1 : p.lineSpacing.kind === 'pct' ? p.lineSpacing.value : null);
     return values.every(value => value === values[0]) ? values[0] : null;
   });
-  function apply(edit: (shape: Parameters<typeof setParagraphLineSpacing>[0], index: number) => void) {
-    if (!enabled) return;
-    if (editor.inlineTextFormat) editor.inlineTextFormat.editParagraphs(edit);
-    else doc.transact(t('Format paragraphs'), () => { for (const { shape, index } of targets) edit(shape, index); });
+  function apply(edit: ParagraphEdit) {
+    if (enabled) editTargetParagraphs(editor, edit);
   }
   function close(restore = true) { open = false; if (restore) trigger.focus(); }
   async function show() { open = !open; if (open) { await tick(); (menu?.querySelector<HTMLButtonElement>('[aria-checked="true"]') ?? menu?.querySelector<HTMLButtonElement>('button'))?.focus(); } }

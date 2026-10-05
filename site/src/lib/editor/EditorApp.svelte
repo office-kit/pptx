@@ -2,7 +2,6 @@
   import './ui/tokens.css';
   import { arrangeShortcut } from './core/arrange-shortcuts.ts';
   import { getShapeKind, getShapeText } from '@office-kit/pptx';
-  import { newSlideLayout } from './core/new-slide.ts';
   import { parseTableClipboard } from './core/table-clipboard.ts';
   import { t } from './i18n/i18n.svelte.ts';
   import { untrack, type Snippet } from 'svelte';
@@ -48,6 +47,10 @@
   const editor = untrack(() => initialEditor);
   setEditor(editor);
   const doc = editor.doc;
+  $effect(() => {
+    doc.selection;
+    untrack(() => editor.completeFormatPainter());
+  });
   const navigationWidth = $derived(editor.viewMode === 'outline' ? editor.outlineWidth ?? 360 : editor.thumbnailWidth);
 
   const NUDGE = 18288; // 0.02in in EMU
@@ -76,9 +79,7 @@
 
     if (mod && e.shiftKey && !e.altKey && e.code === 'KeyN' && !typing && !e.defaultPrevented) {
       e.preventDefault();
-      const layout = newSlideLayout(doc.pres, doc.currentSlide);
-      if (layout) editor.invoke('addSlide', { options: { layout } });
-      else editor.invoke('addBlankSlide');
+      editor.addNewSlide();
       return;
     }
 

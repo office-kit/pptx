@@ -5,7 +5,6 @@
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
-  import { newSlideLayout } from '../core/new-slide.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -39,12 +38,7 @@
 
   function slideItems(): Item[] {
     return [
-      { label: 'New slide', run: () => {
-        const slide = doc.slideAt(doc.selection.slideIndex);
-        const layout = slide ? newSlideLayout(doc.pres, slide) : null;
-        if (layout) editor.invoke('addSlide', { options: { layout } });
-        else editor.invoke('addBlankSlide');
-      } },
+      { label: 'New slide', run: () => editor.addNewSlide() },
       { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
       { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
     ];

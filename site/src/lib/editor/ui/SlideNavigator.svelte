@@ -97,17 +97,6 @@
 <svelte:window onpointerup={() => pointerSelecting = false} onpointercancel={() => pointerSelecting = false} />
 
 <div class="nav ok-scroll" class:sorter={mode === 'sorter'} style:--sorter-thumb={`${Math.round(230 * editor.sorterZoom)}px`} bind:this={rail}>
-  <div class="nav-actions">
-    <button class="ok-btn add" onclick={() => editor.invoke('addBlankSlide')} title={t('New slide')}>＋ {t('Slide')}</button>
-    <button class="ok-btn add from-layout" onclick={() => editor.runOrPrompt('addSlide')} title={t('New slide from layout')}>{t('New slide from layout')}</button>
-    <div class="slide-actions">
-      <button class="ok-btn" title={t('Duplicate slide')} aria-label={t('Duplicate slide')} disabled={!doc.slides.length} onclick={() => editor.invoke('duplicateSlide')}>⧉</button>
-      <button class="ok-btn" title={t('Delete slide')} aria-label={t('Delete slide')} disabled={!doc.slides.length} onclick={() => editor.invoke('removeSlide')}>×</button>
-      <button class="ok-btn" title={t('Move slide up')} aria-label={t('Move slide up')} disabled={firstSelected === 0} onclick={() => reorder(doc.selection.slideIndex, firstSelected - 1)}>↑</button>
-      <button class="ok-btn" title={t('Move slide down')} aria-label={t('Move slide down')} disabled={firstSelected >= doc.slides.length - selected.length} onclick={() => reorder(doc.selection.slideIndex, firstSelected + 1)}>↓</button>
-    </div>
-  </div>
-
   {#if doc.selection.kind === 'slide' && selected.length > 1}<div class="selection-count" aria-live="polite">{t('Selected slides')}: {selected.length}</div>{/if}
 
   {#each doc.slides as _slide, i (i)}
@@ -163,11 +152,8 @@
 
 <style>
   .sorter { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sorter-thumb)), 1fr)); align-content: start; gap: 20px; padding: 24px; border-right: 0; }
-  .sorter .nav-actions, .sorter .selection-count { grid-column: 1 / -1; }
-  .sorter .nav-actions { display: flex; gap: 8px; align-items: center; }
-  .sorter .nav-actions .add { width: auto; margin: 0; }
-  .sorter .slide-actions { margin: 0; }
   .sorter .thumb-row { min-width: 0; }
+  .sorter .selection-count { grid-column: 1 / -1; }
   .selection-count { padding: 6px 4px; font-size: 11px; color: var(--ok-muted); }
   .skipped .num { text-decoration: line-through; }
   .skip-mark { display: block; text-decoration: none; }
@@ -178,20 +164,8 @@
     padding: 8px;
     overflow-y: auto;
   }
-  .nav-actions {
-    margin-bottom: 8px;
-  }
-  .from-layout { margin-top: 6px; white-space: normal; }
-  .slide-actions { display: flex; gap: 2px; margin-top: 6px; }
-  .slide-actions button { flex: 1; justify-content: center; }
   .render-error { font-size: 11px; color: var(--ok-text-2); }
   .thumb-row:focus-visible { outline: 2px solid var(--ok-selected-border); outline-offset: 1px; }
-  .add {
-    width: 100%;
-    justify-content: center;
-    border: 1px solid var(--ok-border);
-    background: var(--ok-panel);
-  }
   .thumb-row {
     display: flex;
     gap: 6px;

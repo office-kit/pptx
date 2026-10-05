@@ -12,7 +12,7 @@ import { capabilityById } from '../manifest/index.ts';
 // default-sized shape you then move/resize. EMU via the public unit helpers.
 const IN = (n: number) => inches(n) as unknown as number;
 const DROP = { x: IN(2), y: IN(1.5), w: IN(4), h: IN(2) };
-const PRESET = {
+export const PRESET = {
   shape: { opts: { preset: 'rect', x: DROP.x, y: DROP.y, w: DROP.w, h: DROP.h } },
   textBox: { opts: { x: DROP.x, y: DROP.y, w: DROP.w, h: IN(1), text: 'Text' } },
   line: { opts: { from: { x: IN(2), y: IN(3) }, to: { x: IN(7), y: IN(3) } } },
@@ -47,71 +47,8 @@ export const RIBBON: readonly RibbonTab[] = [
   {
     id: 'home',
     title: 'Home',
-    groups: [
-      {
-        title: 'Slides',
-        items: [
-          { id: 'addBlankSlide', icon: 'slide-blank' },
-          { id: 'addSlide', icon: 'slide-content' },
-          { id: 'addTitleSlide', icon: 'slide-title' },
-          { id: 'addContentSlide', icon: 'slide-content' },
-          { id: 'duplicateSlide', icon: 'duplicate' },
-          { id: 'removeSlide', icon: 'trash' },
-          { id: 'resetSlideLayout', icon: 'slide-content' },
-          {
-            id: 'addMissingSlidePlaceholders',
-            icon: 'slide-content',
-            compactLabel: 'Restore placeholders',
-          },
-          {
-            id: 'resetSlidePlaceholderTextFormatting',
-            icon: 'text-format',
-            compactLabel: 'Reset text styles',
-          },
-          { id: 'resetSlidePlaceholderGeometry', icon: 'align', compactLabel: 'Reset positions' },
-        ],
-      },
-      {
-        title: 'Font',
-        items: [
-          { id: 'setShapeTextFormat', icon: 'text-format', label: 'Text format' },
-          { id: 'setShapeRunFormat', icon: 'text-run', label: 'Run format' },
-        ],
-      },
-      {
-        title: 'Paragraph',
-        items: [
-          // The manifest labels these "Set paragraph …", which the ribbon
-          // truncates to four indistinguishable buttons. Use PowerPoint's own
-          // short names instead.
-          { id: 'setParagraphAlignment', icon: 'align', label: 'Align' },
-          { id: 'setShapeBulletStyle', icon: 'bullets', label: 'Bullets' },
-          { id: 'setParagraphLevel', icon: 'indent', label: 'Indent' },
-          { id: 'setParagraphLineSpacing', icon: 'line-spacing', label: 'Line spacing' },
-          { id: 'setParagraphSpacing', icon: 'space', label: 'Spacing' },
-        ],
-      },
-      {
-        title: 'Insert',
-        items: [
-          { id: 'addSlideImage', icon: 'image' },
-          { id: 'addSlideShape', icon: 'shape', preset: PRESET.shape },
-          { id: 'addSlideTextBox', icon: 'textbox', preset: PRESET.textBox },
-        ],
-      },
-      {
-        title: 'Drawing',
-        items: [
-          { id: 'setShapeFill', icon: 'fill' },
-          { id: 'setShapeStroke', icon: 'outline' },
-          { id: 'setShapeShadow', icon: 'shadow' },
-        ],
-      },
-      {
-        title: 'Editing',
-        items: [{ id: 'replaceTextInPresentation', icon: 'replace', label: 'Replace' }],
-      },
-    ],
+    // Laid out by HomeRibbon.svelte, which mirrors Mac PowerPoint's clusters.
+    groups: [],
   },
   {
     id: 'insert',
@@ -209,8 +146,8 @@ export const RIBBON: readonly RibbonTab[] = [
       },
     ],
   },
-  { id: 'view', title: 'View', groups: [] },
   { id: 'slideShow', title: 'Slide Show', groups: [] },
+  { id: 'view', title: 'View', groups: [] },
   {
     id: 'shape',
     title: 'Shape Format',

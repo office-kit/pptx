@@ -92,7 +92,7 @@ test(
       await editor
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
-      assert.equal(await editor.getByRole('menu', { name: 'Drawing', exact: true }).count(), 0);
+      assert.equal(await editor.getByRole('dialog', { name: 'Drawing', exact: true }).count(), 0);
       await editor.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
       assert.equal(await tabs.isVisible(), false);
       await openArrange(editor);

@@ -49,26 +49,15 @@ test(
         );
       await saved();
       await thumbs.nth(0).click();
-      await editor
-        .locator('.nav-actions')
-        .getByRole('button', { name: 'New slide from layout', exact: true })
-        .click();
-      const dialog = editor.getByRole('dialog', { name: 'New slide from layout', exact: true });
-      await dialog
-        .getByLabel('Slide layout', { exact: true })
-        .selectOption({ label: 'Title and Content' });
-      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-      assert.equal(await thumbs.count(), 2);
-      // The ribbon reaches the same picker, independently of the slide navigator.
-      await editor.getByRole('button', { name: 'Slides', exact: true }).click();
-      await editor
-        .getByRole('menu', { name: 'Slides', exact: true })
-        .getByRole('menuitem', { name: 'New slide from layout', exact: true })
-        .click();
-      await dialog
-        .getByLabel('Slide layout', { exact: true })
-        .selectOption({ label: 'Title and Content' });
-      await dialog.getByRole('button', { name: 'Insert slide', exact: true }).click();
+      // Home ▸ New Slide ▾ lists the layouts, as in PowerPoint. A narrow
+      // ribbon first collapses the Slides group into a single button.
+      const newSlideFrom = async (slidesLabel, optionsLabel, layout) => {
+        const group = editor.getByRole('button', { name: slidesLabel, exact: true });
+        if (await group.isVisible()) await group.click();
+        await editor.getByRole('button', { name: optionsLabel, exact: true }).click();
+        await editor.getByRole('menuitem', { name: layout, exact: true }).click();
+      };
+      await newSlideFrom('Slides', 'New Slide options', 'Title and Content');
       await saved();
       assert.equal(await thumbs.count(), 3);
       assert.match(await thumbs.nth(1).getAttribute('class'), /active/);
@@ -98,16 +87,8 @@ test(
       );
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
-      await editor
-        .locator('.nav-actions')
-        .getByRole('button', { name: 'レイアウトからスライドを追加', exact: true })
-        .click();
-      const jp = editor.getByRole('dialog', { name: 'レイアウトからスライドを追加', exact: true });
-      await jp
-        .getByLabel('スライドのレイアウト', { exact: true })
-        .selectOption({ label: 'タイトルスライド' });
+      await newSlideFrom('スライド', '新しいスライドのオプション', 'タイトルスライド');
       await page.screenshot({ path: '/tmp/pptx-new-slide-layout-ja.png', fullPage: true });
-      await jp.getByRole('button', { name: 'スライドを挿入', exact: true }).click();
       await saved();
       assert.equal(getSlideLayoutName(getSlideLayout((await slides())[2])), 'Title Slide');
       await page.reload();
