@@ -166,7 +166,7 @@ test(
       await editor.getByRole('tab', { name: '画面切り替え', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: '画面切り替え', exact: true })
-        .getByRole('button', { name: '画面切り替え', exact: true })
+        .getByRole('button', { name: '効果のオプション', exact: true })
         .click();
       const dialog = editor.getByRole('dialog');
       await dialog.getByText('選択したスライドに適用: 2', { exact: true }).waitFor();
