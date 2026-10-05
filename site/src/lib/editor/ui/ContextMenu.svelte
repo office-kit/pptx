@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getShapeKind, setSlideOutlineCollapsed } from '@office-kit/pptx';
+  import { getShapeKind, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
@@ -117,10 +117,29 @@
       );
     }
     if (!hasShapes && editor.viewMode !== 'sorter' && menu.source !== 'outline') {
+      // PowerPoint's menu for the slide itself.
+      const slide = doc.currentSlide;
+      const current = slide ? getSlideLayoutPartName(getSlideLayout(slide)!) : '';
       list.push(
-        { label: 'Add Vertical Guide', run: () => editor.addDrawingGuide('x') },
-        { label: 'Add Horizontal Guide', run: () => editor.addDrawingGuide('y') },
-        { label: 'Grid Options...', run: () => editor.activeDialog = 'gridOptions' },
+        {
+          label: 'Layout', sep: true,
+          children: getSlideLayouts(doc.pres).map(layout => ({
+            label: getSlideLayoutName(layout),
+            checked: getSlideLayoutPartName(layout) === current,
+            run: () => { if (slide) doc.transact(t('Slide layout'), () => setSlideLayout(slide, layout)); },
+          })),
+        },
+        { label: 'Reset Slide', run: () => editor.invoke('resetSlideLayout'), disabled: !editor.canRun('resetSlideLayout') },
+        {
+          label: 'Grid and Guides', sep: true,
+          children: [
+            { label: 'Add Vertical Guide', run: () => editor.addDrawingGuide('x') },
+            { label: 'Add Horizontal Guide', run: () => editor.addDrawingGuide('y') },
+            { label: 'Grid Options...', run: () => editor.activeDialog = 'gridOptions' },
+          ],
+        },
+        { label: 'Format Background...', sep: true, run: () => editor.showBackgroundFormat() },
+        { label: 'New Comment', run: () => editor.runOrPrompt('addSlideComment'), disabled: !slide },
       );
     }
     if (menu.source === 'outline') list.push({
@@ -216,13 +235,13 @@
   {#each items as item (item.label)}
     {#if item.children}
       <div class="branch">
-        <button class="ctx-item" role="menuitem" tabindex="-1" aria-label={t(item.label)} aria-haspopup="menu" aria-expanded={submenu === item.label} data-submenu={item.label} onclick={() => activate(item)} onpointerenter={() => submenu = item.label}>
+        <button class="ctx-item" class:sep={item.sep} role="menuitem" tabindex="-1" aria-label={t(item.label)} aria-haspopup="menu" aria-expanded={submenu === item.label} data-submenu={item.label} onclick={() => activate(item)} onpointerenter={() => submenu = item.label}>
           <span>{t(item.label)}</span><span>›</span>
         </button>
         {#if submenu === item.label}
           <div class="ctx submenu" role="menu" aria-label={t(item.label)} use:placeSubmenu>
             {#each item.children as child (child.label)}
-              <button class="ctx-item" role="menuitem" tabindex="-1" disabled={child.disabled} onclick={() => activate(child)}>{t(child.label)}</button>
+              <button class="ctx-item" role={child.checked === undefined ? 'menuitem' : 'menuitemradio'} aria-checked={child.checked} tabindex="-1" disabled={child.disabled} onclick={() => activate(child)}>{child.checked ? '✓ ' : ''}{t(child.label)}</button>
             {/each}
           </div>
         {/if}

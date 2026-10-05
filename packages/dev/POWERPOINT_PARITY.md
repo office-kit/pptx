@@ -35,6 +35,10 @@ does not define a percentage denominator for all PowerPoint operations.
 - A selected chart shows PowerPoint's Chart Design and Format tabs (Format is the Shape Format tab renamed, as natively). Chart Design carries Add Chart Element, Quick Layout, Change Colors, Chart Styles, Switch Row/Column, Select Data, Edit Data and Change Chart Type; the commands the chart dialog covers open it, and Quick Layout, Change Colors, Chart Styles and Switch Row/Column are disabled with the reason.
 - A selected table, or cells being edited, shows Table Design (Table Styles, Shading, Borders) and Layout (Delete/Insert Rows and Columns, Merge Cells, Height, Width, Alignment) instead of Shape Format.
 
+## Slide context menu (2026-10-06)
+
+- Right-clicking the slide itself now offers PowerPoint's items after Paste: Layout ▸ (checked current layout), Reset Slide, Grid and Guides ▸ (Add Vertical/Horizontal Guide, Grid Options…), Format Background… and New Comment.
+
 ## Shape Format ribbon (2026-10-06)
 
 - PowerPoint's contextual Shape Format tab groups: Insert Shapes (Shapes, Edit Shape ▾, Text Box, Merge Shapes ▾), Shape Styles (gallery, Shape Fill ▾, Shape Outline ▾, Shape Effects ▾), WordArt Styles (Quick Styles ▾, Text Fill ▾, Text Outline ▾, Text Effects ▾), Accessibility (Alt Text), Arrange, Size (Height, Width) and Format Pane. The tab now renders these groups in that order instead of the generic fill/outline/effects/size/arrange buttons.

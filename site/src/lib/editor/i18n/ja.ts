@@ -1666,4 +1666,5 @@ export const ja: Record<string, string> = {
   'Paste Special needs the system clipboard formats, which the browser does not expose.':
     '形式を選択して貼り付けにはシステム クリップボードの形式が必要ですが、ブラウザーでは取得できません。',
   'Paste failed': '貼り付けに失敗しました',
+  'Reset Slide': 'スライドのリセット',
 };
