@@ -320,54 +320,7 @@ export const RIBBON: readonly RibbonTab[] = [
     id: 'shape',
     title: 'Shape Format',
     contextual: 'shape',
-    groups: [
-      {
-        title: 'Fill',
-        items: [
-          { id: 'setShapeFill', icon: 'fill' },
-          { id: 'setShapeGradientFill', icon: 'gradient' },
-          { id: 'setShapePatternFill', icon: 'pattern' },
-          { id: 'setShapeImageFill', icon: 'image' },
-          { id: 'setShapeNoFill', icon: 'no-fill' },
-        ],
-      },
-      {
-        title: 'Outline',
-        items: [
-          { id: 'setShapeStroke', icon: 'outline' },
-          { id: 'setShapeStrokeDash', icon: 'dash' },
-          { id: 'setShapeStrokeArrow', icon: 'arrow' },
-          { id: 'setShapeNoStroke', icon: 'no-fill' },
-        ],
-      },
-      {
-        title: 'Effects',
-        items: [
-          { id: 'setShapeShadow', icon: 'shadow' },
-          { id: 'setShapeGlow', icon: 'glow' },
-          { id: 'clearShapeEffects', icon: 'trash' },
-        ],
-      },
-      {
-        title: 'Size & rotate',
-        items: [
-          { id: 'setShapeBounds', icon: 'resize' },
-          { id: 'setShapeRotation', icon: 'rotate' },
-          { id: 'setShapeFlip', icon: 'flip' },
-        ],
-      },
-      {
-        title: 'Arrange',
-        items: [
-          { id: 'bringShapeToFront', icon: 'front' },
-          { id: 'bringShapeForward', icon: 'forward' },
-          { id: 'sendShapeBackward', icon: 'backward' },
-          { id: 'sendShapeToBack', icon: 'back' },
-          { id: 'groupShapes', icon: 'group' },
-          { id: 'ungroupShapes', icon: 'ungroup' },
-        ],
-      },
-    ],
+    groups: [],
   },
   {
     id: 'table',

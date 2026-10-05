@@ -77,7 +77,7 @@
       {#if item.property === 'bold'}<b>B</b>{:else if item.property === 'italic'}<i>I</i>{:else if item.property === 'underline'}<u>U</u>{:else if item.property === 'strike'}<s>S</s>{:else if item.property === 'superscript'}x<sup>2</sup>{:else}x<sub>2</sub>{/if}
     </button>
   {/each}
-  <div class="color-field"><span>{t('Text color')}</span><ColorPicker label={t('Text color')} value={color ?? undefined} resolvedColor={resolvedColor ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
+  <div class="color-field"><span>{t('Text color')}</span><ColorPicker compact={ribbon} glyph={ribbon ? 'A' : undefined} label={t('Text color')} value={color ?? undefined} resolvedColor={resolvedColor ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
   <label><span>{t('Highlight color')}</span><input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
   {#if ribbon && oncase}<ChangeCaseMenu disabled={!(selected || typing)} onchange={oncase} />{/if}
   {#if ribbon}<button class="ok-btn font-dialog-trigger" aria-label={t('Font dialog')} title={t('Font dialog')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => editor.openFontDialog()}>A…</button>{/if}
@@ -133,6 +133,7 @@
   .font-ribbon .font-controls { display: flex; flex-direction: column; gap: 5px; }
   .font-ribbon .font-fields, .font-ribbon .font-buttons { display: flex; align-items: center; gap: 2px; }
   .font-ribbon label > span, .font-ribbon .color-field > span { display: none; }
+  .font-ribbon .color-field { display: flex; align-items: center; }
   .font-ribbon .ok-btn { min-width: 23px; padding: 3px; }
   .font-ribbon .font-size-step { font-size: 12px; }
   .highlight-menu summary { cursor: pointer; list-style: none; }

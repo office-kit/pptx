@@ -52,7 +52,15 @@ test(
         .getByRole('button', { name: 'Comments', exact: true });
       await comments.click();
       assert.equal(await comments.getAttribute('aria-pressed'), 'true');
-      await page.keyboard.press('Escape');
+      // The pane is docked and non-modal: the ribbon and thumbnails stay usable,
+      // and it follows the selected slide.
+      const pane = page.getByRole('dialog', { name: 'Comments', exact: true });
+      await page.getByRole('tab', { name: 'View', exact: true }).click();
+      await page.getByRole('tab', { name: 'Home', exact: true }).click();
+      await page.locator('.thumb-row').nth(1).click();
+      assert.equal(await pane.getByRole('combobox', { name: 'Review slide' }).inputValue(), '1');
+      await pane.getByRole('button', { name: 'Close', exact: true }).click();
+      assert.equal(await pane.count(), 0);
 
       // Share ▸ Send a Copy downloads the deck; cloud sharing is unavailable.
       await page.getByRole('button', { name: 'Share', exact: true }).click();

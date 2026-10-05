@@ -17,7 +17,7 @@
   import ReviewRibbon from './ReviewRibbon.svelte';
   import AnimationsRibbon from './AnimationsRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
-  import ShapeQuickStyles from './ShapeQuickStyles.svelte';
+  import ShapeFormatRibbon from './ShapeFormatRibbon.svelte';
   import HomeRibbon from './HomeRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
@@ -136,11 +136,7 @@
     {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
     {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}
-    {#if current?.id === 'shape'}
-      <div class="group shape-style-group">
-        <div class="group-items"><ShapeQuickStyles inline /></div>
-      </div>
-    {/if}
+    {#if current?.id === 'shape'}<ShapeFormatRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group" role="group" aria-label={t(group.title)}>
         <div class="group-items">

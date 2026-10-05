@@ -162,6 +162,14 @@
     <circle cx="12" cy="7" r="3" /><path d="M6 21c0-5 3-7 6-7s6 2 6 7" /><path d="M4 12l3-2M20 12l-3-2" />
   {:else if name === 'cube'}
     <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" />
+  {:else if name === 'font-color'}
+    <path d="m7 15 5-11 5 11M8.8 11h6.4" /><path d="M4 19h16" stroke-width="3" />
+  {:else if name === 'height'}
+    <path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4" />
+  {:else if name === 'width'}
+    <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
+  {:else if name === 'format-pane'}
+    <rect x="3" y="4" width="18" height="16" rx="1.5" /><path d="M14 4v16M16.5 8h2M16.5 11h2M16.5 14h2" />
   {:else if name === 'share'}
     <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
   {:else if name === 'columns'}

@@ -1566,4 +1566,38 @@ export const ja: Record<string, string> = {
   'Sharing with people needs OneDrive or SharePoint.':
     'ユーザーとの共有には OneDrive または SharePoint が必要です。',
   'Send a Copy (PowerPoint Presentation)': 'コピーを送信 (PowerPoint プレゼンテーション)',
+  'The comments changed elsewhere. Close and reopen Comments.':
+    'コメントが別の操作で変更されました。コメント ウィンドウを閉じて開き直してください。',
+  'Insert Shapes': '図形の挿入',
+  'Edit Shape': '図形の編集',
+  'Change Shape': '図形の変更',
+  'Rounded Rectangle': '四角形: 角を丸くする',
+  Oval: '楕円',
+  'Isosceles Triangle': '二等辺三角形',
+  'Right Arrow': '矢印: 右',
+  '5-Point Star': '星: 5 pt',
+  'Left Arrow': '矢印: 左',
+  'Edit Points': '頂点の編集',
+  'Edit Points is not available in this editor yet.':
+    '頂点の編集はこのエディターではまだ使用できません。',
+  'Merge Shapes': '図形の結合',
+  'Merging shapes needs boolean geometry, which the library does not compute.':
+    '図形の結合にはブール演算によるジオメトリ計算が必要ですが、ライブラリは対応していません。',
+  'Shape Effects': '図形の効果',
+  'No Effects': '効果なし',
+  'WordArt Styles': 'ワードアートのスタイル',
+  'WordArt Quick Styles': 'ワードアートのクイック スタイル',
+  'Fill: Black, Text color 1; Shadow': '塗りつぶし: 黒、文字色 1; 影',
+  'Fill: Blue, Accent color 1; Shadow': '塗りつぶし: 青、アクセント カラー 1; 影',
+  'Fill: White; Outline: Blue, Accent color 1; Glow: Blue, Accent color 1':
+    '塗りつぶし: 白; 輪郭: 青、アクセント カラー 1; 光彩: 青、アクセント カラー 1',
+  'Fill: Orange, Accent color 2; Outline: Orange, Accent color 2':
+    '塗りつぶし: オレンジ、アクセント カラー 2; 輪郭: オレンジ、アクセント カラー 2',
+  'Clear WordArt': 'ワードアートのクリア',
+  'Text Fill': '文字の塗りつぶし',
+  'Text Outline': '文字の輪郭',
+  'Text Effects': '文字の効果',
+  Reflection: '反射',
+  Shadow: '影',
+  Glow: '光彩',
 };

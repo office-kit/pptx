@@ -4,10 +4,12 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { label, value, resolvedColor, disabled = false, compact = false, showThemeShades = false, selectedColorTransforms = [], automatic, automaticSelected = false, choose }: {
+  let { label, value, resolvedColor, disabled = false, compact = false, glyph, showThemeShades = false, selectedColorTransforms = [], automatic, automaticSelected = false, choose }: {
     label: string;
     /** Only a ⌄ arrow, as PowerPoint's Shape Fill / Shape Outline split buttons show. */
     compact?: boolean;
+    /** With `compact`, a letter drawn over a bar of the current color, like PowerPoint's Font Color. */
+    glyph?: string;
     automatic?: () => void;
     automaticSelected?: boolean;
     value?: string;
@@ -137,7 +139,7 @@
 </script>
 
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
-<button type="button" class={compact ? 'trigger compact' : 'ok-input trigger'} bind:this={trigger} aria-label={label} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>{#if !compact}<span class="swatch" style:background={paint ?? 'transparent'}></span>{/if}<span>▾</span></button>
+<button type="button" class={compact ? 'trigger compact' : 'ok-input trigger'} bind:this={trigger} aria-label={label} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>{#if !compact}<span class="swatch" style:background={paint ?? 'transparent'}></span>{:else if glyph}<span class="glyph" aria-hidden="true">{glyph}<span class="swatch" style:background={paint ?? 'transparent'}></span></span>{/if}<span>▾</span></button>
 <input class="custom" type="color" bind:this={custom} aria-label={`${label}: ${t('More Colors...')}`} tabindex="-1" {disabled} value={paint?.startsWith('#') ? paint : '#000000'} onchange={event => select(event.currentTarget.value)} />
 {#if open}
   <div class="palette" role="menu" aria-label={label} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
@@ -163,6 +165,8 @@
   .trigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; width: 54px; padding: 3px 5px; }
   .trigger.compact { width: auto; padding: 1px 3px; font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   .trigger.compact:hover:not(:disabled) { background: var(--ok-hover); }
+  .glyph { display: inline-flex; flex-direction: column; align-items: center; font-size: 13px; font-weight: 600; line-height: 13px; }
+  .glyph .swatch { width: 14px; height: 3px; border: none; border-radius: 0; }
   .swatch { display: block; width: 24px; height: 18px; border: 1px solid var(--ok-border); }
   .custom { position: fixed; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
   .palette { position: fixed; z-index: 400; padding: 6px; background: var(--ok-panel); border: 1px solid var(--ok-border); border-radius: 6px; box-shadow: var(--ok-shadow-lg); }
