@@ -16,7 +16,15 @@
 // buildEffectElement gates each attribute by the effect that accepts it.
 
 import { boundedInt, oneOf, unsignedIntMs } from '../bounds.ts';
-import { type XmlElement, NS, attr, elem, qname } from '../xml/index.ts';
+import {
+  type XmlAttr,
+  type XmlElement,
+  NS,
+  attr,
+  cloneElement,
+  elem,
+  qname,
+} from '../xml/index.ts';
 
 const NAME_TRANSITION = qname('p', 'transition', NS.pml);
 const ATTR_SPD = qname('', 'spd', '');
@@ -25,6 +33,17 @@ const ATTR_ADV_TM = qname('', 'advTm', '');
 const ATTR_DIR = qname('', 'dir', '');
 const ATTR_ORIENT = qname('', 'orient', '');
 const ATTR_THRU_BLK = qname('', 'thruBlk', '');
+const ATTR_P14_DUR = qname('p14', 'dur', NS.p14);
+const ATTR_REQUIRES = qname('', 'Requires', '');
+const NAME_ALTERNATE_CONTENT = qname('mc', 'AlternateContent', NS.mc);
+const NAME_CHOICE = qname('mc', 'Choice', NS.mc);
+const NAME_FALLBACK = qname('mc', 'Fallback', NS.mc);
+
+// PowerPoint's own durations for the three ECMA-376 speeds.
+const FAST_MS = 500;
+const MED_MS = 750;
+const speedForDuration = (ms: number): 'slow' | 'med' | 'fast' =>
+  ms <= FAST_MS ? 'fast' : ms <= MED_MS ? 'med' : 'slow';
 
 /**
  * Every transition effect element name in `CT_SlideTransition`'s choice
@@ -81,6 +100,13 @@ export interface TransitionOptions {
    * advance.
    */
   advanceAfterMs?: number;
+  /**
+   * Effect duration in milliseconds (PowerPoint 2010's `p14:dur`). ECMA-376
+   * only has the three `speed` steps, so the transition is written as
+   * PowerPoint writes it: an `mc:AlternateContent` whose `p14` choice carries
+   * the duration and whose fallback carries the nearest `speed`.
+   */
+  durationMs?: number;
 }
 
 /**
@@ -155,12 +181,24 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
   return elem(name, { attrs });
 };
 
-/** Returns a complete `<p:transition>` element. */
-export const buildTransition = (opts: TransitionOptions): XmlElement => {
+/**
+ * Returns the slide-level transition node: a `<p:transition>`, or the
+ * `mc:AlternateContent` around two of them when a duration is set.
+ * `sound` is the `<p:sndAc>` to keep (it follows the effect element).
+ */
+export const buildTransition = (
+  opts: TransitionOptions,
+  sound: XmlElement | null = null,
+): XmlElement => {
   if (opts.speed !== undefined)
     oneOf(opts.speed, ['slow', 'med', 'fast'], 'setSlideTransition: speed');
-  const attrs = [];
-  if (opts.speed !== undefined) attrs.push(attr(ATTR_SPD, opts.speed));
+  const duration =
+    opts.durationMs === undefined
+      ? undefined
+      : unsignedIntMs(opts.durationMs, 'setSlideTransition: durationMs');
+  const speed = opts.speed ?? (duration === undefined ? undefined : speedForDuration(duration));
+  const attrs: XmlAttr[] = [];
+  if (speed !== undefined) attrs.push(attr(ATTR_SPD, speed));
   if (opts.advanceOnClick === false) attrs.push(attr(ATTR_ADV_CLICK, '0'));
   if (opts.advanceAfterMs !== undefined) {
     // advTm is xsd:unsignedInt (0..4294967295 ms).
@@ -168,8 +206,24 @@ export const buildTransition = (opts: TransitionOptions): XmlElement => {
     attrs.push(attr(ATTR_ADV_TM, String(advTm)));
   }
   const effect = buildEffectElement(opts);
-  return elem(NAME_TRANSITION, {
-    attrs,
-    children: effect === null ? [] : [effect],
+  const transition = (extra: typeof attrs) =>
+    elem(NAME_TRANSITION, {
+      attrs: [...attrs, ...extra],
+      children: [
+        ...(effect === null ? [] : [cloneElement(effect)]),
+        ...(sound === null ? [] : [cloneElement(sound)]),
+      ],
+    });
+  if (duration === undefined) return transition([]);
+  return elem(NAME_ALTERNATE_CONTENT, {
+    prefixDecls: new Map([['mc', NS.mc]]),
+    children: [
+      elem(NAME_CHOICE, {
+        attrs: [attr(ATTR_REQUIRES, 'p14')],
+        prefixDecls: new Map([['p14', NS.p14]]),
+        children: [transition([attr(ATTR_P14_DUR, String(duration))])],
+      }),
+      elem(NAME_FALLBACK, { children: [transition([])] }),
+    ],
   });
 };

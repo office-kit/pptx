@@ -956,6 +956,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  setSlideTransitionSound: { labelEn: 'Transition sound', labelJa: '画面切り替えのサウンド' },
   setSlideTransition: {
     labelEn: 'Transition',
     labelJa: '画面切り替え',

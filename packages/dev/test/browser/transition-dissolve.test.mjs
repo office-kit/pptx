@@ -58,7 +58,7 @@ test('dissolve reveals scattered cells at all transition speeds', { timeout: 600
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     for (let i = 1; i < options.length; i++) {
       await page.keyboard.press('ArrowRight');
-      const duration = { slow: 1000, med: 600, fast: 300 }[options[i].speed];
+      const duration = { slow: 1000, med: 750, fast: 500 }[options[i].speed];
       let previous = [];
       for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
         const result = await page.evaluate(

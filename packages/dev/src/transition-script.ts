@@ -26,7 +26,8 @@ function renderSlide(svg,options){
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previousMarkup;
   outgoing.setAttribute('aria-hidden','true');outgoing.inert=true;
   canvas.innerHTML=style;canvas.append(outgoing,incoming);
-  const duration=options.speed==='slow'?1000:options.speed==='fast'?300:600;
+  // PowerPoint plays fast/med/slow as 0.5/0.75/1 s; p14:dur overrides them.
+  const duration=options.durationMs??(options.speed==='slow'?1000:options.speed==='fast'?500:750);
   const timing={duration,easing:'ease-in-out',fill:'both'};
   const animate=(node,frames,easing=timing.easing)=>transitionAnimations.push(node.animate(frames,{...timing,easing}));
   const vectors={l:[-100,0],r:[100,0],u:[0,-100],d:[0,100],lu:[-100,-100],ru:[100,-100],ld:[-100,100],rd:[100,100]};

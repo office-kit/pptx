@@ -10,6 +10,7 @@ import {
   getSlides,
   getSlideShapes,
   getSlideTransition,
+  getSlideTransitionSound,
   isSlideHidden,
   loadPresentation,
 } from '@office-kit/pptx';
@@ -81,6 +82,33 @@ test(
       let transition = getSlideTransition(getSlides(await deck())[0]);
       assert.equal(transition?.effect, 'fade');
       assert.equal(transition?.advanceAfterMs, 3000);
+
+      // Duration writes p14:dur; Sound stops earlier sounds or embeds a WAV.
+      await changed(async () => {
+        const duration = panel.getByRole('spinbutton', { name: 'Duration:' });
+        await duration.fill('2');
+        await duration.press('Enter');
+      });
+      assert.equal(getSlideTransition(getSlides(await deck())[0])?.durationMs, 2000);
+      await panel.getByRole('button', { name: 'Preview', exact: true }).click();
+      const sound = panel.getByRole('combobox', { name: 'Sound:' });
+      await changed(() => sound.selectOption('stop'));
+      assert.deepEqual(getSlideTransitionSound(getSlides(await deck())[0]), { kind: 'stop' });
+      const wav = Buffer.alloc(44);
+      wav.write('RIFF', 0);
+      wav.writeUInt32LE(36, 4);
+      wav.write('WAVEfmt ', 8);
+      await changed(() =>
+        panel
+          .locator('input[type="file"]')
+          .setInputFiles({ name: 'chime.wav', mimeType: 'audio/wav', buffer: wav }),
+      );
+      assert.deepEqual(getSlideTransitionSound(getSlides(await deck())[0]), {
+        kind: 'play',
+        name: 'chime.wav',
+        loop: false,
+      });
+      assert.equal(await sound.inputValue(), 'play');
       await changed(() => panel.getByRole('button', { name: 'Apply To All', exact: true }).click());
       transition = getSlideTransition(getSlides(await deck())[1]);
       assert.equal(transition?.effect, 'fade');

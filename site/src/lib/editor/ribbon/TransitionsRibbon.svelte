@@ -3,7 +3,9 @@
     clearSlideTransition,
     getSlides,
     getSlideTransition,
+    getSlideTransitionSound,
     setSlideTransition,
+    setSlideTransitionSound,
     type SlideData,
     type TransitionEffect,
     type TransitionOptions,
@@ -44,6 +46,14 @@
   const effect = $derived(current?.effect ?? 'none');
   const onClick = $derived(current?.advanceOnClick ?? true);
   const afterMs = $derived(current?.advanceAfterMs);
+  const sound = $derived.by(() => {
+    doc.version;
+    return slides[0] ? getSlideTransitionSound(slides[0]) : null;
+  });
+  // PowerPoint shows the speed's own duration until one is set.
+  const SPEED_MS = { fast: 500, med: 750, slow: 1000 } as const;
+  const durationMs = $derived(current?.durationMs ?? SPEED_MS[current?.speed ?? 'med']);
+  let soundFile = $state<HTMLInputElement>();
   const timingEditable = $derived(slides.length > 0 && WRITABLE.has(effect));
 
   function apply(label: string, value: TransitionOptions, targets: readonly SlideData[] = slides) {
@@ -59,6 +69,45 @@
   function chooseEffect(token: TransitionEffect) {
     apply('Slide transition', { effect: token, advanceOnClick: onClick, ...(afterMs !== undefined ? { advanceAfterMs: afterMs } : {}) });
   }
+  function changeDuration(ms: number) {
+    const { speed: _, ...rest } = current ?? { effect: 'none' };
+    apply('Duration', { ...rest, effect: rest.effect as TransitionEffect, durationMs: ms });
+  }
+  function changeSound(value: string) {
+    if (value === 'other') {
+      soundFile?.click();
+      return;
+    }
+    doc.transact(t('Sound'), () => {
+      for (const slide of slides) setSlideTransitionSound(slide, value === 'stop' ? { kind: 'stop' } : null);
+    });
+  }
+  async function chooseSoundFile(file: File | undefined) {
+    if (!file) return;
+    const data = new Uint8Array(await file.arrayBuffer());
+    try {
+      doc.transact(t('Sound'), () => {
+        for (const slide of slides) setSlideTransitionSound(slide, { kind: 'play', data, name: file.name });
+      });
+    } catch (error) {
+      editor.toast('error', error instanceof Error ? error.message : String(error));
+    }
+  }
+  // Plays the effect on the editing canvas, as PowerPoint's Preview does.
+  function preview() {
+    const paint = document.querySelector<HTMLElement>('.canvas-shell .paint');
+    if (!paint || effect === 'none') return;
+    const dir = current?.direction ?? 'l';
+    const from = { l: 'translateX(100%)', r: 'translateX(-100%)', u: 'translateY(100%)', d: 'translateY(-100%)' }[dir[0] as 'l' | 'r' | 'u' | 'd'] ?? 'translateX(100%)';
+    const clip = { l: 'inset(0 0 0 100%)', r: 'inset(0 100% 0 0)', u: 'inset(100% 0 0 0)', d: 'inset(0 0 100% 0)' }[dir[0] as 'l' | 'r' | 'u' | 'd'] ?? 'inset(0 0 0 100%)';
+    const frames: Keyframe[] =
+      effect === 'push' || effect === 'cover' ? [{ transform: from }, { transform: 'none' }]
+      : effect === 'wipe' || effect === 'randomBar' ? [{ clipPath: clip }, { clipPath: 'inset(0)' }]
+      : effect === 'split' ? [{ clipPath: 'inset(0 50%)' }, { clipPath: 'inset(0)' }]
+      : effect === 'cut' ? [{ opacity: 0 }, { opacity: 0, offset: 0.99 }, { opacity: 1 }]
+      : [{ opacity: 0 }, { opacity: 1 }];
+    paint.animate(frames, { duration: durationMs, easing: 'ease-in-out' });
+  }
   function changeTiming(advanceOnClick: boolean, advanceAfterMs: number | undefined, targets: readonly SlideData[] = slides) {
     const { advanceAfterMs: _, ...rest } = current ?? { effect: 'none' };
     apply(targets === slides ? 'Slide transition' : 'Apply To All', {
@@ -70,6 +119,12 @@
   }
 </script>
 
+<div class="group">
+  <button class="big" disabled={effect === 'none'} onclick={preview}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="16" height="12" rx="1" /><path d="m14 13 7 4-7 4z" fill="currentColor" /></svg>
+    <span>{t('Preview')}</span>
+  </button>
+</div>
 <div class="group gallery" role="radiogroup" aria-label={t('Transition to This Slide')}>
   {#each GALLERY as [token, label] (token)}
     <button role="radio" aria-checked={effect === token} disabled={slides.length === 0} onclick={() => chooseEffect(token)}>
@@ -93,6 +148,24 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1" /><path d="m15 10 2 2-2 2" /></svg>
     <span>{t('Effect Options')}</span>
   </button>
+</div>
+<div class="group timing">
+  <label class="field">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" /><path d="M8 4v4l3 2" /></svg>
+    {t('Duration:')}
+    <input class="seconds" type="number" min="0.01" max="59.99" step="0.25" disabled={!timingEditable || effect === 'none'} value={(durationMs / MS_PER_SECOND).toFixed(2)} onchange={(event) => { const value = event.currentTarget.valueAsNumber; if (Number.isFinite(value) && value > 0) changeDuration(Math.round(value * MS_PER_SECOND)); }} />
+  </label>
+  <label class="field">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2zM11 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6 6 0 0 1 0 9" /></svg>
+    {t('Sound:')}
+    <select disabled={slides.length === 0} value={sound?.kind === 'play' ? 'play' : sound?.kind ?? 'none'} onchange={(event) => changeSound(event.currentTarget.value)}>
+      <option value="none">{t('[No Sound]')}</option>
+      <option value="stop">{t('[Stop Previous Sound]')}</option>
+      {#if sound?.kind === 'play'}<option value="play">{sound.name}</option>{/if}
+      <option value="other">{t('Other Sound…')}</option>
+    </select>
+  </label>
+  <input bind:this={soundFile} class="file" type="file" accept=".wav,audio/wav" tabindex="-1" aria-label={t('Other Sound…')} onchange={(event) => { void chooseSoundFile(event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} />
 </div>
 <div class="group timing">
   <label><input type="checkbox" checked={onClick} disabled={!timingEditable} onchange={(event) => changeTiming(event.currentTarget.checked, afterMs)} />{t('On Mouse Click')}</label>
@@ -124,5 +197,8 @@
   .after { display: flex; align-items: center; gap: 6px; }
   label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
   input[type='checkbox'] { margin: 0; accent-color: var(--ok-accent); }
+  .field svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.1; }
+  select { min-width: 140px; font: inherit; padding: 1px 4px; border: 1px solid var(--ok-border); border-radius: 4px; background: var(--ok-panel); color: var(--ok-text); }
+  .file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
   .seconds { width: 64px; font: inherit; padding: 1px 4px; border: 1px solid var(--ok-border); border-radius: 4px; background: var(--ok-panel); color: var(--ok-text); }
 </style>

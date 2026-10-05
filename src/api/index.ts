@@ -460,6 +460,7 @@ export {
   getSlideTextLength,
   getSlideTitle,
   getSlideTransition,
+  getSlideTransitionSound,
   getSlideXmlString,
   getSlides,
   getSlidesByLayout,
@@ -649,6 +650,7 @@ export {
   setSlideSize,
   setSlideTitle,
   setSlideTransition,
+  setSlideTransitionSound,
   setTableCellAlignment,
   setTableCellAnchor,
   setTableCellBorders,
@@ -704,6 +706,7 @@ export type {
 export type { TextCase } from './fn/shape-text.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type { SlideNotesTextFormatOptions } from './fn.ts';
+export type { TransitionSound, TransitionSoundInput } from './fn/slide-transition.ts';
 export type {
   PlaceholderType,
   PresetShape,

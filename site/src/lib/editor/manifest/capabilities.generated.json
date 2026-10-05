@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 198,
+  "count": 199,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -3063,6 +3063,23 @@
         {
           "name": "options",
           "type": "TransitionOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideTransitionSound",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "transition",
+      "file": "api/fn/slide-transition.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "sound",
+          "type": "TransitionSoundInput | null",
           "kind": "object",
           "optional": false
         }

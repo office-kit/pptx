@@ -1433,4 +1433,8 @@ export const ja: Record<string, string> = {
   'Reset to Cameo': 'カメオにリセット',
   'Learn More': '詳細情報',
   'Recording is not available in the browser.': '記録はブラウザーでは使用できません。',
+  'Sound:': 'サウンド:',
+  '[No Sound]': '[サウンドなし]',
+  '[Stop Previous Sound]': '[前のサウンドを停止]',
+  'Other Sound…': 'その他のサウンド…',
 };
