@@ -6,6 +6,7 @@
 // context menus and the palette all funnel through `invoke` / `runOrPrompt`,
 // so there is exactly one path from "user intent" to "library call".
 
+import { InkState } from './ink.svelte.ts';
 import { lockedShapeIds, selectionLocked } from './shape-locks.ts';
 import {
   setShapeLocked,
@@ -115,6 +116,7 @@ let toastSeq = 0;
 export class EditorController {
   readonly doc = new EditorDocument();
   readonly view = new ViewPreferences();
+  readonly ink = new InkState();
   inlineTextFormat = $state<{
     formats: TextFormat[];
     displayFormats?: TextFormat[];

@@ -12,6 +12,8 @@
   import ViewRibbon from './ViewRibbon.svelte';
   import SlideShowRibbon from './SlideShowRibbon.svelte';
   import TransitionsRibbon from './TransitionsRibbon.svelte';
+  import DrawRibbon from './DrawRibbon.svelte';
+  import RecordRibbon from './RecordRibbon.svelte';
   import AnimationsRibbon from './AnimationsRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ShapeQuickStyles from './ShapeQuickStyles.svelte';
@@ -94,6 +96,8 @@
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
+    {#if current?.id === 'draw'}<DrawRibbon />{/if}
+    {#if current?.id === 'record'}<RecordRibbon />{/if}
     {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
     {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}

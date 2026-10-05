@@ -98,6 +98,7 @@ export const RIBBON: readonly RibbonTab[] = [
       },
     ],
   },
+  { id: 'draw', title: 'Draw', groups: [] },
   {
     id: 'design',
     title: 'Design',
@@ -139,6 +140,7 @@ export const RIBBON: readonly RibbonTab[] = [
   { id: 'transitions', title: 'Transitions', groups: [] },
   { id: 'animations', title: 'Animations', groups: [] },
   { id: 'slideShow', title: 'Slide Show', groups: [] },
+  { id: 'record', title: 'Record', groups: [] },
   {
     id: 'review',
     title: 'Review',

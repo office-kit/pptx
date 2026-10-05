@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 197,
+  "count": 198,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1707,6 +1707,23 @@
           "type": "{ range?: { start: number; end: number }; tooltip?: string }",
           "kind": "object",
           "optional": true
+        }
+      ]
+    },
+    {
+      "id": "setShapeCustomGeometry",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-custom-geometry.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "geometry",
+          "type": "CustomGeometryInput",
+          "kind": "object",
+          "optional": false
         }
       ]
     },

@@ -470,6 +470,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setMediaPartBytes: { labelJa: 'メディアデータの置換' },
   setParagraphLevel: { labelJa: '段落の階層' },
   setShapeAltTitle: { labelJa: '代替テキストのタイトル' },
+  setShapeCustomGeometry: { labelEn: 'Edit points', labelJa: '頂点の編集' },
   setShapeDescription: { labelJa: '代替テキストの説明' },
   setShapeHidden: { labelJa: '図形の表示・非表示' },
   setShapeHyperlink: { labelJa: '図形のリンク' },
