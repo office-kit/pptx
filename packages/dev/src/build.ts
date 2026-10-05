@@ -1,7 +1,12 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { compile, type Node } from '@office-kit/pptx-dsl';
+import { compile, getShapeJsxSources, type JsxSource, type Node } from '@office-kit/pptx-dsl';
 import {
+  getGroupChildren,
+  getShapeId,
+  getSlideShapes,
+  type PresentationData,
+  type SlideShapeData,
   getSlideAnimations,
   getCustomShows,
   getSlideShowProperties,
@@ -32,6 +37,12 @@ export interface BuildResult {
   media: PreviewMedia[];
   aspectRatio: number;
   dependencies: string[];
+  /**
+   * Slide index → shape id → the JSX elements being evaluated when the shape
+   * was made, outermost first. Only decks built from TSX have it; a saved
+   * editor deck has no source to point at.
+   */
+  shapeSources?: Record<number, Record<number, readonly JsxSource[]>>;
   diagnostics: ReturnType<typeof validatePresentation>;
 }
 /** Evaluates trusted local TSX. This is code execution, not a sandbox. */
@@ -47,9 +58,30 @@ export async function buildDeck(
   const diagnostics = validatePresentation(presentation);
   const errors = diagnostics.filter((issue) => issue.severity === 'error');
   if (errors.length) throw new Error(`Invalid presentation: ${JSON.stringify(errors)}`);
+  const shapeSources = jsxSourcesBySlide(presentation);
   const bytes = await savePresentation(presentation);
   // Preview serialized output too, so persistence defects are visible during authoring.
-  return renderDeck(bytes, dependencies, previous);
+  const rendered = await renderDeck(bytes, dependencies, previous);
+  return { ...rendered, result: { ...rendered.result, shapeSources } };
+}
+
+// Shape ids survive saving, so sources read before `savePresentation` still
+// name the shapes of the saved deck the editor loads.
+function jsxSourcesBySlide(
+  presentation: PresentationData,
+): Record<number, Record<number, readonly JsxSource[]>> {
+  const result: Record<number, Record<number, readonly JsxSource[]>> = {};
+  getSlides(presentation).forEach((slide, index) => {
+    const byId: Record<number, readonly JsxSource[]> = {};
+    const visit = (shape: SlideShapeData) => {
+      const sources = getShapeJsxSources(shape);
+      if (sources) byId[getShapeId(shape)] = sources;
+      for (const child of getGroupChildren(shape)) visit(child);
+    };
+    for (const shape of getSlideShapes(slide)) visit(shape);
+    result[index] = byId;
+  });
+  return result;
 }
 
 export async function renderDeck(

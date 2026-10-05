@@ -1,5 +1,6 @@
 import { createHistory, historyFile } from './history.ts';
 import { createTextEditor } from './text-edit.ts';
+import { createSourceSync, type SyncResult } from './source-sync.ts';
 import { createVisualReviewer } from './visual-review.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
@@ -183,9 +184,9 @@ export async function serveDeck(entry: string, port = 4173) {
     for (const client of clients) client.write('data: updated\n\n');
   }
   async function edit(request: IncomingMessage, response: ServerResponse) {
-    const json = (status: number, message?: string) => {
+    const json = (status: number, message?: string, extra: Record<string, unknown> = {}) => {
       response.writeHead(status, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify({ ...editorState(), ...(message ? { message } : {}) }));
+      response.end(JSON.stringify({ ...editorState(), ...(message ? { message } : {}), ...extra }));
     };
     if (
       request.headers.origin !== `http://${request.headers.host}` ||
@@ -218,6 +219,62 @@ export async function serveDeck(entry: string, port = 4173) {
           return;
         }
         chunks.push(chunk);
+      }
+      if (save && sourceSync) {
+        if (
+          !source ||
+          !sourceHash ||
+          building ||
+          error ||
+          closed ||
+          request.headers['if-match'] !== editorState().revision ||
+          (editorState().conflict && request.headers['x-editor-resolve'] !== 'edits')
+        ) {
+          json(409, 'The preview changed. Review the current source before saving.');
+          return;
+        }
+        const bytes = new Uint8Array(Buffer.concat(chunks));
+        // Runs outside `publish`: verifying a write rebuilds, and a rebuild
+        // publishes too. A refused write still saves the edits to the sidecar.
+        let synced: SyncResult;
+        try {
+          synced = await sourceSync.sync(bytes);
+        } catch (cause) {
+          const description = cause instanceof Error ? cause.message : String(cause);
+          synced = {
+            written: [],
+            pending: [{ kind: 'unsupported', slide: null, shapeId: null, description }],
+            complete: false,
+          };
+        }
+        await publish(async () => {
+          if (!source || !sourceHash || closed) {
+            json(409, 'The preview changed. Review the current source before saving.');
+            return;
+          }
+          if (synced.complete) {
+            await store.clear();
+            saved = undefined;
+            update(source);
+          } else {
+            let result: BuildResult;
+            try {
+              result = (await renderDeck(bytes, source.dependencies)).result;
+            } catch (cause) {
+              json(400, cause instanceof Error ? cause.message : String(cause));
+              return;
+            }
+            const edits = { sourceHash, bytes };
+            await store.write(edits);
+            saved = edits;
+            update(result);
+          }
+          json(200, undefined, {
+            writeBack: { written: synced.written.length, pending: synced.pending },
+          });
+          notify();
+        });
+        return;
       }
       await publish(async () => {
         if (
@@ -262,6 +319,12 @@ export async function serveDeck(entry: string, port = 4173) {
       if (!response.headersSent) json(500, cause instanceof Error ? cause.message : String(cause));
     }
   }
+  // Behind a flag until every property the editor can change has a DSL prop
+  // (docs/tsx-write-back.md); until then the sidecar alone holds edits.
+  const sourceSync =
+    process.env.OFFICE_KIT_TSX_WRITE_BACK === '1'
+      ? createSourceSync(resolve(entry), () => source, verify)
+      : undefined;
   const textEditor = createTextEditor(
     resolve(entry),
     () => {
