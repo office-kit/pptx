@@ -25,8 +25,13 @@ import {
   type BulletStyle,
   type ParagraphAlignment,
   type ParagraphSpec,
+  type ReadText3D,
+  type Text3D,
   type TextFormat,
   alignToken,
+  applyText3D,
+  bodyPrChildRank,
+  readText3D,
   applyAlignmentTokenToAllParagraphs,
   applyBulletToAllParagraphs,
   applyFormatToAllRuns,
@@ -51,6 +56,7 @@ import {
   elem,
   firstChildElement,
   getAttrValue,
+  insertChildByRank,
   parseXml,
   qname,
   text,
@@ -285,8 +291,34 @@ export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): v
       ),
   );
   const local = { none: 'noAutofit', normal: 'normAutofit', shape: 'spAutoFit' }[mode];
-  bodyPr.children.push(elem(qname('a', local, NS.dml)));
+  insertChildByRank(bodyPr, elem(qname('a', local, NS.dml)), bodyPrChildRank);
   commitAndRefresh(shape);
+};
+
+/**
+ * Sets the 3-D on the shape's text body — `<a:scene3d>` and `<a:sp3d>` in
+ * `<a:bodyPr>`, where PowerPoint writes its WordArt bevels. `value.scene`
+ * writes the camera and light rig; `bevelTop`, `extrusionHeightEmu`,
+ * `material` and `contourColor` write `<a:sp3d>` (replacing `<a:flatTx>`).
+ * A field left out removes what it describes; settings this API does not
+ * model (camera field of view, bottom bevel, extrusion color, ...) are kept
+ * while their element remains. `null` removes both elements. Throws for
+ * non-text-bearing shape kinds.
+ */
+export const setShapeText3D = (shape: SlideShapeData, value: Text3D | null): void => {
+  applyText3D(requireBodyPr(shape), value, 'setShapeText3D');
+  commitAndRefresh(shape);
+};
+
+/**
+ * Reads the 3-D on the shape's own text body (see `setShapeText3D`), or
+ * `null` when its `<a:bodyPr>` has neither `<a:scene3d>` nor `<a:sp3d>`.
+ * Inherited body properties are not consulted.
+ */
+export const getShapeText3D = (shape: SlideShapeData): ReadText3D | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  const bodyPr = txBody && firstChildElement(txBody, NAME_A_BODY_PR);
+  return bodyPr ? readText3D(bodyPr) : null;
 };
 
 /**

@@ -6,7 +6,6 @@ import {
   addSlideMedia,
   addSlideTextBox,
   emu,
-  getPresentationTheme,
   getShapeId,
   getSlideSize,
   setParagraphAlignment,
@@ -113,7 +112,7 @@ export function insertWordArt(
   insert(editor, label, () => {
     const shape = addSlideTextBox(slide, { ...box, text });
     setShapeTextFormat(shape, { size: WORDART_PT });
-    applyWordArtPreset(shape, preset, getPresentationTheme(editor.doc.pres));
+    applyWordArtPreset(shape, preset);
     setParagraphAlignment(shape, 0, 'ctr');
     return shape;
   });

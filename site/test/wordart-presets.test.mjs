@@ -8,10 +8,8 @@ import {
   addBlankSlide,
   addSlideTextBox,
   createPresentation,
-  getPresentationTheme,
   getShapeXmlString,
   inches,
-  resolveDrawingColor,
 } from '@office-kit/pptx';
 import { applyWordArtPreset, WORDART_PRESETS } from '../src/lib/editor/core/wordart-presets.ts';
 
@@ -123,22 +121,11 @@ const EFFECT_DEFAULTS = {
   reflection: REFLECTION,
 };
 
-function normalize(rPr, theme) {
+function normalize(rPr) {
   const exact = (color) => ({
     [color.name.localName]: attrsOf(color).val,
     transforms: color.children.map((t) => [t.name.localName, attrsOf(t).val]),
   });
-  // Transformed solid, outline and effect colors are written as the RGB they
-  // paint (see Tone in wordart-presets.ts); alpha stays a transform.
-  const folded = (color) => {
-    const alpha = color.children.filter((t) => t.name.localName === 'alpha');
-    if (alpha.length === color.children.length) return exact(color);
-    const tinted = { ...color, children: color.children.filter((t) => !alpha.includes(t)) };
-    return {
-      srgbClr: resolveDrawingColor(tinted, theme).slice(1),
-      transforms: alpha.map((t) => [t.name.localName, attrsOf(t).val]),
-    };
-  };
   const child = (element) => {
     const local = element.name.localName;
     if (local === 'ln') {
@@ -150,10 +137,10 @@ function normalize(rPr, theme) {
         ln: attrs,
         children: element.children
           .filter((c) => !(c.name.localName === 'prstDash' && attrsOf(c).val === 'solid'))
-          .map((c) => ({ [c.name.localName]: folded(c.children[0]) })),
+          .map((c) => ({ [c.name.localName]: exact(c.children[0]) })),
       };
     }
-    if (local === 'solidFill') return { solidFill: folded(element.children[0]) };
+    if (local === 'solidFill') return { solidFill: exact(element.children[0]) };
     if (local === 'gradFill') {
       const [gsLst, lin] = element.children;
       return {
@@ -171,7 +158,7 @@ function normalize(rPr, theme) {
       return {
         effectLst: element.children.map((effect) => ({
           [effect.name.localName]: attrsOf(effect, EFFECT_DEFAULTS[effect.name.localName]),
-          color: effect.children.map(folded),
+          color: effect.children.map(exact),
         })),
       };
     }
@@ -181,10 +168,19 @@ function normalize(rPr, theme) {
   return { b, spc, children: rPr.children.map(child) };
 }
 
+// The text body's 3-D, verbatim: the bevels' `<a:scene3d>` and `<a:sp3d>`.
+const body3D = (xml) =>
+  ['scene3d', 'sp3d'].map(
+    (tag) =>
+      xml
+        .replace(/>\s+</g, '><')
+        .replace(/\s+\/>/g, '/>')
+        .match(new RegExp(`<a:${tag}\\b[^>]*?(?:/>|>.*?</a:${tag}>)`))?.[0] ?? null,
+  );
+
 function deck() {
   const pres = createPresentation();
   const slide = addBlankSlide(pres);
-  const theme = getPresentationTheme(pres);
   const box = () =>
     addSlideTextBox(slide, {
       x: inches(1),
@@ -193,44 +189,47 @@ function deck() {
       h: inches(1),
       text: 'Outline title',
     });
-  return { theme, box };
+  return { box };
 }
 
 test('the gallery lists the twenty native presets in order', () => {
   assert.equal(WORDART_PRESETS.length, FIXTURES.length);
-  // The bevels need body 3-D properties, which the library does not write.
-  assert.deepEqual(
-    WORDART_PRESETS.flatMap((preset, index) => (preset.unavailable ? [FIXTURES[index]] : [])),
-    ['accent4-soft-bevel', 'accent3-sharp-bevel'],
-  );
 });
 
 for (const [index, name] of FIXTURES.entries()) {
   const preset = WORDART_PRESETS[index];
-  if (preset.unavailable) continue;
-  test(`${preset.label} writes the run properties PowerPoint wrote`, async () => {
-    const { theme, box } = deck();
+  test(`${preset.label} writes what PowerPoint wrote`, async () => {
+    const { box } = deck();
     const shape = box();
-    applyWordArtPreset(shape, preset, theme);
+    applyWordArtPreset(shape, preset);
     const written = getShapeXmlString(shape);
     const native = await fixture(name);
-    const expected = normalize(properties(native, 'rPr'), theme);
-    assert.deepEqual(normalize(properties(written, 'rPr'), theme), expected);
+    const expected = normalize(properties(native, 'rPr'));
+    assert.deepEqual(normalize(properties(written, 'rPr')), expected);
     // Native styles the paragraph end the same way, so typing continues in it.
-    assert.deepEqual(normalize(properties(written, 'endParaRPr'), theme), expected);
+    assert.deepEqual(normalize(properties(written, 'endParaRPr')), expected);
+    assert.deepEqual(body3D(written), body3D(native));
   });
 }
 
-test('a preset replaces the previous one instead of merging with it', async () => {
-  const { theme, box } = deck();
+test('a preset without a bevel removes the previous preset’s', () => {
+  const { box } = deck();
   const shape = box();
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('white-accent5-shadow')], theme);
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('black-shadow')], theme);
-  const rPr = normalize(properties(getShapeXmlString(shape), 'rPr'), theme);
+  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('accent3-sharp-bevel')]);
+  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('black-shadow')]);
+  assert.deepEqual(body3D(getShapeXmlString(shape)), [null, null]);
+});
+
+test('a preset replaces the previous one instead of merging with it', async () => {
+  const { box } = deck();
+  const shape = box();
+  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('white-accent5-shadow')]);
+  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('black-shadow')]);
+  const rPr = normalize(properties(getShapeXmlString(shape), 'rPr'));
   // Native removes `b`; the library can only write it off.
   assert.equal(rPr.b, '0');
   assert.deepEqual(
     { ...rPr, b: undefined },
-    normalize(properties(await fixture('black-shadow'), 'rPr'), theme),
+    normalize(properties(await fixture('black-shadow'), 'rPr')),
   );
 });

@@ -490,6 +490,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setShapeStrokeCap: { labelJa: '線の端の形状' },
   setShapeStrokeCompound: { labelJa: '線の種類' },
   setShapeStrokeJoin: { labelJa: '線の接合部の形状' },
+  setShapeText3D: { labelEn: 'Text 3-D format', labelJa: '文字の 3-D 書式' },
   setShapeTextBodyRotationDeg: { labelJa: 'テキストの回転' },
   setShapeZIndex: { labelJa: '図形の重なり順' },
   setSlideBackground: { labelJa: '背景色' },

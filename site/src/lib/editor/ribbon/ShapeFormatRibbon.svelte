@@ -1,7 +1,7 @@
 <script lang="ts">
   // Mac PowerPoint's Shape Format tab, in its order: Insert Shapes, Shape
   // Styles, WordArt Styles, Alt Text, Arrange, Size and Format Pane.
-  import { cm, emu, getPresentationTheme, getShapeBoundsResolved, getShapeKind, setShapeBounds, setShapePreset, type Color, type PresetShape, type TextFormat } from '@office-kit/pptx';
+  import { cm, emu, getShapeBoundsResolved, getShapeKind, setShapeBounds, setShapePreset, setShapeText3D, setShapeTextFormat, type Color, type PresetShape, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { applyWordArtPreset, type WordArtPreset } from '../core/wordart-presets.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -45,8 +45,18 @@
   }
   function wordArt(preset: WordArtPreset) {
     open = null;
-    const theme = getPresentationTheme(doc.pres);
-    doc.transact(t('WordArt Styles'), () => { for (const shape of shapes) if (getShapeKind(shape) === 'shape') applyWordArtPreset(shape, preset, theme); });
+    doc.transact(t('WordArt Styles'), () => { for (const shape of shapes) if (getShapeKind(shape) === 'shape') applyWordArtPreset(shape, preset); });
+  }
+  // Clear WordArt removes the run effects and outline and the bevel's 3-D, and keeps the fill.
+  function clearWordArt() {
+    open = null;
+    doc.transact(t('Clear WordArt'), () => {
+      for (const shape of shapes) {
+        if (getShapeKind(shape) !== 'shape') continue;
+        setShapeTextFormat(shape, { outline: null, shadow: null, innerShadow: null, glow: null, reflection: null });
+        setShapeText3D(shape, null);
+      }
+    });
   }
   function changeShape(preset: PresetShape) {
     open = null;
@@ -119,7 +129,7 @@
     <div class="anchor">
       <button class="big" bind:this={wordArtButton} aria-label={t('WordArt Quick Styles')} aria-haspopup="menu" aria-expanded={open === 'wordArt'} disabled={!texty} onclick={() => (open = open === 'wordArt' ? null : 'wordArt')}><span class="wordart" aria-hidden="true">A</span><span>{t('Quick Styles')} ▾</span></button>
       {#if open === 'wordArt' && wordArtButton}
-        <WordArtGallery anchor={wordArtButton} label={t('WordArt Quick Styles')} choose={wordArt} close={() => (open = null)} clear={() => textFormat({ outline: null, shadow: null, innerShadow: null, glow: null, reflection: null })} />
+        <WordArtGallery anchor={wordArtButton} label={t('WordArt Quick Styles')} choose={wordArt} close={() => (open = null)} clear={clearWordArt} />
       {/if}
     </div>
     <div class="stack">

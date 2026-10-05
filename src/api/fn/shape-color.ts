@@ -21,8 +21,8 @@ import { type PresentationTheme } from './theme.ts';
 import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
 import {
+  type ColorTransform,
   colorTransformBrightness,
-  colorTransformOpacity,
   readColorTransforms,
 } from '../../internal/drawingml/color-transforms.ts';
 // -- Color transforms (ECMA-376 §20.1.2.3.x) --------------------------------
@@ -519,6 +519,43 @@ const colorOfFill = (
   return null;
 };
 
+type ReadColorContext = {
+  readonly theme: PresentationTheme | null;
+  readonly colorMap?: Readonly<Record<string, string>> | null;
+};
+
+const firstColorChild = (holder: XmlElement): XmlElement | null => {
+  for (const c of holder.children)
+    if (c.kind === 'element' && c.name.namespaceURI === NS.dml) return c;
+  return null;
+};
+
+// The transforms a run color read from `holder` still carries. A color the
+// theme resolved has them applied already; a literal one (no theme, or a token
+// the theme lacks) does not, so they are reported for a writer to re-apply.
+const pendingTransforms = (
+  holder: XmlElement,
+  ctx: ReadColorContext | undefined,
+): ColorTransform[] | undefined => {
+  const color = firstColorChild(holder);
+  if (color === null) return undefined;
+  if (ctx && resolveDrawingColor(color, ctx.theme, ctx.colorMap) !== null) return undefined;
+  const transforms = readColorTransforms(color);
+  return transforms.length ? transforms : undefined;
+};
+
+// An effect reports its alpha as `opacity`, so its transforms surface only
+// when something besides alpha adjusts the color — the gradient-stop rule.
+const pendingEffectTransforms = (
+  effect: XmlElement,
+  ctx: ReadColorContext | undefined,
+): { colorTransforms?: ColorTransform[] } => {
+  const transforms = pendingTransforms(effect, ctx);
+  return transforms?.some((t) => !['alpha', 'alphaMod', 'alphaOff'].includes(t.kind))
+    ? { colorTransforms: transforms }
+    : {};
+};
+
 const readTextGradientFill = (
   gradFill: XmlElement,
   ctx?: {
@@ -539,7 +576,8 @@ const readTextGradientFill = (
     const base = colorOfFill({ ...gs, children: [colorEl] }, ctx);
     if (base === null) continue;
     const transforms = readColorTransforms(colorEl);
-    const opacity = colorTransformOpacity(transforms);
+    // A stop without alpha states no opacity; reporting 1 would write one back.
+    const opacity = resolveDrawingColorOpacity(colorEl) ?? undefined;
     const brightness = colorTransformBrightness(transforms);
     const resolvedColor = ctx ? resolveDrawingColor(colorEl, ctx.theme, ctx.colorMap) : null;
     stops.push({
@@ -722,7 +760,11 @@ export const parseRPrLikeElement = (
   const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
   if (solidFill !== null) {
     const color = colorOfFill(solidFill, ctx);
-    if (color !== null) out.color = color;
+    if (color !== null) {
+      out.color = color;
+      const colorTransforms = pendingTransforms(solidFill, ctx);
+      if (colorTransforms) out.colorTransforms = colorTransforms;
+    }
   }
   const gradientFill = firstChildElement(rPr, qname('a', 'gradFill', NS.dml));
   if (gradientFill !== null) {
@@ -768,7 +810,7 @@ export const parseRPrLikeElement = (
   }
   const ln = firstChildElement(rPr, qname('a', 'ln', NS.dml));
   if (ln !== null) {
-    const outline: { color?: string; widthEmu?: number } = {};
+    const outline: { color?: string; colorTransforms?: ColorTransform[]; widthEmu?: number } = {};
     const w = getAttrValue(ln, qname('', 'w', ''));
     if (w !== null) {
       const n = Number.parseInt(w, 10);
@@ -776,7 +818,11 @@ export const parseRPrLikeElement = (
     }
     const lnFill = firstChildElement(ln, qname('a', 'solidFill', NS.dml));
     const color = lnFill === null ? null : colorOfFill(lnFill, ctx);
-    if (color !== null) outline.color = color;
+    if (color !== null) {
+      outline.color = color;
+      const colorTransforms = pendingTransforms(lnFill!, ctx);
+      if (colorTransforms) outline.colorTransforms = colorTransforms;
+    }
     out.outline = outline;
   }
   // `<a:effectLst>` on a run holds the same effects as on a shape; a run that
@@ -785,10 +831,18 @@ export const parseRPrLikeElement = (
   // union, which is not what a character format is.
   const effects = firstChildElement(rPr, qname('a', 'effectLst', NS.dml));
   if (effects !== null) {
-    for (const effect of parseEffectList(effects, ctx?.theme ?? null)) {
+    // Without a theme the shared effect parser cannot name a scheme color, so
+    // the run reads each effect's color the way it reads its fill.
+    const effectColor = (local: string, resolved: string) => {
+      const element = firstChildElement(effects, qname('a', local, NS.dml));
+      const color = element === null ? null : colorOfFill(element, ctx);
+      if (color === null) return { color: resolved };
+      return { color, ...pendingEffectTransforms(element!, ctx) };
+    };
+    for (const effect of parseEffectList(effects, ctx?.theme ?? null, ctx?.colorMap)) {
       if (effect.kind === 'outerShdw') {
         out.shadow = {
-          color: effect.color,
+          ...effectColor('outerShdw', effect.color),
           ...(effect.alignment !== undefined ? { alignment: effect.alignment } : {}),
           ...(effect.rotateWithShape !== undefined
             ? { rotateWithShape: effect.rotateWithShape }
@@ -800,7 +854,7 @@ export const parseRPrLikeElement = (
         };
       } else if (effect.kind === 'innerShdw') {
         out.innerShadow = {
-          color: effect.color,
+          ...effectColor('innerShdw', effect.color),
           blurEmu: effect.blurEmu,
           offsetEmu: effect.distEmu,
           angleDeg: effect.angleDeg,
@@ -808,7 +862,7 @@ export const parseRPrLikeElement = (
         };
       } else if (effect.kind === 'glow') {
         out.glow = {
-          color: effect.color,
+          ...effectColor('glow', effect.color),
           radiusEmu: effect.radiusEmu,
           ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
         };

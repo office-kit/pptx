@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import {
   getShapeRunFormat,
   getShapeText,
+  getShapeText3D,
   getSlides,
   getSlideShapes,
   loadPresentation,
@@ -37,10 +38,6 @@ const PRESETS = [
   'Pattern Fill: Blue, Accent color 1, 50%; Hard Shadow: Blue, Accent color 1',
   'Pattern Fill: Aqua, Accent color 5, Light Downward Diagonal Stripe; Outline: Aqua, Accent color 5',
   'Pattern Fill: Dark Blue, Dark Upward Diagonal Stripe; Hard Shadow',
-];
-const BEVELS = [
-  'Fill: Purple, Accent color 4; Soft Bevel',
-  'Fill: Olive Green, Accent color 3; Sharp Bevel',
 ];
 
 test(
@@ -93,22 +90,13 @@ test(
         listed.map(([label]) => label),
         PRESETS,
       );
-      for (const [label, title] of listed)
-        assert.equal(
-          title,
-          BEVELS.includes(label) ? 'Text bevels are not supported by the library yet.' : label,
-        );
-      for (const bevel of BEVELS)
-        assert.equal(
-          await quickStyles.getByRole('menuitem', { name: bevel, exact: true }).isDisabled(),
-          true,
-        );
+      for (const [label, title] of listed) assert.equal(title, label);
       assert.equal(
         await quickStyles.getByRole('menuitem', { name: 'Clear WordArt', exact: true }).count(),
         1,
       );
 
-      // Arrow keys move through the 5-column grid, stepping over the disabled bevels.
+      // Arrow keys move through the 5-column grid.
       const focused = () =>
         page.evaluate(
           () =>
@@ -120,8 +108,13 @@ test(
       assert.equal(await focused(), PRESETS[1]);
       await page.keyboard.press('ArrowLeft');
       await page.keyboard.press('ArrowDown');
+      assert.equal(await focused(), PRESETS[5]);
+      await page.keyboard.press('ArrowDown');
       assert.equal(await focused(), PRESETS[10]);
       await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('ArrowDown');
+      assert.equal(await focused(), 'Clear WordArt');
+      // Down from Clear WordArt stays on it.
       await page.keyboard.press('ArrowDown');
       assert.equal(await focused(), 'Clear WordArt');
       await page.keyboard.press('ArrowUp');
@@ -155,6 +148,29 @@ test(
 
       await changed(() => page.getByRole('button', { name: 'Undo', exact: true }).click());
       assert.equal(getShapeRunFormat((await shapes())[0], 0, 0).color, '#FFFFFF');
+
+      // The bevels write the text body's 3-D; Clear WordArt removes it again.
+      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
+      await changed(() =>
+        quickStyles
+          .getByRole('menuitem', {
+            name: 'Fill: Olive Green, Accent color 3; Sharp Bevel',
+            exact: true,
+          })
+          .click(),
+      );
+      const [beveled] = await shapes();
+      assert.equal(getShapeRunFormat(beveled, 0, 0).color, 'accent3');
+      assert.deepEqual(getShapeText3D(beveled).bevelTop, {
+        widthEmu: 63500,
+        heightEmu: 12700,
+        preset: 'angle',
+      });
+      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
+      await changed(() =>
+        quickStyles.getByRole('menuitem', { name: 'Clear WordArt', exact: true }).click(),
+      );
+      assert.equal(getShapeText3D((await shapes())[0]), null);
 
       // Insert ▸ WordArt opens the same gallery and inserts "Your text here" in the pick.
       await page.getByRole('tab', { name: 'Insert', exact: true }).click();

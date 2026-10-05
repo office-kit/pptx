@@ -5,7 +5,7 @@
   import { asColor, getPresentationTheme, type Color, type ColorTransform, type PatternPreset, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { resolveColor } from '../core/theme-color.ts';
-  import { WORDART_PRESETS, wordArtFormat, type WordArtPreset } from '../core/wordart-presets.ts';
+  import { WORDART_PRESETS, type WordArtPreset } from '../core/wordart-presets.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { label, choose, close, clear, anchor }: {
@@ -52,23 +52,23 @@
       return PATTERNS[textFill.preset]?.(fg, bg) ?? fg;
     }
     // A preset without a fill keeps the inherited text color, Text 1 here.
-    return paint(format.color ?? 'tx1');
+    return format.color ? paint(format.color, format.colorTransforms) : paint('tx1');
   }
 
   function swatch(preset: WordArtPreset): string {
-    const format = wordArtFormat(preset, theme);
+    const format = preset.format;
     const filters: string[] = [];
     if (format.shadow) {
-      const { offsetEmu = 0, angleDeg = 45, blurEmu = 0, color = '#000000', opacity } = format.shadow;
+      const { offsetEmu = 0, angleDeg = 45, blurEmu = 0, color = '#000000', colorTransforms, opacity } = format.shadow;
       const radians = (angleDeg * Math.PI) / 180;
-      filters.push(`drop-shadow(${px(offsetEmu * Math.cos(radians))} ${px(offsetEmu * Math.sin(radians))} ${px(blurEmu)} ${rgba(paint(color), opacity)})`);
+      filters.push(`drop-shadow(${px(offsetEmu * Math.cos(radians))} ${px(offsetEmu * Math.sin(radians))} ${px(blurEmu)} ${rgba(paint(color, colorTransforms), opacity)})`);
     }
     if (format.glow) {
-      const glow = rgba(paint(format.glow.color), format.glow.opacity);
+      const glow = rgba(paint(format.glow.color, format.glow.colorTransforms), format.glow.opacity);
       filters.push(`drop-shadow(0 0 ${px(format.glow.radiusEmu)} ${glow})`, `drop-shadow(0 0 ${px(format.glow.radiusEmu)} ${glow})`);
     }
     // CSS has no inner shadow for glyphs; those swatches show fill and outline only.
-    const outline = format.outline?.color && format.outline.widthEmu ? `${px(format.outline.widthEmu)} ${paint(format.outline.color)}` : '0';
+    const outline = format.outline?.color && format.outline.widthEmu ? `${px(format.outline.widthEmu)} ${paint(format.outline.color, format.outline.colorTransforms)}` : '0';
     return [
       // The shorthand resets the clip, so the clip follows it here.
       `background: ${fill(format)}`,
@@ -89,15 +89,10 @@
     if (!(event.key in offsets) && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
     const items = [...menu!.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
-    const enabled = items.filter((item) => !item.disabled);
-    if (event.key === 'Home' || event.key === 'End') { (event.key === 'Home' ? enabled[0] : enabled.at(-1))?.focus(); return; }
-    // Step over disabled swatches in the direction of travel; Down from the
-    // last row reaches Clear WordArt below the grid.
-    const step = offsets[event.key]!;
-    for (let index = items.indexOf(event.target as HTMLButtonElement) + step; index >= 0 && index < items.length; index += step) {
-      if (!items[index]!.disabled) { items[index]!.focus(); return; }
-    }
-    if (step > 0) enabled.at(-1)?.focus();
+    if (event.key === 'Home' || event.key === 'End') { (event.key === 'Home' ? items[0] : items.at(-1))?.focus(); return; }
+    // Down from the last row reaches Clear WordArt below the grid.
+    const index = items.indexOf(event.target as HTMLButtonElement) + offsets[event.key]!;
+    (items[index] ?? (index > 0 ? items.at(-1) : undefined))?.focus();
   }
 
   // Fixed, so the ribbon panel's overflow does not clip it.
@@ -106,7 +101,7 @@
     node.style.left = `${Math.max(8, Math.min(bounds.left, innerWidth - node.offsetWidth - 8))}px`;
     node.style.top = `${bounds.bottom + 2}px`;
   }
-  onMount(() => menu?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus());
+  onMount(() => menu?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus());
 </script>
 
 <svelte:window onpointerdown={(event) => { if (!menu?.contains(event.target as Node) && !anchor.contains(event.target as Node)) close(); }} />
@@ -114,7 +109,7 @@
 <div class="wordart-gallery" role="menu" aria-label={label} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
   <div class="grid">
     {#each WORDART_PRESETS as preset (preset.label)}
-      <button role="menuitem" aria-label={t(preset.label)} title={preset.unavailable ? t(preset.unavailable) : t(preset.label)} disabled={!!preset.unavailable} onclick={() => choose(preset)}>
+      <button role="menuitem" aria-label={t(preset.label)} title={t(preset.label)} onclick={() => choose(preset)}>
         <span class="letter" aria-hidden="true" style={swatch(preset)}>A</span>
       </button>
     {/each}
@@ -130,8 +125,7 @@
   .grid { display: grid; grid-template-columns: repeat(5, 48px); gap: 4px; }
   button { font: inherit; color: var(--ok-text); border: 1px solid transparent; border-radius: 3px; cursor: pointer; }
   .grid button { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; overflow: hidden; background: #fff; }
-  .grid button:hover:not(:disabled), .grid button:focus-visible { outline: 2px solid var(--ok-accent); outline-offset: -2px; }
-  .grid button:disabled { opacity: 0.4; cursor: default; }
+  .grid button:hover, .grid button:focus-visible { outline: 2px solid var(--ok-accent); outline-offset: -2px; }
   .letter { font: 34px/1 Calibri, Carlito, Arial, sans-serif; color: transparent; }
   hr { border: none; border-top: 1px solid var(--ok-border); margin: 6px 0 4px; }
   .clear { width: 100%; padding: 5px 8px; text-align: left; font-size: 12px; white-space: nowrap; background: none; }

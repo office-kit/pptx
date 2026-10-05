@@ -1707,6 +1707,4 @@ export const ja: Record<string, string> = {
     'パターン塗りつぶし: 水色、アクセント カラー 5、右下がり対角線 (淡); 輪郭: 水色、アクセント カラー 5',
   'Pattern Fill: Dark Blue, Dark Upward Diagonal Stripe; Hard Shadow':
     'パターン塗りつぶし: 濃い青、右上がり対角線 (太); 影 (ぼかしなし)',
-  'Text bevels are not supported by the library yet.':
-    '文字の面取りはまだライブラリでサポートされていません。',
 };
