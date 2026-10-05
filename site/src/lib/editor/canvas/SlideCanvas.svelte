@@ -609,6 +609,14 @@
       updateEditing(e.key);
     }
   }
+  // Context menu ▸ Edit Text.
+  let handledEditRequest = editor.textEditRequest;
+  $effect(() => {
+    if (editor.textEditRequest === handledEditRequest) return;
+    handledEditRequest = editor.textEditRequest;
+    const box = selectedIds.size === 1 ? boxes.find((b) => selectedIds.has(b.id)) : undefined;
+    if (box) untrack(() => startEditing(box));
+  });
   type EditCheckpoint = { text: string; changes: TextEdit[]; changeCount: number; range: { start: number; end: number } };
   let editingUndo: EditCheckpoint[] = [];
   let editingRedo: EditCheckpoint[] = [];

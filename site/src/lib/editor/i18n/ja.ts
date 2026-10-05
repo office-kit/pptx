@@ -1667,4 +1667,7 @@ export const ja: Record<string, string> = {
     '形式を選択して貼り付けにはシステム クリップボードの形式が必要ですが、ブラウザーでは取得できません。',
   'Paste failed': '貼り付けに失敗しました',
   'Reset Slide': 'スライドのリセット',
+  'Edit Text': 'テキストの編集',
+  'Link...': 'リンク...',
+  'Edit Alt Text...': '代替テキストを編集...',
 };

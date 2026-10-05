@@ -78,24 +78,45 @@
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
-        { label: 'Duplicate', accel: '⌘D', run: () => editor.duplicateSelection() },
-        { label: 'Copy formatting', accel: '⌘⌥C', run: () => editor.copyObjectFormat() },
-        { label: 'Paste formatting', accel: '⌘⌥V', run: () => editor.pasteObjectFormat(), disabled: !editor.formatClipboard },
-        { label: 'Delete', accel: 'Del', run: () => editor.deleteSelection(), sep: true },
-        { label: 'Bring to front', run: () => editor.invoke('bringShapeToFront') },
-        { label: 'Bring forward', run: () => editor.invoke('bringShapeForward') },
-        { label: 'Send backward', run: () => editor.invoke('sendShapeBackward') },
-        { label: 'Send to back', run: () => editor.invoke('sendShapeToBack'), sep: true },
-        { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: !editor.canRun('groupShapes') },
-        { label: 'Ungroup', run: () => editor.invoke('ungroupShapes'), disabled: !editor.canRun('ungroupShapes') },
       );
+      // PowerPoint's object menu: Edit Text, Group / Bring to Front / Send to
+      // Back as submenus, Link, Alt Text, Size and Position, Format, Comment.
       const shapes = editor.selectedShapes();
+      const single = shapes.length === 1 ? shapes[0]! : null;
+      if (single && getShapeKind(single) === 'shape') list.push({ label: 'Edit Text', sep: true, run: () => editor.editSelectedText() });
+      list.push(
+        {
+          label: 'Group', sep: !single || getShapeKind(single) !== 'shape',
+          children: [
+            { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: !editor.canRun('groupShapes') },
+            { label: 'Ungroup', run: () => editor.invoke('ungroupShapes'), disabled: !editor.canRun('ungroupShapes') },
+            { label: 'Regroup', run: () => editor.regroupSelection(), disabled: !editor.canRegroup() },
+          ],
+        },
+        {
+          label: 'Bring to Front',
+          children: [
+            { label: 'Bring to Front', run: () => editor.invoke('bringShapeToFront') },
+            { label: 'Bring Forward', run: () => editor.invoke('bringShapeForward') },
+          ],
+        },
+        {
+          label: 'Send to Back',
+          children: [
+            { label: 'Send to Back', run: () => editor.invoke('sendShapeToBack') },
+            { label: 'Send Backward', run: () => editor.invoke('sendShapeBackward') },
+          ],
+        },
+        { label: 'Link...', sep: true, run: () => editor.runOrPrompt('setShapeHyperlink'), disabled: !editor.canRun('setShapeHyperlink') },
+        { label: 'Edit Alt Text...', run: () => editor.runOrPrompt('setShapeDescription'), disabled: !editor.canRun('setShapeDescription') },
+      );
       if (shapes.length && shapes.every((shape) => ['shape', 'connector', 'group'].includes(getShapeKind(shape)))) {
         list.push(
-          { label: 'Size and Position...', run: () => editor.showShapeFormat('size') },
+          { label: 'Size and Position...', sep: true, run: () => editor.showShapeFormat('size') },
           { label: 'Format Shape...', run: () => editor.showShapeFormat() },
         );
       }
+      list.push({ label: 'New Comment', sep: true, run: () => editor.runOrPrompt('addSlideComment') });
     } else if (doc.selection.kind === 'slide') {
       list.push(
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },

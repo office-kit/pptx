@@ -163,6 +163,11 @@ export class EditorController {
   notesVisible = $state(true);
   notesHeight = $state(120);
   notesFocusRequest = $state(0);
+  /** Bumped by Edit Text; the canvas starts editing the selected shape's text. */
+  textEditRequest = $state(0);
+  editSelectedText(): void {
+    this.textEditRequest++;
+  }
 
   /** Open the Custom Shows manager. The actual sequence edits still flow
    * through EditorDocument.transact so save/undo treats each gesture as one

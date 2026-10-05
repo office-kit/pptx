@@ -35,8 +35,9 @@ does not define a percentage denominator for all PowerPoint operations.
 - A selected chart shows PowerPoint's Chart Design and Format tabs (Format is the Shape Format tab renamed, as natively). Chart Design carries Add Chart Element, Quick Layout, Change Colors, Chart Styles, Switch Row/Column, Select Data, Edit Data and Change Chart Type; the commands the chart dialog covers open it, and Quick Layout, Change Colors, Chart Styles and Switch Row/Column are disabled with the reason.
 - A selected table, or cells being edited, shows Table Design (Table Styles, Shading, Borders) and Layout (Delete/Insert Rows and Columns, Merge Cells, Height, Width, Alignment) instead of Shape Format.
 
-## Slide context menu (2026-10-06)
+## Context menus (2026-10-06)
 
+- Right-clicking an object offers PowerPoint's menu: Cut, Copy, Paste, Edit Text, Group ▸, Bring to Front ▸, Send to Back ▸, Link…, Edit Alt Text…, Size and Position…, Format Shape… and New Comment. Duplicate, Delete and Copy/Paste formatting left the menu (⌘D, Delete and ⌘⌥C/⌘⌥V still work), as PowerPoint has none of them there.
 - Right-clicking the slide itself now offers PowerPoint's items after Paste: Layout ▸ (checked current layout), Reset Slide, Grid and Guides ▸ (Add Vertical/Horizontal Guide, Grid Options…), Format Background… and New Comment.
 
 ## Shape Format ribbon (2026-10-06)
