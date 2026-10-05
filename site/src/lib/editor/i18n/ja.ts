@@ -1530,4 +1530,12 @@ export const ja: Record<string, string> = {
     'ライブ字幕には Microsoft 365 のオンライン サービスが必要です。',
   'The total time for the slide show was {time}. Do you want to save the new slide timings?':
     'スライド ショーの所要時間は {time} でした。新しいタイミングを保存しますか?',
+  'Exit Effects': '終了効果',
+  'Path Animation': 'アニメーションの軌跡',
+  'Motion paths are not supported by the library yet.':
+    'アニメーションの軌跡はまだライブラリでサポートされていません。',
+  Trigger: '開始のタイミング',
+  'Triggers are not supported by the library yet.':
+    'トリガーはまだライブラリでサポートされていません。',
+  'Animation Painter': 'アニメーションのコピー/貼り付け',
 };
