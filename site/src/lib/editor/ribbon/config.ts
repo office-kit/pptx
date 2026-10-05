@@ -174,7 +174,13 @@ export const RIBBON: readonly RibbonTab[] = [
       {
         title: 'Illustrations',
         items: [
-          { id: 'addSlideShape', icon: 'shapes', label: 'Shapes', preset: PRESET.shape },
+          {
+            id: 'addSlideShape',
+            icon: 'shapes',
+            label: 'Shapes',
+            run: (editor, button) => editor.openShapeGallery(button),
+            enabled: (editor) => editor.canRun('addSlideShape'),
+          },
           {
             id: 'icons',
             icon: 'icons',

@@ -7,6 +7,7 @@
 // so there is exactly one path from "user intent" to "library call".
 
 import { InkState } from './ink.svelte.ts';
+import type { GalleryShape } from './shape-gallery.ts';
 import { lockedShapeIds, selectionLocked } from './shape-locks.ts';
 import {
   setShapeLocked,
@@ -173,6 +174,13 @@ export class EditorController {
   /** The Accessibility issue list (status bar, Review ▸ Check Accessibility). */
   accessibilityOpen = $state(false);
   /** Where Insert ▸ Symbol's picker opens (the button's rectangle), or null when closed. */
+  /** Where the Shapes gallery is open, under its ribbon button. */
+  shapeGallery = $state<DOMRect | null>(null);
+  /** The shape chosen in the gallery, drawn by dragging on the slide. */
+  drawShape = $state<GalleryShape | null>(null);
+  openShapeGallery(anchor: HTMLElement): void {
+    this.shapeGallery = this.shapeGallery ? null : anchor.getBoundingClientRect();
+  }
   symbolPicker = $state<DOMRect | null>(null);
   openSymbolPicker(anchor: HTMLElement): void {
     this.symbolPicker = this.symbolPicker ? null : anchor.getBoundingClientRect();

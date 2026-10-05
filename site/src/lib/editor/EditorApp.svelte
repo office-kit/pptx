@@ -33,6 +33,7 @@
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
   import HeaderFooterDialog from './ui/HeaderFooterDialog.svelte';
   import SymbolPicker from './ui/SymbolPicker.svelte';
+  import ShapeGallery from './ui/ShapeGallery.svelte';
   import NotesPageView from './ui/NotesPageView.svelte';
   import RehearsalDialog from './ui/RehearsalDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
@@ -269,6 +270,7 @@
     <ContextMenu />
   {/if}
   <SymbolPicker />
+  <ShapeGallery />
   <ToastStack />
 </div>
 

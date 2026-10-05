@@ -76,7 +76,7 @@
 
 <div class="shape-format">
   <section class="group" aria-label={t('Insert Shapes')}>
-    <button class="big" aria-label={t('Shapes')} disabled={!editor.canRun('addSlideShape')} onclick={() => editor.runOrPrompt('addSlideShape', PRESET.shape)}><Icon name="shapes" size={32} /><span>{t('Shapes')}</span></button>
+    <button class="big" aria-label={t('Shapes')} aria-haspopup="menu" aria-expanded={!!editor.shapeGallery} disabled={!editor.canRun('addSlideShape')} onclick={(event) => editor.openShapeGallery(event.currentTarget)}><Icon name="shapes" size={32} /><span>{t('Shapes')}</span></button>
     <div class="stack">
       <div class="anchor">
         {@render menuButton('editShape', 'shapes', 'Edit Shape', texty)}

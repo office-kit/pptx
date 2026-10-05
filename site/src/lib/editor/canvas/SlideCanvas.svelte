@@ -33,6 +33,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
   import InkLayer from './InkLayer.svelte';
+  import DrawShapeLayer from './DrawShapeLayer.svelte';
   import {
     getShapePlaceholderType,
     getParagraphPropertiesEffective,
@@ -1425,6 +1426,7 @@
         <div class="paint" bind:this={paintEl}>{@html doc.currentSvg}</div>
       {/key}
       {#if editor.ink.tool}<InkLayer widthEmu={metrics.widthEmu} heightEmu={metrics.heightEmu} />{/if}
+      {#if editor.drawShape}<DrawShapeLayer widthEmu={metrics.widthEmu} heightEmu={metrics.heightEmu} />{/if}
 
       <div class="overlay">
         {#if editor.view.grid}

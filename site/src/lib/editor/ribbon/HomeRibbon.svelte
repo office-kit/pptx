@@ -230,7 +230,7 @@
 {#snippet insert()}
   <button class="big" aria-label={t('Picture')} disabled={!editor.canRun('addSlideImage')} onclick={() => editor.runOrPrompt('addSlideImage')}><Icon name="picture" size={32} /><span>{t('Picture')}</span></button>
   <div class="stack" class:small>
-    <button class:big={!small} class:row={small} aria-label={t('Shapes')} disabled={!editor.canRun('addSlideShape')} onclick={() => editor.runOrPrompt('addSlideShape', PRESET.shape)}><Icon name="shapes" size={small ? 18 : 32} /><span>{t('Shapes')}</span></button>
+    <button class:big={!small} class:row={small} aria-label={t('Shapes')} aria-haspopup="menu" aria-expanded={!!editor.shapeGallery} disabled={!editor.canRun('addSlideShape')} onclick={(event) => editor.openShapeGallery(event.currentTarget)}><Icon name="shapes" size={small ? 18 : 32} /><span>{t('Shapes')}</span></button>
     <button class:big={!small} class:row={small} aria-label={t('Text Box')} disabled={!editor.canRun('addSlideTextBox')} onclick={() => editor.runOrPrompt('addSlideTextBox', PRESET.textBox)}><Icon name="textbox" size={small ? 18 : 32} /><span>{t('Text Box')}</span></button>
   </div>
 {/snippet}
