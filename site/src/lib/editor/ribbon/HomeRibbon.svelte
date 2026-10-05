@@ -80,7 +80,7 @@
   });
   let openGroup = $state<Group | null>(null);
   let paragraphOptions = $state(false);
-  let openMenu = $state<'newSlide' | 'layout' | null>(null);
+  let openMenu = $state<'newSlide' | 'layout' | 'paste' | null>(null);
   let popup = $state<HTMLDivElement>();
 
   const shapeIds = $derived(selectedShapeIds(doc.selection));
@@ -139,9 +139,23 @@
     openGroup = openGroup === group ? null : group;
     if (openGroup) { await tick(); popup?.querySelector<HTMLElement>('button:not(:disabled), input')?.focus(); }
   }
-  async function toggleMenu(menu: 'newSlide' | 'layout') {
+  async function toggleMenu(menu: 'newSlide' | 'layout' | 'paste') {
     openMenu = openMenu === menu ? null : menu;
     if (openMenu) { await tick(); document.querySelector<HTMLElement>('.home-menu [aria-checked="true"], .home-menu button')?.focus(); }
+  }
+  // Keep Text Only: the system clipboard's plain text, at the text cursor or
+  // as a new text box.
+  async function pasteTextOnly() {
+    let text = '';
+    try {
+      text = await navigator.clipboard.readText();
+    } catch (cause) {
+      editor.toast('error', `${t('Paste failed')}: ${(cause as Error).message}`);
+      return;
+    }
+    if (!text) return;
+    if (editor.inlineTextFormat?.insertText) editor.inlineTextFormat.insertText(text);
+    else editor.runOrPrompt('addSlideTextBox', { opts: { ...PRESET.textBox.opts, text } });
   }
   function closeAfterCommand(event: MouseEvent) {
     const button = (event.target as Element).closest('button');
@@ -263,7 +277,18 @@
 
 <div class="home" bind:this={home} bind:clientWidth={width}>
   <section class="cluster" aria-label={t('Clipboard')}>
-    <button class="big" aria-label={t('Paste')} onclick={() => editor.paste()}><Icon name="paste" size={32} /><span>{t('Paste')}</span></button>
+    <div class="split large">
+      <button class="big" aria-label={t('Paste')} onclick={() => editor.paste()}><Icon name="paste" size={32} /><span>{t('Paste')}</span></button>
+      <button class="arrow menu-trigger" aria-label={t('Paste options')} aria-haspopup="menu" aria-expanded={openMenu === 'paste'} onclick={() => toggleMenu('paste')}>⌄</button>
+      {#if openMenu === 'paste'}
+        <div class="home-menu" role="menu" tabindex="-1" aria-label={t('Paste options')} use:place>
+          <button role="menuitem" onclick={() => { openMenu = null; void editor.paste(); }}>{t('Paste')}</button>
+          <button role="menuitem" onclick={() => { openMenu = null; void pasteTextOnly(); }}>{t('Keep Text Only')}</button>
+          <hr />
+          <button role="menuitem" title={t('Paste Special needs the system clipboard formats, which the browser does not expose.')} disabled>{t('Paste Special...')}</button>
+        </div>
+      {/if}
+    </div>
     <div class="stack small tools">
       <button class="tool" aria-label={t('Cut')} title={t('Cut')} disabled={!canCopy} onclick={() => editor.cutSelection()}><Icon name="cut" size={18} /></button>
       <button class="tool" aria-label={t('Copy')} title={t('Copy')} disabled={!canCopy} onclick={() => editor.copySelection()}><Icon name="copy" size={18} /></button>

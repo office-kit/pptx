@@ -1660,4 +1660,10 @@ export const ja: Record<string, string> = {
   'Down Arrow': '矢印: 下',
   'Draw shape': '図形の描画',
   'Insert Shape': '図形の挿入',
+  'Paste options': '貼り付けのオプション',
+  'Keep Text Only': 'テキストのみ保持',
+  'Paste Special...': '形式を選択して貼り付け...',
+  'Paste Special needs the system clipboard formats, which the browser does not expose.':
+    '形式を選択して貼り付けにはシステム クリップボードの形式が必要ですが、ブラウザーでは取得できません。',
+  'Paste failed': '貼り付けに失敗しました',
 };
