@@ -121,10 +121,21 @@ test(
       await input.press('Home');
       const toolbarColor = editor.getByRole('button', { name: 'Text color', exact: true });
       await toolbarColor.waitFor();
-      assert.equal(
-        await toolbarColor
-          .locator('.swatch')
-          .evaluate((el) => getComputedStyle(el).backgroundColor),
+      // `selectionchange` arrives as a separate task after a key press, so the
+      // swatch follows the caret one task later; poll instead of reading once.
+      const expectSwatch = async (expected, message) => {
+        const deadline = Date.now() + 5000;
+        let actual;
+        do {
+          actual = await toolbarColor
+            .locator('.swatch')
+            .evaluate((el) => getComputedStyle(el).backgroundColor);
+          if (actual === expected) return;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        } while (Date.now() < deadline);
+        assert.equal(actual, expected, message);
+      };
+      await expectSwatch(
         'rgb(18, 171, 52)',
         'the toolbar should show the resolved theme color while retaining the stored token',
       );
@@ -160,14 +171,14 @@ test(
       assert.equal(await input.textContent(), 'Theme note');
       assert.equal(await color(), 'rgb(18, 171, 52)');
       assert.equal(await lastColor(), 'rgb(79, 129, 189)');
-      assert.equal(
-        await toolbarColor
-          .locator('.swatch')
-          .evaluate((el) => getComputedStyle(el).backgroundColor),
+      await expectSwatch(
         'rgb(79, 129, 189)',
         'Undo must refresh the resolved notes toolbar color without moving the caret',
       );
-      await input.press('Meta+a');
+      await input.press('ControlOrMeta+a');
+      // Deliver the Select All `selectionchange` now so the color command
+      // targets the whole note rather than the caret left by Undo.
+      await input.evaluate(() => document.dispatchEvent(new Event('selectionchange')));
       await toolbarColor.click();
       await editor.getByRole('menuitemradio', { name: 'Red', exact: true }).click();
       // Wait for the Red edit itself; the Undo above already moved past
@@ -175,10 +186,7 @@ test(
       const red = await waitForState(preview.url, (state) => state.revision !== undone.revision);
       await input.press('Meta+z');
       await waitForState(preview.url, (state) => state.revision !== red.revision);
-      assert.equal(
-        await toolbarColor
-          .locator('.swatch')
-          .evaluate((el) => getComputedStyle(el).backgroundColor),
+      await expectSwatch(
         'rgb(79, 129, 189)',
         'Undo after a different color must restore the resolved theme color',
       );

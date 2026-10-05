@@ -191,27 +191,48 @@ test(
       await page.goto(preview.url);
       await page.getByRole('button', { name: 'Preview', exact: true }).click();
       const popupPromise = page.waitForEvent('popup');
-      // Present, Escape and Presenter view all run in one task, so the
-      // fullscreen request from Present is still pending when presenter view
-      // starts its own show.
-      // Chromium may deliver the grant and its release in one frame, both
-      // reporting the released state, so only the count and `presenting` are
-      // recorded per event.
+      // Headless Chromium on Linux never settles a fullscreen request made
+      // while the presenter popup opens, and macOS grants it at an arbitrary
+      // point, so the Fullscreen API is replaced and the late grant is
+      // delivered explicitly once presenter view has started.
       await page.evaluate(() => {
+        let fullscreenElement = null;
+        let grant;
         window.fullscreenTrace = [];
+        window.grantFullscreen = () => grant();
+        Object.defineProperty(document, 'fullscreenElement', { get: () => fullscreenElement });
+        const change = (element) => {
+          fullscreenElement = element;
+          document.dispatchEvent(new Event('fullscreenchange'));
+        };
+        document.documentElement.requestFullscreen = () =>
+          new Promise((resolve) => {
+            grant = () => {
+              change(document.documentElement);
+              resolve();
+            };
+          });
+        document.exitFullscreen = () => Promise.resolve().then(() => change(null));
         document.addEventListener('fullscreenchange', () =>
-          window.fullscreenTrace.push({ presenting }),
+          window.fullscreenTrace.push({ fullscreen: fullscreenElement !== null, presenting }),
         );
+        // Present, Escape and Presenter view run in one task, so the request
+        // from Present is still pending when presenter view starts its show.
         document.getElementById('present').click();
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         document.getElementById('presenter').click();
       });
       await popupPromise;
+      await page.evaluate(() => window.grantFullscreen());
       await page.waitForFunction(() => window.fullscreenTrace.length === 2);
-      assert.deepEqual(await page.evaluate(() => window.fullscreenTrace), [
-        { presenting: true },
-        { presenting: true },
-      ]);
+      assert.deepEqual(
+        await page.evaluate(() => window.fullscreenTrace),
+        [
+          { fullscreen: true, presenting: true },
+          { fullscreen: false, presenting: true },
+        ],
+        'the stale grant must be released without ending presenter view',
+      );
       assert.equal(await page.evaluate(() => document.fullscreenElement), null);
       assert.equal(await page.evaluate(() => presenting), true);
     } finally {
