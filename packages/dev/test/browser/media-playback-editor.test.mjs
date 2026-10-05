@@ -138,7 +138,7 @@ for (const [kind, nested] of [
         assert.deepEqual((await readPlayback()).fade, { inMs: 150, outMs: 0 });
         const delay = panel.getByLabel('Start delay (seconds)', { exact: true });
         await delay.fill('1.001');
-        await delay.press('Tab');
+        await delay.press('Enter');
         const volume = panel.getByLabel('Volume', { exact: true });
         const chooseVolume = async (name) => {
           await volume.click();

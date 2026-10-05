@@ -15,6 +15,7 @@ import {
   loadPresentation,
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
+import { openNotes } from '../helpers/notes.mjs';
 
 test('caret formatting is inherited by subsequent notes typing', { timeout: 60000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'office-notes-caret-format-'));
@@ -32,7 +33,7 @@ test('caret formatting is inherited by subsequent notes typing', { timeout: 6000
     await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
     const editor = page.frameLocator('#editor-frame');
     await editor.getByText('Saved to this project', { exact: true }).waitFor();
-    await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+    await openNotes(editor);
     const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
     const beforeTyping = (await waitForState(preview.url, () => true)).revision;
     await input.press('End');
@@ -75,7 +76,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       const state = () => waitForState(preview.url, () => true);
       const waitRevision = async (before) =>
@@ -168,7 +169,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       const state = () => waitForState(preview.url, () => true);
       const notes = async () =>
@@ -222,7 +223,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       await input.pressSequentially('A');
       await input.press('Enter');
@@ -279,7 +280,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       await input.press('End');
       const before = (await waitForState(preview.url, () => true)).revision;
@@ -333,7 +334,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const notes = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       assert.equal(await notes.evaluate((element) => element === document.activeElement), true);
       // Selecting the slide while Notes still exists must release the notes
@@ -395,7 +396,7 @@ test(
           ),
         ).map(getSlideNotes);
       const revision = (await state()).revision;
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       const inputValue = () => input.textContent();
       assert.equal(await inputValue(), 'First');
@@ -487,7 +488,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const state = () => waitForState(preview.url, () => true);
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       await input.selectText();
       const before = (await state()).revision;

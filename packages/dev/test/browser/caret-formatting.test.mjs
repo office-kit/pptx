@@ -60,7 +60,7 @@ for (const kind of ['shape', 'cell'])
           .locator('.hit')
           .first()
           .dblclick({ position: { x: 30, y: 20 } });
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         const bar = editor.getByRole('group', { name: 'Selected text formatting', exact: true });
         const select = async (start, end = start) => {
           await input.focus();

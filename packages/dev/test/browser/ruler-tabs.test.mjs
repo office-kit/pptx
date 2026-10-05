@@ -40,7 +40,7 @@ test(
         .getByRole('checkbox', { name: 'Ruler', exact: true })
         .check();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.evaluate((node) => {
         window.selectEditorText(node, 17, 22);
         node.dispatchEvent(new Event('select', { bubbles: true }));

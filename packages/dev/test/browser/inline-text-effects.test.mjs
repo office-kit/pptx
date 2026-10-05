@@ -96,7 +96,7 @@ for (const direction of ['horz', 'vert270'])
           beforeText.x + beforeText.width / 2,
           beforeText.y + beforeText.height / 2,
         );
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
         const effects = editor.locator('.inline-effects');
         await effects.waitFor();
@@ -184,9 +184,9 @@ for (const direction of ['horz', 'vert270'])
           force: true,
           position: { x: reopenedBox.width / 2, y: reopenedBox.height / 2 },
         });
-        await editor.locator('.inline-edit').waitFor();
+        await editor.locator('.canvas-shell .inline-edit').waitFor();
         assert.equal(
-          (await editor.locator('.inline-edit').innerText()).trim(),
+          (await editor.locator('.canvas-shell .inline-edit').innerText()).trim(),
           'Updated shadow text',
         );
       } finally {
@@ -249,7 +249,7 @@ for (const grouped of [false, true])
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         await editor.locator('.hit').first().dblclick();
         if (grouped) await editor.locator('.hit.selected').dblclick();
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
         const effects = editor.locator('.inline-effects');
         await effects.waitFor();

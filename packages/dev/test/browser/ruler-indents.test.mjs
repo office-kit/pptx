@@ -35,7 +35,7 @@ test(
         .getByRole('checkbox', { name: 'Ruler', exact: true })
         .check();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.evaluate((node) => {
         window.selectEditorText(node, 17, 22);
         node.dispatchEvent(new Event('select', { bubbles: true }));
@@ -49,7 +49,7 @@ test(
       };
       const initial = await readIndents();
       await editor.locator('.rulers').evaluate((node) => {
-        const input = node.parentElement.querySelector('.inline-edit');
+        const input = node.parentElement.querySelector('.canvas-shell .inline-edit');
         const rect = input.getBoundingClientRect();
         const style = getComputedStyle(input);
         const zero = node.querySelector('.horizontal line[data-value="0"]');

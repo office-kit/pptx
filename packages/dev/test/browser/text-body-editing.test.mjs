@@ -63,7 +63,7 @@ for (const table of [false, true])
           const editor = page.frameLocator('#editor-frame');
           await editor.getByText('Saved to this project', { exact: true }).waitFor();
           await editor.locator('.hit').dblclick();
-          const input = editor.locator('.inline-edit');
+          const input = editor.locator('.canvas-shell .inline-edit');
           await input.waitFor();
           const floatingBar = editor.locator('.floating-text-format-bar');
           await floatingBar.locator('summary').click();

@@ -71,7 +71,7 @@ for (const { vert, writingMode } of [
         ({ preview, browser } = opened);
         const { page, editor } = opened;
         await editor.locator('.hit').first().dblclick();
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
         const layout = await input.evaluate((node) => {
           const region = document.querySelector('.paint foreignObject div');
@@ -153,7 +153,7 @@ test(
       }, dir);
       ({ preview, browser } = opened);
       const { page, editor } = opened;
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       // Editing px live at canvas zoom while the painted SVG's px live at slide
       // scale, so the two are compared as the ratio between the shrunk box and
       // the unshrunk reference beside it — which is the shrink factor itself.

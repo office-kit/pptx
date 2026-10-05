@@ -82,7 +82,7 @@ for (const { kind, field, lineBreak = false } of [
         const editor = page.frameLocator('#editor-frame');
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         await editor.locator('.hit').first().dblclick();
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
         if (lineBreak) {
           const breakStyle = await input
@@ -196,7 +196,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.waitFor();
       const style = await input
         .locator('span')

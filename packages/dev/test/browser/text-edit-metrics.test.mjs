@@ -90,7 +90,7 @@ test(
         await hit.click({
           position: { x: glyphBox.x - hitBox.x + point.x, y: glyphBox.y - hitBox.y + point.y },
         });
-        const input = editor.locator('.inline-edit').first();
+        const input = editor.locator('.canvas-shell .inline-edit').first();
         await input.waitFor({ timeout: 3000 });
         const after = await rangeMetrics(input, textIndex);
         if (decorationStyle) {

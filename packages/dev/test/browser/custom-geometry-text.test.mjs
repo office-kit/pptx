@@ -101,7 +101,7 @@ for (const grouped of [false, true]) {
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         if (grouped) await editor.locator('.hit').dblclick();
         await editor.locator('.hit').first().dblclick();
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
         const layout = await input.evaluate((node) => {
           const box = node.getBoundingClientRect(),

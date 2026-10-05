@@ -51,7 +51,7 @@ test(
       await saved();
       await editor.locator('.hit').first().click();
       const originals = await read();
-      await editor.locator('.inline-edit').fill('Edited first');
+      await editor.locator('.canvas-shell .inline-edit').fill('Edited first');
       await editor
         .locator('.hit')
         .nth(1)
@@ -63,9 +63,9 @@ test(
       assert.equal(getShapeText(getSlideShapes(getSlides(edited)[0])[0]), 'Edited first');
       await page.keyboard.press('Escape');
       await editor.locator('.hit').first().click();
-      await editor.locator('.inline-edit').waitFor();
+      await editor.locator('.canvas-shell .inline-edit').waitFor();
       await editor.locator('.stage').click({ position: { x: 8, y: 8 } });
-      assert.equal(await editor.locator('.inline-edit').count(), 0);
+      assert.equal(await editor.locator('.canvas-shell .inline-edit').count(), 0);
       assert.equal(await editor.locator('.hit.selected').count(), 0);
       await editor.locator('.hit').first().click();
       await editor

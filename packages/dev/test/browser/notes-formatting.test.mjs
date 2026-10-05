@@ -16,6 +16,7 @@ import {
   getSlides,
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
+import { openNotes } from '../helpers/notes.mjs';
 
 test(
   'editing notes preserves untouched formatted runs across disjoint edits and undo',
@@ -47,7 +48,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       assert.match(await input.innerHTML(), /font-weight:\s*bold/i);
       const revision = (await waitForState(preview.url, () => true)).revision;
@@ -123,7 +124,7 @@ test('formatted notes paste is one undoable transaction', { timeout: 60000 }, as
     await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
     const editor = page.frameLocator('#editor-frame');
     await editor.getByText('Saved to this project', { exact: true }).waitFor();
-    await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+    await openNotes(editor);
     const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
     await input.selectText();
     const before = (await waitForState(preview.url, () => true)).revision;
@@ -192,7 +193,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       await input.selectText();
       for (const [button, baseline] of [

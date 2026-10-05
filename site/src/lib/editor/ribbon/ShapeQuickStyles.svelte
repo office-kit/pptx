@@ -119,7 +119,7 @@
   .trigger { display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px; background:transparent; border:1px solid transparent; border-radius:var(--ok-radius); color:var(--ok-text); font:inherit; font-size:11px; cursor:pointer; }
   .trigger:hover { background:var(--ok-hover); border-color:var(--ok-border); }
   .trigger:disabled { opacity:.4; }
-  .sample { border:1px solid currentColor; padding:2px 5px; font-size:14px; }
+  .sample { display:flex; align-items:center; justify-content:center; width:34px; height:30px; border:1px solid currentColor; border-radius:3px; font-size:13px; }
   .compact { flex-direction:row; }
   .inline-gallery { display:flex; align-items:center; gap:2px; }
   .inline-item, .inline-more { width:40px; height:30px; padding:0; border:1px solid transparent; border-radius:2px; background:white; color:var(--ok-text); cursor:pointer; }

@@ -128,8 +128,8 @@ test(
       await panel.getByLabel('段落の配置', { exact: true }).selectOption('right');
       await saved();
       await editor.locator('.hit').first().dblclick();
-      await editor.locator('.inline-edit').fill('First line\n最初の入力');
-      await editor.locator('.inline-edit').press('Control+Enter');
+      await editor.locator('.canvas-shell .inline-edit').fill('First line\n最初の入力');
+      await editor.locator('.canvas-shell .inline-edit').press('Control+Enter');
       await saved();
       const emptyShape = async () =>
         getSlideShapes(

@@ -73,8 +73,8 @@ test(
       await page.route('**/editor/document', blockSave);
       const edit = async (text) => {
         await editor.locator('.hit').first().dblclick();
-        await editor.locator('.inline-edit').fill(text);
-        await editor.locator('.inline-edit').press('Control+Enter');
+        await editor.locator('.canvas-shell .inline-edit').fill(text);
+        await editor.locator('.canvas-shell .inline-edit').press('Control+Enter');
       };
       await edit('Recovered 日本語');
       await editor.getByText('Simulated save failure', { exact: false }).waitFor();

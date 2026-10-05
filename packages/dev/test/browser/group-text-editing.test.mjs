@@ -89,7 +89,7 @@ for (const nested of [false, true]) {
           await editor.locator('.hit').dblclick();
           if (nested) await editor.locator('.hit.selected').dblclick();
           await editor.locator('.hit.selected').dblclick();
-          const input = editor.locator('.inline-edit');
+          const input = editor.locator('.canvas-shell .inline-edit');
           await input.waitFor();
           const hitBounds = await editor.locator('.hit.selected').boundingBox();
           const inputBounds = await input.boundingBox();

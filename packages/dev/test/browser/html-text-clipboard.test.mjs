@@ -555,7 +555,7 @@ for (const kind of ['shape', 'cell'])
           .locator('.hit')
           .first()
           .dblclick({ position: { x: 30, y: 20 } });
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.evaluate((node) => {
           window.selectEditorText(node, 0, 3);
           node.dispatchEvent(new Event('select', { bubbles: true }));
@@ -632,7 +632,7 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: 30, y: 20 } });
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.waitFor();
       assert.equal(
         await input

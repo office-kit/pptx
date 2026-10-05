@@ -114,7 +114,7 @@ for (const strikeStyle of ['solid', 'double'])
             return { x: point.x - rect.x, y: point.y - rect.y };
           }, point);
           await hit.click({ position });
-          const input = editor.locator('.inline-edit').first();
+          const input = editor.locator('.canvas-shell .inline-edit').first();
           await input.waitFor();
           await input.evaluate((node) => (node.style.caretColor = 'transparent'));
           assert.deepEqual(
@@ -230,7 +230,7 @@ test(
           return { x: point.x + point.width / 2 - rect.x, y: point.y + point.height / 2 - rect.y };
         }, before);
         await hit.click({ position });
-        const input = editor.locator('.inline-edit').first();
+        const input = editor.locator('.canvas-shell .inline-edit').first();
         await input.waitFor();
         const after = await geometry(
           input

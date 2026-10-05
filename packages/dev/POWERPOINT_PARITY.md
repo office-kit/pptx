@@ -30,6 +30,19 @@ Historical statements that a feature is missing can be superseded by a later sec
 for example, outline collapse and ruler tab gestures are now implemented. This list
 does not define a percentage denominator for all PowerPoint operations.
 
+## Window chrome and Home ribbon (2026-10-05)
+
+Compared against Mac PowerPoint 16 (dark appearance, `review.pptx` built from `packages/dsl/examples/review.tsx`) with window widths 1512, 1200, 1000 and 800 px.
+
+- Home ribbon: PowerPoint shows uncaptioned clusters — Paste with Cut/Copy/Format Painter; New Slide ▾, Layout ▾, Reset, Section ▾; Font (two rows); Paragraph (two rows); Picture, Shapes, Text Box; Arrange, Quick Styles, Shape Fill/Shape Outline; Add-ins and Designer. Implemented all except Section, Add-ins, Designer, Paste/Copy option menus, Shapes gallery with drawing, Columns, Text Direction, Align Text and Convert to SmartArt.
+- Collapse order observed natively and implemented: 1200 px keeps everything but shrinks Slides/Insert to small icons and collapses Drawing; 1000 px collapses Slides, Paragraph, Insert and Drawing; 800 px also collapses Font. Clipboard never collapses. A collapsed group closes after a command is chosen.
+- Tabs: native order is Home, Insert, Draw, Design, Transitions, Animations, Slide Show, Record, Review, View. Slide Show now precedes View; Draw, Record and Review are not implemented. The active tab is bold with an underline bar and no background.
+- Find/Replace are in the Mac Edit menu, not on the Home ribbon; an Edit menu now carries Undo, Redo, Cut, Copy, Paste, Select All, Find and Replace.
+- Thumbnail pane: PowerPoint has no add/duplicate/delete/move buttons above the thumbnails; removed (ribbon, context menu, ⌘D, Delete and Option-arrow reordering remain).
+- Status bar: native shows "Slide 1 of 3", proofing language, Accessibility; Notes, Comments, Normal/Slide Sorter/Reading View/Slide Show, zoom −/slider/+, percentage and Fit icon on a neutral background. Implemented the slide counter text, Notes, Comments, Normal/Sorter, zoom and Fit icon on a neutral background; language, Accessibility, Reading View and Slide Show buttons are missing.
+- Title bar: native uses neutral window chrome with quick-access Save/Undo/Redo, centered "name — Saved to my Mac" and a Search box. The editor bar now uses neutral chrome and presents the command palette as Search; AutoSave and Share/Comments buttons are not implemented.
+- Still different: the editor shows the properties pane by default and hides notes by default, while PowerPoint opens Format panes on demand and shows "Click to add notes"; no dark appearance; layout menus are text lists instead of thumbnail galleries.
+
 ## Current UI migration
 
 - Application grid/drawing/smart-guide visibility is stored independently of document undo/save state and synchronized on storage events.

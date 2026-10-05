@@ -2,8 +2,10 @@
   import { onMount, untrack } from 'svelte';
   import { layoutEditingTabs } from '../core/editing-tabs.ts';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
-  let { value, html, label, style, textZoom, busy = false, layout = 'canvas', onfocus, onblur, oncontextmenu, onpointerdown, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
+  let { value, html, label, style, textZoom, busy = false, layout = 'canvas', autofocus = layout === 'canvas', onfocus, onblur, oncontextmenu, onpointerdown, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
     value: string; html: string; label: string; style: string; textZoom: number; busy?: boolean; layout?: 'canvas' | 'outline';
+    /** Focus with the caret at the end when mounted (the canvas editor opens this way). */
+    autofocus?: boolean;
     onfocus?: () => void; onblur?: () => void; oncontextmenu?: (event: MouseEvent) => void;
     onpointerdown?: (event: PointerEvent) => void;
     oninput: (value: string) => void;
@@ -85,7 +87,7 @@
   });
   onMount(() => {
     document.addEventListener('selectionchange', selectionChanged);
-    if (layout === 'canvas') { focus(); setSelectionRange(value.length, value.length); }
+    if (autofocus) { focus(); setSelectionRange(value.length, value.length); }
     return () => { document.removeEventListener('selectionchange', selectionChanged); };
   });
 </script>

@@ -727,7 +727,7 @@ export const ja: Record<string, string> = {
   'These notes belong to the selected slide and are included in the exported presentation.':
     '選択中のスライドのノートです。書き出したプレゼンテーションにも保存されます。',
   Notes: 'ノート',
-  'Click to add notes': 'ノートを入力',
+  'Click to add notes': 'クリックしてノートを入力',
   'Notes pane height': 'ノート ペインの高さ',
   'Notes content': 'ノートの内容',
   'Speaker notes': '発表者ノート',
@@ -1368,4 +1368,7 @@ export const ja: Record<string, string> = {
   'Increase List Level': 'インデントを増やす',
   'Reset the position, size, and formatting of the slide placeholders to their default settings.':
     'スライド プレースホルダーの位置、サイズ、書式を既定の設定にリセットします。',
+  'Slide {n} of {count}': 'スライド {n}/{count}',
+  'Fit slide to current window': 'スライドを現在のウィンドウ サイズに合わせる',
+  'Search (⌘K)': '検索 (⌘K)',
 };

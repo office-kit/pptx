@@ -85,7 +85,7 @@ test(
         },
       });
       await page.screenshot({ path: '/tmp/text-edit-entry-after-click.png', fullPage: true });
-      const textEditor = editor.locator('.inline-edit').first();
+      const textEditor = editor.locator('.canvas-shell .inline-edit').first();
       await textEditor.waitFor({ timeout: 3000 });
       assert.equal(
         await editor.getByRole('spinbutton', { name: 'Font size', exact: true }).inputValue(),

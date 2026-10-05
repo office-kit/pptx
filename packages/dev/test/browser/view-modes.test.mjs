@@ -228,9 +228,16 @@ test(
         true,
       );
       await gridDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      // Notes are shown by default in Normal view, as in PowerPoint.
       const notesToggle = viewPanel.getByRole('button', { name: 'Notes', exact: true });
+      const notesBox = editor.getByRole('textbox', { name: 'Notes content', exact: true });
+      await notesBox.waitFor();
+      assert.equal(await notesToggle.getAttribute('aria-pressed'), 'true');
       await notesToggle.click();
-      await editor.getByRole('textbox', { name: 'Notes content', exact: true }).waitFor();
+      await notesBox.waitFor({ state: 'detached' });
+      assert.equal(await notesToggle.getAttribute('aria-pressed'), 'false');
+      await notesToggle.click();
+      await notesBox.waitFor();
       assert.equal(await notesToggle.getAttribute('aria-pressed'), 'true');
       await viewPanel.getByRole('checkbox', { name: 'Guides', exact: true }).check();
       assert.equal(await editor.locator('.drawing-guide').count(), 2);
@@ -281,7 +288,8 @@ test(
         'true',
       );
       await editor.getByRole('tab', { name: 'Home', exact: true }).press('End');
-      const lastTab = editor.getByRole('tab', { name: 'Slide Show', exact: true });
+      // PowerPoint ends the tab row with View.
+      const lastTab = editor.getByRole('tab', { name: 'View', exact: true });
       assert.equal(await lastTab.getAttribute('aria-selected'), 'true');
       assert.equal(await lastTab.evaluate((node) => node === document.activeElement), true);
       assert.equal((await waitForState(preview.url, () => true)).revision, beforeZoomRevision);

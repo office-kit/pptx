@@ -99,7 +99,7 @@ for (const width of [1100, 1500, 1900]) {
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         const before = await editor.locator('[data-pptx-paragraph]').evaluateAll(paragraphGeometry);
         await editor.locator('.hit').first().dblclick();
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
         const after = await input.locator('[data-text-paragraph]').evaluateAll(paragraphGeometry);
         if (after.length !== before.length)

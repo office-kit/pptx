@@ -50,7 +50,7 @@ test(
       };
       const hits = editor.locator('.hit');
       await hits.nth(0).dblclick();
-      const input = editor.locator('.inline-edit').first();
+      const input = editor.locator('.canvas-shell .inline-edit').first();
       await input.waitFor();
       const select = async (start, end = start) => {
         await input.focus();
@@ -105,7 +105,7 @@ test(
 
       // Selecting the second shape as an object transforms its complete text.
       await hits.nth(1).click();
-      await editor.locator('.inline-edit').press('Escape');
+      await editor.locator('.canvas-shell .inline-edit').press('Escape');
       const ribbon = editor.locator('.ribbon .font-ribbon');
       const objectRevision = (await (await fetch(`${preview.url}/editor/state`)).json()).revision;
       await ribbon.getByRole('button', { name: 'Change Case', exact: true }).click();

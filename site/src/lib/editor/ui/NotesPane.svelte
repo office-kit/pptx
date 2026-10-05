@@ -431,8 +431,23 @@
       }
     }
   });
-  $effect(() => { if (editor.notesFocusRequest && input) { input.focus(); editor.notesFocusRequest = 0; } });
-  onDestroy(() => untrack(commit));
+  // The pane no longer focuses itself on mount (it is shown by default and
+  // remounts on Undo); the first explicit request places the caret at the end,
+  // as mounting used to.
+  let caretPlaced = false;
+  $effect(() => {
+    if (!editor.notesFocusRequest || !input) return;
+    input.focus();
+    if (!caretPlaced) input.setSelectionRange(value.length, value.length);
+    caretPlaced = true;
+    editor.notesFocusRequest = 0;
+  });
+  onDestroy(() => {
+    untrack(commit);
+    // Undo and slide changes remount the pane; keep the caret in the notes
+    // only when they had it, so canvas text editing is never interrupted.
+    if (focused) editor.notesFocusRequest++;
+  });
 
   function resizeStart(event: PointerEvent) {
     if (event.button !== 0) return;
@@ -457,7 +472,7 @@
   <!-- A focusable separator implements the ARIA window-splitter pattern. -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div class="resize" role="separator" tabindex="0" aria-label={t('Notes pane height')} aria-orientation="horizontal" aria-valuemin={60} aria-valuemax={maxHeight} aria-valuenow={editor.notesHeight} onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={() => drag = null} onpointercancel={() => drag = null} onlostpointercapture={() => drag = null} onkeydown={resizeKeys}></div>
-  <RichTextInput bind:this={input} {value} html={noteHtml} label={t('Notes content')} style="position:static; width:100%; height:100%; min-height:40px; box-sizing:border-box;" textZoom={1}
+  <RichTextInput bind:this={input} {value} html={noteHtml} label={t('Notes content')} autofocus={false} style="position:static; width:100%; height:100%; min-height:40px; box-sizing:border-box;" textZoom={1}
     onfocus={() => { editor.inlineTextFormat = null; focused = true; }} onblur={() => { commit(); setTimeout(() => { if (document.activeElement !== input?.getElement?.()) focused = false; }, 0); }}
     onselect={(next) => { const paragraph = paragraphIndexAt(next.start); const pendingEmptyParagraph = next.start === next.end && typingFormat && pendingParagraphs.has(paragraph) && paragraphIsEmptyAt(next.start); if ((next.start !== range.start || next.end !== range.end) && !pendingEmptyParagraph) { typingFormat = undefined; } range = next; formatForRange(next); }} onbeforeinput={(next) => { range = next; formatForRange(next); }} oninput={changed} onkeydown={keys}
     onnewline={(kind) => {
@@ -505,9 +520,12 @@
       if (kind === 'paragraph') pendingParagraphs.add(paragraph);
     }} oncomposition={(active) => { composing = active; if (active) clearTimeout(timer); else if (pending) timer = setTimeout(commit, 600); }}
     onhistory={(backward) => { commit(); typingFormat = undefined; pendingParagraphs.clear(); void (backward ? doc.undo() : doc.redo()); }} oncopy={() => {}} oncut={() => {}} onpaste={pasteNotes} />
+  <!-- PowerPoint's empty-notes prompt; clicks fall through to the text box. -->
+  {#if value === '' && !focused}<span class="placeholder" aria-hidden="true">{t('Click to add notes')}</span>{/if}
 </section>
 
 <style>
+  .placeholder { position: absolute; top: 12px; left: 18px; color: var(--ok-text-3); font-size: 14px; pointer-events: none; }
   .notes-pane { position: relative; min-height: 60px; max-height: 50vh; box-sizing: border-box; border-top: 1px solid var(--ok-border); background: var(--ok-panel); padding: 10px 16px 8px; }
   .resize { position: absolute; left: 0; right: 0; top: -3px; height: 6px; cursor: ns-resize; touch-action: none; }
   .resize:focus-visible { outline: 2px solid var(--ok-accent); }

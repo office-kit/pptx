@@ -33,7 +33,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       const select = (start, end) =>
         input.evaluate(
           (node, range) => {

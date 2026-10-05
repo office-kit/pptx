@@ -173,7 +173,7 @@ test(
 
       // Copy from inside the source's text…
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.waitFor();
       await input.press('ControlOrMeta+a');
       await input.press('ControlOrMeta+Alt+c');
@@ -249,7 +249,7 @@ test(
         }, code);
 
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.waitFor();
       await dispatchPainterKey(input, 'KeyC');
       await page.keyboard.press('Escape');

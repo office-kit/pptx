@@ -42,7 +42,7 @@ test(
       await saved();
       assert.deepEqual(await sizes(), [20, 44]);
       await editor.locator('.hit').first().click();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.waitFor();
       await input.press('Escape');
       await input.waitFor({ state: 'detached' });
