@@ -13,6 +13,7 @@ import {
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import {
   REL_TYPES,
+  type PlaceholderType,
   readShapeTreeFromCsldRoot,
   type SlideShape,
 } from '../../internal/presentationml/index.ts';

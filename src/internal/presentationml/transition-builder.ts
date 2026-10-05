@@ -51,25 +51,36 @@ const speedForDuration = (ms: number): 'slow' | 'med' | 'fast' =>
  * list is both the type's domain and the write-time validation domain —
  * keeping them one declaration stops them drifting apart.
  */
-export type TransitionEffect =
-  | 'none'
-  | 'fade'
-  | 'push'
-  | 'cover'
-  | 'wipe'
-  | 'split'
-  | 'cut'
-  | 'dissolve'
-  | 'checker'
-  | 'blinds'
-  | 'randomBar'
-  | 'zoom'
-  | 'circle'
-  | 'diamond'
-  | 'plus'
-  | 'wedge'
-  | 'newsflash'
-  | 'wheel';
+export const TRANSITION_EFFECTS = [
+  'blinds',
+  'checker',
+  'circle',
+  'dissolve',
+  'comb',
+  'cover',
+  'cut',
+  'diamond',
+  'fade',
+  'newsflash',
+  'plus',
+  'pull',
+  'push',
+  'random',
+  'randomBar',
+  'split',
+  'strips',
+  'wedge',
+  'wheel',
+  'wipe',
+  'zoom',
+] as const;
+
+/**
+ * Transition effect token. Maps to a `<p:{token}/>` child of
+ * `<p:transition>`, except `'none'`: that is the library-level sentinel for
+ * "no effect element", which the schema's choice has no member for.
+ */
+export type TransitionEffect = 'none' | (typeof TRANSITION_EFFECTS)[number];
 
 export interface TransitionOptions {
   effect: TransitionEffect;

@@ -1001,7 +1001,7 @@ const emitPlacements = (
         );
       } else {
         parts.push(
-          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve" data-pptx-paragraph="${line.paraIndex}">${escapeXml(b.text)}</text>`,
+          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
         );
       }
     }

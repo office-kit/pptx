@@ -23,6 +23,7 @@ import {
   savePresentation,
   setSlideLayout,
   setShapeHyperlink,
+  setShapeText,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -74,6 +75,10 @@ describe('fn API: setSlideLayout', () => {
       const layout = { ...originalLayout, [LAYOUT_PART_NAME]: newName };
       const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Title and Content')! });
       const shapes = [...getSlideShapes(slide)];
+      // A link only keeps its relationship while a run carries it, so the
+      // placeholder gets text before the link — otherwise the rel this test
+      // watches is released as unused the moment it is created.
+      setShapeText(shapes[0]!, 'Layout review');
       setShapeHyperlink(shapes[0]!, 'https://example.com/layout-review');
       const xml = shapes.map(getShapeXmlString);
       for (const hasExisting of [true, false]) {

@@ -103,9 +103,6 @@ export const setShapeText = (
     range?: { start: number; end: number };
   } = {},
 ): void => {
-  // Creates the text body if absent (PowerPoint always gives an autoshape one),
-  // so a shape authored without text is still editable. Throws only for
-  // non-text-bearing kinds (picture / table / …).
   const txBody = ensureTxBody(shape);
   if (typeof value === 'object') {
     transformTextBodyCase(txBody, value.case, options.range);

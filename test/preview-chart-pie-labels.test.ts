@@ -11,6 +11,11 @@ import {
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import { attrsOf } from './lib/svg-query.ts';
 
+// `ChartSpec` is a union over `kind`, so a spec built from a parameterized
+// kind is narrowed here rather than widened at the call site.
+const pieSpec = <T extends object>(kind: 'pie' | 'doughnut', rest: T) =>
+  kind === 'pie' ? ({ kind, ...rest } as const) : ({ kind, ...rest } as const);
+
 async function render(spec: ChartSpec) {
   const pres = await loadPresentation(
     await readFile(new URL('./fixtures/minimal/blank.pptx', import.meta.url)),
@@ -21,19 +26,20 @@ async function render(spec: ChartSpec) {
 }
 describe.each(['pie', 'doughnut'] as const)('%s data labels', (kind) => {
   it('renders series names and combines label parts', async () => {
-    const svg = await render({
-      kind,
-      categories: ['A', 'B'],
-      series: [{ name: 'Sales & costs', values: [10, 30] }],
-      dataLabels: {
-        showValue: true,
-        showCategory: true,
-        showSeriesName: true,
-        showPercent: true,
-        numberFormat: '0.00',
-        separator: ' / ',
-      },
-    });
+    const svg = await render(
+      pieSpec(kind, {
+        categories: ['A', 'B'],
+        series: [{ name: 'Sales & costs', values: [10, 30] }],
+        dataLabels: {
+          showValue: true,
+          showCategory: true,
+          showSeriesName: true,
+          showPercent: true,
+          numberFormat: '0.00',
+          separator: ' / ',
+        },
+      }),
+    );
     expect(svg).toContain('Sales &amp; costs / A / 10.00 / 25%');
     expect(svg).toContain('Sales &amp; costs / B / 30.00 / 75%');
   });
@@ -44,28 +50,29 @@ describe.each(['pie', 'doughnut'] as const)('%s data labels', (kind) => {
       showSeriesName: false,
       showPercent: false,
     };
-    const svg = await render({
-      kind,
-      categories: ['A', 'B', 'C', 'D'],
-      dataLabels: { ...hidden, showValue: true },
-      series: [
-        {
-          name: 'Sales',
-          values: [10, 20, 30, 40],
-          dataLabels: { ...hidden, showCategory: true },
-          pointDataLabels: [
-            {
-              ...hidden,
-              text: 'Custom <label>',
-              position: 'outEnd',
-              textStyle: { color: '#123456', sizePt: 18 },
-            },
-            hidden,
-            { ...hidden, showValue: true, numberFormat: '0.00' },
-          ],
-        },
-      ],
-    });
+    const svg = await render(
+      pieSpec(kind, {
+        categories: ['A', 'B', 'C', 'D'],
+        dataLabels: { ...hidden, showValue: true },
+        series: [
+          {
+            name: 'Sales',
+            values: [10, 20, 30, 40],
+            dataLabels: { ...hidden, showCategory: true },
+            pointDataLabels: [
+              {
+                ...hidden,
+                text: 'Custom <label>',
+                position: 'outEnd',
+                textStyle: { color: '#123456', sizePt: 18 },
+              },
+              hidden,
+              { ...hidden, showValue: true, numberFormat: '0.00' },
+            ],
+          },
+        ],
+      }),
+    );
     expect(svg).toContain('Custom &lt;label&gt;');
     expect(svg).toContain('>30.00</text>');
     expect(svg).toContain('>D</text>');

@@ -4,7 +4,11 @@
 // referenced from two or more split files is centralized here.
 
 import type { OpcPackage } from '../../internal/parts/index.ts';
-import { readSlideLayoutPart, readSlidePart } from '../../internal/presentationml/index.ts';
+import {
+  REL_TYPES,
+  readSlideLayoutPart,
+  readSlidePart,
+} from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,

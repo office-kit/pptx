@@ -5,6 +5,7 @@ import {
   getTableCells,
   type SlideShapeData,
   type TextFormat,
+  toWritableTextFormat,
 } from '@office-kit/pptx';
 import type { TextEdit } from './text-edit-preview.ts';
 

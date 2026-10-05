@@ -9,6 +9,7 @@ import {
   getTableCellRunFormatEffective,
   type SlideShapeData,
   type TextFormat,
+  toWritableTextFormat,
 } from '@office-kit/pptx';
 import { defaultTextMetrics } from './text-layout-defaults.ts';
 

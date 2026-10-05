@@ -770,5 +770,5 @@ window.addEventListener('message',event=>{
  byId('toggle-editor').textContent=pt(document.body.classList.contains('editing')?'Preview':'Edit');
 });
 updatePreviewLabels();
-const events=new EventSource('/events');events.onmessage=event=>{if(event.data==='chat'){window.dispatchEvent(new Event('agent-chat'));return;}if(event.data==='ready'){delete state.revision;}void refresh();};events.onerror=()=>{connectionLost=true;updatePreviewStatus()};refresh();
+const events=new EventSource('/events');events.onmessage=event=>{if(event.data==='history'){window.dispatchEvent(new Event('agent-history'));return;}if(event.data==='chat'){window.dispatchEvent(new Event('agent-chat'));return;}if(event.data==='ready'){delete state.revision;}void refresh();};events.onerror=()=>{connectionLost=true;updatePreviewStatus()};refresh();
 </script><script type="module" src="/terminal.js"></script></html>`;

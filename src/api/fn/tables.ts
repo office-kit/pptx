@@ -1,5 +1,6 @@
 // Table cell access.
 
+import type { Color, ReadTextFormat } from '../../internal/drawingml/index.ts';
 import { buildClickAction, readClickAction, type ShapeClickAction } from './shape-click-action.ts';
 import { replaceClickHyperlink } from '../../internal/drawingml/hyperlink.ts';
 import { textBodyText } from '../../internal/drawingml/text-body.ts';

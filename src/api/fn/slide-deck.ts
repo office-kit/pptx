@@ -5,7 +5,6 @@ import {
   basename,
   emptyRels,
   nextRelId,
-  type PartName,
   partName,
   relsPartNameFor,
   resolveTarget,
@@ -61,7 +60,7 @@ import {
   getSlideLayouts,
   getSlideLayoutPlaceholders,
 } from './layouts.ts';
-import { getSlides, refreshSlideOrder } from './slide-query.ts';
+import { buildSlideData, getSlides, refreshSlideOrder } from './slide-query.ts';
 import { setSlideBody, setSlideTitle } from './embedded.ts';
 import { removeCustomShowSlideReferences } from './custom-shows.ts';
 
@@ -438,6 +437,9 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
 
   pkg.removePart(relsPartNameFor(slidePartName));
   pkg.removePart(slidePartName);
+  dropRelsPointingAtSlide(pkg, slidePartName);
+  // Rebuild from the deck's own order rather than dropping the cache: the
+  // surviving slides keep the handles the caller (and the editor) still holds.
   refreshSlideOrder(pres);
 };
 
@@ -634,7 +636,11 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  refreshSlideOrder(pres);
+  if (pres._slidesCache !== null) {
+    const added = buildSlideData(pkg, newSlidePartName, pkg.getPart(newSlidePartName)!.data);
+    pres._slidesCache = [...pres._slidesCache, added];
+    return added;
+  }
   const slides = getSlides(pres);
   const dup = slides[slides.length - 1];
   if (!dup) throw new Error('duplicateSlide: post-condition failed');

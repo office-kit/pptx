@@ -1,3 +1,6 @@
+import { createHistory, historyFile } from './history.ts';
+import { createTextEditor } from './text-edit.ts';
+import { createVisualReviewer } from './visual-review.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
@@ -259,6 +262,15 @@ export async function serveDeck(entry: string, port = 4173) {
       if (!response.headersSent) json(500, cause instanceof Error ? cause.message : String(cause));
     }
   }
+  const textEditor = createTextEditor(
+    resolve(entry),
+    () => {
+      if (!latest || building || pending || timer || error)
+        throw new Error('Wait for a successful preview build.');
+      return { ...latest, revision };
+    },
+    verify,
+  );
   const server = createServer((request, response) => {
     const host = request.headers.host;
     if (host !== `127.0.0.1:${actualPort}` && host !== `localhost:${actualPort}`) {

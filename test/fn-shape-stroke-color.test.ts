@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  type Color,
   addSlideShape,
   emu,
   getShapeStrokeColor,
@@ -55,7 +56,7 @@ describe('fn API: getShapeStrokeColor / getShapeStrokeWidth', () => {
   });
 });
 
-it.each(['#112233', 'scheme:accent1'])(
+it.each<Color>(['#112233', 'scheme:accent1'])(
   'width-only stroke edits preserve %s and opacity through save',
   async (color) => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));

@@ -65,7 +65,7 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
   // Spreadsheet paste has its own cell-aware path.
   if (template.content.querySelector('table')) return null;
   const colorContext = document.createElement('canvas').getContext('2d');
-  function color(value: string): string | undefined {
+  function color(value: string): Color | undefined {
     if (
       !value ||
       !colorContext ||

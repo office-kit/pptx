@@ -240,9 +240,6 @@ importers:
       '@types/node':
         specifier: ^24.13.2
         version: 24.13.2
-      playwright:
-        specifier: ^1.63.0
-        version: 1.63.0
       svelte:
         specifier: ^5.56.3
         version: 5.56.3

@@ -87,7 +87,6 @@ import {
   getShapeAdjustValues,
   getShapeBounds,
   getShapeCustomGeometry,
-  getShapeId,
   getShapeKind,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -3108,7 +3107,7 @@ export const resolveTextBodyModel = (
       // keeps its cached text — `datetime` in particular has thirteen
       // locale-dependent variants that a preview should not guess at.
       const txt = el.kind === 'fld' && el.type === 'slidenum' ? activeSlideNumber : el.text;
-      let fmt: TextFormat | null = el.format;
+      let fmt: ReadTextFormat | null = el.format;
       let href: string | undefined;
       let hrefTip: string | undefined;
       if (el.kind === 'r') {
@@ -5149,14 +5148,14 @@ const formatChartValue = (v: number): string => {
   return v.toFixed(2).replace(/\.?0+$/, '');
 };
 
-const chartPointLabelOptions = (spec: ChartSpec, seriesIdx: number, pointIdx: number) => ({
+const chartPointLabelOptions = (spec: ReadChartSpec, seriesIdx: number, pointIdx: number) => ({
   ...spec.dataLabels,
   ...spec.series[seriesIdx]?.dataLabels,
   ...spec.series[seriesIdx]?.pointDataLabels?.[pointIdx],
 });
 
 const cartesianDataLabelText = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   seriesIdx: number,
   pointIdx: number,
   value: number,
@@ -5177,7 +5176,7 @@ const cartesianDataLabelText = (
 // `v` through it. Falls back to `formatChartValue` when neither layer
 // authors a format.
 const formatDataLabelValue = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   seriesIdx: number,
   v: number,
   pointIdx?: number,
@@ -6754,6 +6753,7 @@ const renderTable = (
         textReflected && cellText
           ? `<g transform="translate(${px(2 * cx + cw)} 0) scale(-1 1)">${cellText}</g>`
           : cellText,
+        '</g>',
       );
     }
   }
@@ -6924,18 +6924,6 @@ const customGeometryToSvg = (
 };
 
 const renderShapeContent = (
-  shape: SlideShapeData,
-  pres: PresentationData,
-  theme: PresentationTheme | null,
-  ctx: LayoutCtx,
-): string => {
-  const svg = renderShapeMarkup(shape, pres, theme, ctx);
-  return svg && ctx.tagShapes
-    ? `<g data-pptx-shape-id="${escapeXml(String(getShapeId(shape)))}">${svg}</g>`
-    : svg;
-};
-
-const renderShapeMarkup = (
   shape: SlideShapeData,
   pres: PresentationData,
   theme: PresentationTheme | null,
@@ -7808,9 +7796,8 @@ export const renderSlideSvg = (
     }
   }
 
-  const slideCtx: LayoutCtx = { ...ctx, tagShapes: true };
   const shapesSvg = topLevelShapes(getSlideShapes(slide), { dropPlaceholders: false })
-    .map((s) => renderShape(s, pres, theme, slideCtx))
+    .map((s) => renderShape(s, pres, theme, ctx))
     .join('');
 
   const backgroundSvg = `${bgOpacity === undefined ? '' : `<rect width="${E(W)}" height="${E(H)}" fill="#FFFFFF"/>`}<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"${bgOpacityAttr}/>${bgGradient}${bgImage}`;

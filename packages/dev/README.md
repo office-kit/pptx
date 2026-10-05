@@ -16,6 +16,26 @@ npm install
 npm run dev
 ```
 
+For a single-command first launch (macOS/Linux):
+
+```sh
+npx --yes @office-kit/pptx-dev@latest init my-slides && cd my-slides && npm install && npm run dev
+```
+
+The built-in `init` is the starter generator: no separate `degit` checkout is
+needed, and it selects compatible package versions. For an existing project,
+start development with `npm run dev` or `npx office-pptx dev deck.tsx`.
+If you prefer the bare `office-pptx dev deck.tsx` command, install the CLI once
+with `npm install --global @office-kit/pptx-dev@latest`. The local npm script
+continues to use the project's installed version.
+
+To update an existing project, stop its dev server and run inside the project:
+
+```sh
+npm install -D @office-kit/pptx-dev@latest
+npm run dev
+```
+
 Open the local URL printed by the server. The default editor lets you edit text,
 move and resize objects, and use the slide, insert and formatting tools directly
 in the preview. Switch between English and Japanese from the editor header.
@@ -66,6 +86,11 @@ fade, push, wipe, cover, uncover, and zoom using the saved speed and direction.
 Other effects currently switch immediately. Reduced-motion preferences disable
 these animations; automatic slide timing starts after each animation completes.
 
+The viewer has a vertical thumbnail strip, a large slide canvas and an AI chat
+panel on the right. Click a thumbnail or use arrow keys, Page Up/Down, Home/End
+to navigate; Fit/zoom and Present (Escape to exit) are viewing controls. Click an
+object or drag an area for an AI instruction.
+
 Canvas edits are saved beside the entry in `.office-kit/<entry-name>.editor.zip`;
 for example, `.office-kit/deck.tsx.editor.zip`. Keep this file with your project:
 it contains the edited presentation and its source fingerprint. Canvas edits do
@@ -81,7 +106,8 @@ an unresolved conflict so that it cannot silently export the wrong version.
 
 Keep the server running throughout the edit/review loop. In Preview mode, saving
 updates changed thumbnails and slides while preserving zoom, scroll and
-presentation mode. Rapid source edits cancel obsolete evaluations. Syntax and
+presentation mode. Rapid source edits cancel obsolete evaluations; only the latest successful result
+is published. Syntax and
 runtime errors remain visible alongside the last successful preview; DSL errors
 include the TSX element's source file and line number.
 

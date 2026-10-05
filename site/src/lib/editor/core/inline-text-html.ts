@@ -1,4 +1,5 @@
 import {
+  toWritableTextFormat,
   getParagraphPropertiesEffective,
   getParagraphBulletStyle,
   getShapeParagraphCount,

@@ -193,7 +193,7 @@ export interface TextFormat {
    * Highlight color (cell-fill style background per run). Same color
    * format as `color`. Mirrors `<a:rPr><a:highlight>…</a:highlight></a:rPr>`.
    */
-  highlight?: string | null;
+  highlight?: Color | null;
   /**
    * Outline drawn around the glyphs — `<a:rPr><a:ln>`, the character-level
    * twin of `setShapeStroke`. `null` removes it, which is not the same as

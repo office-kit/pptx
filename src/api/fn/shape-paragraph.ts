@@ -331,7 +331,7 @@ export const getShapeRunFormatEffective = (
   paragraphIndex: number,
   runIndex: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
   options: { inheritanceSource?: SlideShapeData } = {},
-): TextFormat => {
+): ReadTextFormat => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
   if (!txBody) throw new Error('shape has no <p:txBody>');
