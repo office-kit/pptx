@@ -11,6 +11,7 @@
     type TransitionOptions,
   } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import { WRITABLE_TRANSITIONS } from '../core/transition-effects.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -27,9 +28,6 @@
     ['cover', 'Cover'],
     ['pull', 'Uncover'],
   ];
-  // Every token setSlideTransition writes; a deck can carry others (p14
-  // extensions), which the timing controls must not rewrite.
-  const WRITABLE: ReadonlySet<string> = new Set<TransitionEffect>(['none', 'blinds', 'checker', 'circle', 'dissolve', 'comb', 'cover', 'cut', 'diamond', 'fade', 'newsflash', 'plus', 'pull', 'push', 'random', 'randomBar', 'split', 'strips', 'wedge', 'wheel', 'wipe', 'zoom']);
   const MS_PER_SECOND = 1000;
 
   const editor = getEditor();
@@ -54,7 +52,7 @@
   const SPEED_MS = { fast: 500, med: 750, slow: 1000 } as const;
   const durationMs = $derived(current?.durationMs ?? SPEED_MS[current?.speed ?? 'med']);
   let soundFile = $state<HTMLInputElement>();
-  const timingEditable = $derived(slides.length > 0 && WRITABLE.has(effect));
+  const timingEditable = $derived(slides.length > 0 && WRITABLE_TRANSITIONS.has(effect));
 
   function apply(label: string, value: TransitionOptions, targets: readonly SlideData[] = slides) {
     doc.transact(t(label), () => {

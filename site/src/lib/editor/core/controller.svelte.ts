@@ -166,6 +166,8 @@ export class EditorController {
   /** Open the Custom Shows manager. The actual sequence edits still flow
    * through EditorDocument.transact so save/undo treats each gesture as one
    * PowerPoint-style document edit. */
+  /** Slide times from Rehearse Timings, waiting for the user to keep or discard them. */
+  rehearsalTimings = $state<readonly { slide: number; ms: number }[] | null>(null);
   /** The Accessibility issue list (status bar, Review ▸ Check Accessibility). */
   accessibilityOpen = $state(false);
   /** Where Insert ▸ Symbol's picker opens (the button's rectangle), or null when closed. */
@@ -831,7 +833,7 @@ export class EditorController {
   readonly canPresent = typeof window !== 'undefined' && window.parent !== window;
 
   /** Asks the preview page to present: full screen, in the window, or with presenter view. */
-  present(action: 'start' | 'current' | 'reading' | 'presenter'): void {
+  present(action: 'start' | 'current' | 'reading' | 'presenter' | 'rehearse'): void {
     if (!this.canPresent) return;
     window.parent.postMessage(
       { type: 'editor-command', action, slide: this.doc.selection.slideIndex },

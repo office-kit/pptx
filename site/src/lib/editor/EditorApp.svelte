@@ -34,6 +34,7 @@
   import HeaderFooterDialog from './ui/HeaderFooterDialog.svelte';
   import SymbolPicker from './ui/SymbolPicker.svelte';
   import NotesPageView from './ui/NotesPageView.svelte';
+  import RehearsalDialog from './ui/RehearsalDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
   import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
   import FontDialog from './ui/FontDialog.svelte';
@@ -192,9 +193,19 @@
     }
   }
 
+  // The preview page reports a finished rehearsal (Slide Show ▸ Rehearse Timings).
+  function onParentMessage(event: MessageEvent) {
+    if (event.origin !== window.location.origin || event.source !== window.parent || event.source === window) return;
+    if (event.data?.type !== 'rehearsal-timings' || !Array.isArray(event.data.timings)) return;
+    editor.rehearsalTimings = event.data.timings.filter(
+      (item: unknown): item is { slide: number; ms: number } =>
+        typeof item === 'object' && item !== null && Number.isInteger((item as { slide: unknown }).slide) && Number.isFinite((item as { ms: unknown }).ms),
+    );
+    editor.activeDialog = 'rehearsal';
+  }
 </script>
 
-<svelte:window on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
+<svelte:window on:message={onParentMessage} on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
 
 <div class="ok-editor ok-shell" class:compact-host={compactHost} style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
   <TopBar {onsave} {status} compact={compactHost} />
@@ -235,6 +246,8 @@
       <ShowPropertiesDialog />
     {:else if editor.activeDialog === 'setSlideSize'}
       <SlideSizeDialog />
+    {:else if editor.activeDialog === 'rehearsal'}
+      <RehearsalDialog />
     {:else if editor.activeDialog === 'headerFooter'}
       <HeaderFooterDialog />
     {:else if editor.activeDialog === 'addSlideTable'}

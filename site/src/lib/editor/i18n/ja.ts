@@ -1516,4 +1516,18 @@ export const ja: Record<string, string> = {
   'Master Layout': 'マスターのレイアウト',
   'Reset Background': '背景のリセット',
   'Close Master': 'マスター表示を閉じる',
+  'Rehearse with Coach': 'スピーカー コーチでリハーサル',
+  'Rehearse with Coach needs Microsoft 365 online services.':
+    'スピーカー コーチには Microsoft 365 のオンライン サービスが必要です。',
+  'Rehearse Timings': 'リハーサル',
+  'Keep Slides Updated': 'スライドを最新の状態に保つ',
+  'Use Timings': 'タイミングを使用',
+  'Play Narrations': 'ナレーションの再生',
+  'Show Media Controls': 'メディア コントロールの表示',
+  'Always Use Subtitles': '常に字幕を使用する',
+  'Subtitle Settings': '字幕の設定',
+  'Live subtitles need Microsoft 365 online services.':
+    'ライブ字幕には Microsoft 365 のオンライン サービスが必要です。',
+  'The total time for the slide show was {time}. Do you want to save the new slide timings?':
+    'スライド ショーの所要時間は {time} でした。新しいタイミングを保存しますか?',
 };

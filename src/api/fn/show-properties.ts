@@ -29,8 +29,27 @@ export interface SlideShowProperties {
   showNarration: boolean;
   showAnimation: boolean;
   useTimings: boolean;
+  /**
+   * Show Media Controls: whether hovering a video or audio clip in the show
+   * reveals its play bar. PowerPoint 2010 stores it as `p14:showMediaCtrls`
+   * in the show properties' extension list; omit it to leave the file as is.
+   */
+  showMediaControls?: boolean;
 }
 const p = (name: string) => qname('p', name, NS.pml);
+const SHOW_MEDIA_CONTROLS_URI = '{2FDB2607-1784-4EEB-B798-7EB5836EED8A}';
+const NAME_SHOW_MEDIA_CONTROLS = qname('p14', 'showMediaCtrls', NS.p14);
+
+const mediaControlsExtension = (show: XmlElement | undefined): XmlElement | undefined => {
+  const list = show && firstChildElement(show, p('extLst'));
+  return list?.children.find(
+    (child): child is XmlElement =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.pml &&
+      child.name.localName === 'ext' &&
+      getAttrValue(child, qname('', 'uri', '')) === SHOW_MEDIA_CONTROLS_URI,
+  );
+};
 const value = (node: XmlElement, name: string) => getAttrValue(node, qname('', name, ''));
 const flag = (node: XmlElement | undefined, name: string, fallback: boolean) => {
   const raw = node && value(node, name);
@@ -58,6 +77,9 @@ export function getSlideShowProperties(pres: PresentationData): SlideShowPropert
   const kiosk = show && firstChildElement(show, p('kiosk'));
   const range = show && firstChildElement(show, p('sldRg'));
   const custom = show && firstChildElement(show, p('custShow'));
+  const extension = mediaControlsExtension(show);
+  const mediaControls =
+    (extension && firstChildElement(extension, NAME_SHOW_MEDIA_CONTROLS)) ?? undefined;
   return {
     mode: browse
       ? { kind: 'browse', showScrollbar: flag(browse, 'showScrollbar', true) }
@@ -73,6 +95,8 @@ export function getSlideShowProperties(pres: PresentationData): SlideShowPropert
     showNarration: flag(show, 'showNarration', false),
     showAnimation: flag(show, 'showAnimation', true),
     useTimings: flag(show, 'useTimings', true),
+    // PowerPoint shows the play bar unless a deck turns it off.
+    showMediaControls: flag(mediaControls, 'val', true),
   };
 }
 /** Replaces slideshow settings while preserving print/web options, pen color, and extensions. */
@@ -92,6 +116,8 @@ export function setSlideShowProperties(
     )
   )
     throw new Error('Invalid slideshow settings.');
+  if (settings.showMediaControls !== undefined && typeof settings.showMediaControls !== 'boolean')
+    throw new Error('Invalid slideshow media controls setting.');
   if (settings.mode.kind === 'browse' && typeof settings.mode.showScrollbar !== 'boolean')
     throw new Error('Invalid slideshow scrollbar setting.');
   if (settings.mode.kind === 'kiosk' && !unsigned(settings.mode.restart))
@@ -157,6 +183,24 @@ export function setSlideShowProperties(
         ),
     ),
   ];
+  if (settings.showMediaControls !== undefined) {
+    let list = firstChildElement(show, p('extLst'));
+    if (!list) {
+      list = elem(p('extLst'));
+      show.children.push(list);
+    }
+    let ext = mediaControlsExtension(show);
+    if (!ext) {
+      ext = elem(p('ext'), { attrs: [attr(qname('', 'uri', ''), SHOW_MEDIA_CONTROLS_URI)] });
+      list.children.push(ext);
+    }
+    ext.children = [
+      elem(NAME_SHOW_MEDIA_CONTROLS, {
+        prefixDecls: new Map([['p14', NS.p14]]),
+        attrs: [attr(qname('', 'val', ''), settings.showMediaControls ? '1' : '0')],
+      }),
+    ];
+  }
   const data = encode(serializeXml(doc));
   if (part) part.data = data;
   else {
