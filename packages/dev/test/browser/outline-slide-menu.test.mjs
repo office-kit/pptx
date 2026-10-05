@@ -189,9 +189,9 @@ for (const locale of ['en', 'ja']) {
         }
 
         for (const [en, ja, count] of [
-          ['New slide', '新しいスライド', 2],
-          ['Duplicate slide', 'スライドを複製', 2],
-          ['Delete slide', 'スライドを削除', 0],
+          ['New Slide', '新しいスライド', 2],
+          ['Duplicate Slide', 'スライドを複製', 2],
+          ['Delete Slide', 'スライドを削除', 0],
         ]) {
           await body.click({ button: 'right' });
           await change(() =>
@@ -201,13 +201,13 @@ for (const locale of ['en', 'ja']) {
           );
           const changed = await read();
           assert.equal(getSlides(changed).length, count);
-          if (en === 'New slide') {
+          if (en === 'New Slide') {
             assert.equal(
               getSlideLayoutPartName(getSlideLayout(getSlides(changed)[1])),
               getSlideLayoutPartName(getSlideLayout(getSlides(original)[0])),
             );
             assert.deepEqual(texts(changed)[1], []);
-          } else if (en === 'Duplicate slide')
+          } else if (en === 'Duplicate Slide')
             assert.deepEqual(texts(changed)[1], originalTexts[0]);
           await change(() => editor.locator('body').press('Control+z'));
           assert.deepEqual(texts(await read()), originalTexts);

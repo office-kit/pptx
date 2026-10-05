@@ -38,6 +38,7 @@ does not define a percentage denominator for all PowerPoint operations.
 ## Context menus (2026-10-06)
 
 - Right-clicking an object offers PowerPoint's menu: Cut, Copy, Paste, Edit Text, Group ▸, Bring to Front ▸, Send to Back ▸, Link…, Edit Alt Text…, Size and Position…, Format Shape… and New Comment. Duplicate, Delete and Copy/Paste formatting left the menu (⌘D, Delete and ⌘⌥C/⌘⌥V still work), as PowerPoint has none of them there.
+- Right-clicking a thumbnail offers PowerPoint's menu: Cut, Copy, Paste, New Slide, Duplicate Slide, Delete Slide, Add Section, Layout ▸, Reset Slide, Format Background…, New Comment and Hide Slide (Move slide up/down are gone — dragging reorders thumbnails — and the outline keeps Move Up/Move Down as natively).
 - Right-clicking the slide itself now offers PowerPoint's items after Paste: Layout ▸ (checked current layout), Reset Slide, Grid and Guides ▸ (Add Vertical/Horizontal Guide, Grid Options…), Format Background… and New Comment.
 
 ## Shape Format ribbon (2026-10-06)

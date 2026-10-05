@@ -90,6 +90,32 @@ test(
       await changed(() => item('Remove All Sections').click());
       assert.equal(getSlideSections(await pres()).length, 0);
 
+      // The thumbnail menu is PowerPoint's.
+      await editor.locator('.thumb-row').nth(1).click({ button: 'right' });
+      const thumbMenu = editor.getByRole('menu').first();
+      assert.deepEqual(
+        (
+          await thumbMenu
+            .locator(':scope > .ctx-item, :scope > .branch > .ctx-item')
+            .allTextContents()
+        ).map((text) => text.replace(/(\s+Del|[›⌘✓]).*$/, '').trim()),
+        [
+          'Cut',
+          'Copy',
+          'Paste',
+          'New Slide',
+          'Duplicate Slide',
+          'Delete Slide',
+          'Add Section',
+          'Layout',
+          'Reset Slide',
+          'Format Background...',
+          'New Comment',
+          'Hide Slide',
+        ],
+      );
+      await page.keyboard.press('Escape');
+
       // Columns, Text Direction and Align Text act on the selected text box.
       await editor.locator('.thumb-row').first().click();
       await editor.locator('.hit').first().click();

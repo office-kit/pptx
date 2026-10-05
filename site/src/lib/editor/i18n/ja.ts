@@ -1670,4 +1670,6 @@ export const ja: Record<string, string> = {
   'Edit Text': 'テキストの編集',
   'Link...': 'リンク...',
   'Edit Alt Text...': '代替テキストを編集...',
+  'Duplicate Slide': 'スライドを複製',
+  'Delete Slide': 'スライドを削除',
 };

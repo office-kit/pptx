@@ -1,10 +1,11 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getShapeKind, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
+  import { getShapeKind, isSlideHidden, setSlideHidden, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
+  import { addSection, UNTITLED_SECTION } from '../core/sections.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -38,10 +39,24 @@
 
   function slideItems(): Item[] {
     return [
-      { label: 'New slide', run: () => editor.addNewSlide() },
-      { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
-      { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
+      { label: 'New Slide', run: () => editor.addNewSlide() },
+      { label: 'Duplicate Slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
+      { label: 'Delete Slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
     ];
+  }
+
+  // Layout ▸ applies to the selected slides (the current one on the canvas).
+  function slideLayoutItem(): Item {
+    const slides = (doc.selection.kind === 'slide' ? selected : [doc.selection.slideIndex]).map((index) => doc.slideAt(index)).filter((slide) => slide !== null);
+    const current = slides[0] ? getSlideLayoutPartName(getSlideLayout(slides[0])!) : '';
+    return {
+      label: 'Layout', sep: true,
+      children: getSlideLayouts(doc.pres).map((layout) => ({
+        label: getSlideLayoutName(layout),
+        checked: getSlideLayoutPartName(layout) === current,
+        run: () => doc.transact(t('Slide layout'), () => { for (const slide of slides) setSlideLayout(slide, layout); }),
+      })),
+    };
   }
 
   const hasShapes = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
@@ -125,31 +140,38 @@
         ...slideItems(),
       );
       if (menu.source === 'outline') {
-        list.push(...outlineCollapseItems());
+        list.push(
+          ...outlineCollapseItems(),
+          { label: 'Move Up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
+          { label: 'Move Down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
+        );
+      } else {
+        // PowerPoint's thumbnail menu.
+        const slides = selected.map((index) => doc.slideAt(index)).filter((slide) => slide !== null);
+        const hidden = slides.length > 0 && slides.every((slide) => isSlideHidden(slide));
+        list.push(
+          { label: 'Add Section', sep: true, run: () => {
+            const start = firstSelected;
+            doc.transact(t('Add Section'), () => addSection(doc.pres, start, t(UNTITLED_SECTION)));
+          } },
+          slideLayoutItem(),
+          { label: 'Reset Slide', run: () => editor.invoke('resetSlideLayout'), disabled: !editor.canRun('resetSlideLayout') },
+          { label: 'Format Background...', sep: true, run: () => editor.showBackgroundFormat() },
+          { label: 'New Comment', sep: true, run: () => editor.runOrPrompt('addSlideComment') },
+          { label: 'Hide Slide', checked: hidden, run: () => doc.transact(t('Hide Slide'), () => { for (const slide of slides) setSlideHidden(slide, !hidden); }) },
+        );
       }
-      list.push(
-        { label: menu.source === 'outline' ? 'Move Up' : 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
-        { label: menu.source === 'outline' ? 'Move Down' : 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
-      );
     } else {
       list.push(
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
         { label: 'Select all', accel: '⌘A', run: () => editor.selectAllShapes() },
       );
     }
-    if (!hasShapes && editor.viewMode !== 'sorter' && menu.source !== 'outline') {
+    if (!hasShapes && doc.selection.kind !== 'slide' && editor.viewMode !== 'sorter' && menu.source !== 'outline') {
       // PowerPoint's menu for the slide itself.
       const slide = doc.currentSlide;
-      const current = slide ? getSlideLayoutPartName(getSlideLayout(slide)!) : '';
       list.push(
-        {
-          label: 'Layout', sep: true,
-          children: getSlideLayouts(doc.pres).map(layout => ({
-            label: getSlideLayoutName(layout),
-            checked: getSlideLayoutPartName(layout) === current,
-            run: () => { if (slide) doc.transact(t('Slide layout'), () => setSlideLayout(slide, layout)); },
-          })),
-        },
+        slideLayoutItem(),
         { label: 'Reset Slide', run: () => editor.invoke('resetSlideLayout'), disabled: !editor.canRun('resetSlideLayout') },
         {
           label: 'Grid and Guides', sep: true,
