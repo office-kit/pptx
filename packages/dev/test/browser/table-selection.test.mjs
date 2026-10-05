@@ -57,6 +57,15 @@ test(
         assert.equal(await cell(r, c).evaluate((node) => node === document.activeElement), true);
       await saved();
       const bounds = getShapeBounds(await table());
+      // A cell's context menu has no Format item, so open the pane from the
+      // slide background; it then follows the table selection.
+      const tableArea = await editor.locator('.hit').first().boundingBox();
+      await page.mouse.click(
+        tableArea.x + tableArea.width * 1.5,
+        tableArea.y + tableArea.height / 2,
+        { button: 'right' },
+      );
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.locator('.hit').first().click();
       await cell(1, 1).click();
       await cell(1, 1).press('Control+Shift+Period');
@@ -246,6 +255,14 @@ test(
       await saved();
       assert.equal((await values())[2][0], 'G');
       assert.deepEqual(getShapeBounds(await table()), bounds);
+      // The closed pane widens the canvas after reload, so measure again.
+      const reloadedArea = await editor.locator('.hit').first().boundingBox();
+      await page.mouse.click(
+        reloadedArea.x + reloadedArea.width * 1.5,
+        reloadedArea.y + reloadedArea.height / 2,
+        { button: 'right' },
+      );
+      await editor.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       await editor.locator('.hit').first().click();
       await cell(1, 1).click();
       await cell(1, 1).click({ button: 'right' });

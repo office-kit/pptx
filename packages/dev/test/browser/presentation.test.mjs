@@ -173,6 +173,8 @@ test(
       await page.frameLocator('#editor-frame').locator('.lang select').selectOption('ja');
       await presenter.getByRole('heading', { name: '発表者ビュー', exact: true }).waitFor();
       const editor = page.frameLocator('#editor-frame');
+      await editor.locator('.thumb-row').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       await editor.getByRole('button', { name: '発表者ノート', exact: true }).click();
       await editor
         .getByRole('textbox', { name: 'ノートの内容', exact: true })
@@ -250,6 +252,8 @@ test(
       await page.goto(preview.url);
       const editor = page.frameLocator('#editor-frame');
       const skip = editor.getByRole('checkbox', { name: 'Skip during presentation', exact: true });
+      await editor.locator('.thumb-row').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await skip.waitFor();
       assert.equal(await skip.isChecked(), true);
       assert.equal(await editor.locator('.thumb-row.skipped').count(), 3);

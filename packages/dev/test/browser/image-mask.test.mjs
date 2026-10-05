@@ -79,6 +79,8 @@ test(
       await dialog.waitFor({ state: 'hidden' });
       await saved();
       const originalBounds = getShapeBounds(await picture());
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Picture...', exact: true }).click();
       await editor.getByLabel('Offset X', { exact: true }).fill('0.5');
       await editor.getByLabel('Offset X', { exact: true }).press('Tab');
       await saved();
@@ -116,6 +118,8 @@ test(
       await saved();
       assert.equal(getShapePreset(await picture()), 'ellipse');
       await editor.locator('.hit').click();
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '図の書式設定...', exact: true }).click();
       await editor.getByLabel('画像の形状', { exact: true }).selectOption('rect');
       await saved();
       assert.equal(getShapePreset(await picture()), 'rect');
@@ -146,6 +150,8 @@ test(
       await page.reload();
       await saved();
       await editor.locator('.hit').click();
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '図の書式設定...', exact: true }).click();
       assert.equal(getShapeStroke(await picture()).widthEmu, 76200);
       await editor.getByLabel('画像の枠線の種類', { exact: true }).selectOption('none');
       await saved();

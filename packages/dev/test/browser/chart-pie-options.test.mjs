@@ -78,6 +78,8 @@ test(
       assert.ok(Math.abs(radii[1] / radii[0] - 0.7) < 0.001);
       await editor.locator('select').first().selectOption('en');
       ja = false;
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       assert.equal(
         await dialog.getByLabel('First slice angle (°)', { exact: true }).inputValue(),
@@ -117,6 +119,8 @@ test(
       await saved();
       assert.equal((await read()).holeSizePct, 50);
       await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       await dialog.getByLabel('Chart type', { exact: true }).selectOption('pie');
       assert.equal(await dialog.getByLabel('Doughnut hole size (%)', { exact: true }).count(), 0);

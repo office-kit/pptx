@@ -58,6 +58,8 @@ test(
       assert.equal((await read()).dispBlanksAs, 'span');
       await editor.locator('select').first().selectOption('en');
       ja = false;
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       assert.equal(await dialog.getByLabel('Blank values', { exact: true }).inputValue(), 'span');
       await dialog.getByLabel('Blank values', { exact: true }).selectOption('zero');
@@ -96,7 +98,8 @@ test(
       await page.reload();
       await saved();
       assert.equal((await read()).dispBlanksAs, 'span');
-      await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       assert.equal(await dialog.getByLabel('Blank values', { exact: true }).inputValue(), 'span');
       await dialog.getByLabel('Chart type', { exact: true }).selectOption('pie');

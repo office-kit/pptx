@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getShapeKind, isSlideHidden, setSlideHidden, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
+  import { getShapeChartSpec, getShapeKind, getShapeMedia, isSlideHidden, type SlideShapeData, setSlideHidden, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
@@ -59,6 +59,16 @@
     };
   }
 
+  // PowerPoint names the Format pane after what is selected.
+  function formatLabel(shapes: readonly SlideShapeData[]): string {
+    if (shapes.length !== 1) return 'Format Shape...';
+    const shape = shapes[0]!;
+    if (getShapeMedia(shape)?.kind === 'video') return 'Format Video...';
+    if (getShapeChartSpec(shape)) return 'Format Chart Area...';
+    if (getShapeKind(shape) === 'picture') return 'Format Picture...';
+    return 'Format Shape...';
+  }
+
   const hasShapes = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
 
   const items = $derived.by<Item[]>(() => {
@@ -87,6 +97,9 @@
           const selection = doc.selection;
           if (selection.kind === 'cell') doc.select({ kind: 'shape', slideIndex: selection.slideIndex, shapeIds: [selection.shapeId] });
         } },
+        // PowerPoint's cell menu formats the table from here too.
+        { label: 'Size and Position...', sep: true, run: () => editor.showShapeFormat('size') },
+        { label: 'Format Shape...', run: () => editor.showShapeFormat() },
       );
     } else if (hasShapes) {
       list.push(
@@ -125,10 +138,10 @@
         { label: 'Link...', sep: true, run: () => editor.runOrPrompt('setShapeHyperlink'), disabled: !editor.canRun('setShapeHyperlink') },
         { label: 'Edit Alt Text...', run: () => editor.runOrPrompt('setShapeDescription'), disabled: !editor.canRun('setShapeDescription') },
       );
-      if (shapes.length && shapes.every((shape) => ['shape', 'connector', 'group'].includes(getShapeKind(shape)))) {
+      if (shapes.length) {
         list.push(
           { label: 'Size and Position...', sep: true, run: () => editor.showShapeFormat('size') },
-          { label: 'Format Shape...', run: () => editor.showShapeFormat() },
+          { label: formatLabel(shapes), run: () => editor.showShapeFormat() },
         );
       }
       list.push({ label: 'New Comment', sep: true, run: () => editor.runOrPrompt('addSlideComment') });

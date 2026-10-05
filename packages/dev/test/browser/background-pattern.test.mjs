@@ -59,10 +59,12 @@ test(
         .click();
       await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const pane = editor.getByRole('region', { name: 'Format Background', exact: true });
-      assert.equal(
-        await editor.getByRole('region', { name: 'Slide options', exact: true }).count(),
-        0,
-      );
+      // Background leads the pane; the editor's slide options follow it (PowerPoint
+      // has no pane for them, see POWERPOINT_PARITY.md).
+      const sections = await editor
+        .locator('#format-panel section[aria-label]')
+        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
+      assert.equal(sections[0], 'Format Background');
       await pane.locator('summary').click();
       assert.equal(
         await pane.getByRole('radio', { name: 'Pattern fill', exact: true }).isVisible(),
@@ -93,7 +95,7 @@ test(
       assert.ok(
         Math.abs(footerBefore.y + footerBefore.height - paneBounds.y - paneBounds.height) < 2,
       );
-      const settings = pane.locator('details');
+      const settings = pane.locator('.settings');
       assert.equal(await settings.evaluate((el) => el.scrollHeight > el.clientHeight), true);
       await settings.hover();
       await page.mouse.wheel(0, 1000);

@@ -9,6 +9,11 @@
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import type { Snippet } from 'svelte';
+
+  // The editor's slide options, scrolled with the settings above the pinned
+  // Apply to All / Reset row (PowerPoint's Format Background has none).
+  let { extra }: { extra?: Snippet } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   const slide = $derived.by(() => { doc.version; return doc.currentSlide; });
@@ -106,6 +111,7 @@
 
 {#if slide}
   <section aria-label={t('Format Background')}>
+    <div class="settings">
     <details open>
       <summary>{t('Fill')}</summary>
       <div class="fill-controls">
@@ -139,6 +145,8 @@
         {#if !imageBackground}<button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Choose background image')}</button>{/if}
       </div>
     </details>
+    {@render extra?.()}
+    </div>
     <div class="actions">
       <button class="ok-btn" onclick={() => editor.invoke('applySlideBackgroundToAll')}>{t('Apply to All')}</button>
       <button class="ok-btn" disabled={!canReset} onclick={() => apply('Reset background', target => clearSlideBackground(target))}>{t('Reset background')}</button>
@@ -148,7 +156,8 @@
 {/if}
 <style>
   section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  details { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
+  .settings { flex: 1; min-height: 0; overflow-y: auto; }
+  details { padding: 12px; }
   .transparency { display: grid; grid-template-columns: minmax(0, 1fr) 55px auto; gap: 6px; align-items: center; }
   .transparency input { min-width: 0; width: 100%; }
   .background-types { display: grid; gap: 6px; }

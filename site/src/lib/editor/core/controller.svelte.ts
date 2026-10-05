@@ -147,7 +147,7 @@ export class EditorController {
   ribbonVisible = $state(true);
   thumbnailsVisible = $state(true);
   selectionPaneVisible = $state(false);
-  propertiesPaneVisible = $state(true);
+  propertiesPaneVisible = $state(false);
   propertiesPaneMode = $state<'selection' | 'background'>('selection');
   alignmentReference = $state<'selection' | 'slide'>('selection');
   rotationFocusRequested = $state(false);

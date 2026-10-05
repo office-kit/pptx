@@ -181,7 +181,11 @@ test(
         return isShapeAspectRatioLocked(getSlideShapes(getSlides(savedDeck)[0])[0]);
       };
       const select = async () => {
-        await editor.locator('.hit').first().click();
+        await editor
+          .locator('.hit')
+          .first()
+          .click({ button: 'right', position: { x: 2, y: 2 } });
+        await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
         await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       };
       const center = async (locator) => {

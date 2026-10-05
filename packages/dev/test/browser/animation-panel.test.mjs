@@ -73,7 +73,13 @@ test(
         editor.getByRole('region', { name: label('Animations', 'アニメーション') });
       const add = () =>
         pane().getByRole('button', { name: label('Add animation', 'アニメーションを追加') });
+      /** Opens the Format pane the way PowerPoint does, from the Animations tab. */
+      const openPane = async () => {
+        await editor.getByRole('tab', { name: 'Animations', exact: true }).click();
+        await editor.getByRole('button', { name: 'Animation Pane', exact: true }).click();
+      };
       await saved();
+      await openPane();
       assert.deepEqual(await stored(), []);
 
       // --- Adding, by name ------------------------------------------------
@@ -161,6 +167,7 @@ test(
       await page.reload();
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
+      await openPane();
       assert.equal((await stored()).length, 4);
 
       // --- Removing --------------------------------------------------------
@@ -375,7 +382,13 @@ test(
           )[index],
         );
       const pane = () => editor.getByRole('region', { name: 'Animations' });
+      /** Opens the Format pane the way PowerPoint does, from the Animations tab. */
+      const openPane = async () => {
+        await editor.getByRole('tab', { name: 'Animations', exact: true }).click();
+        await editor.getByRole('button', { name: 'Animation Pane', exact: true }).click();
+      };
       await saved();
+      await openPane();
 
       // --- What it cannot change, it keeps and explains --------------------
       const first = await stored(0);
@@ -522,7 +535,13 @@ test(
         }
         assert.deepEqual(last, expected);
       };
+      /** Opens the Format pane the way PowerPoint does, from the Animations tab. */
+      const openPane = async () => {
+        await editor.getByRole('tab', { name: 'Animations', exact: true }).click();
+        await editor.getByRole('button', { name: 'Animation Pane', exact: true }).click();
+      };
       await saved();
+      await openPane();
 
       // --- Adding a fly ----------------------------------------------------
       // The edge is only offered once the effect that uses it is picked.

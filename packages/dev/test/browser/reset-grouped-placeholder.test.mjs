@@ -144,6 +144,8 @@ test('the ribbon resets a grouped placeholder without moving it', { timeout: 120
 
     // --- Text formatting reaches inside the group --------------------------
     await editor.locator('.thumb-row').nth(0).click();
+    await editor.locator('.thumb-row').nth(0).click({ button: 'right' });
+    await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
     await reset('Reset placeholder text formatting').click();
     const afterText = await settles(
       (now) => now[0].every((shape) => shape.bold !== true),

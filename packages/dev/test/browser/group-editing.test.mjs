@@ -126,6 +126,8 @@ test(
       );
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
+      await editor.locator('.hit.selected').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties' }).click();
       await editor.getByRole('button', { name: 'Align left', exact: true }).click();
       await saved();

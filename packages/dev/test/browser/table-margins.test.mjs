@@ -54,6 +54,9 @@ test(
       await saved();
       const bounds = getShapeBounds(await table());
       await editor.locator('.hit').first().click();
+      // Right-clicking a table targets a cell, so open the table's menu from the keyboard.
+      await editor.locator('.hit').first().press('Shift+F10');
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       const cell = (r, c) =>
         editor.getByRole('button', { name: `${ja ? 'セル' : 'Cell'} ${r}, ${c}`, exact: true });
       const margin = (label) => editor.getByLabel(label, { exact: true });

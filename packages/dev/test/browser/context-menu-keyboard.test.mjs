@@ -55,6 +55,8 @@ test(
         assert.equal(await cell(r, c).evaluate((node) => node === document.activeElement), true);
       await saved();
       await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().press('Shift+F10');
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await cell(1, 1).click();
       const menuFocus = async (label) =>
         assert.equal(
@@ -66,7 +68,7 @@ test(
       await cell(1, 1).press('Shift+F10');
       await menuFocus('Cut');
       await page.keyboard.press('ArrowUp');
-      await menuFocus('Select table');
+      await menuFocus('Format Shape...');
       await page.keyboard.press('Home');
       await menuFocus('Cut');
       await page.keyboard.press('ArrowDown');
@@ -85,9 +87,11 @@ test(
       await cell(1, 1).click();
       await cell(1, 1).press('Shift+F10');
       await page.keyboard.press('End');
-      await menuFocus('Select table');
-      await page.keyboard.press('ArrowUp');
-      await menuFocus('Select all cells');
+      await menuFocus('Format Shape...');
+      for (const label of ['Size and Position...', 'Select table', 'Select all cells']) {
+        await page.keyboard.press('ArrowUp');
+        await menuFocus(label);
+      }
       await page.keyboard.press('Enter');
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 9);
       await cell(1, 1).press('Shift+F10');

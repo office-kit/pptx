@@ -40,7 +40,11 @@ test(
         return getShapeGradientFill(getSlideShapes(getSlides(deck)[0])[index]);
       };
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       const track = editor.getByRole('group', { name: 'Gradient stops', exact: true });
       const paint = () => track.evaluate((element) => getComputedStyle(element).backgroundImage);
       const original = await paint();
@@ -64,7 +68,11 @@ test(
       await page.reload();
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       assert.equal(await paint(), translucent);
       await transparency.fill('100');
       await transparency.press('Tab');

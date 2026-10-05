@@ -651,6 +651,15 @@ test(
         return dialog;
       };
       await saved();
+      // A cell's context menu has no Format item, so open the pane from the
+      // slide background below the table; it then follows the table selection.
+      const tableArea = await editor.locator('.hit').first().boundingBox();
+      await page.mouse.click(
+        tableArea.x + tableArea.width / 2,
+        tableArea.y + tableArea.height * 1.75,
+        { button: 'right' },
+      );
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.locator('.hit').first().click();
       // The table panel starts with its first cell even before explicit cell selection.
       let dialog = await open();
@@ -692,6 +701,14 @@ test(
         (await read()).map((run) => run.tooltip ?? null),
         ['共通の資料', '共通の資料', null],
       );
+      // The closed pane widens the canvas after reload, so measure again.
+      const reloadedArea = await editor.locator('.hit').first().boundingBox();
+      await page.mouse.click(
+        reloadedArea.x + reloadedArea.width / 2,
+        reloadedArea.y + reloadedArea.height * 1.75,
+        { button: 'right' },
+      );
+      await editor.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       await editor.locator('.hit').first().click();
       await cell(1).click();
       await cell(2).click({ modifiers: ['Shift'] });

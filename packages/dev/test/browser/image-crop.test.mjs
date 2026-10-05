@@ -102,6 +102,8 @@ test(
       assert.equal(getShapeImageCrop(await picture()), null);
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.equal(getShapeImageCrop(await picture()), null);
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Picture...', exact: true }).click();
       await editor.getByRole('button', { name: 'Crop image', exact: true }).click();
       await dialog
         .getByRole('button', { name: 'Crop top left', exact: true })
@@ -170,6 +172,8 @@ test(
       assert.ok(Math.abs((await rect()).left - 11) < 0.01);
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' });
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '図の書式設定...', exact: true }).click();
       await editor.getByRole('button', { name: '画像をトリミング', exact: true }).click();
       const ratioControl = dialog.getByLabel('トリミングの縦横比', { exact: true });
       for (const [preset, ratio] of [

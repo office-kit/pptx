@@ -42,7 +42,11 @@ test(
         return { fill: getShapeFill(shape), stroke: getShapeStroke(shape) };
       };
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       const color = editor.getByRole('button', { name: 'Fill', exact: true });
       await color.click();
       const menu = editor.getByRole('menu', { name: 'Fill', exact: true });
@@ -65,7 +69,11 @@ test(
       await page.reload();
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await color.click();
       assert.equal(
         await menu

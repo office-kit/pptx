@@ -104,6 +104,11 @@ test(
       await saved();
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
+      // The cell menu has no Format item, so open the pane on the slide (before
+      // measuring the table, as the pane narrows the canvas); it then follows
+      // the selection to the cell.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 3, y: 3 } });
+      await menu.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       const tableBox = await hits.nth(2).boundingBox();
       const cellContext = async (row, col) => {
         await page.mouse.click(

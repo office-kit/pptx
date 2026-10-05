@@ -80,6 +80,8 @@ test(
       await dialog.getByRole('button', { name: 'Insert image', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
       await saved();
+      await editor.locator('.hit').click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Picture...', exact: true }).click();
       const reset = () =>
         editor.getByRole('button', {
           name: ja ? '画像の調整をリセット' : 'Reset image adjustments',
@@ -157,7 +159,8 @@ test(
       await saved();
       await page.reload();
       await saved();
-      await editor.locator('.hit').click();
+      await editor.locator('.hit').click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: '図の書式設定...', exact: true }).click();
       assert.equal(await reset().isDisabled(), true);
       const after = await picture();
       assert.deepEqual(adjustments(after), [1, 0, 0]);

@@ -72,6 +72,11 @@ test(
         .locator('.hit')
         .nth(1)
         .click({ modifiers: ['Shift'] });
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('radio', { name: 'Slide background fill', exact: true }).check();
       await saved();
       assert.deepEqual(await read(), [{ kind: 'background' }, { kind: 'background' }]);
@@ -81,6 +86,11 @@ test(
       assert.deepEqual(await read(), [{ kind: 'background' }, { kind: 'background' }]);
       await page.reload();
       await saved();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.locator('.hit').first().click();
       assert.equal(
         await editor.getByRole('radio', { name: 'Slide background fill', exact: true }).isChecked(),

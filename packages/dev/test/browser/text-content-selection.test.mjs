@@ -40,7 +40,15 @@ test(
         return getSlideShapes(getSlides(pres)[0]).slice(0, 2).map(getShapeText);
       };
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ position: { x: 2, y: 2 } });
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       assert.equal(
         await panel.getByRole('textbox', { name: 'Text', exact: true }).inputValue(),

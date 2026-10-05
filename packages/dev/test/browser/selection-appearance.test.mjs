@@ -39,6 +39,15 @@ import {
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
+/**
+ * The Format pane starts closed, as in PowerPoint; once opened from the slide it
+ * follows the selection to the shapes the test picks.
+ */
+const openFormatPane = async (editor, item) => {
+  await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+  await editor.getByRole('menuitem', { name: item, exact: true }).click();
+};
+
 test(
   'group child paint controls display saved values and track edits and undo',
   { timeout: 60000 },
@@ -93,6 +102,7 @@ test(
         return getGroupChildren(getSlideShapes(getSlides(deck)[0])[0]).map(getShapeFillColor);
       };
       await saved();
+      await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').dblclick();
       await editor.locator('.hit').first().click();
       assert.equal(
@@ -203,6 +213,7 @@ test(
         return getSlideShapes(getSlides(deck)[0]).map(reader);
       };
       await saved();
+      await openFormatPane(editor, 'Format Background...');
       const initialFlips = await colors(getShapeFlip);
       await editor.locator('.hit').nth(0).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
@@ -239,6 +250,7 @@ test(
       ]);
       await page.reload();
       await saved();
+      await openFormatPane(editor, '背景の書式設定...');
       await editor.locator('.hit').nth(0).click();
       await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
       assert.equal(
@@ -333,6 +345,7 @@ test(
       await changeColor(1, '#abcdef');
       await page.reload();
       await saved();
+      await openFormatPane(editor, '背景の書式設定...');
       await editor.locator('.hit').nth(0).click();
       assert.equal(
         await editor.locator('.bespoke input[type=color]').nth(0).inputValue(),
@@ -390,6 +403,7 @@ test(
       }
       await page.reload();
       await saved();
+      await openFormatPane(editor, '背景の書式設定...');
       await editor.locator('.hit').nth(0).click();
       await editor
         .locator('.hit')
@@ -521,6 +535,7 @@ test(
         await saved();
       };
       await saved();
+      await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
       await editor
         .locator('.hit')
@@ -578,6 +593,7 @@ test(
       );
       await page.reload();
       await saved();
+      await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
       await editor.getByRole('button', { name: 'End Arrow size', exact: true }).click();
       assert.equal(
@@ -648,6 +664,7 @@ test(
       const fill = editor.getByRole('spinbutton', { name: 'Fill transparency', exact: true });
       const line = editor.getByRole('spinbutton', { name: 'Line transparency', exact: true });
       await saved();
+      await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
       await editor
         .locator('.hit')
@@ -688,6 +705,7 @@ test(
       assert.equal(await line.inputValue(), '55.5');
       await page.reload();
       await saved();
+      await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
       assert.equal(await fill.inputValue(), '25');
       assert.equal(await line.inputValue(), '55.5');

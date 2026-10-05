@@ -54,6 +54,10 @@ test(
         editor.getByRole('button', { name: `${ja ? 'セル' : 'Cell'} ${r}, ${c}`, exact: true });
       await saved();
       const bounds = getShapeBounds(await table());
+      // A right-clicked table targets a cell, whose menu has no Format item, so open
+      // the pane on the slide; it then follows the selection to the table.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.locator('.hit').first().click();
       const clipboard = async (type, text) =>
         cell(1, 1).evaluate(

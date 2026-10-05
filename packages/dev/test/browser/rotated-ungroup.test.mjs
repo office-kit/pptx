@@ -52,6 +52,8 @@ test(
       assert.ok(firstBox);
       await page.mouse.click(firstBox.x + 2, firstBox.y + 2);
       await page.keyboard.press('Control+a');
+      await page.mouse.click(firstBox.x + 2, firstBox.y + 2, { button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties' }).click();
       await editor
         .getByRole('region', { name: 'Arrange', exact: true })

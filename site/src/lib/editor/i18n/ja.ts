@@ -1672,4 +1672,9 @@ export const ja: Record<string, string> = {
   'Edit Alt Text...': '代替テキストを編集...',
   'Duplicate Slide': 'スライドを複製',
   'Delete Slide': 'スライドを削除',
+  'Format Picture...': '図の書式設定...',
+  'Format Chart Area...': 'グラフ エリアの書式設定...',
+  'Format Video...': 'ビデオの書式設定...',
+  'Format Picture': '図の書式設定',
+  'Format Chart Area': 'グラフ エリアの書式設定',
 };

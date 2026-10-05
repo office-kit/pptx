@@ -67,7 +67,15 @@ test(
         return { bounds: getShapeBounds(shape), rotation: getShapeRotation(shape) };
       };
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ position: { x: 2, y: 2 } });
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const original = await read();
       const field = (name) =>
@@ -238,7 +246,15 @@ test(
       const original = await read();
       assert.equal(original.raw, null);
       assert.ok(original.resolved);
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ position: { x: 2, y: 2 } });
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const field = (name) =>
         editor
@@ -313,7 +329,10 @@ test(
       };
       await saved();
       const before = await read();
-      await editor.locator('.hit').nth(0).click();
+      // The first shape is rotated, so its bounding-box corner lies outside it, and a
+      // left click inside enters text editing; right-clicking selects it instead.
+      await editor.locator('.hit').nth(0).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const rotation = () =>
         editor

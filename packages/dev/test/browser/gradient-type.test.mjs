@@ -40,7 +40,15 @@ test(
         return getShapeGradientFill(getSlideShapes(getSlides(deck)[0])[index]);
       };
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ position: { x: 2, y: 2 } });
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       const initialGradient = await gradient();
       const type = editor.getByRole('combobox', { name: 'Gradient type', exact: true });
       const zero = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -83,7 +91,15 @@ test(
       await page.reload();
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ position: { x: 2, y: 2 } });
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       assert.deepEqual(await gradient(), last);
       assert.equal(
         await editor.getByRole('button', { name: 'Gradient direction', exact: true }).isDisabled(),
