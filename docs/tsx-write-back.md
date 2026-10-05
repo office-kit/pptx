@@ -243,7 +243,8 @@ The edit applies to the one element that made the shape; nothing else may move.
 
 - `width={W}` where `W` is shared: only this element's attribute changes
   (`width={3.2}`). `W` and its other users are untouched.
-- A numeric geometry expression keeps its relation and gains a delta:
+- A numeric geometry expression keeps its relation and gains a delta (decided:
+  delta is the default, not a literal):
   `x={col * 2.5}` → `x={col * 2.5 + 0.3}`. A later edit folds into the same
   trailing literal instead of stacking deltas. Colors, text and other non-numeric
   props are replaced by the literal.
@@ -293,9 +294,15 @@ same discriminated unions the core does.
   "editor can do it, TSX cannot say it" stays empty by construction.
 - The deck diff's `unsupported` kind is then a bug signal, not a hand-off: the
   save fails loudly in development with the property name.
-- Until a prop exists, the capability is not offered by the editor in source
-  mode (the ribbon shows it disabled with "Not yet available in TSX"), rather than
-  producing an edit that cannot be written.
+- The gate is complete before write-back is switched on (see Phases), so there
+  is never a period in which the editor can make a change TSX cannot state, and
+  no "disabled until supported" or "kept in the sidecar" interim is needed. Today
+  that is about 120 mutating core APIs the editor calls (shape paint and effects,
+  text and paragraph formats, tables, images, backgrounds, transitions,
+  animations, comments, show settings, slide structure).
+- The gate checks resulting state, not commands: the deck diff reads every
+  property the editor can change through public getters, and each property must
+  round-trip through a DSL prop (build → diff is empty).
 
 #### 9.4 Parts of an imported deck the DSL does not model
 
@@ -307,6 +314,10 @@ in the source package by design: it is preserved, not expressed.
 
 ## Phases
 
+Write-back stays behind a development flag until phase 4 completes; the editor
+keeps today's sidecar behaviour until then. When the flag is removed, every
+change the editor can make already has a TSX form.
+
 1. **Plumbing and geometry**: `shapeSources` and key paths in `BuildResult`,
    `deck-diff` for bounds/rotation, `planPropEdit` (literal replace, attribute
    insert, numeric delta), `source-sync` with verify and rollback.
@@ -314,8 +325,8 @@ in the source package by design: it is preserved, not expressed.
    deleted and reordered slides.
 3. **Instances** (9.2): `key` recording, key insertion, `target={{ key }}`
    overrides.
-4. **Text, fill and stroke**, then the coverage gate (9.3) and props for the
-   remaining editor capabilities, category by category.
+4. **Full coverage** (9.3): DSL props for every property the editor changes,
+   category by category, with the round-trip gate; then remove the flag.
 5. **`target` form and `office-pptx import`** (section 8), with round-trip tests
    on the sample decks in `samples/`.
 6. **Claude as reviewer**: selection context in the prompt hook and a "tidy
@@ -323,11 +334,3 @@ in the source package by design: it is preserved, not expressed.
 
 Layouts and masters follow the same pattern with a `<Layout target>` element,
 which the Design tab's layout commands need before they can be written back.
-
-## Open questions
-
-- Numeric delta (`x={col * 2.5 + 0.3}`) keeps the relation but is less readable
-  than a literal; is that the right default for geometry?
-- While the coverage gate (9.3) is being filled in, should capabilities without a
-  DSL prop be disabled in the editor, or allowed and saved to the sidecar with a
-  warning?
