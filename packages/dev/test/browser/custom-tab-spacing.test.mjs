@@ -70,7 +70,7 @@ test('custom tab alignment uses painted browser font widths', { timeout: 90000 }
       const textEditor = editor.getByRole('textbox', { name: 'Edit text', exact: true });
       if (!(await textEditor.isVisible())) await editor.locator('.hit').first().click();
       await textEditor.click();
-      const input = editor.locator('[contenteditable="true"]');
+      const input = editor.locator('.canvas-shell [contenteditable="true"]');
       const editing = input.locator('[data-text-paragraph]').first();
       const measureEditing = () =>
         editing.evaluate((element) => {

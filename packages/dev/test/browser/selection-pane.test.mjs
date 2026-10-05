@@ -169,7 +169,7 @@ test(
         .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
         .click();
       await hit.dblclick();
-      await editor.locator('[contenteditable="true"]').waitFor();
+      await editor.locator('.canvas-shell [contenteditable="true"]').waitFor();
       await page.keyboard.press('Escape');
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
@@ -346,7 +346,7 @@ test(
       await pane.getByRole('textbox', { name: 'Object name' }).fill('Cancelled');
       await pane.getByRole('textbox', { name: 'Object name' }).press('Escape');
       await pane.getByRole('button', { name: 'Third', exact: true }).press('Space');
-      assert.equal(await editor.locator('[contenteditable="true"]').count(), 0);
+      assert.equal(await editor.locator('.canvas-shell [contenteditable="true"]').count(), 0);
       await pane.getByRole('button', { name: 'Third', exact: true }).dblclick();
       await pane.getByRole('textbox', { name: 'Object name' }).fill('Renamed');
       await pane.getByRole('textbox', { name: 'Object name' }).press('Enter');

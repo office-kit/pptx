@@ -150,6 +150,10 @@
     <rect x="3" y="5" width="18" height="14" rx="1" /><path d="M3 17l6-6 4 4 3-3 5 5" /><circle cx="16" cy="9" r="1.5" />
   {:else if name === 'shapes'}
     <rect x="3" y="3" width="11" height="11" /><circle cx="15" cy="15" r="6" />
+  {:else if name === 'calendar'}
+    <rect x="3" y="5" width="18" height="16" rx="1.5" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" /><circle cx="15.5" cy="15.5" r="2.5" />
+  {:else if name === 'slide-number'}
+    <rect x="3" y="5" width="18" height="14" rx="1" /><path d="M10 9h4M12 9v6M10 15h4" /><path d="M9 11l1-2" />
   {:else}
     <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
   {/if}

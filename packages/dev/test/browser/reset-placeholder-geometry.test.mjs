@@ -101,10 +101,9 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       await editor
-        .getByRole('menu', { name: 'スライド', exact: true })
-        .getByRole('menuitem', { name: 'プレースホルダーの配置を戻す', exact: true })
+        .getByRole('region', { name: 'スライドの設定', exact: true })
+        .getByRole('button', { name: 'プレースホルダーの配置を戻す', exact: true })
         .click();
       await saved();
       assert.deepEqual((await state()).bounds, expected);
@@ -190,13 +189,11 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       const restore = editor
-        .getByRole('menu', { name: 'スライド', exact: true })
-        .getByRole('menuitem', { name: '削除したプレースホルダーを復元', exact: true });
+        .getByRole('region', { name: 'スライドの設定', exact: true })
+        .getByRole('button', { name: '削除したプレースホルダーを復元', exact: true });
       await restore.click();
       await saved();
-      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       await restore.click();
       await saved();
       await page.screenshot({ path: '/tmp/pptx-restore-slots-ja.png', fullPage: true });
@@ -291,10 +288,9 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
       await editor
-        .getByRole('menu', { name: 'スライド', exact: true })
-        .getByRole('menuitem', { name: 'プレースホルダーの文字書式を戻す', exact: true })
+        .getByRole('region', { name: 'スライドの設定', exact: true })
+        .getByRole('button', { name: 'プレースホルダーの文字書式を戻す', exact: true })
         .click();
       await saved();
       assert.deepEqual((await state()).formatted, [false, false, false]);
@@ -406,11 +402,8 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      await editor.getByRole('button', { name: 'スライド', exact: true }).click();
-      await editor
-        .getByRole('menu', { name: 'スライド', exact: true })
-        .getByRole('menuitem', { name: 'レイアウトをリセット', exact: true })
-        .click();
+      // Home ▸ Reset is PowerPoint's one-click layout reset.
+      await editor.getByRole('button', { name: 'リセット', exact: true }).click();
       await saved();
       assert.deepEqual((await state()).bounds, expected);
       await page.screenshot({ path: '/tmp/pptx-reset-all-ja.png', fullPage: true });

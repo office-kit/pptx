@@ -209,9 +209,13 @@ test(
       const viewTab = editor.getByRole('tab', { name: 'View', exact: true });
       await viewTab.click();
       const viewPanel = editor.getByRole('tabpanel', { name: 'View', exact: true });
-      await viewPanel.getByRole('checkbox', { name: 'Thumbnails', exact: true }).uncheck();
+      const viewMenu = editor.getByRole('button', { name: 'View', exact: true });
+      const thumbnails = editor.getByRole('menuitemcheckbox', { name: 'Thumbnails', exact: true });
+      await viewMenu.click();
+      await thumbnails.click();
       await editor.locator('.nav').waitFor({ state: 'detached' });
-      await viewPanel.getByRole('checkbox', { name: 'Thumbnails', exact: true }).check();
+      await viewMenu.click();
+      await thumbnails.click();
       await editor.locator('.nav').waitFor();
       assert.equal(
         await editor.locator('.thumbnail-pane').evaluate((node) => node.clientWidth),
@@ -219,7 +223,9 @@ test(
       );
       const gridlines = viewPanel.getByRole('checkbox', { name: 'Gridlines', exact: true });
       await gridlines.check();
-      await viewPanel.getByRole('button', { name: 'Grid Options...', exact: true }).click();
+      await viewMenu.click();
+      await editor.getByRole('menuitem', { name: 'Grid and Guides', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'Grid Options...', exact: true }).click();
       const gridDialog = editor.getByRole('dialog', { name: 'Grid and Guides', exact: true });
       assert.equal(
         await gridDialog
@@ -243,11 +249,8 @@ test(
       assert.equal(await editor.locator('.drawing-guide').count(), 2);
       await viewPanel.getByRole('button', { name: 'Slide Sorter', exact: true }).click();
       await editor.locator('.nav.sorter').waitFor();
-      assert.equal(
-        await viewPanel.getByRole('checkbox', { name: 'Thumbnails', exact: true }).isDisabled(),
-        true,
-      );
-      await editor.getByRole('button', { name: 'View', exact: true }).click();
+      await viewMenu.click();
+      assert.equal(await thumbnails.isDisabled(), true);
       const gridMenu = editor.getByRole('menuitem', { name: 'Grid and Guides', exact: true });
       await gridMenu.focus();
       await gridMenu.press('ArrowRight');
@@ -255,10 +258,6 @@ test(
       assert.equal(await gridSubmenu.locator('button').count(), 5);
       assert.equal(await gridSubmenu.locator('button:disabled').count(), 5);
       await gridMenu.press('Escape');
-      assert.equal(
-        await viewPanel.getByRole('button', { name: 'Grid Options...', exact: true }).isDisabled(),
-        true,
-      );
       assert.equal(await gridlines.isDisabled(), true);
       assert.equal(
         await viewPanel.getByRole('checkbox', { name: 'Guides', exact: true }).isDisabled(),

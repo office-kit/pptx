@@ -55,7 +55,9 @@ test('default tab spacing reaches preview and direct editing', { timeout: 90000 
     await editor.getByText('Saved to this project', { exact: true }).waitFor();
     assert.ok(Math.abs((await offset(painted)) - 48) < 1);
     await editor.getByRole('textbox', { name: 'Edit text', exact: true }).click();
-    const editing = editor.locator('[contenteditable="true"] [data-text-paragraph]').first();
+    const editing = editor
+      .locator('.canvas-shell [contenteditable="true"] [data-text-paragraph]')
+      .first();
     await editing.waitFor();
     const result = await editing.evaluate((element) => ({
       tab: getComputedStyle(element).tabSize,

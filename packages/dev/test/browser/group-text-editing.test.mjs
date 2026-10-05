@@ -79,7 +79,9 @@ for (const nested of [false, true]) {
           );
           preview = await startPreview(file);
           browser = await chromium.launch({ headless: true });
-          page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+          // Tall enough that the rotated nested group stays clear of the group bar
+          // above the canvas while the notes pane is open.
+          page = await browser.newPage({ viewport: { width: 1500, height: 1200 } });
           const errors = [];
           page.on('pageerror', (e) => errors.push(e.message));
           await page.goto(preview.url);

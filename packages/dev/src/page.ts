@@ -473,7 +473,7 @@ function update(updated){
   selectSlide(index,focusedThumbnail,false,'keep');
   if(presenting&&(previous.showProperties?.mode?.kind!==state.showProperties?.mode?.kind||previous.showProperties?.mode?.restart!==state.showProperties?.mode?.restart))scheduleKioskRestart();
 }
-function setPresenting(value){
+function setPresenting(value,from){
   if(!value)presentationFullscreen=false;
   fullscreenRequest=null;
   clearKioskRestart();
@@ -482,7 +482,7 @@ function setPresenting(value){
   cancelTransition();
   rebuildShowOrder();
   presenting=value&&firstShowSlide()>=0;document.body.classList.toggle('presenting',presenting);
-  if(presenting){const first=firstShowSlide();if(first>=0){index=first;showCursor=showOrder.findIndex(slide=>slide===first);}}
+  if(presenting){const first=from??firstShowSlide();if(first>=0){index=first;showCursor=showOrder.findIndex(slide=>slide===first);}}
   selectSlide(index);
   if(presenting)scheduleKioskRestart();
   if(presenting)stage.focus();else{
@@ -544,13 +544,14 @@ async function exitPresentation(){
   setPresenting(false);
   if(document.fullscreenElement)await document.exitFullscreen();
 }
-byId('present').onclick=async()=>{
-  setPresenting(true);
+async function startPresentation(from){
+  setPresenting(true,from);
   if(state.showProperties?.mode?.kind==='browse')return;
   const request=fullscreenRequest={};
   try{await document.documentElement.requestFullscreen();}
   catch{if(fullscreenRequest===request){fullscreenRequest=null;byId('exit-present').textContent=pt('Exit view · Esc');}}
-};
+}
+byId('present').onclick=()=>startPresentation();
 function updatePresenter(){
  if(!presenterWindow||presenterWindow.closed)return;
  // The presenter runs the same player over its own copy of the slide, from the
@@ -722,6 +723,16 @@ function applyEditorFocus(){
  byId('chat-context').dataset.focus=JSON.stringify({slide:editorFocus.count?index:null,revision:editorFocus.dirty?-1:editorFocus.revision});
  window.dispatchEvent(new Event('agent-focus'));
 }
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-command')return;
+ // The editor's Slide Show tab; the click's user activation reaches this page,
+ // so fullscreen and the presenter popup are still allowed.
+ if(byId('present').disabled)return;
+ const slide=event.data.slide;
+ if(event.data.action==='start')void startPresentation();
+ else if(event.data.action==='current'&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide);
+ else if(event.data.action==='presenter')byId('presenter').click();
+});
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-focus')return;
  editorFocus=event.data;

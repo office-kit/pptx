@@ -218,7 +218,7 @@
 </script>
 
 {#if slide}
-  <section aria-label={t('Animations')}>
+  <section aria-label={t('Animations')} data-animation-pane tabindex="-1">
     <strong>{t('Animations')}</strong>
 
     {#if steps.length === 0}
