@@ -69,6 +69,19 @@ test(
       const download = page.waitForEvent('download');
       await menu.getByRole('menuitem', { name: 'Send a Copy (PowerPoint Presentation)' }).click();
       assert.match((await download).suggestedFilename(), /\.pptx$/);
+
+      // The window chrome follows the system's dark appearance, as PowerPoint does.
+      const dark = await browser.newPage({
+        viewport: { width: 1200, height: 800 },
+        colorScheme: 'dark',
+      });
+      await dark.goto(preview.url + '/editor');
+      await dark.getByText('Saved to this project', { exact: true }).waitFor();
+      const ribbon = await dark
+        .locator('.ribbon')
+        .first()
+        .evaluate((node) => getComputedStyle(node).backgroundColor);
+      assert.equal(ribbon, 'rgb(42, 42, 42)');
     } finally {
       await browser?.close();
       await preview?.close();

@@ -273,4 +273,11 @@
   .conflict { background:#fff0cd; color:#583b00; }
   button, a { font:inherit; color:inherit; cursor:pointer; }
   .loading { position:fixed; inset:110px 0 0; z-index:51; background:#ffffff90; }
+  @media (prefers-color-scheme: dark) {
+    .recovery { background:#2b2b2b; color:#f0f0f0; }
+    .recovery-entry { border-top-color:#3d3d3d; }
+    .save-status { color:#cfe8d6; background:#23382b; }
+    .conflict { background:#4a3a12; color:#ffe2a3; }
+    .loading { background:#1f1f1f90; }
+  }
 </style>
