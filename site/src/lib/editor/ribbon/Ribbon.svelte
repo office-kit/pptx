@@ -116,10 +116,10 @@
             {@const cap = capabilityById.get(item.id)}
             <button
               class="cmd"
-              disabled={!editor.canRun(item.id)}
-              title={tip(item.id)}
+              disabled={item.unavailable ? true : item.enabled ? !item.enabled(editor) : !editor.canRun(item.id)}
+              title={item.unavailable ? t(item.unavailable) : cap ? tip(item.id) : item.label ? t(item.label) : item.id}
               aria-label={item.label ? t(item.label) : cap ? capLabel(cap) : item.id}
-              onclick={() => (item.run ? item.run(editor) : editor.runOrPrompt(item.id, item.preset ?? {}))}
+              onclick={(event) => (item.run ? item.run(editor, event.currentTarget) : editor.runOrPrompt(item.id, item.preset ?? {}))}
             >
               <span class="icon"><Icon name={item.icon ?? 'dot'} size={32} /></span>
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>

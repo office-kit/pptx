@@ -130,6 +130,8 @@ export class EditorController {
     changeCase?: (value: TextCase) => void;
     fontSize?: (direction: 1 | -1) => void;
     toggle: (property: TextFormatToggle) => void;
+    /** Replaces the text selection (or inserts at the caret), as typing does. */
+    insertText?: (text: string) => void;
   } | null>(null);
   /** Selection-aware formatting target used by the speaker-notes editor. */
   notesInlineTextFormat = $state<{
@@ -162,6 +164,12 @@ export class EditorController {
   /** Open the Custom Shows manager. The actual sequence edits still flow
    * through EditorDocument.transact so save/undo treats each gesture as one
    * PowerPoint-style document edit. */
+  /** Where Insert ▸ Symbol's picker opens (the button's rectangle), or null when closed. */
+  symbolPicker = $state<DOMRect | null>(null);
+  openSymbolPicker(anchor: HTMLElement): void {
+    this.symbolPicker = this.symbolPicker ? null : anchor.getBoundingClientRect();
+  }
+
   openCustomShows(): void {
     this.activeDialog = 'customShows';
   }

@@ -31,6 +31,8 @@
   import TransitionDialog from './ui/TransitionDialog.svelte';
   import ShowPropertiesDialog from './ui/ShowPropertiesDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
+  import HeaderFooterDialog from './ui/HeaderFooterDialog.svelte';
+  import SymbolPicker from './ui/SymbolPicker.svelte';
   import TableDialog from './ui/TableDialog.svelte';
   import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
   import FontDialog from './ui/FontDialog.svelte';
@@ -232,6 +234,8 @@
       <ShowPropertiesDialog />
     {:else if editor.activeDialog === 'setSlideSize'}
       <SlideSizeDialog />
+    {:else if editor.activeDialog === 'headerFooter'}
+      <HeaderFooterDialog />
     {:else if editor.activeDialog === 'addSlideTable'}
       <TableDialog />
     {:else if editor.activeDialog === 'customShows'}
@@ -245,6 +249,7 @@
   {#if editor.contextMenu}
     <ContextMenu />
   {/if}
+  <SymbolPicker />
   <ToastStack />
 </div>
 

@@ -8,6 +8,8 @@
 import { inches } from '@office-kit/pptx';
 import { capabilityById } from '../manifest/index.ts';
 import type { EditorController } from '../core/controller.svelte.ts';
+import { insertMedia, insertScreenshot, insertWordArt } from '../core/insert-objects.ts';
+import { t } from '../i18n/i18n.svelte.ts';
 
 // Default drop placement for inserted objects — like PowerPoint dropping a
 // default-sized shape you then move/resize. EMU via the public unit helpers.
@@ -30,7 +32,14 @@ export interface RibbonItem {
   readonly compactLabel?: string;
   readonly icon?: string;
   /** Runs instead of the capability when the native command does more than one call. */
-  readonly run?: (editor: EditorController) => void;
+  readonly run?: (editor: EditorController, button: HTMLElement) => void;
+  /** Whether a `run` command applies now (a capability uses `canRun`). */
+  readonly enabled?: (editor: EditorController) => boolean;
+  /**
+   * Why a native command is shown but cannot run here (no recognizer, no
+   * library, no web API); the button stays disabled with this as its tip.
+   */
+  readonly unavailable?: string;
 }
 
 export interface RibbonGroup {
@@ -56,8 +65,7 @@ export const RIBBON: readonly RibbonTab[] = [
   {
     id: 'insert',
     title: 'Insert',
-    // Mac PowerPoint's Insert tab, in its order and with its names. Video and
-    // Audio, Icons, SmartArt, WordArt and Equation are not available here.
+    // Mac PowerPoint's Insert tab, in its order and with its names.
     groups: [
       {
         title: 'Slides',
@@ -72,19 +80,89 @@ export const RIBBON: readonly RibbonTab[] = [
       },
       { title: 'Tables', items: [{ id: 'addSlideTable', icon: 'table', label: 'Table' }] },
       {
-        title: 'Illustrations',
+        title: 'Images',
         items: [
           { id: 'addSlideImage', icon: 'picture', label: 'Pictures' },
+          {
+            id: 'insertScreenshot',
+            icon: 'screenshot',
+            label: 'Screenshot',
+            run: (editor) => void insertScreenshot(editor, t('Screenshot')),
+            enabled: (editor) =>
+              !!editor.doc.currentSlide &&
+              typeof navigator !== 'undefined' &&
+              !!navigator.mediaDevices?.getDisplayMedia,
+          },
+        ],
+      },
+      {
+        title: 'Camera',
+        items: [
+          {
+            id: 'cameo',
+            icon: 'cameo',
+            label: 'Cameo',
+            unavailable: 'Recording is not available in the browser.',
+          },
+        ],
+      },
+      {
+        title: 'Illustrations',
+        items: [
           { id: 'addSlideShape', icon: 'shapes', label: 'Shapes', preset: PRESET.shape },
+          {
+            id: 'icons',
+            icon: 'icons',
+            label: 'Icons',
+            unavailable: 'The Office icon library is not available here.',
+          },
+          {
+            id: '3dModels',
+            icon: 'cube',
+            label: '3D Models',
+            unavailable: '3D models are not supported by the library yet.',
+          },
+          {
+            id: 'smartArt',
+            icon: 'smartart',
+            label: 'SmartArt',
+            unavailable: 'SmartArt is not supported by the library yet.',
+          },
           { id: 'addSlideChart', icon: 'chart', label: 'Chart' },
         ],
       },
-      { title: 'Links', items: [{ id: 'setShapeHyperlink', icon: 'link', label: 'Link' }] },
+      {
+        title: 'Links',
+        items: [
+          {
+            id: 'zoom',
+            icon: 'zoom-slide',
+            label: 'Zoom',
+            unavailable: 'Slide zoom is not supported by the library yet.',
+          },
+          { id: 'setShapeHyperlink', icon: 'link', label: 'Link' },
+          { id: 'setShapeClickAction', icon: 'action', label: 'Action' },
+        ],
+      },
       { title: 'Comments', items: [{ id: 'addSlideComment', icon: 'comment', label: 'Comment' }] },
       {
         title: 'Text',
         items: [
           { id: 'addSlideTextBox', icon: 'textbox', label: 'Text Box', preset: PRESET.textBox },
+          {
+            id: 'headerFooter',
+            icon: 'header-footer',
+            label: 'Header & Footer',
+            run: (editor) => (editor.activeDialog = 'headerFooter'),
+            enabled: (editor) => !!editor.doc.currentSlide,
+          },
+          {
+            id: 'insertWordArt',
+            icon: 'wordart',
+            label: 'WordArt',
+            run: (editor) => insertWordArt(editor, t('WordArt'), t('Your text here')),
+            enabled: (editor) => !!editor.doc.currentSlide,
+          },
           // Both insert a field PowerPoint keeps up to date into the selected
           // box; Date & Time asks for the format first, as the native dialog does.
           { id: 'setShapeTextField', icon: 'calendar', label: 'Date & Time' },
@@ -93,6 +171,50 @@ export const RIBBON: readonly RibbonTab[] = [
             icon: 'slide-number',
             label: 'Slide Number',
             preset: { type: 'slidenum' },
+          },
+          {
+            id: 'object',
+            icon: 'object',
+            label: 'Object',
+            unavailable: 'Embedded OLE objects are not supported by the library yet.',
+          },
+        ],
+      },
+      {
+        title: 'Symbols',
+        items: [
+          {
+            id: 'equation',
+            icon: 'equation',
+            label: 'Equation',
+            unavailable: 'Equations are not supported by the library yet.',
+          },
+          {
+            id: 'insertSymbol',
+            icon: 'symbol',
+            label: 'Symbol',
+            // Like PowerPoint, Symbol needs a text cursor to insert at.
+            run: (editor, button) => editor.openSymbolPicker(button),
+            enabled: (editor) => !!editor.inlineTextFormat?.insertText,
+          },
+        ],
+      },
+      {
+        title: 'Media',
+        items: [
+          {
+            id: 'insertVideo',
+            icon: 'video',
+            label: 'Video',
+            run: (editor) => void insertMedia(editor, 'video', t('Video')),
+            enabled: (editor) => !!editor.doc.currentSlide,
+          },
+          {
+            id: 'insertAudio',
+            icon: 'audio',
+            label: 'Audio',
+            run: (editor) => void insertMedia(editor, 'audio', t('Audio')),
+            enabled: (editor) => !!editor.doc.currentSlide,
           },
         ],
       },
@@ -242,10 +364,12 @@ export const RIBBON: readonly RibbonTab[] = [
   { id: 'playback', title: 'Playback', contextual: 'media', groups: [] },
 ];
 
-// Guard: every ribbon command id must be a real capability.
+// Guard: every capability-backed ribbon command id must be a real capability.
+// Items with `run` or `unavailable` name a native command, not a capability.
 for (const tab of RIBBON) {
   for (const group of tab.groups) {
     for (const item of group.items) {
+      if (item.run || item.unavailable) continue;
       if (!capabilityById.has(item.id)) {
         throw new Error(
           `Ribbon references unknown capability "${item.id}" (tab ${tab.id} / ${group.title}).`,

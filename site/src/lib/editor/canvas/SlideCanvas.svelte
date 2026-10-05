@@ -1094,6 +1094,7 @@
       fontSize: stepInlineFontSize,
       changeCase: changeInlineCase,
       toggle: toggleInlineFormat,
+      insertText: (text: string) => { replaceSelectedText(text); void tick().then(() => textInput?.focus()); },
     };
     editor.inlineTextFormat = api;
     return () => { if (editor.inlineTextFormat?.apply === api.apply) editor.inlineTextFormat = null; };
