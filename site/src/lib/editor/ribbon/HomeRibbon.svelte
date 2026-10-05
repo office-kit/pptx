@@ -302,8 +302,6 @@
   {@render group('Drawing', 'quick-styles', drawing)}
   <section class="cluster" aria-label={t('Add-ins')}>
     <button class={small ? 'tool' : 'big'} aria-label={t('Add-ins')} title={t('Office Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
-  </section>
-  <section class="cluster" aria-label={t('Designer')}>
     <button class={small ? 'tool' : 'big'} aria-label={t('Designer')} title={t('Designer needs the Microsoft 365 design service.')} disabled><Icon name="designer" size={small ? 18 : 32} />{#if !small}<span>{t('Designer')}</span>{/if}</button>
   </section>
 </div>
@@ -316,13 +314,13 @@
 
 <style>
   .home { display: flex; align-items: stretch; min-width: 0; width: 100%; gap: 0; }
-  .cluster { position: relative; display: flex; align-items: center; gap: 2px; padding: 0 5px; border-right: 1px solid var(--ok-border); flex: none; }
+  .cluster { position: relative; display: flex; align-items: center; gap: 2px; padding: 0 4px; border-right: 1px solid var(--ok-border); flex: none; }
   .cluster:last-child { border-right: none; }
   button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
   button[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
-  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 44px; padding: 3px 3px; font-size: 11px; line-height: 1.15; }
+  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 40px; padding: 3px 2px; font-size: 11px; line-height: 1.15; }
   .big > span { max-width: 52px; text-align: center; }
   .icon-row { display: flex; align-items: center; gap: 2px; max-width: none !important; }
   .row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 11px; white-space: nowrap; }
@@ -335,7 +333,7 @@
   .anchor { position: relative; }
   .rows { display: flex; flex-direction: column; gap: 4px; }
   .row-controls { display: flex; align-items: center; gap: 2px; }
-  .sep { width: 1px; height: 20px; margin: 0 4px; background: var(--ok-border); }
+  .sep { width: 1px; height: 20px; margin: 0 2px; background: var(--ok-border); }
   .paint-row { display: flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
   .home-menu, .group-popup { position: fixed; z-index: 400; padding: 6px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .group-popup { display: flex; align-items: center; gap: 4px; }
