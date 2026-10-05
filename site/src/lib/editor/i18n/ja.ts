@@ -1538,4 +1538,25 @@ export const ja: Record<string, string> = {
   'Triggers are not supported by the library yet.':
     'トリガーはまだライブラリでサポートされていません。',
   'Animation Painter': 'アニメーションのコピー/貼り付け',
+  Section: 'セクション',
+  'Add Section': 'セクションの追加',
+  'Rename Section': 'セクション名の変更',
+  'Remove Section': 'セクションの削除',
+  'Remove All Sections': 'すべてのセクションの削除',
+  'Section name:': 'セクション名:',
+  'Default Section': '既定のセクション',
+  'Untitled Section': 'タイトルなしのセクション',
+  'One Column': '1 段組み',
+  'Two Columns': '2 段組み',
+  'Three Columns': '3 段組み',
+  'More Columns...': 'その他の段組み...',
+  'Text Direction': '文字列の方向',
+  'Align Text': '文字の配置',
+  'Convert to SmartArt': 'SmartArt グラフィックに変換',
+  'Add-ins': 'アドイン',
+  'Office Add-ins are not available in this editor.':
+    'このエディターでは Office アドインを使用できません。',
+  Designer: 'デザイナー',
+  'Designer needs the Microsoft 365 design service.':
+    'デザイナーには Microsoft 365 のデザイン サービスが必要です。',
 };

@@ -23,6 +23,8 @@
   import { editTargetParagraphs, targetParagraphProperties } from '../core/paragraph-targets.ts';
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
+  import ParagraphLayoutMenus from './ParagraphLayoutMenus.svelte';
+  import SectionMenu from './SectionMenu.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import FontRibbon from './FontRibbon.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
@@ -200,6 +202,7 @@
       {#if openMenu === 'layout'}{@render layoutMenu('layout')}{/if}
     </div>
     <button class:big={!small} class:row={small} disabled={!editor.canRun('resetSlideLayout')} aria-label={t('Reset')} title={t('Reset the position, size, and formatting of the slide placeholders to their default settings.')} onclick={() => editor.invoke('resetSlideLayout')}><Icon name="reset" size={small ? 18 : 32} /><span>{t('Reset')}</span></button>
+    <SectionMenu {small} />
   </div>
 {/snippet}
 
@@ -213,8 +216,10 @@
       <button class="tool" aria-label={t('Increase List Level')} disabled={!paragraphEnabled} onclick={() => changeLevel(1)}><Icon name="indent-more" size={18} /></button>
       <span class="sep" aria-hidden="true"></span>
       <LineSpacingMenu onoptions={() => (paragraphOptions = true)} />
+      <span class="sep" aria-hidden="true"></span>
+      <ParagraphLayoutMenus row={1} />
     </div>
-    <div class="row-controls"><ParagraphAlignment /></div>
+    <div class="row-controls"><ParagraphAlignment /><span class="sep" aria-hidden="true"></span><ParagraphLayoutMenus row={2} /></div>
   </div>
 {/snippet}
 
@@ -230,8 +235,8 @@
   <ArrangeMenu />
   <ShapeQuickStyles />
   <div class="stack small fill-outline">
-    <span class="paint-row"><Icon name="fill" size={18} /><span class="label">{t('Shape Fill')}</span><ColorPicker label={t('Shape Fill')} disabled={!paintable} choose={fill} /></span>
-    <span class="paint-row"><Icon name="outline" size={18} /><span class="label">{t('Shape Outline')}</span><ColorPicker label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
+    <span class="paint-row"><Icon name="fill" size={18} /><span class="label">{t('Shape Fill')}</span><ColorPicker compact label={t('Shape Fill')} disabled={!paintable} choose={fill} /></span>
+    <span class="paint-row"><Icon name="outline" size={18} /><span class="label">{t('Shape Outline')}</span><ColorPicker compact label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
   </div>
 {/snippet}
 
@@ -266,6 +271,12 @@
   {@render group('Paragraph', 'align', paragraph)}
   {@render group('Insert', 'textbox', insert)}
   {@render group('Drawing', 'quick-styles', drawing)}
+  <section class="cluster" aria-label={t('Add-ins')}>
+    <button class={small ? 'tool' : 'big'} aria-label={t('Add-ins')} title={t('Office Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
+  </section>
+  <section class="cluster" aria-label={t('Designer')}>
+    <button class={small ? 'tool' : 'big'} aria-label={t('Designer')} title={t('Designer needs the Microsoft 365 design service.')} disabled><Icon name="designer" size={small ? 18 : 32} />{#if !small}<span>{t('Designer')}</span>{/if}</button>
+  </section>
 </div>
 {#if paragraphOptions}
   <ParagraphDialog properties={paragraphs} apply={edit => editTargetParagraphs(editor, edit)} onclose={() => {
@@ -276,14 +287,14 @@
 
 <style>
   .home { display: flex; align-items: stretch; min-width: 0; width: 100%; gap: 0; }
-  .cluster { position: relative; display: flex; align-items: center; gap: 4px; padding: 0 7px; border-right: 1px solid var(--ok-border); flex: none; }
+  .cluster { position: relative; display: flex; align-items: center; gap: 2px; padding: 0 5px; border-right: 1px solid var(--ok-border); flex: none; }
   .cluster:last-child { border-right: none; }
   button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
   button[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
-  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 52px; padding: 3px 4px; font-size: 11px; line-height: 1.15; }
-  .big > span { max-width: 64px; text-align: center; }
+  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 44px; padding: 3px 3px; font-size: 11px; line-height: 1.15; }
+  .big > span { max-width: 52px; text-align: center; }
   .icon-row { display: flex; align-items: center; gap: 2px; max-width: none !important; }
   .row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 11px; white-space: nowrap; }
   .tool { display: flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 0; }

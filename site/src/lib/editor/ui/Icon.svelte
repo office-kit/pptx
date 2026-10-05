@@ -162,6 +162,16 @@
     <circle cx="12" cy="7" r="3" /><path d="M6 21c0-5 3-7 6-7s6 2 6 7" /><path d="M4 12l3-2M20 12l-3-2" />
   {:else if name === 'cube'}
     <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" />
+  {:else if name === 'columns'}
+    <path d="M3 6h7M3 10h7M3 14h7M3 18h7M14 6h7M14 10h7M14 14h7M14 18h5" />
+  {:else if name === 'text-direction'}
+    <path d="M6 4h8M10 4v9M18 7v13M15.5 17.5 18 20l2.5-2.5" />
+  {:else if name === 'align-text'}
+    <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M7 10h10M7 14h10" />
+  {:else if name === 'designer'}
+    <rect x="3" y="7" width="18" height="13" rx="1.5" /><path d="m13 2-4 7h4l-2 6" />
+  {:else if name === 'add-ins'}
+    <rect x="3" y="3" width="8" height="8" rx="1" /><rect x="13" y="3" width="8" height="8" rx="1" /><rect x="3" y="13" width="8" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" />
   {:else if name === 'smartart'}
     <rect x="3" y="4" width="6" height="5" rx="1" /><rect x="15" y="4" width="6" height="5" rx="1" /><rect x="9" y="15" width="6" height="5" rx="1" /><path d="M6 9v3h12V9M12 12v3" />
   {:else if name === 'zoom-slide'}
