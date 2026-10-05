@@ -167,6 +167,8 @@ export class EditorController {
    * through EditorDocument.transact so save/undo treats each gesture as one
    * PowerPoint-style document edit. */
   /** Slide times from Rehearse Timings, waiting for the user to keep or discard them. */
+  /** Title bar AutoSave: hosts that save on their own pause while it is off. */
+  autoSave = $state(true);
   rehearsalTimings = $state<readonly { slide: number; ms: number }[] | null>(null);
   /** The Accessibility issue list (status bar, Review ▸ Check Accessibility). */
   accessibilityOpen = $state(false);

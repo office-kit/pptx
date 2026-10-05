@@ -1559,4 +1559,11 @@ export const ja: Record<string, string> = {
   Designer: 'デザイナー',
   'Designer needs the Microsoft 365 design service.':
     'デザイナーには Microsoft 365 のデザイン サービスが必要です。',
+  AutoSave: '自動保存',
+  Share: '共有',
+  'Share with People...': 'ユーザーと共有...',
+  'Copy Link': 'リンクのコピー',
+  'Sharing with people needs OneDrive or SharePoint.':
+    'ユーザーとの共有には OneDrive または SharePoint が必要です。',
+  'Send a Copy (PowerPoint Presentation)': 'コピーを送信 (PowerPoint プレゼンテーション)',
 };

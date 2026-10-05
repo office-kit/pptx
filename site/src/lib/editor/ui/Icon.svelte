@@ -162,6 +162,8 @@
     <circle cx="12" cy="7" r="3" /><path d="M6 21c0-5 3-7 6-7s6 2 6 7" /><path d="M4 12l3-2M20 12l-3-2" />
   {:else if name === 'cube'}
     <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" />
+  {:else if name === 'share'}
+    <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
   {:else if name === 'columns'}
     <path d="M3 6h7M3 10h7M3 14h7M3 18h7M14 6h7M14 10h7M14 14h7M14 18h5" />
   {:else if name === 'text-direction'}

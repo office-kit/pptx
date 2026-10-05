@@ -198,7 +198,7 @@
   });
   $effect(() => {
     doc.committedVersion;
-    if (recovering || recovery.length || !loaded || !doc.dirty || doc.liveEditing || saving || conflict || failure || serverState?.building || serverState?.error) return;
+    if (!editor.autoSave || recovering || recovery.length || !loaded || !doc.dirty || doc.liveEditing || saving || conflict || failure || serverState?.building || serverState?.error) return;
     const timer = setTimeout(() => { void save(); }, 700);
     return () => clearTimeout(timer);
   });

@@ -2,6 +2,7 @@
   import ViewMenu from './ViewMenu.svelte';
   import EditMenu from './EditMenu.svelte';
   import { getEditor } from '../core/context.ts';
+  import { downloadPptx } from '../core/download.ts';
   import { t, getLocale, setLocale, LOCALES, type Locale } from '../i18n/i18n.svelte.ts';
   import type { Snippet } from 'svelte';
 
@@ -27,17 +28,7 @@
 
   async function onSave() {
     try {
-      const version = doc.version;
-      const bytes = await doc.toBytes();
-      const blob = new Blob([bytes as BlobPart], {
-        type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = doc.fileName.endsWith('.pptx') ? doc.fileName : `${doc.fileName}.pptx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const version = await downloadPptx(doc);
       if (!onsave) doc.markSaved(version);
       editor.toast('info', t('Saved .pptx'));
     } catch (err) {
@@ -54,6 +45,10 @@
   </div>
 
   <div class="quick">
+    {#if onsave}
+      <!-- Mac PowerPoint's AutoSave switch leads the title bar. -->
+      <label class="autosave"><span>{t('AutoSave')}</span><input type="checkbox" role="switch" bind:checked={editor.autoSave} /></label>
+    {/if}
     <button class="ok-btn" title={t('New')} onclick={() => { doc.resetBlank(); if (onsave) doc.dirty = true; }}>{t('New')}</button>
     <button class="ok-btn" title={t('Open .pptx')} onclick={() => fileInput?.click()}>{t('Open')}</button>
     <button class="ok-btn" title={t('Save as .pptx')} onclick={onsave ?? onSave}>{t('Save')}</button>
@@ -142,6 +137,12 @@
     align-items: center;
     gap: 2px;
   }
+  .autosave { display: flex; align-items: center; gap: 6px; margin-right: 6px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+  .autosave input { appearance: none; position: relative; width: 28px; height: 16px; margin: 0; border-radius: 8px; background: var(--ok-border-strong); cursor: pointer; transition: background 0.15s; }
+  .autosave input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+  .autosave input:checked { background: var(--ok-accent); }
+  .autosave input:checked::after { transform: translateX(12px); }
+  .autosave input:focus-visible { outline: 2px solid var(--ok-accent); outline-offset: 2px; }
   .quick :global(.ok-btn:hover) {
     border-color: transparent;
   }

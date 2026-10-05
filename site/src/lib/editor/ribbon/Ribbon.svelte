@@ -21,12 +21,22 @@
   import HomeRibbon from './HomeRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
+  import { downloadPptx } from '../core/download.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
 
   let activeTab = $state('home');
   let collapsed = $state(false);
+  let shareOpen = $state(false);
+  async function sendCopy() {
+    shareOpen = false;
+    try {
+      await downloadPptx(editor.doc);
+    } catch (err) {
+      editor.toast('error', `${t('Save failed')}: ${(err as Error).message}`);
+    }
+  }
 
   const visibleTabs = $derived.by<RibbonTab[]>(() => {
     const sel = doc.selection;
@@ -73,6 +83,8 @@
 
 </script>
 
+<svelte:window onpointerdown={(event) => { if (shareOpen && !(event.target as Element).closest?.('.share-anchor')) shareOpen = false; }} onkeydown={(event) => { if (shareOpen && event.key === 'Escape') shareOpen = false; }} />
+
 <div class="ribbon">
   <div class="tab-row">
     <div class="tabs" role="tablist" tabindex="-1" aria-label={t('Ribbon')} onkeydown={tabKeys}>
@@ -93,6 +105,21 @@
       {/each}
     </div>
 
+    <!-- Mac PowerPoint ends the tab row with Comments and Share. -->
+    <div class="actions">
+      <button class="comments" aria-label={t('Comments')} aria-pressed={editor.activeDialog === 'addSlideComment'} disabled={!editor.doc.currentSlide} onclick={() => { if (editor.activeDialog === 'addSlideComment') editor.activeDialog = null; else editor.runOrPrompt('addSlideComment'); }}><Icon name="comment" size={16} /><span>{t('Comments')}</span></button>
+      <div class="share-anchor">
+        <button class="share" aria-label={t('Share')} aria-haspopup="menu" aria-expanded={shareOpen} onclick={() => (shareOpen = !shareOpen)}><Icon name="share" size={16} /><span>{t('Share')}</span><span aria-hidden="true">⌄</span></button>
+        {#if shareOpen}
+          <div class="share-menu" role="menu" aria-label={t('Share')}>
+            <button role="menuitem" title={t('Sharing with people needs OneDrive or SharePoint.')} disabled>{t('Share with People...')}</button>
+            <button role="menuitem" title={t('Sharing with people needs OneDrive or SharePoint.')} disabled>{t('Copy Link')}</button>
+            <hr />
+            <button role="menuitem" onclick={sendCopy}>{t('Send a Copy (PowerPoint Presentation)')}</button>
+          </div>
+        {/if}
+      </div>
+    </div>
     <button class="ribbon-toggle" aria-label={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} title={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} aria-expanded={!collapsed} aria-controls="ribbon-panel" onclick={() => (collapsed = !collapsed)}>{collapsed ? '⌄' : '⌃'}</button>
   </div>
 
@@ -150,6 +177,18 @@
     flex-direction: column;
   }
   .tab-row { display: flex; min-width: 0; align-items: center; }
+  .actions { display: flex; align-items: center; gap: 6px; flex: none; margin-left: 8px; }
+  .actions button { display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; font: inherit; font-size: 12px; color: var(--ok-text); border: 1px solid var(--ok-border-strong); border-radius: 6px; background: var(--ok-panel); cursor: pointer; }
+  .actions button:hover:not(:disabled) { background: var(--ok-hover); }
+  .actions button:disabled { opacity: 0.4; cursor: default; }
+  .actions .comments[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
+  /* PowerPoint's Share button is the one filled accent control in the window. */
+  .actions .share { color: #fff; border-color: var(--ok-accent); background: var(--ok-accent); }
+  .actions .share:hover:not(:disabled) { background: var(--ok-accent); filter: brightness(1.08); }
+  .share-anchor { position: relative; }
+  .share-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 500; display: flex; flex-direction: column; min-width: 260px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .share-menu button { height: auto; padding: 6px 10px; border: none; background: none; color: var(--ok-text); text-align: left; filter: none; }
+  .share-menu hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }
   .ribbon-toggle { flex: none; width: 30px; height: 28px; margin: 0 4px; border: none; background: none; color: var(--ok-text-2); cursor: pointer; font-size: 18px; }
   .ribbon-toggle:hover { background: var(--ok-hover); }
   .groups[hidden] { display: none; }
