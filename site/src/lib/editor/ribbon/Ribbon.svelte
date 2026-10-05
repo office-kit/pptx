@@ -155,7 +155,7 @@
     background: none;
     padding: 6px 14px;
     font: inherit;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--ok-text-2);
     cursor: pointer;
     border-radius: var(--ok-radius) var(--ok-radius) 0 0;
@@ -163,11 +163,12 @@
   .tab:hover {
     background: var(--ok-hover);
   }
+  /* Mac PowerPoint marks the active tab with bold text and an underline bar,
+     on the same background as the commands below it. */
   .tab.active {
-    background: var(--ok-ribbon-active);
-    color: var(--ok-accent);
+    color: var(--ok-text);
     font-weight: 600;
-    box-shadow: 0 -2px 0 var(--ok-accent) inset;
+    box-shadow: 0 -3px 0 var(--ok-accent) inset;
   }
   .tab.contextual {
     color: var(--ok-accent);
@@ -178,7 +179,7 @@
   .groups {
     display: flex;
     gap: 0;
-    background: var(--ok-ribbon-active);
+    background: var(--ok-ribbon);
     min-height: calc(var(--ok-ribbon-h) - 30px);
     padding: 4px 6px 2px;
     overflow-x: auto;

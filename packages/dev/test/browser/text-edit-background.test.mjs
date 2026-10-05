@@ -26,7 +26,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       assert.equal(
         await input.evaluate((el) => getComputedStyle(el).backgroundColor),
         'rgba(0, 0, 0, 0)',

@@ -445,7 +445,7 @@ for (const target of ['shape', 'cell'])
           await hit.dblclick(
             target === 'cell' ? { position: { x: bounds.width / 4, y: bounds.height / 2 } } : {},
           );
-          const input = editor.locator('.inline-edit');
+          const input = editor.locator('.canvas-shell .inline-edit');
           await input.evaluate((el) => {
             el.focus();
             window.selectEditorText(el, 7, 10);

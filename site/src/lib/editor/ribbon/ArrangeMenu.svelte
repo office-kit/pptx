@@ -67,7 +67,7 @@
   }
 </script>
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} />
-<button class="trigger" class:compact bind:this={trigger} aria-label={t('Arrange')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if !compact}<Icon name="front" />{/if}<span>{t('Arrange')} ▾</span></button>
+<button class="trigger" class:compact bind:this={trigger} aria-label={t('Arrange')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if !compact}<Icon name="arrange" size={32} />{/if}<span>{t('Arrange')} ▾</span></button>
 {#if open}
   <div class="menu" role="menu" aria-label={t('Arrange')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="heading">{t('Reorder Objects')}</div>

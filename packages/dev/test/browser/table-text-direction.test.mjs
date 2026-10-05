@@ -113,7 +113,7 @@ for (const anchor of ['top', 'center', 'bottom'])
             };
             const before = await painted.evaluate(glyphs);
             await editor.locator('.hit').dblclick();
-            const input = editor.locator('.inline-edit');
+            const input = editor.locator('.canvas-shell .inline-edit');
             await input.waitFor();
             assert.equal(
               await input.evaluate((node) => getComputedStyle(node).writingMode),

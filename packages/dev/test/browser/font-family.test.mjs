@@ -34,7 +34,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.evaluate((node) => window.selectEditorText(node, 0, 7));
       await editor.getByRole('tab', { name: 'Home', exact: true }).click();
       await editor.getByRole('button', { name: 'Font options', exact: true }).click();

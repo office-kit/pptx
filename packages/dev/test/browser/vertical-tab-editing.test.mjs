@@ -72,7 +72,7 @@ for (const direction of ['vert', 'vert270']) {
             return stage.getBoundingClientRect().width / viewBoxWidth;
           });
           await editor.locator('.hit').dblclick();
-          const input = editor.locator('.inline-edit');
+          const input = editor.locator('.canvas-shell .inline-edit');
           await input.waitFor();
           const measureEditing = () =>
             input.evaluate(

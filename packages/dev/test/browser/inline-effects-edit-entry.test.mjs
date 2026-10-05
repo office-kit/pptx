@@ -88,7 +88,7 @@ test(
       const staticRange = await rangeRect(staticText);
       await page.screenshot({ path: '/tmp/inline-effects-before.png' });
       await hit.dblclick();
-      const input = editor.locator('.inline-edit').first();
+      const input = editor.locator('.canvas-shell .inline-edit').first();
       await input.waitFor();
       const effects = await input.evaluate((node) => {
         const span = node.querySelector('span');

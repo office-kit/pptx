@@ -44,7 +44,7 @@ test(
             .map((element) => ({ text: element.text, size: element.format?.size })),
         );
       };
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       const selectShapeRange = async (start, end) => {
         await input.focus();
         await input.evaluate(

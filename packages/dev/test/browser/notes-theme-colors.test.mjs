@@ -18,6 +18,7 @@ import {
   getSlides,
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
+import { openNotes } from '../helpers/notes.mjs';
 
 test(
   'notes use their own theme and retain scheme colors after typing and Undo',
@@ -100,7 +101,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.getByRole('button', { name: 'Notes', exact: true }).click();
+      await openNotes(editor);
       const input = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       const color = () =>
         input.evaluate((el) => {

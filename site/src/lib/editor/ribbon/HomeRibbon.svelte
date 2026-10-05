@@ -27,6 +27,7 @@
   import FontRibbon from './FontRibbon.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
   import LineSpacingMenu from './LineSpacingMenu.svelte';
+  import ParagraphDialog from '../ui/ParagraphDialog.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
   import ShapeQuickStyles from './ShapeQuickStyles.svelte';
   import { PRESET } from './config.ts';
@@ -43,7 +44,9 @@
   const FONT_COLLAPSES_BELOW = 840;
   type Group = 'Slides' | 'Font' | 'Paragraph' | 'Insert' | 'Drawing';
 
-  let width = $state(Number.POSITIVE_INFINITY);
+  // The ribbon spans the window, so start from its width: measuring only after
+  // mount would paint the expanded layout first and shift the canvas below.
+  let width = $state(typeof window === 'undefined' ? Number.POSITIVE_INFINITY : window.innerWidth);
   const small = $derived(width < SMALL_ICONS_BELOW);
   const collapsed = $derived<ReadonlySet<Group>>(
     new Set<Group>([
@@ -53,6 +56,7 @@
     ]),
   );
   let openGroup = $state<Group | null>(null);
+  let paragraphOptions = $state(false);
   let openMenu = $state<'newSlide' | 'layout' | null>(null);
   let popup = $state<HTMLDivElement>();
 
@@ -69,6 +73,7 @@
 
   const paragraphs = $derived.by(() => { doc.version; return targetParagraphProperties(editor); });
   const paragraphEnabled = $derived(paragraphs.length > 0 && !editor.selectionLocked());
+  $effect(() => { if (!paragraphEnabled) paragraphOptions = false; });
   const isBulleted = (bullet: BulletStyle | null) => bullet === 'bullet' || (typeof bullet === 'object' && bullet !== null && 'char' in bullet);
   const isNumbered = (bullet: BulletStyle | null) => bullet === 'number' || (typeof bullet === 'object' && bullet !== null && 'autoNum' in bullet);
   const bulleted = $derived(paragraphEnabled && paragraphs.every(p => isBulleted(p.bullet)));
@@ -117,7 +122,11 @@
   }
   function closeAfterCommand(event: MouseEvent) {
     const button = (event.target as Element).closest('button');
-    if (button && !button.matches('[aria-haspopup], .inline-more')) openGroup = null;
+    if (!button || button.matches('[aria-haspopup], .inline-more')) return;
+    // Keep focus inside the ribbon: if the removed button's focus fell to the
+    // page, in-progress text editing on the canvas would be committed.
+    ((event.currentTarget as HTMLElement).previousElementSibling as HTMLElement | null)?.focus();
+    openGroup = null;
   }
   function dismiss(event: PointerEvent) {
     const target = event.target;
@@ -167,10 +176,10 @@
   </div>
   <div class="stack" class:small>
     <div class="anchor">
-      <button class="menu-trigger" class:big={!small} class:row={small} disabled={!hasSlide} aria-label={t('Layout')} aria-haspopup="menu" aria-expanded={openMenu === 'layout'} onclick={() => toggleMenu('layout')}><Icon name="layout" size={small ? 18 : 32} /><span class:label={small}>{t('Layout')}</span><span aria-hidden="true">⌄</span></button>
+      <button class="menu-trigger" class:big={!small} class:row={small} disabled={!hasSlide} aria-label={t('Layout')} aria-haspopup="menu" aria-expanded={openMenu === 'layout'} onclick={() => toggleMenu('layout')}>{#if small}<Icon name="layout" size={18} /><span>{t('Layout')}</span><span aria-hidden="true">⌄</span>{:else}<span class="icon-row"><Icon name="layout" size={32} /><span aria-hidden="true">⌄</span></span><span>{t('Layout')}</span>{/if}</button>
       {#if openMenu === 'layout'}{@render layoutMenu('layout')}{/if}
     </div>
-    <button class:big={!small} class:row={small} disabled={!editor.canRun('resetSlideLayout')} aria-label={t('Reset')} title={t('Reset the position, size, and formatting of the slide placeholders to their default settings.')} onclick={() => editor.invoke('resetSlideLayout')}><Icon name="reset" size={small ? 18 : 32} /><span class:label={small}>{t('Reset')}</span></button>
+    <button class:big={!small} class:row={small} disabled={!editor.canRun('resetSlideLayout')} aria-label={t('Reset')} title={t('Reset the position, size, and formatting of the slide placeholders to their default settings.')} onclick={() => editor.invoke('resetSlideLayout')}><Icon name="reset" size={small ? 18 : 32} /><span>{t('Reset')}</span></button>
   </div>
 {/snippet}
 
@@ -183,7 +192,7 @@
       <button class="tool" aria-label={t('Decrease List Level')} disabled={!paragraphEnabled} onclick={() => changeLevel(-1)}><Icon name="indent-less" size={18} /></button>
       <button class="tool" aria-label={t('Increase List Level')} disabled={!paragraphEnabled} onclick={() => changeLevel(1)}><Icon name="indent-more" size={18} /></button>
       <span class="sep" aria-hidden="true"></span>
-      <LineSpacingMenu />
+      <LineSpacingMenu onoptions={() => (paragraphOptions = true)} />
     </div>
     <div class="row-controls"><ParagraphAlignment /></div>
   </div>
@@ -192,15 +201,15 @@
 {#snippet insert()}
   <button class="big" aria-label={t('Picture')} disabled={!editor.canRun('addSlideImage')} onclick={() => editor.runOrPrompt('addSlideImage')}><Icon name="picture" size={32} /><span>{t('Picture')}</span></button>
   <div class="stack" class:small>
-    <button class:big={!small} class:row={small} aria-label={t('Shapes')} disabled={!editor.canRun('addSlideShape')} onclick={() => editor.runOrPrompt('addSlideShape', PRESET.shape)}><Icon name="shapes" size={small ? 18 : 32} /><span class:label={small}>{t('Shapes')}</span></button>
-    <button class:big={!small} class:row={small} aria-label={t('Text Box')} disabled={!editor.canRun('addSlideTextBox')} onclick={() => editor.runOrPrompt('addSlideTextBox', PRESET.textBox)}><Icon name="textbox" size={small ? 18 : 32} /><span class:label={small}>{t('Text Box')}</span></button>
+    <button class:big={!small} class:row={small} aria-label={t('Shapes')} disabled={!editor.canRun('addSlideShape')} onclick={() => editor.runOrPrompt('addSlideShape', PRESET.shape)}><Icon name="shapes" size={small ? 18 : 32} /><span>{t('Shapes')}</span></button>
+    <button class:big={!small} class:row={small} aria-label={t('Text Box')} disabled={!editor.canRun('addSlideTextBox')} onclick={() => editor.runOrPrompt('addSlideTextBox', PRESET.textBox)}><Icon name="textbox" size={small ? 18 : 32} /><span>{t('Text Box')}</span></button>
   </div>
 {/snippet}
 
 {#snippet drawing()}
   <ArrangeMenu />
   <ShapeQuickStyles />
-  <div class="stack small paint">
+  <div class="stack small fill-outline">
     <span class="paint-row"><Icon name="fill" size={18} /><span class="label">{t('Shape Fill')}</span><ColorPicker label={t('Shape Fill')} disabled={!paintable} choose={fill} /></span>
     <span class="paint-row"><Icon name="outline" size={18} /><span class="label">{t('Shape Outline')}</span><ColorPicker label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
   </div>
@@ -238,6 +247,12 @@
   {@render group('Insert', 'textbox', insert)}
   {@render group('Drawing', 'quick-styles', drawing)}
 </div>
+{#if paragraphOptions}
+  <ParagraphDialog properties={paragraphs} apply={edit => editTargetParagraphs(editor, edit)} onclose={() => {
+    paragraphOptions = false;
+    (document.querySelector<HTMLElement>('.home [aria-label="' + t('Line spacing') + '"]') ?? document.querySelector<HTMLElement>('.home .group-trigger[aria-expanded]'))?.focus();
+  }} />
+{/if}
 
 <style>
   .home { display: flex; align-items: stretch; min-width: 0; width: 100%; gap: 0; }
@@ -249,6 +264,7 @@
   button[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
   .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 52px; padding: 3px 4px; font-size: 11px; line-height: 1.15; }
   .big > span { max-width: 64px; text-align: center; }
+  .icon-row { display: flex; align-items: center; gap: 2px; max-width: none !important; }
   .row { display: flex; align-items: center; gap: 5px; padding: 2px 5px; font-size: 11px; white-space: nowrap; }
   .tool { display: flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 0; }
   .stack { display: flex; align-items: center; gap: 4px; }

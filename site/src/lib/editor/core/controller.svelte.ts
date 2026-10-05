@@ -152,7 +152,8 @@ export class EditorController {
   outlineShowFormatting = $state(false);
   viewMode = $state<'normal' | 'outline' | 'sorter'>('normal');
   sorterZoom = $state(1);
-  notesVisible = $state(false);
+  // Normal view shows the notes pane by default, as PowerPoint does.
+  notesVisible = $state(true);
   notesHeight = $state(120);
   notesFocusRequest = $state(0);
 

@@ -106,7 +106,7 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
       await editor.locator('.hit').nth(1).click();
-      await editor.locator('.inline-edit').press('Escape');
+      await editor.locator('.canvas-shell .inline-edit').press('Escape');
       const fixed = await canvasCenter(handle('nw'));
       const start = await canvasCenter(handle('se'));
       await drag('se', 45, 15);

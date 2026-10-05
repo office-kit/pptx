@@ -48,7 +48,7 @@ test(
           }));
       };
       const selectRange = async (start, end) => {
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.evaluate(
           (node, range) => {
             node.focus({ preventScroll: true });
@@ -63,7 +63,7 @@ test(
       const menu = editor.getByRole('menu', { name: 'Character Spacing', exact: true });
       await saved();
       await editor.locator('.hit').first().dblclick();
-      await editor.locator('.inline-edit').waitFor();
+      await editor.locator('.canvas-shell .inline-edit').waitFor();
       await selectTight();
 
       await trigger.click();
@@ -214,7 +214,7 @@ test(
       assert.deepEqual(await readRuns(), customRuns);
 
       await editor.locator('.hit').first().dblclick();
-      await editor.locator('.inline-edit').waitFor();
+      await editor.locator('.canvas-shell .inline-edit').waitFor();
       await selectTight();
       await trigger.click();
       await menu.getByRole('menuitem', { name: 'More Spacing...', exact: true }).click();

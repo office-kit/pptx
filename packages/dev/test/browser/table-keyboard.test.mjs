@@ -49,7 +49,7 @@ test(
           row.map(getTableCellText),
         );
       };
-      const inline = editor.locator('.inline-edit');
+      const inline = editor.locator('.canvas-shell .inline-edit');
       await saved();
       const hit = editor.locator('.hit').first();
       const bounds = await hit.boundingBox();

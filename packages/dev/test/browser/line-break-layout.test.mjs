@@ -99,7 +99,7 @@ for (const placement of ['middle', 'leading', 'consecutive', 'empty-run', 'trail
             editor.locator('.paint foreignObject').filter({ hasText: 'After' }).first(),
           );
           await editor.locator('.hit').first().dblclick();
-          const input = editor.locator('.inline-edit');
+          const input = editor.locator('.canvas-shell .inline-edit');
           await input.waitFor();
           const after = await glyphBounds(input);
           assert.ok(

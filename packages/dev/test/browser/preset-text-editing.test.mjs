@@ -76,7 +76,7 @@ for (const { preset, grouped = false, collapsed = false } of [
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         if (grouped) await editor.locator('.hit').dblclick();
         await editor.locator('.hit').first().dblclick();
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
         const select = async (start, end = start) => {
           await input.focus();

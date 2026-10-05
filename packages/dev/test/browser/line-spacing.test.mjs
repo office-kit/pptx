@@ -60,8 +60,9 @@ test(
           return;
         }
         await editor.getByRole('button', { name: 'Paragraph', exact: true }).click();
+        // A narrow Home ribbon collapses Paragraph into one button.
         await editor
-          .getByRole('menu', { name: 'Paragraph', exact: true })
+          .locator('.group-popup')
           .getByRole('button', { name: 'Line spacing', exact: true })
           .click();
       };
@@ -107,7 +108,7 @@ test(
       assert.deepEqual(await read(), original);
 
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.evaluate((node) => {
         window.selectEditorText(node, 12, 12);
         node.dispatchEvent(new Event('select', { bubbles: true }));
@@ -207,7 +208,7 @@ test(
       const textHitAfterReload = await editor.locator('.hit').first().boundingBox();
       assert.ok(textHitAfterReload, 'the text hit target is visible after reload');
       await editor.locator('.hit').first().dblclick();
-      const reloadedInput = editor.locator('.inline-edit');
+      const reloadedInput = editor.locator('.canvas-shell .inline-edit');
       await reloadedInput.evaluate((node) => {
         window.selectEditorText(node, 0, node.textContent?.length ?? 0);
         node.dispatchEvent(new Event('select', { bubbles: true }));

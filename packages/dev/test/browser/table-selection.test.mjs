@@ -206,7 +206,7 @@ test(
       ja = true;
       // Leave inline editing, then exercise the global canvas cell shortcuts.
       await cell(1, 1).press('Enter');
-      await editor.locator('.inline-edit').press('Escape');
+      await editor.locator('.canvas-shell .inline-edit').press('Escape');
       await page.keyboard.press('ArrowDown');
       assert.equal(await cell(3, 1).getAttribute('aria-pressed'), 'true');
       await page.keyboard.press('Delete');

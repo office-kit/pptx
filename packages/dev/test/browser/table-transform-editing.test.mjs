@@ -91,7 +91,7 @@ for (const grouped of [false, true]) {
           const rect = await foreign.boundingBox();
           const point = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
           await page.mouse.dblclick(point.x, point.y);
-          const input = editor.locator('.inline-edit');
+          const input = editor.locator('.canvas-shell .inline-edit');
           await input.waitFor();
           assert.equal(await input.innerText(), '日本語 English');
           // Starting a cell edit adds the text format bar, which shrinks the
@@ -161,9 +161,12 @@ for (const grouped of [false, true]) {
             savedRect.x + savedRect.width / 2,
             savedRect.y + savedRect.height / 2,
           );
-          assert.equal(await editor.locator('.inline-edit').innerText(), '編集済み Edited');
           assert.equal(
-            await editor.locator('.inline-edit').getAttribute('aria-label'),
+            await editor.locator('.canvas-shell .inline-edit').innerText(),
+            '編集済み Edited',
+          );
+          assert.equal(
+            await editor.locator('.canvas-shell .inline-edit').getAttribute('aria-label'),
             'セルのテキスト',
           );
           await page.screenshot({ path: '/tmp/pptx-table-transform-ja.png', fullPage: true });

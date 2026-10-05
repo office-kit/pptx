@@ -1,7 +1,5 @@
 <script lang="ts">
   import { getEditor } from '../core/context.ts';
-  import { getShapeKind, getShapeName } from '@office-kit/pptx';
-  import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -19,33 +17,15 @@
     editor.setZoom((event.key === 'Home' ? editor.minZoomPercent : event.key === 'End' ? editor.maxZoomPercent : zoomPercent + (['ArrowLeft', 'ArrowDown'].includes(event.key) ? -amount : amount)) / 100);
   }
 
-  const selectionLabel = $derived.by(() => {
-    const sel = doc.selection;
-    if (sel.kind === 'shape') {
-      const id = selectedShapeId(sel);
-      const shape = id == null ? null : doc.shapeById(sel.slideIndex, id);
-      if (shape) {
-        const extra = sel.shapeIds.length > 1 ? ` +${sel.shapeIds.length - 1}` : '';
-        try {
-          return `${getShapeName(shape) || getShapeKind(shape)}${extra}`;
-        } catch {
-          return `Shape${extra}`;
-        }
-      }
-    }
-    if (sel.kind === 'cell') return `${t('Cell')} (${sel.row + 1}, ${sel.col + 1})`;
-    return t('No selection');
-  });
 </script>
 
 <div class="statusbar">
-  <span>{t('Slide')} {doc.selection.slideIndex + 1} / {doc.slides.length}</span>
-  <span class="sep"></span>
-  <span>{selectionLabel}</span>
+  <span>{t('Slide {n} of {count}').replace('{n}', String(doc.selection.slideIndex + 1)).replace('{count}', String(doc.slides.length))}</span>
   <span class="spacer"></span>
-  <button class="notes-toggle" aria-pressed={editor.notesVisible && editor.viewMode !== 'sorter'} onclick={() => { if (editor.viewMode !== 'sorter' && editor.notesVisible) editor.notesVisible = false; else editor.showNotes(); }}>{t('Notes')}</button>
+  <button class="labelled" aria-label={t('Notes')} aria-pressed={editor.notesVisible && editor.viewMode !== 'sorter'} onclick={() => { if (editor.viewMode !== 'sorter' && editor.notesVisible) editor.notesVisible = false; else editor.showNotes(); }}><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1.5 1.5h11v7l-4 4h-7z M8.5 12.5v-4h4"/></svg>{t('Notes')}</button>
+  <button class="labelled" aria-label={t('Comments')} aria-pressed={editor.activeDialog === 'addSlideComment'} disabled={!doc.currentSlide} onclick={() => { if (editor.activeDialog === 'addSlideComment') editor.activeDialog = null; else editor.runOrPrompt('addSlideComment'); }}><svg width="15" height="14" viewBox="0 0 15 14" aria-hidden="true"><path d="M1.5 1.5h12v8h-7l-3 3v-3h-2z"/></svg>{t('Comments')}</button>
   <div class="views" role="group" aria-label={t('Presentation views')}>
-    <button title={t('Normal')} aria-label={t('Normal')} aria-pressed={editor.viewMode !== 'sorter'} onclick={() => editor.setViewMode('normal')}><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><rect x=".5" y=".5" width="15" height="11" rx="1"/><path d="M4 1v10M1 4h3M1 8h3"/></svg></button>
+    <button title={t('Normal')} aria-label={t('Normal')} aria-pressed={editor.viewMode !== 'sorter'} onclick={() => editor.setViewMode('normal')}><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><rect x=".5" y=".5" width="15" height="11" rx="1"/><path d="M5 1v10"/></svg></button>
     <button title={t('Slide Sorter')} aria-label={t('Slide Sorter')} aria-pressed={editor.viewMode === 'sorter'} onclick={() => editor.setViewMode('sorter')}><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M1 1h5v4H1zM9 1h5v4H9zM1 7h5v4H1zM9 7h5v4H9z"/></svg></button>
   </div>
   <div class="zoom">
@@ -53,62 +33,44 @@
     <input type="range" min="0" max="2000" step="1" value={sliderPosition} aria-label={t('Zoom percentage')} aria-valuetext="{zoomPercent}%" oninput={slideZoom} onkeydown={zoomKeys} />
     <button class="zbtn" title={t('Zoom in (Ctrl+=)')} onclick={() => editor.zoomIn()}>+</button>
     <button class="zpct" title={t('Zoom...')} onclick={() => editor.activeDialog = 'zoom'}>{zoomPercent}%</button>
-    <button class="zfit" title={t('Fit (Ctrl+0)')} onclick={() => editor.zoomFit()}>{t('Fit')}</button>
+    <button class="zfit" title={t('Fit (Ctrl+0)')} aria-label={t('Fit slide to current window')} onclick={() => editor.zoomFit()}><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9M1 1l4 4M13 1L9 5M13 13L9 9M1 13l4-4"/></svg></button>
   </div>
 </div>
 
 <style>
+  /* Mac PowerPoint's status bar sits on the window chrome color, not the accent. */
   .statusbar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     height: 26px;
     padding: 0 12px;
-    background: var(--ok-accent);
-    color: #fff;
+    background: var(--ok-ribbon);
+    border-top: 1px solid var(--ok-border);
+    color: var(--ok-text-2);
     font-size: 11px;
   }
-  .sep {
-    width: 1px;
-    height: 14px;
-    background: rgba(255, 255, 255, 0.3);
-  }
-  .spacer {
-    flex: 1;
-  }
-  .zoom {
-    display: flex;
+  .spacer { flex: 1; }
+  .zoom { display: flex; align-items: center; gap: 2px; }
+  .zoom input[type='range'] { width: 110px; height: 12px; accent-color: var(--ok-text-2); margin: 0 4px; }
+  .views { display: flex; gap: 3px; margin: 0 4px; }
+  svg { fill: none; stroke: currentColor; stroke-width: 1.1; }
+  button {
+    display: inline-flex;
     align-items: center;
-    gap: 2px;
-  }
-  .zoom input[type='range'] { width: 110px; height: 12px; accent-color: white; margin: 0 4px; }
-  .views { display: flex; gap: 3px; }
-  .views svg { fill: none; stroke: currentColor; }
-  .views button[aria-pressed="true"] { background: rgba(255, 255, 255, .25); }
-  .notes-toggle, .views button, .zoom button {
+    gap: 5px;
     background: transparent;
     border: none;
-    color: #fff;
+    color: inherit;
     font: inherit;
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 3px;
   }
-  .zoom button:hover {
-    background: rgba(255, 255, 255, 0.18);
-  }
-  .zbtn {
-    font-size: 15px !important;
-    line-height: 1;
-    width: 22px;
-  }
-  .zpct {
-    min-width: 46px;
-    text-align: center;
-  }
-  .zfit {
-    border: 1px solid rgba(255, 255, 255, 0.4) !important;
-    margin-left: 4px;
-  }
+  button:hover:not(:disabled) { background: var(--ok-hover); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button[aria-pressed='true'] { background: var(--ok-selected); color: var(--ok-text); }
+  .zbtn { font-size: 15px; line-height: 1; width: 22px; justify-content: center; }
+  .zpct { min-width: 46px; justify-content: center; }
 </style>

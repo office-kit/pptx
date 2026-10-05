@@ -85,7 +85,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await input.waitFor();
       const markers = input.locator('[data-list-marker]');
       assert.equal(await markers.count(), 5);

@@ -66,7 +66,7 @@ async function openTextBox(t, wrap, value = text) {
     return [...range.getClientRects()].map((rect) => [rect.x, rect.y, rect.width, rect.height]);
   }, value);
   await editor.locator('.hit').first().dblclick();
-  const input = editor.locator('.inline-edit');
+  const input = editor.locator('.canvas-shell .inline-edit');
   await input.waitFor();
   return {
     dir,

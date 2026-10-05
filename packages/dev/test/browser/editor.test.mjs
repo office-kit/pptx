@@ -68,10 +68,12 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
-      await editor.locator('.inline-edit').focus();
-      await editor.locator('.inline-edit').evaluate((node) => window.selectEditorText(node, 7, 12));
+      await editor.locator('.canvas-shell .inline-edit').focus();
+      await editor
+        .locator('.canvas-shell .inline-edit')
+        .evaluate((node) => window.selectEditorText(node, 7, 12));
       await page.keyboard.insertText('headline');
-      await editor.locator('.inline-edit').press('Control+Enter');
+      await editor.locator('.canvas-shell .inline-edit').press('Control+Enter');
       await waitForState(preview.url, (state) => state.hasEdits);
       const richDeck = await loadPresentation(
         new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
@@ -81,13 +83,13 @@ test(
       assert.match(richXml, /<a:rPr[^>]*i="1"/);
       const savedRevision = (await waitForState(preview.url, () => true)).revision;
       await editor.locator('.hit').first().dblclick();
-      await editor.locator('.inline-edit').fill('日本語の編集 / Edited title');
+      await editor.locator('.canvas-shell .inline-edit').fill('日本語の編集 / Edited title');
       await page.route('**/editor/document', async (route) => {
         if (route.request().method() === 'PUT') {
           await route.fulfill({ status: 500, body: 'Simulated save failure' });
         } else await route.continue();
       });
-      await editor.locator('.inline-edit').press('Control+s');
+      await editor.locator('.canvas-shell .inline-edit').press('Control+s');
       await editor.getByRole('button', { name: 'Retry', exact: true }).waitFor();
       assert.equal((await waitForState(preview.url, () => true)).revision, savedRevision);
       assert.match(await editor.locator('.paint').textContent(), /日本語の編集/);
@@ -227,9 +229,17 @@ test(
         '2',
       );
       await editor.locator('.lang select').selectOption('ja');
-      await editor.getByRole('button', { name: 'スライドを上へ移動', exact: true }).click();
-      await editor.getByRole('button', { name: 'スライドを削除', exact: true }).click();
-      await editor.locator('.nav').getByTitle('新しいスライド', { exact: true }).click();
+      // As in PowerPoint, the slide pane has no buttons of its own: reorder and
+      // delete from the keyboard, and add from Home ▸ New Slide.
+      await rows.nth(2).click();
+      await page.keyboard.press('Alt+ArrowUp');
+      await page.keyboard.press('Delete');
+      await editor
+        .getByRole('button', { name: 'スライド 3', exact: true })
+        .waitFor({ state: 'detached' });
+      const slidesGroup = editor.getByRole('button', { name: 'スライド', exact: true });
+      if (await slidesGroup.isVisible()) await slidesGroup.click();
+      await editor.getByRole('button', { name: '新しいスライド', exact: true }).click();
       await editor.getByRole('button', { name: 'スライド 3', exact: true }).waitFor();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       assert.deepEqual(await titles(), ['First', 'Second', '']);
@@ -685,9 +695,9 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: tableBox.width / 4, y: tableBox.height / 4 } });
-      await editor.locator('.inline-edit').focus();
+      await editor.locator('.canvas-shell .inline-edit').focus();
       await editor
-        .locator('.inline-edit')
+        .locator('.canvas-shell .inline-edit')
         .evaluate((node) =>
           window.selectEditorText(
             node,
@@ -696,7 +706,7 @@ test(
           ),
         );
       await page.keyboard.insertText('!');
-      await editor.locator('.inline-edit').press('Control+Enter');
+      await editor.locator('.canvas-shell .inline-edit').press('Control+Enter');
       assert.equal(
         await panel.getByLabel('Cell text', { exact: true }).inputValue(),
         'Hello 日本語!',
@@ -706,12 +716,12 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: tableBox.width / 4, y: tableBox.height / 4 } });
-      await editor.locator('.inline-edit').evaluate((node) => {
+      await editor.locator('.canvas-shell .inline-edit').evaluate((node) => {
         node.focus();
         window.selectEditorText(node, 6, 9);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
-      await editor.locator('.inline-edit').press('Control+u');
+      await editor.locator('.canvas-shell .inline-edit').press('Control+u');
       await editor.locator('.floating-text-format-bar summary').click();
       await editor
         .locator('.canvas-shell .text-format-bar')
@@ -936,7 +946,7 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: mergedBox.width * 0.8, y: mergedBox.height * 0.2 } });
-      const inlineCell = editor.locator('.inline-edit');
+      const inlineCell = editor.locator('.canvas-shell .inline-edit');
       assert.equal(await inlineCell.getAttribute('aria-label'), 'セルのテキスト');
       const mergedText = await inlineCell.textContent();
       assert.equal(mergedText, 'Hello 日本語!\nB\n追加');

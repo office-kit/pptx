@@ -27,7 +27,7 @@ test(
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       const selectTarget = () =>
         input.evaluate((node) => {

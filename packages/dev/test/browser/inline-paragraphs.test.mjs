@@ -96,7 +96,7 @@ test(
       };
       await saved();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       const select = async (start, end = start) => {
         await input.focus();
         await input.evaluate(
@@ -263,7 +263,7 @@ test(
       const hit = editor.locator('.hit').first();
       const bounds = await hit.boundingBox();
       await hit.dblclick({ position: { x: bounds.width / 4, y: bounds.height / 2 } });
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await fillPreservingText(input, 'First\nSecond');
       await input.evaluate((node) => {
         window.selectEditorText(node, 8, 8);
@@ -440,7 +440,7 @@ test(
       };
       await saved();
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await editor.locator('details.floating-text-format-bar > summary').click();
       const bar = editor.locator('details.floating-text-format-bar[open] .text-format-bar');
       const select = async (start, end = start) => {
@@ -574,7 +574,7 @@ for (const control of ['keyboard', 'toolbar'])
           )[0];
         await saved();
         await editor.locator('.hit').first().dblclick();
-        const input = editor.locator('.inline-edit');
+        const input = editor.locator('.canvas-shell .inline-edit');
         await fillPreservingText(input, 'Prefix\nEnglish\n日本語\nThird paragraph');
         await input.evaluate((node) => {
           window.selectEditorText(node, 7, 14);
@@ -764,7 +764,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       await editor.locator('details.floating-text-format-bar > summary').click();
       const bar = editor.locator('details.floating-text-format-bar[open] .text-format-bar');
       const select = async (start, end = start) => {
@@ -906,7 +906,7 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       const select = async (start, end = start) => {
         await input.focus();
         await input.evaluate(
@@ -987,7 +987,7 @@ test(
         );
       });
       await bold(false);
-      await editor.locator('.inline-edit[aria-busy="false"]').waitFor();
+      await editor.locator('.canvas-shell .inline-edit[aria-busy="false"]').waitFor();
       await bold(false);
       assert.equal(await input.textContent(), 'English 日本語');
       assert.deepEqual(errors, []);

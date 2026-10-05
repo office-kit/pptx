@@ -51,7 +51,7 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: 30, y: 20 } });
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       const select = async (start, end = start) => {
         await input.focus();
         await input.evaluate(
@@ -78,7 +78,7 @@ test(
       await editor.getByTitle('Zoom in (Ctrl+=)', { exact: true }).evaluate((n) => n.click());
       await page.waitForFunction((before) => {
         const root = document.querySelector('#editor-frame')?.contentDocument;
-        const span = root?.querySelector('.inline-edit span');
+        const span = root?.querySelector('.canvas-shell .inline-edit span');
         if (!span) return false;
         const bounds = span.getBoundingClientRect();
         // Canvas zoom scales the editing box, keeping font metrics in slide coordinates.
@@ -245,7 +245,7 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: 30, y: 20 } });
-      const input = editor.locator('.inline-edit');
+      const input = editor.locator('.canvas-shell .inline-edit');
       const checkStyle = async () => {
         const bar = editor.getByRole('group', { name: 'Selected text formatting', exact: true });
         assert.equal(

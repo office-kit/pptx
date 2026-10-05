@@ -77,8 +77,10 @@
         {/each}
       </select>
     </label>
+    <!-- Sits where Mac PowerPoint's Search box does; it searches every command. -->
     <button class="ok-btn palette-btn" onclick={() => editor.togglePalette(true)} title={t('Command palette (Ctrl+K)')}>
-      ⌘K · {t('All capabilities')}
+      <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.5" /><path d="M9.5 9.5L13 13" /></svg>
+      {t('Search (⌘K)')}
     </button>
   </div>
 
@@ -101,8 +103,9 @@
     min-height: 40px;
     flex-wrap: wrap;
     padding: 5px 12px;
-    background: var(--ok-accent);
-    color: #fff;
+    /* Mac PowerPoint's title bar uses the window chrome color, not the accent. */
+    background: var(--ok-ribbon);
+    color: var(--ok-text);
   }
   .topbar.compact {
     flex-wrap: nowrap;
@@ -139,20 +142,13 @@
     align-items: center;
     gap: 2px;
   }
-  .quick :global(.ok-btn) {
-    color: #fff;
-  }
   .quick :global(.ok-btn:hover) {
-    background: rgba(255, 255, 255, 0.16);
     border-color: transparent;
-  }
-  .quick :global(.ok-btn:disabled) {
-    color: rgba(255, 255, 255, 0.4);
   }
   .sep {
     width: 1px;
     height: 20px;
-    background: rgba(255, 255, 255, 0.3);
+    background: var(--ok-border);
     margin: 0 4px;
   }
   .filename {
@@ -162,11 +158,11 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: center;
-    font-size: 12px;
-    opacity: 0.95;
+    font-size: 13px;
+    font-weight: 600;
   }
   .dot {
-    color: #ffd7c9;
+    color: var(--ok-text-3);
   }
   .right {
     margin-left: auto;
@@ -175,9 +171,9 @@
     gap: 8px;
   }
   .lang select {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: var(--ok-panel);
+    color: var(--ok-text);
+    border: 1px solid var(--ok-border-strong);
     border-radius: var(--ok-radius);
     font: inherit;
     font-size: 12px;
@@ -188,12 +184,17 @@
     color: initial;
   }
   .right :global(.palette-btn) {
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.4);
+    min-width: 180px;
+    color: var(--ok-text-2);
+    background: var(--ok-panel);
+    border-color: var(--ok-border-strong);
+    border-radius: 6px;
     font-size: 12px;
   }
-  .right :global(.palette-btn:hover) {
-    background: rgba(255, 255, 255, 0.16);
+  .right :global(.palette-btn svg) {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
   }
   .host-status {
     display: flex;
@@ -203,9 +204,15 @@
   .topbar.compact .host-status {
     display: contents;
   }
+  /* A wrapping status would change the bar's height whenever it updates and
+     shift the canvas mid-gesture; the title bar keeps one line. */
   .topbar.compact .host-status :global(.save-status) {
     flex: 0 1 auto;
     min-height: 24px;
+    white-space: nowrap;
+  }
+  .topbar.compact .right :global(.palette-btn) {
+    min-width: 0;
   }
   .topbar.compact .host-status :global(.conflict) {
     flex-basis: 100%;

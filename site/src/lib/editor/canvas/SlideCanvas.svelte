@@ -1314,12 +1314,12 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
+    if (target instanceof Element && target.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) return;
     if (target === null) {
       // Some focus transfers briefly report no related target; inspect the settled focus.
       const current = editing;
       queueMicrotask(() => {
-        if (editing === current && !document.activeElement?.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
+        if (editing === current && !document.activeElement?.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) commitEditing();
       });
       return;
     }

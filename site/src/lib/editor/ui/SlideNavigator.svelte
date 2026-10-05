@@ -170,15 +170,14 @@
     display: flex;
     gap: 6px;
     align-items: flex-start;
-    padding: 4px;
-    border-radius: var(--ok-radius);
+    padding: 6px 6px 8px 4px;
     cursor: pointer;
   }
-  .thumb-row:hover {
-    background: var(--ok-hover);
-  }
-  .thumb-row.active {
-    background: var(--ok-selected);
+  /* Mac PowerPoint frames the selected thumbnail with a rounded accent ring
+     (and hovered ones with a gray ring) instead of tinting the row. */
+  .thumb-row:hover .thumb {
+    outline: 3px solid var(--ok-border-strong);
+    outline-offset: 2px;
   }
   .num {
     font-size: 11px;
@@ -190,13 +189,13 @@
   .thumb {
     flex: 1;
     background: #fff;
-    border: 1px solid var(--ok-border-strong);
-    border-radius: 2px;
+    border: 1px solid var(--ok-border);
+    border-radius: 4px;
     overflow: hidden;
   }
   .thumb-row.active .thumb {
-    border-color: var(--ok-selected-border);
-    box-shadow: 0 0 0 1px var(--ok-selected-border);
+    outline: 3px solid var(--ok-accent);
+    outline-offset: 2px;
   }
   .thumb :global(svg) {
     width: 100%;
