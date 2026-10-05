@@ -1,7 +1,8 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { asColor, getPresentationTheme, resolveDrawingColor, type Color, type ColorTransform } from '@office-kit/pptx';
+  import { asColor, getPresentationTheme, type Color, type ColorTransform } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import { resolveColor } from '../core/theme-color.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { label, value, resolvedColor, disabled = false, compact = false, glyph, showThemeShades = false, selectedColorTransforms = [], automatic, automaticSelected = false, choose }: {
@@ -57,20 +58,8 @@
       [{ kind: 'lumMod', value: 0.9 }], [{ kind: 'lumMod', value: 0.75 }], [{ kind: 'lumMod', value: 0.5 }],
       [{ kind: 'lumMod', value: 0.25 }], [{ kind: 'lumMod', value: 0.1 }],
     ] : lightRows;
-  function transformedPaint(schemeToken: string, transforms: readonly ShadeTransform[]): string {
-    const element: Parameters<typeof resolveDrawingColor>[0] = {
-      kind: 'element',
-      name: { prefix: 'a', localName: 'schemeClr', namespaceURI: 'http://schemas.openxmlformats.org/drawingml/2006/main' },
-      attrs: [{ name: { prefix: '', localName: 'val', namespaceURI: '' }, value: schemeToken }],
-      prefixDecls: new Map<string, string>(),
-      children: transforms.map(transform => ({
-        kind: 'element' as const,
-        name: { prefix: 'a', localName: transform.kind, namespaceURI: 'http://schemas.openxmlformats.org/drawingml/2006/main' },
-        attrs: [{ name: { prefix: '', localName: 'val', namespaceURI: '' }, value: String(Math.round(transform.value * 100000)) }],
-        prefixDecls: new Map<string, string>(), children: [],
-      })),
-    };
-    return resolveDrawingColor(element, theme) ?? '#000000';
+  function transformedPaint(schemeToken: Color, transforms: readonly ShadeTransform[]): string {
+    return resolveColor(schemeToken, transforms, theme) ?? '#000000';
   }
   const shadeInfo = (color: string, index: number): { shade: 'Darker' | 'Lighter'; shadePercent: number } => {
     if (color === 'bg1') return { shade: 'Darker', shadePercent: [5, 15, 25, 35, 50][index]! };

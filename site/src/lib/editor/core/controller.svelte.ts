@@ -186,6 +186,11 @@ export class EditorController {
   openShapeGallery(anchor: HTMLElement): void {
     this.shapeGallery = this.shapeGallery ? null : anchor.getBoundingClientRect();
   }
+  /** The Insert ▸ WordArt button while its gallery is open. */
+  wordArtGallery = $state<HTMLElement | null>(null);
+  openWordArtGallery(anchor: HTMLElement): void {
+    this.wordArtGallery = this.wordArtGallery ? null : anchor;
+  }
   symbolPicker = $state<DOMRect | null>(null);
   openSymbolPicker(anchor: HTMLElement): void {
     this.symbolPicker = this.symbolPicker ? null : anchor.getBoundingClientRect();

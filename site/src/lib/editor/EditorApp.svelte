@@ -34,6 +34,8 @@
   import HeaderFooterDialog from './ui/HeaderFooterDialog.svelte';
   import SymbolPicker from './ui/SymbolPicker.svelte';
   import ShapeGallery from './ui/ShapeGallery.svelte';
+  import WordArtGallery from './ui/WordArtGallery.svelte';
+  import { insertWordArt } from './core/insert-objects.ts';
   import NotesPageView from './ui/NotesPageView.svelte';
   import RehearsalDialog from './ui/RehearsalDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
@@ -271,6 +273,17 @@
   {/if}
   <SymbolPicker />
   <ShapeGallery />
+  {#if editor.wordArtGallery}
+    <WordArtGallery
+      label={t('WordArt')}
+      anchor={editor.wordArtGallery}
+      close={() => (editor.wordArtGallery = null)}
+      choose={(preset) => {
+        editor.wordArtGallery = null;
+        insertWordArt(editor, t('WordArt'), t('Your text here'), preset);
+      }}
+    />
+  {/if}
   <ToastStack />
 </div>
 

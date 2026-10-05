@@ -8,7 +8,7 @@
 import { inches } from '@office-kit/pptx';
 import { capabilityById } from '../manifest/index.ts';
 import type { EditorController } from '../core/controller.svelte.ts';
-import { insertMedia, insertScreenshot, insertWordArt } from '../core/insert-objects.ts';
+import { insertMedia, insertScreenshot } from '../core/insert-objects.ts';
 import { t } from '../i18n/i18n.svelte.ts';
 
 // Default drop placement for inserted objects — like PowerPoint dropping a
@@ -231,7 +231,7 @@ export const RIBBON: readonly RibbonTab[] = [
             id: 'insertWordArt',
             icon: 'wordart',
             label: 'WordArt',
-            run: (editor) => insertWordArt(editor, t('WordArt'), t('Your text here')),
+            run: (editor, button) => editor.openWordArtGallery(button),
             enabled: (editor) => !!editor.doc.currentSlide,
           },
           // Both insert a field PowerPoint keeps up to date into the selected

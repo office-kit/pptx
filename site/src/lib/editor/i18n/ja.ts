@@ -1591,8 +1591,6 @@ export const ja: Record<string, string> = {
   'Fill: Blue, Accent color 1; Shadow': '塗りつぶし: 青、アクセント カラー 1; 影',
   'Fill: White; Outline: Blue, Accent color 1; Glow: Blue, Accent color 1':
     '塗りつぶし: 白; 輪郭: 青、アクセント カラー 1; 光彩: 青、アクセント カラー 1',
-  'Fill: Orange, Accent color 2; Outline: Orange, Accent color 2':
-    '塗りつぶし: オレンジ、アクセント カラー 2; 輪郭: オレンジ、アクセント カラー 2',
   'Clear WordArt': 'ワードアートのクリア',
   'Text Fill': '文字の塗りつぶし',
   'Text Outline': '文字の輪郭',
@@ -1677,4 +1675,38 @@ export const ja: Record<string, string> = {
   'Format Video...': 'ビデオの書式設定...',
   'Format Picture': '図の書式設定',
   'Format Chart Area': 'グラフ エリアの書式設定',
+  'Fill: Red, Accent color 2; Outline: Red, Accent color 2':
+    '塗りつぶし: 赤、アクセント カラー 2; 輪郭: 赤、アクセント カラー 2',
+  'Fill: White; Outline: Aqua, Accent color 5; Shadow':
+    '塗りつぶし: 白; 輪郭: 水色、アクセント カラー 5; 影',
+  'Gradient Fill, Gray': 'グラデーション塗りつぶし: 灰色',
+  'Fill: Purple, Accent color 4; Soft Bevel':
+    '塗りつぶし: 紫、アクセント カラー 4; 面取り (ソフト)',
+  'Gradient Fill: Aqua, Accent color 5; Reflection':
+    'グラデーション塗りつぶし: 水色、アクセント カラー 5; 反射',
+  'Gradient Fill: Purple, Accent color 4; Outline: Purple, Accent color 4':
+    'グラデーション塗りつぶし: 紫、アクセント カラー 4; 輪郭: 紫、アクセント カラー 4',
+  'Fill: Olive Green, Accent color 3; Sharp Bevel':
+    '塗りつぶし: オリーブ グリーン、アクセント カラー 3; 面取り (シャープ)',
+  'Fill: Black, Text color 1; Outline: White, Background color 1; Hard Shadow: White, Background color 1':
+    '塗りつぶし: 黒、文字色 1; 輪郭: 白、背景色 1; 影 (ぼかしなし): 白、背景色 1',
+  'Fill: Black, Text color 1; Outline: White, Background color 1; Hard Shadow: Aqua, Accent color 5':
+    '塗りつぶし: 黒、文字色 1; 輪郭: 白、背景色 1; 影 (ぼかしなし): 水色、アクセント カラー 5',
+  'Fill: Aqua, Accent color 5; Outline: White, Background color 1; Hard Shadow: Aqua, Accent color 5':
+    '塗りつぶし: 水色、アクセント カラー 5; 輪郭: 白、背景色 1; 影 (ぼかしなし): 水色、アクセント カラー 5',
+  'Fill: White; Outline: Red, Accent color 2; Hard Shadow: Red, Accent color 2':
+    '塗りつぶし: 白; 輪郭: 赤、アクセント カラー 2; 影 (ぼかしなし): 赤、アクセント カラー 2',
+  'Fill: Tan, Background color 2; Inner Shadow': '塗りつぶし: ベージュ、背景色 2; 内側の影',
+  'Pattern Fill: White; Dark Upward Diagonal Stripe; Shadow':
+    'パターン塗りつぶし: 白; 右上がり対角線 (太); 影',
+  'Pattern Fill: Olive Green, Accent color 3, Narrow Horizontal Stripe; Inner Shadow':
+    'パターン塗りつぶし: オリーブ グリーン、アクセント カラー 3、横線 (細); 内側の影',
+  'Pattern Fill: Blue, Accent color 1, 50%; Hard Shadow: Blue, Accent color 1':
+    'パターン塗りつぶし: 青、アクセント カラー 1、50%; 影 (ぼかしなし): 青、アクセント カラー 1',
+  'Pattern Fill: Aqua, Accent color 5, Light Downward Diagonal Stripe; Outline: Aqua, Accent color 5':
+    'パターン塗りつぶし: 水色、アクセント カラー 5、右下がり対角線 (淡); 輪郭: 水色、アクセント カラー 5',
+  'Pattern Fill: Dark Blue, Dark Upward Diagonal Stripe; Hard Shadow':
+    'パターン塗りつぶし: 濃い青、右上がり対角線 (太); 影 (ぼかしなし)',
+  'Text bevels are not supported by the library yet.':
+    '文字の面取りはまだライブラリでサポートされていません。',
 };

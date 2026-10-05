@@ -103,7 +103,13 @@ test(
         assert.equal(getShapeText(footer), 'Confidential');
       }
 
-      await changed(() => button('WordArt').click());
+      await button('WordArt').click();
+      await changed(() =>
+        editor
+          .getByRole('menu', { name: 'WordArt', exact: true })
+          .getByRole('menuitem', { name: 'Fill: Blue, Accent color 1; Shadow', exact: true })
+          .click(),
+      );
       assert.ok(
         getSlideShapes((await slides())[0]).some(
           (shape) => getShapeText(shape) === 'Your text here',

@@ -1,11 +1,13 @@
 <script lang="ts">
   // Mac PowerPoint's Shape Format tab, in its order: Insert Shapes, Shape
   // Styles, WordArt Styles, Alt Text, Arrange, Size and Format Pane.
-  import { cm, emu, getShapeBoundsResolved, getShapeKind, setShapeBounds, setShapePreset, type Color, type PresetShape, type TextFormat } from '@office-kit/pptx';
+  import { cm, emu, getPresentationTheme, getShapeBoundsResolved, getShapeKind, setShapeBounds, setShapePreset, type Color, type PresetShape, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import { applyWordArtPreset, type WordArtPreset } from '../core/wordart-presets.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import Icon from '../ui/Icon.svelte';
+  import WordArtGallery from '../ui/WordArtGallery.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
   import { PRESET } from './config.ts';
   import ShapeQuickStyles from './ShapeQuickStyles.svelte';
@@ -17,6 +19,7 @@
   const paintable = $derived(editable && shapes.every((shape) => ['shape', 'connector'].includes(getShapeKind(shape))));
   const texty = $derived(editable && shapes.some((shape) => getShapeKind(shape) === 'shape'));
   let open = $state<'editShape' | 'shapeEffects' | 'wordArt' | 'textEffects' | null>(null);
+  let wordArtButton = $state<HTMLButtonElement>();
 
   const CHANGE_SHAPES: readonly [PresetShape, string][] = [
     ['rect', 'Rectangle'],
@@ -35,16 +38,15 @@
   const TEXT_GLOW = { color: 'accent1', radiusEmu: 63500, opacity: 0.4 } as const;
   const TEXT_REFLECTION = { blurEmu: 6350, offsetEmu: 0, angleDeg: 90, startOpacity: 0.5, opacity: 0.003, endPosition: 0.55 } as const;
   const THIN_OUTLINE_EMU = 9525;
-  const WORDART_STYLES: readonly [string, TextFormat][] = [
-    ['Fill: Black, Text color 1; Shadow', { color: 'tx1', outline: null, shadow: TEXT_SHADOW, glow: null }],
-    ['Fill: Blue, Accent color 1; Shadow', { color: 'accent1', outline: null, shadow: TEXT_SHADOW, glow: null }],
-    ['Fill: White; Outline: Blue, Accent color 1; Glow: Blue, Accent color 1', { color: 'bg1', outline: { color: 'accent1', widthEmu: THIN_OUTLINE_EMU }, shadow: null, glow: TEXT_GLOW }],
-    ['Fill: Orange, Accent color 2; Outline: Orange, Accent color 2', { color: 'accent2', outline: { color: 'accent2', widthEmu: THIN_OUTLINE_EMU }, shadow: null, glow: null }],
-  ];
 
   function textFormat(format: TextFormat) {
     open = null;
     editor.invoke('setShapeTextFormat', { format, options: { reset: false } });
+  }
+  function wordArt(preset: WordArtPreset) {
+    open = null;
+    const theme = getPresentationTheme(doc.pres);
+    doc.transact(t('WordArt Styles'), () => { for (const shape of shapes) if (getShapeKind(shape) === 'shape') applyWordArtPreset(shape, preset, theme); });
   }
   function changeShape(preset: PresetShape) {
     open = null;
@@ -115,13 +117,9 @@
 
   <section class="group" aria-label={t('WordArt Styles')}>
     <div class="anchor">
-      <button class="big" aria-label={t('WordArt Quick Styles')} aria-haspopup="menu" aria-expanded={open === 'wordArt'} disabled={!texty} onclick={() => (open = open === 'wordArt' ? null : 'wordArt')}><span class="wordart" aria-hidden="true">A</span><span>{t('Quick Styles')} ▾</span></button>
-      {#if open === 'wordArt'}
-        <div class="menu" role="menu" aria-label={t('WordArt Quick Styles')}>
-          {#each WORDART_STYLES as [label, format] (label)}<button role="menuitem" onclick={() => textFormat(format)}>{t(label)}</button>{/each}
-          <hr />
-          <button role="menuitem" onclick={() => textFormat({ outline: null, shadow: null, glow: null, reflection: null })}>{t('Clear WordArt')}</button>
-        </div>
+      <button class="big" bind:this={wordArtButton} aria-label={t('WordArt Quick Styles')} aria-haspopup="menu" aria-expanded={open === 'wordArt'} disabled={!texty} onclick={() => (open = open === 'wordArt' ? null : 'wordArt')}><span class="wordart" aria-hidden="true">A</span><span>{t('Quick Styles')} ▾</span></button>
+      {#if open === 'wordArt' && wordArtButton}
+        <WordArtGallery anchor={wordArtButton} label={t('WordArt Quick Styles')} choose={wordArt} close={() => (open = null)} clear={() => textFormat({ outline: null, shadow: null, innerShadow: null, glow: null, reflection: null })} />
       {/if}
     </div>
     <div class="stack">

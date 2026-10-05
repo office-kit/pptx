@@ -6,6 +6,7 @@ import {
   addSlideMedia,
   addSlideTextBox,
   emu,
+  getPresentationTheme,
   getShapeId,
   getSlideSize,
   setParagraphAlignment,
@@ -13,6 +14,7 @@ import {
   type SlideShapeData,
 } from '@office-kit/pptx';
 import type { EditorController } from './controller.svelte.ts';
+import { applyWordArtPreset, type WordArtPreset } from './wordart-presets.ts';
 
 const EMU_PER_INCH = 914400;
 const AUDIO_ICON_EMU = EMU_PER_INCH / 2;
@@ -98,14 +100,20 @@ export async function insertScreenshot(editor: EditorController, label: string) 
 
 const WORDART_PT = 54;
 
-/** Insert ▸ WordArt: PowerPoint's "Your text here" box in the default style. */
-export function insertWordArt(editor: EditorController, label: string, text: string) {
+/** Insert ▸ WordArt: PowerPoint's "Your text here" box in the style chosen from the gallery. */
+export function insertWordArt(
+  editor: EditorController,
+  label: string,
+  text: string,
+  preset: WordArtPreset,
+) {
   const slide = editor.doc.currentSlide;
   if (!slide) return;
   const box = centered(editor, 4);
   insert(editor, label, () => {
     const shape = addSlideTextBox(slide, { ...box, text });
-    setShapeTextFormat(shape, { size: WORDART_PT, bold: true, color: 'accent1' });
+    setShapeTextFormat(shape, { size: WORDART_PT });
+    applyWordArtPreset(shape, preset, getPresentationTheme(editor.doc.pres));
     setParagraphAlignment(shape, 0, 'ctr');
     return shape;
   });

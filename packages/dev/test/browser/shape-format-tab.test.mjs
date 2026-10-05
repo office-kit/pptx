@@ -78,7 +78,7 @@ test(
       await changed(() =>
         panel
           .getByRole('menuitem', {
-            name: 'Fill: Orange, Accent color 2; Outline: Orange, Accent color 2',
+            name: 'Fill: Red, Accent color 2; Outline: Red, Accent color 2',
           })
           .click(),
       );
