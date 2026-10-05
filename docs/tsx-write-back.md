@@ -112,9 +112,13 @@ Rules:
 - A missing attribute is inserted, unless the element has a spread attribute
   (`{...props}`) that could also set it (`spread`).
 - `text` follows `planTextEdit`'s existing rules, anchored to the element.
-- Number formatting: inches are written rounded to 0.001 in (≈ 914 EMU), angles to
-  0.1°. Verification compares at that precision, and the editor reloads the
-  rebuilt deck, so the snapped value is what the user then sees.
+- Number formatting follows the OOXML wire values exactly. Geometry is
+  `ST_Coordinate` (whole EMU) and rotation `ST_Angle` (whole 60000ths of a
+  degree); the DSL takes inches and degrees and rounds them with `inches()` /
+  the rotation setter. The planner writes the shortest decimal that rounds back
+  to the exact wire value (914400 EMU → `1`, 1371600 → `1.5`; six decimals always
+  suffice for EMU, five for angles), and verification compares wire values for
+  equality, so a write-back never moves a shape by even one EMU.
 
 The TypeScript AST is already used by `planTextEdit`; `typescript` stays an
 optional peer of the DSL, so the runtime bundle does not grow.
@@ -178,8 +182,6 @@ gradients, effects, transitions and animations, tables and charts, and a
 
 ## Open questions
 
-- Precision: is 0.001 in acceptable for geometry the user drags, or should the
-  DSL accept EMU (`{ emu: 914400 }`) for exact positions?
 - Should a refused write-back (computed value) be automatically routed to Claude,
   or only on the user's click? The draft says on click, so nothing runs without
   the user asking.
