@@ -177,7 +177,10 @@ import {
   type ParaInput,
   type PieceInput,
   type RenderSlideOptions,
+  type TextBlockBounds,
   type TextBodyInput,
+  type TextEffectKind,
+  type TextFillPaint,
   type TextLayoutMode,
   type TextMeasurer,
   type VerticalLayout,
@@ -743,12 +746,21 @@ let activeSlideNumber = '1';
 // from @office-kit/pptx's `{ stops, angleDeg }` shape onto SVG's
 // objectBoundingBox unit cube. ECMA-376 measures `angleDeg` clockwise
 // from 3 o'clock, which matches the trig below (0° = +x, 90° = +y).
+//
+// `box` maps the same unit cube onto a user-space rectangle instead of the
+// painted element's own bounding box — text runs need this, because each
+// glyph line is its own element but the gradient spans the whole text block.
 const gradientDef = (
   grad: ReadGradientFill,
   theme: PresentationTheme | null,
   transform = '',
+  box?: TextBlockBounds,
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
+  const units = box ? 'userSpaceOnUse' : 'objectBoundingBox';
+  if (box) {
+    transform = ` gradientTransform="matrix(${[box.w, 0, 0, box.h, box.x, box.y].map((value) => value.toFixed(4)).join(' ')})"`;
+  }
   const orderedStops = [...grad.stops].sort((a, b) => a.offset - b.offset);
   const stops = orderedStops
     .map(
@@ -794,7 +806,7 @@ const gradientDef = (
       // Antialiasing adjacent transparent polygons separately leaves hairline
       // gaps. Their colors meet continuously, so rasterize only their shared
       // boundaries without antialiasing; the shape's outer clip stays smooth.
-      const defs = `<defs>${gradients}<pattern id="${id}" patternUnits="objectBoundingBox" patternContentUnits="objectBoundingBox" x="${l}" y="${t}" width="${r - l}" height="${b - t}"${transform.replace('gradientTransform', 'patternTransform')}><g shape-rendering="crispEdges" transform="translate(${-l} ${-t})">${polygons}${center}</g></pattern></defs>`;
+      const defs = `<defs>${gradients}<pattern id="${id}" patternUnits="${units}" patternContentUnits="${units}" x="${l}" y="${t}" width="${r - l}" height="${b - t}"${transform.replace('gradientTransform', 'patternTransform')}><g shape-rendering="crispEdges" transform="translate(${-l} ${-t})">${polygons}${center}</g></pattern></defs>`;
       return { defs, fillAttr: `url(#${id})` };
     }
   }
@@ -806,7 +818,7 @@ const gradientDef = (
     const cx = (focus.left + 1 - focus.right) / 2;
     const cy = (focus.top + 1 - focus.bottom) / 2;
     // Mac PowerPoint places the first stop at the focus, as SVG does.
-    const defs = `<defs><radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${stops}</radialGradient></defs>`;
+    const defs = `<defs><radialGradient id="${id}" gradientUnits="${units}"${box ? transform : ''} cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${stops}</radialGradient></defs>`;
     return { defs, fillAttr: `url(#${id})` };
   }
   const angleRad = ((grad.angleDeg ?? 0) * Math.PI) / 180;
@@ -816,7 +828,7 @@ const gradientDef = (
   const y1 = 0.5 - dy;
   const x2 = 0.5 + dx;
   const y2 = 0.5 + dy;
-  const defs = `<defs><linearGradient id="${id}" gradientUnits="objectBoundingBox"${transform} x1="${x1.toFixed(4)}" y1="${y1.toFixed(4)}" x2="${x2.toFixed(4)}" y2="${y2.toFixed(4)}">${stops}</linearGradient></defs>`;
+  const defs = `<defs><linearGradient id="${id}" gradientUnits="${units}"${transform} x1="${x1.toFixed(4)}" y1="${y1.toFixed(4)}" x2="${x2.toFixed(4)}" y2="${y2.toFixed(4)}">${stops}</linearGradient></defs>`;
   return { defs, fillAttr: `url(#${id})` };
 };
 
@@ -967,6 +979,26 @@ const patternDef = (pat: {
   const defs = `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${bg}"/>${body}</pattern></defs>`;
   return { defs, fillAttr: `url(#${id})` };
 };
+
+type ReadTextFill = NonNullable<ReadTextFormat['textFill']>;
+
+// A run's `<a:gradFill>` / `<a:pattFill>` as an SVG paint server, built by
+// the same helpers that paint shape fills. The text engine supplies the
+// laid-out block's bounds (see resolveFillPaints in text-layout.ts).
+const textFillPaint =
+  (fill: ReadTextFill, theme: PresentationTheme | null): TextFillPaint =>
+  (box) => {
+    if (fill.kind === 'pattern') {
+      const built = patternDef({
+        preset: fill.preset,
+        foreground: resolveColor(fill.foreground, theme, '#000000'),
+        background: resolveColor(fill.background, theme, '#FFFFFF'),
+      });
+      return { defs: built.defs, fill: built.fillAttr };
+    }
+    const built = gradientDef(fill, theme, '', box);
+    return { defs: built.defs, fill: built.fillAttr };
+  };
 
 interface PaintResult {
   fill: string;
@@ -2265,6 +2297,31 @@ const renderRun = (
 ): string => {
   if (text === '') return '';
   void _wasDefault;
+  // A gradient or pattern fill has no HTML spelling that spans the whole text
+  // block, so the sibling SVG fill layer draws these glyphs — outline, shadow,
+  // glow and decorations included, so nothing sits misaligned beside them.
+  // The HTML glyphs stay for layout, selection and the caret.
+  if (format?.textFill) {
+    const {
+      textFill: _fill,
+      outline: _outline,
+      shadow: _shadow,
+      glow: _glow,
+      underline: _underline,
+      strike: _strike,
+      ...layout
+    } = format;
+    return renderRun(
+      text,
+      { ...layout, color: 'transparent' },
+      theme,
+      effectivePt,
+      defaultColor,
+      _wasDefault,
+      suppressLineHeight,
+      lineHeightOverride,
+    );
+  }
   const styles: string[] = [];
   styles.push(`font-size:${(effectivePt * PX_PER_PT).toFixed(2)}px`);
   // PowerPoint uses tight line-height (~1.0) by default for placeholders;
@@ -2467,7 +2524,7 @@ export interface SvgTextArgs {
   readonly vert: VerticalLayout;
   readonly columns: ColumnLayout | null;
   readonly effectsOnly?: boolean;
-  readonly effectKind?: 'reflection' | 'outer' | 'innerShadow' | 'all';
+  readonly effectKind?: TextEffectKind;
   /** Maps an authored font name onto the family the measurer keys off.
    *  The render paths leave this unset (= `substituteFamily`, whose output
    *  must match the bundled TTFs' internal names for resvg). The audit path
@@ -2476,6 +2533,10 @@ export interface SvgTextArgs {
    *  substitution map. */
   readonly resolveFamily?: (family: string | null) => string;
 }
+
+// Runs whose glyphs the SVG fill layer paints; a hyperlink's theme color
+// replaces the run's own fill.
+const hasPaintedTextFill = (run: RunData): boolean => !!run.fmt?.textFill && !run.href;
 
 const alignOf = (a: string): ParaInput['align'] =>
   a === 'center' || a === 'right' || a === 'justify' ? a : 'left';
@@ -2603,6 +2664,8 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         letterSpacingPx,
         kerning,
         fillHex,
+        // A hyperlink's theme color replaces the run's own fill (see above).
+        ...(fmt?.textFill && !run.href ? { fillPaint: textFillPaint(fmt.textFill, a.theme) } : {}),
         ...(fmt?.underlineColor !== undefined && fmt.underlineColor !== null
           ? { underlineHex: resolveColor(fmt.underlineColor, a.theme, fillHex) }
           : {}),
@@ -3267,8 +3330,9 @@ const renderHtmlParagraphs = (
       let runFmt = run.fmt;
       if (run.href) {
         const hlinkColor = theme ? normalizeHex(theme.hyperlink) : '#0563C1';
+        const { textFill: _linkFill, ...linkFmt } = runFmt ?? {};
         runFmt = {
-          ...runFmt,
+          ...linkFmt,
           // Theme hlink color overrides a hyperlink run's direct fill (see
           // the SVG path above) — match PowerPoint / LibreOffice.
           color: hlinkColor,
@@ -3552,6 +3616,9 @@ const renderTextBody = (
         paraData.some((para) => para.runs.some((run) => run.fmt?.reflection != null))
           ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'reflection' })
           : '',
+        paraData.some((para) => para.runs.some(hasPaintedTextFill))
+          ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'fill' })
+          : '',
         paraData.some((para) => para.runs.some((run) => run.fmt?.innerShadow != null))
           ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'innerShadow' })
           : '',
@@ -3616,10 +3683,12 @@ const renderTextBody = (
     para.runs.some(
       (run) =>
         (run.fmt?.reflection !== undefined && run.fmt.reflection !== null) ||
-        (run.fmt?.innerShadow !== undefined && run.fmt.innerShadow !== null),
+        (run.fmt?.innerShadow !== undefined && run.fmt.innerShadow !== null) ||
+        hasPaintedTextFill(run),
     ),
   );
   let reflectionOverlay = '';
+  let fillOverlay = '';
   let innerShadowOverlay = '';
   if (hasCharacterEffect) {
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
@@ -3657,6 +3726,9 @@ const renderTextBody = (
     if (hasCharacterReflection) {
       reflectionOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'reflection' });
     }
+    if (paraData.some((para) => para.runs.some(hasPaintedTextFill))) {
+      fillOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'fill' });
+    }
     if (hasCharacterInnerShadow) {
       innerShadowOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'innerShadow' });
     }
@@ -3671,13 +3743,13 @@ const renderTextBody = (
     const pivotY = innerY + innerH / 2;
     const content =
       output === 'effects'
-        ? `${reflectionOverlay}${innerShadowOverlay}`
-        : `${reflectionOverlay}${foreign}${innerShadowOverlay}`;
+        ? `${reflectionOverlay}${fillOverlay}${innerShadowOverlay}`
+        : `${reflectionOverlay}${foreign}${fillOverlay}${innerShadowOverlay}`;
     return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${content}</g>`;
   }
   return output === 'effects'
-    ? reflectionOverlay + innerShadowOverlay
-    : reflectionOverlay + foreign + innerShadowOverlay;
+    ? reflectionOverlay + fillOverlay + innerShadowOverlay
+    : reflectionOverlay + foreign + fillOverlay + innerShadowOverlay;
 };
 
 /**
@@ -6442,30 +6514,35 @@ const renderTableCellText = (
   const customTabs = paraData.some(
     (para) => para.tabStops?.length && para.runs.some((run) => run.text.includes('\t')),
   );
+  const svgArgs: SvgTextArgs = {
+    pres,
+    shape,
+    theme,
+    paraData,
+    numberLabels,
+    autoFitScale: 1,
+    lineHeightScale: 1,
+    defaultPt: DEFAULT_BODY_PT,
+    themeFace,
+    defaultColor: color,
+    anchor: vAnchor,
+    wrap: true,
+    innerX: innerX * EMU_PER_PX,
+    innerY: innerY * EMU_PER_PX,
+    innerW: innerW * EMU_PER_PX,
+    innerH: innerH * EMU_PER_PX,
+    measure: ctx.mode === 'svg' ? ctx.measure : (browserTextMeasurer() ?? ctx.measure),
+    ...(ctx.mode === 'foreignObject' ? { resolveFamily: browserFontFamily } : {}),
+    vert: verticalLayoutOf(getTableCellTextDirection(cell)),
+    columns: null,
+    ...(effectsOnly ? { effectsOnly: true } : {}),
+  };
+  // Gradient and pattern runs are painted by an SVG glyph layer over the HTML.
+  const fillOverlay = (): string =>
+    paraData.some((para) => para.runs.some(hasPaintedTextFill))
+      ? buildAndLayoutSvgText({ ...svgArgs, effectsOnly: true, effectKind: 'fill' })
+      : '';
   if (ctx.mode === 'svg' || customTabs || effectsOnly) {
-    const svgArgs: SvgTextArgs = {
-      pres,
-      shape,
-      theme,
-      paraData,
-      numberLabels,
-      autoFitScale: 1,
-      lineHeightScale: 1,
-      defaultPt: DEFAULT_BODY_PT,
-      themeFace,
-      defaultColor: color,
-      anchor: vAnchor,
-      wrap: true,
-      innerX: innerX * EMU_PER_PX,
-      innerY: innerY * EMU_PER_PX,
-      innerW: innerW * EMU_PER_PX,
-      innerH: innerH * EMU_PER_PX,
-      measure: ctx.mode === 'svg' ? ctx.measure : (browserTextMeasurer() ?? ctx.measure),
-      ...(ctx.mode === 'foreignObject' ? { resolveFamily: browserFontFamily } : {}),
-      vert: verticalLayoutOf(getTableCellTextDirection(cell)),
-      columns: null,
-      ...(effectsOnly ? { effectsOnly: true } : {}),
-    };
     if (effectsOnly) {
       const reflection = paraData.some((para) =>
         para.runs.some((run) => run.fmt?.reflection != null),
@@ -6477,7 +6554,7 @@ const renderTableCellText = (
       )
         ? buildAndLayoutSvgText({ ...svgArgs, effectKind: 'innerShadow' })
         : '';
-      return reflection + innerShadow;
+      return reflection + fillOverlay() + innerShadow;
     }
     return buildAndLayoutSvgText(svgArgs);
   }
@@ -6492,7 +6569,7 @@ const renderTableCellText = (
   const body = renderHtmlParagraphs(paraData, numberLabels, theme, 1, DEFAULT_BODY_PT, color).join(
     '',
   );
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>${fillOverlay()}`;
 };
 
 const renderTable = (

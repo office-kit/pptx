@@ -173,6 +173,8 @@ export interface PieceInput {
   readonly letterSpacingPx: number;
   readonly kerning?: boolean;
   readonly fillHex: string;
+  /** Non-solid glyph fill; `fillHex` stays the solid fallback. */
+  readonly fillPaint?: TextFillPaint;
   readonly highlightHex?: string;
   /** Character outline (`<a:rPr><a:ln>`), painted behind the glyph fill. */
   readonly outlineHex?: string;
@@ -198,6 +200,32 @@ export interface PieceInput {
    * positions. */
   readonly reflection?: TextReflectionInput;
 }
+
+/** User-space bounds of a laid-out text block, in px. */
+export interface TextBlockBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * Builds the SVG paint server for a run's `<a:gradFill>` / `<a:pattFill>`
+ * once the block is laid out. The engine passes the bounds of all laid-out
+ * lines, so a gradient spans the whole text block rather than restarting on
+ * every line or run.
+ */
+export type TextFillPaint = (bounds: TextBlockBounds) => {
+  readonly defs: string;
+  readonly fill: string;
+};
+
+/**
+ * Which glyph layer an effects-only pass emits. `fill` draws the glyphs of
+ * gradient- and pattern-filled runs (with their outline, shadow, glow and
+ * decorations), for a foreignObject body whose HTML cannot paint those fills.
+ */
+export type TextEffectKind = 'reflection' | 'outer' | 'innerShadow' | 'fill' | 'all';
 
 export interface TextShadowInput {
   readonly color?: string;
@@ -300,7 +328,7 @@ export interface TextBodyInput {
   /** Emit only non-interactive character effects for a foreignObject sibling. */
   readonly effectsOnly?: boolean;
   /** Restrict an effects-only pass to one character-effect family. */
-  readonly effectKind?: 'reflection' | 'outer' | 'innerShadow' | 'all';
+  readonly effectKind?: TextEffectKind;
 }
 
 // ---------------------------------------------------------------------------
@@ -750,11 +778,85 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
 };
 
 export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
-  const { placements, vert, cx, cy } = layoutCore(input, measure);
-  const body = emitPlacements(placements, input.effectsOnly === true, input.effectKind ?? 'all');
+  const core = layoutCore(input, measure);
+  const { vert, cx, cy } = core;
+  const { defs, placements } = resolveFillPaints(core.placements);
+  const body =
+    defs + emitPlacements(placements, input.effectsOnly === true, input.effectKind ?? 'all');
   if (vert === 'none' || vert === 'upright') return body;
   const deg = vert === 'cw90' ? 90 : 270;
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
+};
+
+// The left edge and width of a line's drawn content, as emitLine places it.
+const lineContentExtent = (line: Line, dx: number): { left: number; width: number } | null => {
+  const toks = [...line.tokens];
+  while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
+    toks.pop();
+  }
+  const content = toks.filter((t) => !t.isBreak);
+  if (content.length === 0) return null;
+  const width = content.reduce((sum, t) => sum + t.width, 0);
+  const x0 = line.anchorX + dx + GRID_NUDGE_X;
+  const left =
+    x0 - (line.textAnchor === 'middle' ? width / 2 : line.textAnchor === 'end' ? width : 0);
+  return { left, width };
+};
+
+// Resolves every distinct `fillPaint` against the laid-out block and swaps the
+// paint reference into `fillHex`, so the glyph, reflection and decoration
+// emitters all paint the same gradient or pattern without knowing about it.
+//
+// ECMA-376 §20.1.8.33 does not say what box a text gradient fills. PowerPoint
+// spreads it once across the text block — every line of the body, not each
+// line or run separately — so the bounds are the union of the laid-out lines'
+// ink boxes (ascent to descent, drawn content width).
+const resolveFillPaints = (placements: Placement[]): { defs: string; placements: Placement[] } => {
+  const hasPaint = placements.some(({ line }) => line.tokens.some((t) => t.piece.fillPaint));
+  if (!hasPaint) return { defs: '', placements };
+  let left = Number.POSITIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
+  for (const { line, baselineY, dx } of placements) {
+    const extent = lineContentExtent(line, dx);
+    if (extent === null) continue;
+    left = Math.min(left, extent.left);
+    right = Math.max(right, extent.left + extent.width);
+    top = Math.min(top, baselineY - line.ascent);
+    bottom = Math.max(bottom, baselineY + line.descent);
+  }
+  if (!(right > left && bottom > top)) return { defs: '', placements };
+  const bounds: TextBlockBounds = { x: left, y: top, w: right - left, h: bottom - top };
+  const painted = new Map<TextFillPaint, string>();
+  let defs = '';
+  const pieces = new Map<PieceInput, PieceInput>();
+  const repaint = (piece: PieceInput): PieceInput => {
+    const paint = piece.fillPaint;
+    if (paint === undefined) return piece;
+    let next = pieces.get(piece);
+    if (next) return next;
+    let fill = painted.get(paint);
+    if (fill === undefined) {
+      const built = paint(bounds);
+      defs += built.defs;
+      fill = built.fill;
+      painted.set(paint, fill);
+    }
+    next = { ...piece, fillHex: fill };
+    pieces.set(piece, next);
+    return next;
+  };
+  const repainted = placements.map((placement) => ({
+    ...placement,
+    line: {
+      ...placement.line,
+      tokens: placement.line.tokens.map((token) =>
+        token.piece.fillPaint ? { ...token, piece: repaint(token.piece) } : token,
+      ),
+    },
+  }));
+  return { defs, placements: repainted };
 };
 
 /** Content height (px) the body would occupy at the given input's font sizes —
@@ -869,7 +971,7 @@ const placeColumns = (
 const emitPlacements = (
   placements: Placement[],
   effectsOnly = false,
-  effectKind: 'reflection' | 'outer' | 'innerShadow' | 'all' = 'all',
+  effectKind: TextEffectKind = 'all',
 ): string => {
   const paragraphs: string[] = [];
   let parts: string[] = [];
@@ -947,7 +1049,7 @@ const emitLine = (
   descent: number,
   nextEffectId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
   effectsOnly: boolean,
-  effectKind: 'reflection' | 'outer' | 'innerShadow' | 'all',
+  effectKind: TextEffectKind,
 ): string => {
   const toks = [...line.tokens];
   while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
@@ -970,18 +1072,32 @@ const emitLine = (
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  if (effectsOnly && effectKind === 'fill') {
+    // Only the paint-filled groups draw; the rest stay in the <text> as
+    // unpainted placeholders so every glyph keeps its laid-out position.
+    const painted = groups.map((g) =>
+      g.piece.fillPaint ? g : { ...g, piece: unpaintedPiece(g.piece) },
+    );
+    if (!painted.some((g) => g.piece.fillPaint)) return '';
+    const glyphs = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve" aria-hidden="true" pointer-events="none">${painted.map(tspan).join('')}</text>`;
+    return (
+      emitTextOuterEffects(painted, line.textAnchor, x0, baselineY, nextEffectId) +
+      glyphs +
+      emitTextDecorations(painted, line.textAnchor, x0, baselineY)
+    );
+  }
   const reflections =
-    effectKind === 'innerShadow' || effectKind === 'outer'
-      ? ''
-      : emitTextReflections(groups, line.textAnchor, x0, baselineY, descent, nextEffectId);
+    effectKind === 'reflection' || effectKind === 'all'
+      ? emitTextReflections(groups, line.textAnchor, x0, baselineY, descent, nextEffectId)
+      : '';
   const outerEffects =
-    effectKind === 'reflection' || effectKind === 'innerShadow'
-      ? ''
-      : emitTextOuterEffects(groups, line.textAnchor, x0, baselineY, nextEffectId);
+    effectKind === 'outer' || effectKind === 'all'
+      ? emitTextOuterEffects(groups, line.textAnchor, x0, baselineY, nextEffectId)
+      : '';
   const innerShadows =
-    effectKind === 'reflection' || effectKind === 'outer'
-      ? ''
-      : emitTextInnerShadows(groups, line.textAnchor, x0, baselineY, nextEffectId);
+    effectKind === 'innerShadow' || effectKind === 'all'
+      ? emitTextInnerShadows(groups, line.textAnchor, x0, baselineY, nextEffectId)
+      : '';
   if (effectsOnly) return outerEffects + reflections + innerShadows;
   return (
     emitHighlights(groups, line.textAnchor, x0, baselineY) +
@@ -991,6 +1107,13 @@ const emitLine = (
     innerShadows +
     emitTextDecorations(groups, line.textAnchor, x0, baselineY)
   );
+};
+
+// A piece that keeps its metrics but draws nothing: no fill, outline,
+// decoration or outer effect.
+const unpaintedPiece = (piece: PieceInput): PieceInput => {
+  const { outlineHex: _outline, shadow: _shadow, glow: _glow, ...rest } = piece;
+  return { ...rest, fillHex: 'none', underline: 'none', strike: false };
 };
 
 interface Group {

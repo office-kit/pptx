@@ -264,6 +264,28 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
 
 export type TextClipboardHtmlOptions = { editing?: boolean };
 
+const withoutSvgPaintedLayers = (format: TextFormat): TextFormat => {
+  const {
+    outline: _outline,
+    shadow: _shadow,
+    glow: _glow,
+    underline: _underline,
+    strike: _strike,
+    ...rest
+  } = format;
+  return rest;
+};
+
+// The caret takes the fill's first color: transparent glyphs would otherwise
+// hide it, since `caret-color: auto` follows the text color.
+const textFillCaretColor = (fill: NonNullable<TextFormat['textFill']>): string => {
+  const color =
+    fill.kind === 'pattern'
+      ? fill.foreground
+      : [...fill.stops].sort((a, b) => a.offset - b.offset)[0]?.color;
+  return color !== undefined && /^#?[\da-f]{6}$/i.test(color) ? color : '#000000';
+};
+
 export function textClipboardHtml(
   copied: FormattedText,
   options: TextClipboardHtmlOptions = {},
@@ -278,10 +300,20 @@ export function textClipboardHtml(
     const rgb = [0, 2, 4].map((offset) => Number.parseInt(match[1]!.slice(offset, offset + 2), 16));
     return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.max(0, opacity)})`;
   };
-  for (const { start, end, format } of copied.formats) {
+  for (const { start, end, format: authored } of copied.formats) {
     const span = document.createElement('span');
     span.textContent = copied.text.slice(start, end);
     const style = span.style;
+    // While editing, the canvas's SVG fill layer (renderTextEffectsSvg) draws
+    // gradient and pattern glyphs with their outline, shadows and decorations,
+    // because CSS cannot spread one gradient across the whole text block. The
+    // editable glyphs stay transparent so nothing is drawn twice.
+    const svgFill = options.editing === true ? authored.textFill : undefined;
+    const format = svgFill ? withoutSvgPaintedLayers(authored) : authored;
+    if (svgFill) {
+      style.color = 'transparent';
+      style.caretColor = cssColor(textFillCaretColor(svgFill));
+    }
     if (format.bold !== undefined) style.fontWeight = format.bold ? 'bold' : 'normal';
     if (format.italic !== undefined) style.fontStyle = format.italic ? 'italic' : 'normal';
     if (format.size !== undefined) style.fontSize = `${format.size}pt`;
