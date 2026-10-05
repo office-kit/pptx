@@ -12,11 +12,8 @@
   import ViewRibbon from './ViewRibbon.svelte';
   import SlideShowRibbon from './SlideShowRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
-  import ArrangeMenu from './ArrangeMenu.svelte';
   import ShapeQuickStyles from './ShapeQuickStyles.svelte';
-  import FontRibbon from './FontRibbon.svelte';
-  import LineSpacingMenu from './LineSpacingMenu.svelte';
-  import ParagraphAlignment from './ParagraphAlignment.svelte';
+  import HomeRibbon from './HomeRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
@@ -25,7 +22,6 @@
 
   let activeTab = $state('home');
   let collapsed = $state(false);
-  let openGroup = $state<string | null>(null);
 
   const visibleTabs = $derived.by<RibbonTab[]>(() => {
     const sel = doc.selection;
@@ -45,7 +41,6 @@
   // If the active tab disappears (selection changed), fall back to Home.
   $effect(() => {
     if (!visibleTabs.some((t) => t.id === activeTab)) activeTab = 'home';
-    openGroup = null;
   });
 
   const current = $derived(visibleTabs.find((t) => t.id === activeTab) ?? visibleTabs[0]);
@@ -65,17 +60,8 @@
     return cap ? `${capLabel(cap)} — ${cap.id}` : id;
   }
 
-  function dismissGroup(event: PointerEvent) {
-    const target = event.target;
-    if (!(target instanceof Element) || !target.closest('.group-menu, .group-menu-trigger')) openGroup = null;
-  }
-
-  function groupKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && openGroup) { event.preventDefault(); event.stopPropagation(); openGroup = null; }
-  }
 </script>
 
-<svelte:window onpointerdown={dismissGroup} onkeydown={groupKeydown} />
 <div class="ribbon">
   <div class="tab-row">
     <div class="tabs" role="tablist" tabindex="-1" aria-label={t('Ribbon')} onkeydown={tabKeys}>
@@ -99,13 +85,14 @@
     <button class="ribbon-toggle" aria-label={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} title={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} aria-expanded={!collapsed} aria-controls="ribbon-panel" onclick={() => (collapsed = !collapsed)}>{collapsed ? '⌄' : '⌃'}</button>
   </div>
 
-  <div class="groups ok-scroll" class:home-groups={current?.id === 'home'} hidden={collapsed} id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
+  <div class="groups ok-scroll" hidden={collapsed} id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
     {#if current?.title === 'Video Format'}
       <VideoFormatRibbon />
     {:else}
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
+    {#if current?.id === 'home'}<HomeRibbon />{/if}
     {#if current?.id === 'shape'}
       <div class="group shape-style-group">
         <div class="group-items"><ShapeQuickStyles inline /></div>
@@ -113,18 +100,13 @@
       </div>
     {/if}
     {#each current?.groups ?? [] as group (group.title)}
-      <div class="group" class:font-group={current?.id === 'home' && group.title === 'Font'} class:paragraph-group={current?.id === 'home' && group.title === 'Paragraph'}>
+      <div class="group">
         <div class="group-items">
-          {#if current?.id === 'home' && group.title === 'Drawing'}<ArrangeMenu /><ShapeQuickStyles />{/if}
-          {#if current?.id === 'home' && group.title === 'Font'}<FontRibbon />
-          {:else if current?.id === 'design' && group.title === 'Background'}
+          {#if current?.id === 'design' && group.title === 'Background'}
             <BackgroundStyles />
           {:else}
           {#each group.items as item (item.id + (item.label ?? ''))}
             {@const cap = capabilityById.get(item.id)}
-            {#if current?.id === 'home' && item.id === 'setParagraphAlignment'}<ParagraphAlignment />
-            {:else if current?.id === 'home' && item.id === 'setParagraphLineSpacing'}<LineSpacingMenu />
-            {:else}
             <button
               class="cmd"
               disabled={!editor.canRun(item.id)}
@@ -135,46 +117,12 @@
               <span class="icon"><Icon name={item.icon ?? 'dot'} /></span>
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
-            {/if}
           {/each}
           {/if}
         </div>
         <div class="group-title">{t(group.title)}</div>
       </div>
     {/each}
-    {#if current?.id === 'home'}
-      <div class="compact-groups" role="toolbar" aria-label={t('Home ribbon groups')}>
-        {#each current.groups as group (group.title)}
-          <button class="group-menu-trigger" class:font-trigger={group.title === 'Font'} class:paragraph-trigger={group.title === 'Paragraph'} aria-haspopup="menu" aria-expanded={openGroup === group.title} onclick={() => openGroup = openGroup === group.title ? null : group.title}>
-            <span>{t(group.title)}</span><span aria-hidden="true">⌄</span>
-          </button>
-        {/each}
-      </div>
-      {#if openGroup}
-        {@const group = current.groups.find(item => item.title === openGroup)}
-        {#if group}
-          <div class="group-menu" role="menu" tabindex="-1" aria-label={t(group.title)} onkeydown={groupKeydown}>
-            <div class="group-menu-items">
-              {#if group.title === 'Font'}<FontRibbon />
-              {:else}
-                {#if group.title === 'Drawing'}<ArrangeMenu compact onchoose={() => openGroup = null} /><ShapeQuickStyles compact />{/if}
-                {#each group.items as item (item.id + (item.label ?? ''))}
-                  {@const cap = capabilityById.get(item.id)}
-                  {#if item.id === 'setParagraphAlignment'}<ParagraphAlignment />
-                  {:else if item.id === 'setParagraphLineSpacing'}<LineSpacingMenu />
-                  {:else}
-                    <button class="cmd" role="menuitem" disabled={!editor.canRun(item.id)} title={tip(item.id)} aria-label={item.label ? t(item.label) : cap ? capLabel(cap) : item.id} onclick={() => { openGroup = null; editor.runOrPrompt(item.id, item.preset ?? {}); }}>
-                      <span class="icon"><Icon name={item.icon ?? 'dot'} /></span>
-                      <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
-                    </button>
-                  {/if}
-                {/each}
-              {/if}
-            </div>
-          </div>
-        {/if}
-      {/if}
-    {/if}
     {/if}
   </div>
 </div>
@@ -234,26 +182,6 @@
     min-height: calc(var(--ok-ribbon-h) - 30px);
     padding: 4px 6px 2px;
     overflow-x: auto;
-  }
-  .compact-groups, .group-menu { display: none; }
-  .group-menu-trigger.font-trigger { display: none; }
-  @media (max-width: 2000px) {
-    .groups.home-groups { position: relative; overflow: visible; }
-    .groups.home-groups > .group { display: none; }
-    .groups.home-groups > .group.font-group { display: flex; }
-    .groups.home-groups .compact-groups { display: flex; flex-wrap: wrap; width: 100%; gap: 4px; }
-    .group-menu-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 76px; padding: 8px 7px; border: 1px solid var(--ok-border); border-radius: var(--ok-radius); background: var(--ok-panel); color: var(--ok-text); font: inherit; font-size: 11px; cursor: pointer; }
-    .group-menu-trigger:hover, .group-menu-trigger[aria-expanded='true'] { background: var(--ok-hover); border-color: var(--ok-accent); }
-    .group-menu { position: absolute; z-index: 400; display: block; left: 6px; right: 6px; top: calc(100% - 2px); padding: 7px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
-    .group-menu-items { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
-  }
-  @media (max-width: 799px) {
-    .groups.home-groups > .group.font-group { display: none; }
-    .group-menu-trigger.font-trigger { display: inline-flex; }
-  }
-  @media (min-width: 1100px) and (max-width: 2000px) {
-    .groups.home-groups > .group.paragraph-group { display: flex; }
-    .paragraph-trigger { display: none; }
   }
   .group {
     flex-shrink: 0;

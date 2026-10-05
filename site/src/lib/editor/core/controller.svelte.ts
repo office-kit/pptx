@@ -64,6 +64,7 @@ import {
 } from './format-clipboard.ts';
 import { hideSlideNumber, showSlideNumber, slideNumberShape } from './slide-numbers.ts';
 import { textFormatsInRange } from './text-format-selection.ts';
+import { newSlideLayout } from './new-slide.ts';
 import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
@@ -303,6 +304,12 @@ export class EditorController {
   paletteOpen = $state<boolean>(false);
   /** The format painter's pickup, shared by the canvas and the panels. */
   formatClipboard = $state<CopiedFormat | null>(null);
+  /**
+   * Shape ids the ribbon Format Painter picked up from. While set, the next
+   * selection of other objects receives the copied formatting once, as
+   * PowerPoint's single-click Format Painter does.
+   */
+  formatPainterSource = $state<readonly number[] | null>(null);
   toasts = $state<Toast[]>([]);
 
   get ctx(): CommandContext {
@@ -767,6 +774,39 @@ export class EditorController {
         ? `${t('Formatting copied')} — ${t('not copied')}: ${limits.map((limit) => t(limit)).join(', ')}`
         : t('Formatting copied'),
     );
+  }
+
+  /** Ribbon Format Painter: pick up the selection's format, or cancel a pending pickup. */
+  toggleFormatPainter(): void {
+    if (this.formatPainterSource) {
+      this.formatPainterSource = null;
+      return;
+    }
+    const ids = selectedShapeIds(this.doc.selection);
+    if (!ids.length) return;
+    this.copyObjectFormat();
+    this.formatPainterSource = [...ids];
+  }
+
+  /** Completes a pending Format Painter once other objects are selected. */
+  completeFormatPainter(): void {
+    const source = this.formatPainterSource;
+    const ids = selectedShapeIds(this.doc.selection);
+    if (!source || !ids.length || ids.every((id) => source.includes(id))) return;
+    this.formatPainterSource = null;
+    this.pasteObjectFormat();
+  }
+
+  /**
+   * Home ▸ New Slide: inserts after the current slide using the layout
+   * PowerPoint picks for it (see `newSlideLayout`).
+   */
+  addNewSlide(): void {
+    const layout = this.doc.currentSlide
+      ? newSlideLayout(this.doc.pres, this.doc.currentSlide)
+      : null;
+    if (layout) this.invoke('addSlide', { options: { layout } });
+    else this.invoke('addBlankSlide');
   }
 
   /** Pastes the copied formatting onto every selected object. */

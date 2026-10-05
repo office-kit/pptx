@@ -1,5 +1,6 @@
 <script lang="ts">
   import ViewMenu from './ViewMenu.svelte';
+  import EditMenu from './EditMenu.svelte';
   import { getEditor } from '../core/context.ts';
   import { t, getLocale, setLocale, LOCALES, type Locale } from '../i18n/i18n.svelte.ts';
   import type { Snippet } from 'svelte';
@@ -67,6 +68,7 @@
   </div>
 
   <div class="right">
+    <EditMenu />
     <ViewMenu />
     <label class="lang" title={t('Language')}>
       <select value={getLocale()} onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value as Locale)}>

@@ -122,6 +122,34 @@
     <rect x="3" y="6" width="18" height="12" rx="1.5" /><path d="M9 12h6" /><polyline points="7,9 4,12 7,15" opacity="0" /><polyline points="10,9.5 12,12 10,14.5" /><polyline points="14,9.5 12,12 14,14.5" />
   {:else if name === 'border'}
     <rect x="4" y="4" width="16" height="16" /><line x1="4" y1="12" x2="20" y2="12" stroke-dasharray="2 2" /><line x1="12" y1="4" x2="12" y2="20" stroke-dasharray="2 2" />
+  {:else if name === 'paste'}
+    <rect x="4" y="4" width="12" height="16" rx="1.5" /><rect x="7.5" y="2.5" width="5" height="3" rx="1" /><rect x="11" y="10" width="9" height="11" rx="1" />
+  {:else if name === 'cut'}
+    <circle cx="7" cy="17" r="3" /><circle cx="17" cy="17" r="3" /><line x1="9" y1="15" x2="17" y2="3" /><line x1="15" y1="15" x2="7" y2="3" />
+  {:else if name === 'copy'}
+    <rect x="8" y="8" width="12" height="13" rx="1.5" /><path d="M5 16V4.5A1.5 1.5 0 0 1 6.5 3H15" />
+  {:else if name === 'format-painter'}
+    <rect x="4" y="3" width="13" height="6" rx="1" /><path d="M17 6h3v5h-8v3" /><rect x="10.5" y="14" width="3" height="7" rx="1" />
+  {:else if name === 'new-slide'}
+    <rect x="5" y="7" width="16" height="12" rx="1" /><line x1="5" y1="11" x2="21" y2="11" /><line x1="13" y1="11" x2="13" y2="19" /><line x1="4" y1="1.5" x2="4" y2="7.5" /><line x1="1" y1="4.5" x2="7" y2="4.5" />
+  {:else if name === 'layout'}
+    <rect x="3" y="5" width="18" height="14" rx="1" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="12" y1="9" x2="12" y2="19" />
+  {:else if name === 'section'}
+    <rect x="4" y="3" width="16" height="4" rx="1" /><rect x="4" y="10" width="16" height="11" rx="1" />
+  {:else if name === 'numbering'}
+    <path d="M4 5h1.5v4" /><path d="M3.5 13.5a1.4 1.4 0 0 1 2.6.6c0 1-2.6 2-2.6 2.9h2.8" /><line x1="9" y1="7" x2="20" y2="7" /><line x1="9" y1="15" x2="20" y2="15" />
+  {:else if name === 'indent-less'}
+    <line x1="4" y1="5" x2="20" y2="5" /><line x1="11" y1="10" x2="20" y2="10" /><line x1="11" y1="14" x2="20" y2="14" /><line x1="4" y1="19" x2="20" y2="19" /><polyline points="8,9.5 5,12 8,14.5" />
+  {:else if name === 'indent-more'}
+    <line x1="4" y1="5" x2="20" y2="5" /><line x1="11" y1="10" x2="20" y2="10" /><line x1="11" y1="14" x2="20" y2="14" /><line x1="4" y1="19" x2="20" y2="19" /><polyline points="5,9.5 8,12 5,14.5" />
+  {:else if name === 'arrange'}
+    <rect x="3" y="3" width="9" height="9" /><rect x="8" y="8" width="9" height="9" fill="currentColor" opacity="0.35" /><rect x="12" y="12" width="9" height="9" />
+  {:else if name === 'quick-styles'}
+    <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 17c2 0 3-1 3-3l6-7" /><circle cx="7.5" cy="17" r="1.5" />
+  {:else if name === 'picture'}
+    <rect x="3" y="5" width="18" height="14" rx="1" /><path d="M3 17l6-6 4 4 3-3 5 5" /><circle cx="16" cy="9" r="1.5" />
+  {:else if name === 'shapes'}
+    <rect x="3" y="3" width="11" height="11" /><circle cx="15" cy="15" r="6" />
   {:else}
     <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
   {/if}

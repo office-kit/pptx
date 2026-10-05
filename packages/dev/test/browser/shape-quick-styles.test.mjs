@@ -97,12 +97,8 @@ test(
               .click();
           }
           await editor.getByRole('tab', { name: 'Home', exact: true }).click();
-          if (width <= 2000) {
-            await editor
-              .locator('.compact-groups .group-menu-trigger')
-              .filter({ hasText: 'Drawing' })
-              .click();
-          }
+          const drawingGroup = editor.getByRole('button', { name: 'Drawing', exact: true });
+          if (await drawingGroup.isVisible()) await drawingGroup.click();
           const trigger = editor.getByRole('button', { name: 'Quick Styles', exact: true });
           await trigger.click();
           const menu = editor.getByRole('menu', { name: 'Quick Styles', exact: true });
