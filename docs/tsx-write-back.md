@@ -26,11 +26,23 @@ to Claude Code with the selection and the intended change, and Claude edits the
 source. The sidecar shrinks to "edits not yet in the source" and is empty in the
 common case.
 
+Invariant: **every slide and every shape the editor can touch is a JSX element
+in the source.** There is no "this object only exists in the PPTX" state. Two
+paths used to create one, and both are closed:
+
+1. Objects the editor creates (insert, paste, duplicate, new slide) are written
+   back as new JSX elements, not left in the sidecar (section 7).
+2. A deck that starts from an existing `.pptx` is imported into TSX that names
+   every slide and shape as an element (section 8). Properties the DSL cannot
+   express yet stay in the source package by reference, so nothing is lost, but
+   the object itself is always addressable in TSX.
+
+What can still go to Claude is a change that is in TSX but not mechanically
+writable: a computed or shared value, an element that makes several shapes
+(`rows.map`, a reused component), or a property the DSL has no prop for yet.
+
 Non-goals for this work:
 
-- Lossless PPTX → TSX conversion of arbitrary decks. A `Presentation source={…}`
-  deck keeps its original slides in the source `.pptx`; edits to them are out of
-  scope until the DSL can address such shapes (see "Later").
 - Writing into shared components or computed values. Those go to Claude.
 
 ## Design
@@ -70,13 +82,16 @@ type DeckChange =
   | { kind: 'text'; shape: ShapeRef; value: string } // plain text of a single-run body
   | { kind: 'fill'; shape: ShapeRef; value: api.Color | null }
   | { kind: 'stroke'; shape: ShapeRef; value: { color: api.Color; width: number } | false }
+  | { kind: 'added'; shape: ShapeRef } // created, pasted or duplicated in the editor
+  | { kind: 'removed'; shape: ShapeRef }
+  | { kind: 'slides'; order: (number | 'new')[] } // source slide indices, in the edited order
   | { kind: 'unsupported'; shape?: ShapeRef; slide?: number; description: string };
 ```
 
 Shape identity is the shape id: the editor loads `/editor/source`, the deck the
 server built, so ids match; new shapes get fresh ids. Anything the diff cannot
-express as one of the typed kinds (a new or deleted shape, a gradient, a run
-format, an animation, slide order…) becomes `unsupported` with a human-readable
+express as one of the typed kinds (a gradient, a run format, an animation…)
+becomes `unsupported` with a human-readable
 description — that is the hand-off to Claude, never a silent drop.
 
 ### 2. Shape → JSX element
@@ -85,8 +100,9 @@ description — that is the hand-off to Claude, never a silent drop.
 `getShapeJsxSources(shape)` returns the element chain for every DSL-made shape.
 `BuildResult` gains `shapeSources: Record<number, Record<number, JsxSource[]>>`
 (slide index → shape id → chain). The innermost entry is the element that created
-the shape. A shape with no sources (source deck, `Raw`, `Fill` target) cannot be
-written back.
+the shape. Shapes a source deck brought along get their element from the
+`target` form in section 8, so they have sources too. Only `Raw`-made shapes have
+none; `Raw` is the escape hatch and its output is Claude's to edit.
 
 ### 3. Prop edit planner (`@office-kit/pptx-dsl/source-edit`)
 
@@ -162,6 +178,61 @@ deck that differs from the source, which the next save writes back like any othe
 edit, so undo needs no special case. The project history (`/history`) already
 snapshots the source files per turn, so source write-backs appear there too.
 
+### 7. Structural write-back
+
+- **Added shape**: a new element is inserted as the last child of the slide's
+  `<Slide>` element (z-order follows document order), with the props the diff
+  can state: `<Shape preset="rect" x={…} … />`, `<Text …>…</Text>`,
+  `<Image data={…} />`. Image bytes are written next to the deck
+  (`assets/<hash>.png`) and imported, never inlined. If the slide is not a
+  literal `<Slide>` element (e.g. made by `slides.map`), the addition is
+  pending for Claude.
+- **Removed shape**: an element that makes exactly one shape is deleted; a
+  shape from a source deck becomes `<Remove target={{ id }} />` (section 8).
+- **Slide order, new and deleted slides**: literal `<Slide>` siblings are
+  reordered, inserted (`<Slide layout={{ name }}>`) or deleted.
+- Paste and duplicate are additions with the copied props.
+
+### 8. Importing an existing `.pptx` as TSX
+
+`office-pptx import deck.pptx` writes `deck.tsx`:
+
+```tsx
+const source = await readFile(new URL('./deck.pptx', import.meta.url));
+export default (
+  <Presentation source={source} mode="compose">
+    <Slide from={{ index: 0 }}>
+      <Text target={{ id: 2 }} x={0.5} y={0.4} width={9} height={1.2}>
+        Q3 business review
+      </Text>
+      <Shape target={{ id: 5 }} x={0.5} y={2} width={4} height={3} fill="#E8EEF7" />
+      <Image target={{ id: 7 }} x={5} y={2} width={4} height={3} />
+    </Slide>
+    …
+  </Presentation>
+);
+```
+
+- Every slide is a `<Slide from>` in compose mode, so slides can be reordered,
+  added and deleted as elements.
+- Every shape is an element with a new `target` form, the same convention
+  `<Slide target>` already uses: with `target`, `Shape` / `Text` / `Image` /
+  `Table` / `Chart` / `Line` / `Group` / `Media` edit the existing shape instead of
+  creating one. The props the DSL can express are written out explicitly, so the
+  TSX shows the deck's real geometry, text and colors and type-checks them; every
+  other property (effects, run formats the DSL lacks, unknown parts) stays in the
+  source package untouched. This keeps the CLAUDE.md rule that unknown parts are
+  never discarded or flattened.
+- A shape with no element in a compose-mode `<Slide from>` is removed from the
+  output only through `<Remove>`; an element-less shape is a build warning, so the
+  invariant holds even after hand edits.
+- As DSL coverage grows, `import` writes more props and the source package
+  matters less; a deck whose every property is expressible can drop `source`.
+
+Open points for this section: `Fill target` overlaps `Text target` (one way to
+do one thing — `Fill` would be deprecated in favour of `Text target`), and
+`<Slide from>` must keep shape ids stable, which needs a test.
+
 ## Phases
 
 1. **Plumbing and geometry**: `shapeSources` in `BuildResult`, `deck-diff` for
@@ -169,16 +240,18 @@ snapshots the source files per turn, so source write-backs appear there too.
    rollback, save endpoint returns written/pending. Browser test: drag and resize a
    `<Shape>` and a `<Text>`, check the TSX literal changed and no sidecar remains;
    drag a shape made in `rows.map(...)`, check it stays pending.
-2. **Text, fill and stroke** for `Text` and `Shape`.
-3. **Claude hand-off**: selection context in the prompt hook, pending list, the
+2. **Structure** (section 7): added, pasted, duplicated and deleted shapes; new,
+   deleted and reordered slides.
+3. **Text, fill and stroke** for `Text` and `Shape`.
+4. **`target` form and `office-pptx import`** (section 8), with round-trip tests
+   on the sample decks in `samples/`.
+5. **Claude hand-off**: selection context in the prompt hook, pending list, the
    Apply with Claude Code notice, re-diff after Claude's turn.
-4. **Structure**: insert a new shape as a JSX element in its slide, delete an
-   element that makes exactly one shape, reorder slides written as literal
-   `<Slide>` siblings.
 
 Later (each needs DSL props first): run-level text formats, paragraph formats,
-gradients, effects, transitions and animations, tables and charts, and a
-`Target`-based edit element for slides that came from a source deck.
+gradients, effects, transitions and animations, tables and charts, layouts and
+masters (the Design tab's layout commands need a `<Layout target>` element before
+they can be written back).
 
 ## Open questions
 
