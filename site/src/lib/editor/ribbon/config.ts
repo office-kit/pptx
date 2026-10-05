@@ -263,16 +263,7 @@ export const RIBBON: readonly RibbonTab[] = [
   { id: 'animations', title: 'Animations', groups: [] },
   { id: 'slideShow', title: 'Slide Show', groups: [] },
   { id: 'record', title: 'Record', groups: [] },
-  {
-    id: 'review',
-    title: 'Review',
-    groups: [
-      {
-        title: 'Comments',
-        items: [{ id: 'addSlideComment', icon: 'comment', label: 'New Comment' }],
-      },
-    ],
-  },
+  { id: 'review', title: 'Review', groups: [] },
   { id: 'view', title: 'View', groups: [] },
   {
     id: 'shape',

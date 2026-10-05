@@ -14,6 +14,7 @@
   import TransitionsRibbon from './TransitionsRibbon.svelte';
   import DrawRibbon from './DrawRibbon.svelte';
   import RecordRibbon from './RecordRibbon.svelte';
+  import ReviewRibbon from './ReviewRibbon.svelte';
   import AnimationsRibbon from './AnimationsRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ShapeQuickStyles from './ShapeQuickStyles.svelte';
@@ -98,6 +99,7 @@
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
     {#if current?.id === 'draw'}<DrawRibbon />{/if}
     {#if current?.id === 'record'}<RecordRibbon />{/if}
+    {#if current?.id === 'review'}<ReviewRibbon />{/if}
     {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
     {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}

@@ -18,9 +18,8 @@
     }
   });
   const issues = $derived.by(() => { doc.version; return accessibilityIssues(doc.pres); });
-  let issuesOpen = $state(false);
   function goTo(issue: (typeof issues)[number]) {
-    issuesOpen = false;
+    editor.accessibilityOpen = false;
     if (issue.kind === 'alt-text') doc.selectShape(issue.slide, issue.shapeId);
     else doc.selectSlide(issue.slide);
   }
@@ -38,16 +37,16 @@
 </script>
 
 <svelte:window
-  onkeydown={(event) => { if (issuesOpen && event.key === 'Escape') issuesOpen = false; }}
-  onpointerdown={(event) => { if (issuesOpen && !(event.target as Element).closest?.('.a11y')) issuesOpen = false; }}
+  onkeydown={(event) => { if (editor.accessibilityOpen && event.key === 'Escape') editor.accessibilityOpen = false; }}
+  onpointerdown={(event) => { if (editor.accessibilityOpen && !(event.target as Element).closest?.('.a11y')) editor.accessibilityOpen = false; }}
 />
 
 <div class="statusbar">
   <span>{t('Slide {n} of {count}').replace('{n}', String(doc.selection.slideIndex + 1)).replace('{count}', String(doc.slides.length))}</span>
   <span class="language">{language}</span>
   <div class="a11y">
-    <button class="labelled" aria-haspopup="dialog" aria-expanded={issuesOpen} onclick={() => (issuesOpen = !issuesOpen)}><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="2.5" r="1.3"/><path d="M2 5h10M7 5v4M5 13l2-4 2 4"/></svg>{t(issues.length ? 'Accessibility: Investigate' : 'Accessibility: Good to go')}</button>
-    {#if issuesOpen}
+    <button class="labelled" aria-haspopup="dialog" aria-expanded={editor.accessibilityOpen} onclick={() => (editor.accessibilityOpen = !editor.accessibilityOpen)}><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="2.5" r="1.3"/><path d="M2 5h10M7 5v4M5 13l2-4 2 4"/></svg>{t(issues.length ? 'Accessibility: Investigate' : 'Accessibility: Good to go')}</button>
+    {#if editor.accessibilityOpen}
       <div class="issues" role="dialog" aria-label={t('Accessibility')}>
         {#if issues.length === 0}<p>{t('No accessibility issues found.')}</p>{/if}
         {#each issues as issue (issue.kind + issue.slide + (issue.kind === 'alt-text' ? issue.shapeId : ''))}

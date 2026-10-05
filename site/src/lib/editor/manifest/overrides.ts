@@ -287,6 +287,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  setShapeTextLanguage: { labelEn: 'Language', labelJa: '言語' },
   setShapeTextField: {
     labelEn: 'Insert field',
     labelJa: 'フィールドを挿入',

@@ -164,6 +164,8 @@ export class EditorController {
   /** Open the Custom Shows manager. The actual sequence edits still flow
    * through EditorDocument.transact so save/undo treats each gesture as one
    * PowerPoint-style document edit. */
+  /** The Accessibility issue list (status bar, Review ▸ Check Accessibility). */
+  accessibilityOpen = $state(false);
   /** Where Insert ▸ Symbol's picker opens (the button's rectangle), or null when closed. */
   symbolPicker = $state<DOMRect | null>(null);
   openSymbolPicker(anchor: HTMLElement): void {

@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 199,
+  "count": 200,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2569,6 +2569,23 @@
           "type": "{ range?: { start: number; end: number }; reset?: boolean }",
           "kind": "object",
           "optional": true
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextLanguage",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text-language.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "lang",
+          "type": "string",
+          "kind": "string",
+          "optional": false
         }
       ]
     },

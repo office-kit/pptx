@@ -31,6 +31,7 @@ export * from './fn/shape-read-paint.ts';
 export * from './fn/shape-gradient-read.ts';
 export * from './fn/shape-fill-stroke.ts';
 export * from './fn/shape-custom-geometry.ts';
+export * from './fn/shape-text-language.ts';
 export * from './fn/shape-effects.ts';
 export * from './fn/shape-style.ts';
 export * from './fn/shape-text.ts';
