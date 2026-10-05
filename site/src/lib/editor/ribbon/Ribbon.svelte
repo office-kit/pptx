@@ -16,9 +16,9 @@
   import RecordRibbon from './RecordRibbon.svelte';
   import ReviewRibbon from './ReviewRibbon.svelte';
   import AnimationsRibbon from './AnimationsRibbon.svelte';
-  import BackgroundStyles from './BackgroundStyles.svelte';
   import ShapeFormatRibbon from './ShapeFormatRibbon.svelte';
   import HomeRibbon from './HomeRibbon.svelte';
+  import DesignRibbon from './DesignRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
   import { downloadPptx } from '../core/download.ts';
@@ -136,13 +136,11 @@
     {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
     {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}
+    {#if current?.id === 'design'}<DesignRibbon />{/if}
     {#if current?.id === 'shape'}<ShapeFormatRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group" role="group" aria-label={t(group.title)}>
         <div class="group-items">
-          {#if current?.id === 'design' && group.title === 'Background'}
-            <BackgroundStyles />
-          {:else}
           {#each group.items as item (item.id + (item.label ?? ''))}
             {@const cap = capabilityById.get(item.id)}
             <button
@@ -156,7 +154,6 @@
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
           {/each}
-          {/if}
         </div>
       </div>
     {/each}

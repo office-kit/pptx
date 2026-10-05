@@ -289,26 +289,7 @@ export const RIBBON: readonly RibbonTab[] = [
   {
     id: 'design',
     title: 'Design',
-    groups: [
-      // Mac PowerPoint's Variants group (Colors, Fonts, Background Styles) and
-      // Slide Size; there is no Office theme gallery to pick whole themes from.
-      // Layout editing lives on the Slide Master tab (View ▸ Slide Master).
-      {
-        title: 'Variants',
-        items: [
-          { id: 'setPresentationTheme', icon: 'theme', label: 'Colors' },
-          { id: 'setPresentationFonts', icon: 'font', label: 'Fonts' },
-        ],
-      },
-      {
-        title: 'Background',
-        items: [],
-      },
-      {
-        title: 'Customize',
-        items: [{ id: 'setSlideSize', icon: 'resize', label: 'Slide Size' }],
-      },
-    ],
+    groups: [],
   },
   { id: 'transitions', title: 'Transitions', groups: [] },
   { id: 'animations', title: 'Animations', groups: [] },
