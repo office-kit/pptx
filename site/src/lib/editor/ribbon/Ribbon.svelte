@@ -208,7 +208,6 @@
     justify-content: flex-start;
     gap: 2px;
     min-width: 52px;
-    max-width: 72px;
     min-height: 66px;
     padding: 3px 4px;
     border: 1px solid transparent;
@@ -236,12 +235,6 @@
     font-size: 11px;
     text-align: center;
     line-height: 1.15;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
+    max-width: 84px;
   }
 </style>

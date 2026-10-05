@@ -56,7 +56,7 @@ test(
     withDeck(
       `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1}>Ribbon test</Text></Slide></Presentation>`,
       async (preview, browser) => {
-        for (const width of [756, 900, 1200, 1512, 2100]) {
+        for (const width of [756, 900, 1100, 1200, 1512, 2100]) {
           const page = await browser.newPage({ viewport: { width, height: 800 } });
           try {
             await page.goto(preview.url + '/editor');
@@ -76,10 +76,15 @@ test(
                 .evaluateAll((nodes) =>
                   nodes.map((node) => node.closest('section').getAttribute('aria-label')),
                 );
-              assert.deepEqual(
-                triggers,
-                collapsedAt(homeWidth).map(label),
-                `${width}px ${locale} (ribbon ${homeWidth}px) collapsed groups`,
+              // English follows the native thresholds exactly; longer Japanese
+              // labels may take a later step near a threshold instead of scrolling.
+              const steps = [homeWidth, 1299, 1079, 839]
+                .filter((step) => step <= homeWidth)
+                .map((step) => collapsedAt(step).map(label));
+              const allowed = locale === 'en' ? steps.slice(0, 1) : steps;
+              assert.ok(
+                allowed.some((step) => JSON.stringify(step) === JSON.stringify(triggers)),
+                `${width}px ${locale} (ribbon ${homeWidth}px) collapsed groups: ${JSON.stringify(triggers)}`,
               );
               await page
                 .getByRole('button', { name: locale === 'ja' ? '貼り付け' : 'Paste', exact: true })

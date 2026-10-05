@@ -49,7 +49,7 @@
   }
 </script>
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
-<button class="trigger" bind:this={trigger} disabled={!doc.currentSlide} aria-label={t('Background Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}><Icon name="background" /><span>{t('Background Styles')} ▾</span></button>
+<button class="trigger" bind:this={trigger} disabled={!doc.currentSlide} aria-label={t('Background Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}><Icon name="background" size={32} /><span>{t('Background Styles')} <span aria-hidden="true">⌄</span></span></button>
 {#if open}
   <div class="menu" role="menu" aria-label={t('Background Styles')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="gallery" role="group" aria-label={t('Background Styles')}>
@@ -64,7 +64,8 @@
   </div>
 {/if}
 <style>
-  .trigger { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); color: var(--ok-text); font: inherit; font-size: 11px; cursor: pointer; }
+  .trigger { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 52px; min-height: 66px; padding: 3px 4px; background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); color: var(--ok-text); font: inherit; font-size: 11px; line-height: 1.15; cursor: pointer; }
+  .trigger > span { max-width: 72px; text-align: center; }
   .trigger:hover { background: var(--ok-hover); border-color: var(--ok-border); }
   .trigger:disabled { opacity: .4; }
   .menu { position: fixed; z-index: 400; padding: 5px; max-height: calc(100dvh - 16px); overflow-y: auto; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); color: var(--ok-text); box-shadow: var(--ok-shadow-lg); }
