@@ -11,6 +11,8 @@
   import Icon from '../ui/Icon.svelte';
   import ViewRibbon from './ViewRibbon.svelte';
   import SlideShowRibbon from './SlideShowRibbon.svelte';
+  import TransitionsRibbon from './TransitionsRibbon.svelte';
+  import AnimationsRibbon from './AnimationsRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ShapeQuickStyles from './ShapeQuickStyles.svelte';
   import HomeRibbon from './HomeRibbon.svelte';
@@ -92,15 +94,16 @@
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
+    {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
+    {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}
     {#if current?.id === 'shape'}
       <div class="group shape-style-group">
         <div class="group-items"><ShapeQuickStyles inline /></div>
-        <div class="group-title">{t('Shape Styles')}</div>
       </div>
     {/if}
     {#each current?.groups ?? [] as group (group.title)}
-      <div class="group">
+      <div class="group" role="group" aria-label={t(group.title)}>
         <div class="group-items">
           {#if current?.id === 'design' && group.title === 'Background'}
             <BackgroundStyles />
@@ -112,15 +115,14 @@
               disabled={!editor.canRun(item.id)}
               title={tip(item.id)}
               aria-label={item.label ? t(item.label) : cap ? capLabel(cap) : item.id}
-              onclick={() => editor.runOrPrompt(item.id, item.preset ?? {})}
+              onclick={() => (item.run ? item.run(editor) : editor.runOrPrompt(item.id, item.preset ?? {}))}
             >
-              <span class="icon"><Icon name={item.icon ?? 'dot'} /></span>
+              <span class="icon"><Icon name={item.icon ?? 'dot'} size={32} /></span>
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
           {/each}
           {/if}
         </div>
-        <div class="group-title">{t(group.title)}</div>
       </div>
     {/each}
     {/if}
@@ -187,8 +189,7 @@
   .group {
     flex-shrink: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    align-items: center;
     padding: 0 8px;
     border-right: 1px solid var(--ok-border);
     min-width: 0;
@@ -196,19 +197,24 @@
   .group-items {
     display: flex;
     gap: 2px;
-    flex: 1;
     align-items: center;
   }
+  /* Mac PowerPoint's large ribbon button: a 32px icon over a one- or two-line
+     caption, with no group captions under the commands. */
   .cmd {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3px;
-    width: 62px;
-    padding: 4px 2px;
+    justify-content: flex-start;
+    gap: 2px;
+    min-width: 52px;
+    max-width: 72px;
+    min-height: 66px;
+    padding: 3px 4px;
     border: 1px solid transparent;
     background: none;
     border-radius: var(--ok-radius);
+    color: var(--ok-text);
     cursor: pointer;
     font: inherit;
   }
@@ -224,15 +230,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 20px;
-    color: var(--ok-text);
-  }
-  .cmd:disabled .icon {
-    color: var(--ok-text-3);
+    height: 32px;
   }
   .cmd-label {
-    font-size: 10px;
-    color: var(--ok-text-2);
+    font-size: 11px;
     text-align: center;
     line-height: 1.15;
     max-width: 100%;
@@ -242,11 +243,5 @@
     -webkit-line-clamp: 2;
     line-clamp: 2;
     -webkit-box-orient: vertical;
-  }
-  .group-title {
-    text-align: center;
-    font-size: 10px;
-    color: var(--ok-text-3);
-    padding-top: 2px;
   }
 </style>

@@ -48,7 +48,9 @@ test(
         const show = japanese ? 'スライド ショー' : 'Slide Show';
         const setup = japanese ? 'スライド ショーの設定' : 'Set Up Show';
         await editor.getByRole('tab', { name: show, exact: true }).click();
-        await editor.getByRole('button', { name: setup, exact: true }).click();
+        await editor
+          .getByRole('button', { name: japanese ? setup : 'Set Up Slide Show', exact: true })
+          .click();
         return editor.getByRole('dialog', { name: setup, exact: true });
       };
       await saved();

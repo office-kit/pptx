@@ -131,7 +131,10 @@ test('the ribbon turns a selected box into a date field', { timeout: 60000 }, as
 
     await editor.locator('.hit').first().click();
     await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
-    await editor.locator('.ribbon').getByRole('button', { name: 'Insert field' }).click();
+    await editor
+      .locator('.ribbon')
+      .getByRole('button', { name: 'Date & Time', exact: true })
+      .click();
     const dialog = editor.getByRole('dialog');
     await dialog.locator('select').selectOption('datetime1');
     await dialog.getByRole('button', { name: 'Apply', exact: true }).click();

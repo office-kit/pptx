@@ -10,7 +10,7 @@
   // click inside text to edit; drag borders to move. Gestures mutate the real model on every frame
   // (so the shape moves for real, not a ghost) via `applyLive`, then commit a
   // single undo step on release. Zoom + right-click menu round out the feel.
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
@@ -682,6 +682,16 @@
     editing.text = value;
     textRange = { start: caretAfter, end: textInput?.getSelection().end ?? caretAfter };
   }
+  // Focus can leave the text for the ribbon (which keeps editing alive) and
+  // then go elsewhere without another focusout from the canvas, so a selection
+  // that no longer holds the edited box — a thumbnail click, say — ends the
+  // edit, as it does in PowerPoint.
+  $effect(() => {
+    const id = selectedShapeId(doc.selection);
+    untrack(() => {
+      if (editing && !restoringEditing && id !== editing.id) commitEditing();
+    });
+  });
   function commitEditing() {
     if (!editing) return;
     const box = boxes.find((b) => b.id === editing!.id);

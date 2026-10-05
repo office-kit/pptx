@@ -42,7 +42,7 @@ test(
           .click();
         await editor
           .getByRole('button', {
-            name: language === 'en' ? 'Custom Shows' : 'カスタム ショー',
+            name: language === 'en' ? 'Custom Show' : 'カスタム スライド ショー',
             exact: true,
           })
           .click();
@@ -113,7 +113,7 @@ test(
       ]);
 
       await dialog.getByLabel('Close', { exact: true }).click();
-      await editor.getByRole('button', { name: 'Set Up Show', exact: true }).click();
+      await editor.getByRole('button', { name: 'Set Up Slide Show', exact: true }).click();
       const setupDialog = editor.getByRole('dialog', { name: 'Set Up Show', exact: true });
       await setupDialog.getByLabel('Custom show:', { exact: true }).check();
       await setupDialog

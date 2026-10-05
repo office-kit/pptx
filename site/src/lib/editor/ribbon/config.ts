@@ -7,6 +7,7 @@
 
 import { inches } from '@office-kit/pptx';
 import { capabilityById } from '../manifest/index.ts';
+import type { EditorController } from '../core/controller.svelte.ts';
 
 // Default drop placement for inserted objects — like PowerPoint dropping a
 // default-sized shape you then move/resize. EMU via the public unit helpers.
@@ -28,6 +29,8 @@ export interface RibbonItem {
   /** Short visible label; the full label stays available to assistive technology. */
   readonly compactLabel?: string;
   readonly icon?: string;
+  /** Runs instead of the capability when the native command does more than one call. */
+  readonly run?: (editor: EditorController) => void;
 }
 
 export interface RibbonGroup {
@@ -53,34 +56,45 @@ export const RIBBON: readonly RibbonTab[] = [
   {
     id: 'insert',
     title: 'Insert',
+    // Mac PowerPoint's Insert tab, in its order and with its names. Video and
+    // Audio, Icons, SmartArt, WordArt and Equation are not available here.
     groups: [
       {
-        title: 'Tables',
-        items: [{ id: 'addSlideTable', icon: 'table' }],
+        title: 'Slides',
+        items: [
+          {
+            id: 'addSlide',
+            icon: 'new-slide',
+            label: 'New Slide',
+            run: (editor) => editor.addNewSlide(),
+          },
+        ],
       },
+      { title: 'Tables', items: [{ id: 'addSlideTable', icon: 'table', label: 'Table' }] },
       {
         title: 'Illustrations',
         items: [
-          { id: 'addSlideShape', icon: 'shape', preset: PRESET.shape },
-          { id: 'addSlideImage', icon: 'image' },
-          { id: 'addSlideChart', icon: 'chart' },
-          { id: 'addSlideLine', icon: 'line', preset: PRESET.line },
+          { id: 'addSlideImage', icon: 'picture', label: 'Pictures' },
+          { id: 'addSlideShape', icon: 'shapes', label: 'Shapes', preset: PRESET.shape },
+          { id: 'addSlideChart', icon: 'chart', label: 'Chart' },
         ],
       },
+      { title: 'Links', items: [{ id: 'setShapeHyperlink', icon: 'link', label: 'Link' }] },
+      { title: 'Comments', items: [{ id: 'addSlideComment', icon: 'comment', label: 'Comment' }] },
       {
         title: 'Text',
         items: [
-          { id: 'addSlideTextBox', icon: 'textbox', preset: PRESET.textBox },
-          // Turns the selected box into a field PowerPoint keeps up to date.
-          // The deck-wide slide-number switch lives in the slide panel, since
-          // it is one setting for the whole file rather than a shape operation.
-          { id: 'setShapeTextField', icon: 'text-format', label: 'Insert field' },
-          { id: 'setShapeHyperlink', icon: 'link' },
+          { id: 'addSlideTextBox', icon: 'textbox', label: 'Text Box', preset: PRESET.textBox },
+          // Both insert a field PowerPoint keeps up to date into the selected
+          // box; Date & Time asks for the format first, as the native dialog does.
+          { id: 'setShapeTextField', icon: 'calendar', label: 'Date & Time' },
+          {
+            id: 'setShapeTextField',
+            icon: 'slide-number',
+            label: 'Slide Number',
+            preset: { type: 'slidenum' },
+          },
         ],
-      },
-      {
-        title: 'Comments',
-        items: [{ id: 'addSlideComment', icon: 'comment' }],
       },
     ],
   },
@@ -88,20 +102,22 @@ export const RIBBON: readonly RibbonTab[] = [
     id: 'design',
     title: 'Design',
     groups: [
+      // Mac PowerPoint's Variants group (Colors, Fonts, Background Styles) and
+      // Slide Size; there is no Office theme gallery to pick whole themes from.
       {
-        title: 'Slide setup',
-        items: [{ id: 'setSlideSize', icon: 'resize' }],
+        title: 'Variants',
+        items: [
+          { id: 'setPresentationTheme', icon: 'theme', label: 'Colors' },
+          { id: 'setPresentationFonts', icon: 'font', label: 'Fonts' },
+        ],
       },
       {
         title: 'Background',
         items: [],
       },
       {
-        title: 'Theme',
-        items: [
-          { id: 'setPresentationTheme', icon: 'theme' },
-          { id: 'setPresentationFonts', icon: 'font' },
-        ],
+        title: 'Customize',
+        items: [{ id: 'setSlideSize', icon: 'resize', label: 'Slide Size' }],
       },
       {
         // Acts on the layout behind the current slide, so every slide sharing
@@ -120,33 +136,19 @@ export const RIBBON: readonly RibbonTab[] = [
       },
     ],
   },
-  {
-    id: 'transitions',
-    title: 'Transitions',
-    groups: [
-      {
-        title: 'Transition',
-        items: [
-          { id: 'setSlideTransition', icon: 'transition' },
-          { id: 'clearSlideTransition', icon: 'trash' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'animations',
-    title: 'Animations',
-    groups: [
-      {
-        title: 'Animation',
-        items: [
-          { id: 'setShapeAnimation', icon: 'animation' },
-          { id: 'clearSlideAnimations', icon: 'trash' },
-        ],
-      },
-    ],
-  },
+  { id: 'transitions', title: 'Transitions', groups: [] },
+  { id: 'animations', title: 'Animations', groups: [] },
   { id: 'slideShow', title: 'Slide Show', groups: [] },
+  {
+    id: 'review',
+    title: 'Review',
+    groups: [
+      {
+        title: 'Comments',
+        items: [{ id: 'addSlideComment', icon: 'comment', label: 'New Comment' }],
+      },
+    ],
+  },
   { id: 'view', title: 'View', groups: [] },
   {
     id: 'shape',
