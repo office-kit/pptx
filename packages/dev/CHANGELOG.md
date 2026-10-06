@@ -927,9 +927,9 @@ firstSlideNum>`.
 - Updated dependencies [e18d19d]
 - Updated dependencies [e18d19d]
 - Updated dependencies [e18d19d]
-  - @office-kit/pptx-preview@1.0.0
+  - @office-kit/pptx-preview@0.13.0
   - @office-kit/pptx@0.22.0
-  - @office-kit/pptx-dsl@1.0.0
+  - @office-kit/pptx-dsl@0.9.0
 
 ## 0.9.1
 
