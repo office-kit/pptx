@@ -10,8 +10,6 @@ export const TEXTURE_SIZE = 128;
 // PowerPoint's texture media is ~144 DPI, so a tile spans 64 pt (pHYs is per metre).
 const TEXTURE_DPI = 144;
 const INCHES_PER_METRE = 39.3701;
-// tEXt keyword naming the texture, so the gallery can mark the current fill.
-const TEXTURE_KEYWORD = 'office-kit texture';
 
 export const TEXTURES = [
   { id: 'papyrus', name: 'Papyrus' },
@@ -41,6 +39,13 @@ export const TEXTURES = [
 ] as const;
 
 export type TextureId = (typeof TEXTURES)[number]['id'];
+
+/**
+ * What PowerPoint inserts when Picture or texture fill is chosen for a shape or
+ * background with no picture to restore: Papyrus, the gallery's first texture
+ * (see test/fixtures/native/texture-capture.md).
+ */
+export const DEFAULT_TEXTURE: TextureId = 'papyrus';
 type Rgb = readonly [number, number, number];
 type Field = (x: number, y: number) => Rgb;
 type Random = () => number;
@@ -480,7 +485,7 @@ async function zlib(data: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-/** Encodes the texture as an RGB PNG at ~144 DPI, tagged with its id. */
+/** Encodes the texture as an RGB PNG at ~144 DPI. */
 export async function encodeTexturePng(id: TextureId): Promise<Uint8Array> {
   const pixels = texturePixels(id);
   const raw = new Uint8Array(N * (1 + N * 3));
@@ -501,12 +506,10 @@ export async function encodeTexturePng(id: TextureId): Promise<Uint8Array> {
   densityView.setUint32(0, perMetre);
   densityView.setUint32(4, perMetre);
   density[8] = 1; // unit: metre
-  const text = new TextEncoder().encode(`${TEXTURE_KEYWORD}\0${id}`);
   const parts = [
     new Uint8Array(PNG_SIGNATURE),
     chunk('IHDR', header),
     chunk('pHYs', density),
-    chunk('tEXt', text),
     chunk('IDAT', await zlib(raw)),
     chunk('IEND', new Uint8Array(0)),
   ];
@@ -528,26 +531,4 @@ export function texturePng(id: TextureId): Promise<Uint8Array> {
     encoded.set(id, png);
   }
   return png;
-}
-
-/** The gallery texture a fill image was made from, read from its PNG tag; null for any other image. */
-export function textureIdOf(bytes: Uint8Array | null): TextureId | null {
-  if (!bytes || bytes.length < 8 || PNG_SIGNATURE.some((value, index) => bytes[index] !== value))
-    return null;
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const decoder = new TextDecoder('latin1');
-  for (let offset = 8; offset + 8 <= bytes.length; ) {
-    const length = view.getUint32(offset);
-    const type = decoder.decode(bytes.subarray(offset + 4, offset + 8));
-    if (type === 'IDAT' || type === 'IEND') return null;
-    if (type === 'tEXt') {
-      const [keyword, value] = decoder
-        .decode(bytes.subarray(offset + 8, offset + 8 + length))
-        .split('\0');
-      if (keyword === TEXTURE_KEYWORD)
-        return TEXTURES.find((texture) => texture.id === value)?.id ?? null;
-    }
-    offset += 12 + length;
-  }
-  return null;
 }

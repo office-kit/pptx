@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { getSlidePartName, getShapeId, getShapeImageFillBytes, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
+  import { getSlidePartName, getShapeId, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
   import { switchRememberedImageLayout } from '../core/remembered-image-fill.ts';
   import { canFillWithPicture, fillSelectionWithPicture } from '../core/picture-fill.ts';
-  import { texturePng, textureIdOf } from '../core/textures.ts';
+  import { texturePng } from '../core/textures.ts';
   import TexturePicker from '../ui/TexturePicker.svelte';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -77,7 +77,7 @@
       return current;
     });
   }
-  export function chooseImage() { if (!locked) input?.click(); }
+  function chooseImage() { if (!locked) input?.click(); }
   async function upload(event: Event) {
     const element = event.currentTarget;
     if (!(element instanceof HTMLInputElement)) return;
@@ -106,7 +106,6 @@
     catch (cause) { error = cause instanceof DOMException && cause.name === 'NotAllowedError' ? t('Clipboard access was denied') : cause instanceof Error ? cause.message : String(cause); }
     finally { loading = false; }
   }
-  const texture = $derived(common(shapes.map(shape => textureIdOf(getShapeImageFillBytes(shape)))) ?? null);
 </script>
 
 <input type="file" accept="image/*" hidden bind:this={input} onchange={upload} aria-label={t('Picture source')} />
@@ -115,7 +114,7 @@
     <span>{t('Picture source')}</span>
     <button class="ok-btn" disabled={shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={chooseImage}>{t('Insert...')}</button>
     <button class="ok-btn" disabled={!navigator.clipboard?.read || shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={pasteImage}>{t('Clipboard')}</button>
-    <TexturePicker disabled={locked || shapes.some(shape => getShapeKind(shape) !== 'shape')} selected={texture} choose={id => fill(() => texturePng(id), 'texture')} more={chooseImage} />
+    <TexturePicker disabled={locked || shapes.some(shape => getShapeKind(shape) !== 'shape')} choose={id => fill(() => texturePng(id), 'texture')} />
     <span>{t('Transparency')}</span>
     <div class="transparency">
       <input type="range" min="0" max="100" value={transparency ?? 0} aria-label={t('Picture transparency')} aria-valuetext={transparency === undefined ? t('Mixed') : `${transparency}%`} onchange={event => { const value = event.currentTarget.valueAsNumber; apply('Picture transparency', shape => setShapeImageOpacity(shape, 1 - value / 100)); }} />

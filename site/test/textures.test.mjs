@@ -16,7 +16,6 @@ import {
   TEXTURES,
   TEXTURE_SIZE,
   encodeTexturePng,
-  textureIdOf,
   texturePixels,
 } from '../src/lib/editor/core/textures.ts';
 import {
@@ -95,16 +94,13 @@ test('textures are distinct from each other', () => {
   assert.equal(keys.size, TEXTURES.length);
 });
 
-test('texture PNGs carry 128 px, ~144 DPI and their id, and encode deterministically', async () => {
+test('texture PNGs carry 128 px and ~144 DPI, and encode deterministically', async () => {
   const png = await encodeTexturePng('canvas');
   assert.deepEqual(await encodeTexturePng('canvas'), png);
   const view = new DataView(png.buffer, png.byteOffset);
   assert.equal(new TextDecoder().decode(png.subarray(12, 16)), 'IHDR');
   assert.equal(view.getUint32(16), 128);
   assert.equal(view.getUint32(20), 128);
-  assert.equal(textureIdOf(png), 'canvas');
-  assert.equal(textureIdOf(new Uint8Array([1, 2, 3])), null);
-  assert.equal(textureIdOf(null), null);
 
   // The library reads the pHYs density: 128 px at 144 DPI is 64 pt.
   const slide = addBlankSlide(createPresentation());
