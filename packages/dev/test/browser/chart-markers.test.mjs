@@ -70,6 +70,13 @@ test(
         await editor.locator('.paint path[stroke="#4472C4"]').first().getAttribute('d'),
         /C/,
       );
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor
+        .getByRole('menuitem', { name: 'グラフ エリアの書式設定...', exact: true })
+        .click();
       await editor.getByRole('button', { name: 'グラフを編集', exact: true }).click();
       await dialog.getByRole('button', { name: '項目を追加', exact: true }).click();
       await dialog.getByLabel('値 4, 1', { exact: true }).fill('25');

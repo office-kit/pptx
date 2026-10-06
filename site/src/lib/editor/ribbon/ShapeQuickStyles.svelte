@@ -117,6 +117,7 @@
 {/if}
 <style>
   .trigger { display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px; background:transparent; border:1px solid transparent; border-radius:var(--ok-radius); color:var(--ok-text); font:inherit; font-size:11px; cursor:pointer; }
+  .trigger:not(.compact) > span:last-child { max-width:52px; text-align:center; line-height:1.15; }
   .trigger:hover { background:var(--ok-hover); border-color:var(--ok-border); }
   .trigger:disabled { opacity:.4; }
   .sample { display:flex; align-items:center; justify-content:center; width:34px; height:30px; border:1px solid currentColor; border-radius:3px; font-size:13px; }

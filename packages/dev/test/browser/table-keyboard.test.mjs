@@ -53,6 +53,10 @@ test(
       await saved();
       const hit = editor.locator('.hit').first();
       const bounds = await hit.boundingBox();
+      // A right-clicked table targets a cell, whose menu has no Format item, so open
+      // the pane on the slide; it then follows the selection to the table.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await hit.dblclick({ position: { x: bounds.width / 4, y: bounds.height / 4 } });
       await inline.fill('日本語');
       await inline.press('Tab');
@@ -130,6 +134,8 @@ test(
       await page.reload();
       await saved();
       assert.deepEqual(await values(), expected);
+      await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+      await editor.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       await editor.locator('.hit').first().click();
       await editor.getByRole('button', { name: 'セル 1, 1', exact: true }).click();
       await editor

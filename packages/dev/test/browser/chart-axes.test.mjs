@@ -90,6 +90,8 @@ test(
       await editor.locator('.hit').first().click();
       await editor.locator('select').first().selectOption('en');
       ja = false;
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       await dialog.getByText('Chart axes', { exact: true }).click();
       assert.equal(await dialog.getByLabel('Axis minimum', { exact: true }).inputValue(), '-10');
@@ -159,7 +161,8 @@ test(
       assert.equal((await read()).categoryAxisHidden, true);
       assert.equal((await read()).valueAxisMajorGridlines, false);
       assert.equal((await read()).valueAxisMinorGridlines, false);
-      await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       await dialog.getByText('Chart axes', { exact: true }).click();
       await dialog.getByLabel('Show value axis', { exact: true }).check();

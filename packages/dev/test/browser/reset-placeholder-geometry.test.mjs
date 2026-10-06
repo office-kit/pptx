@@ -83,6 +83,8 @@ test(
       const thumbs = editor.locator('.thumb-row');
       await thumbs.nth(0).click();
       await thumbs.nth(1).click({ modifiers: ['Shift'] });
+      await thumbs.nth(1).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor
         .getByRole('region', { name: 'Slide options', exact: true })
         .getByRole('button', { name: 'Reset placeholder positions', exact: true })
@@ -173,6 +175,8 @@ test(
       const thumbs = editor.locator('.thumb-row');
       await thumbs.nth(0).click();
       await thumbs.nth(1).click({ modifiers: ['Shift'] });
+      await thumbs.nth(1).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor
         .getByRole('region', { name: 'Slide options', exact: true })
         .getByRole('button', { name: 'Restore deleted placeholders', exact: true })
@@ -270,6 +274,8 @@ test(
       const thumbs = editor.locator('.thumb-row');
       await thumbs.nth(0).click();
       await thumbs.nth(1).click({ modifiers: ['Shift'] });
+      await thumbs.nth(1).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor
         .getByRole('region', { name: 'Slide options', exact: true })
         .getByRole('button', { name: 'Reset placeholder text formatting', exact: true })
@@ -378,6 +384,8 @@ test(
       const thumbs = editor.locator('.thumb-row');
       await thumbs.nth(0).click();
       await thumbs.nth(1).click({ modifiers: ['Shift'] });
+      await thumbs.nth(1).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor
         .getByRole('region', { name: 'Slide options', exact: true })
         .getByRole('button', { name: 'Reset layout', exact: true })

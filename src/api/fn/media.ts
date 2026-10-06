@@ -181,7 +181,7 @@ const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean => {
 // so identical bytes share a single part. Posters are deliberately NOT shared:
 // `setShapeImage` rewrites a picture's image part in place, which would change
 // the poster of every other clip sharing it.
-const internClipPart = (
+export const internMediaPart = (
   pkg: OpcPackage,
   extension: string,
   contentType: string,
@@ -284,7 +284,7 @@ export const addSlideMedia = (slide: SlideData, opts: SlideMediaOptions): SlideS
   if ('url' in source) {
     rLink = relate(fileRelType, source.url, 'External');
   } else {
-    const clipPart = internClipPart(pkg, source.extension, source.contentType, source.data);
+    const clipPart = internMediaPart(pkg, source.extension, source.contentType, source.data);
     // PowerPoint orders the `media` rel before the `video` / `audio` one.
     rMedia = relate(REL_TYPES.media, relativeTarget(clipPart), 'Internal');
     rLink = relate(fileRelType, relativeTarget(clipPart), 'Internal');

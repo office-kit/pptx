@@ -81,7 +81,7 @@ for (const nested of [false, true]) {
           browser = await chromium.launch({ headless: true });
           // Tall enough that the rotated nested group stays clear of the group bar
           // above the canvas while the notes pane is open.
-          page = await browser.newPage({ viewport: { width: 1500, height: 1200 } });
+          page = await browser.newPage({ viewport: { width: 1500, height: 1400 } });
           const errors = [];
           page.on('pageerror', (e) => errors.push(e.message));
           await page.goto(preview.url);

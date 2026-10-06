@@ -284,6 +284,8 @@ test(
       assert.ok(arrangeHit);
       await page.mouse.click(arrangeHit.x + 2, arrangeHit.y + 2);
       await page.keyboard.press('Control+a');
+      await page.mouse.click(arrangeHit.x + 2, arrangeHit.y + 2, { button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const arrange = editor.getByRole('region', { name: 'Arrange', exact: true });
       await arrange.getByRole('button', { name: 'Align top', exact: true }).click();
@@ -418,6 +420,8 @@ test(
         .setInputFiles({ name: 'red.png', mimeType: 'image/png', buffer: original });
       await dialog.getByRole('button', { name: 'Insert image', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
+      await editor.locator('.hit').click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Picture...', exact: true }).click();
       await editor.locator('.image-controls').waitFor();
       await editor.getByRole('button', { name: 'Crop image', exact: true }).click();
       const cropDialog = editor.getByRole('dialog', { name: 'Crop image', exact: true });
@@ -475,6 +479,8 @@ test(
       const imageHit = await editor.locator('.hit').boundingBox();
       assert.ok(imageHit);
       await page.mouse.click(imageHit.x + 2, imageHit.y + 2);
+      await page.mouse.click(imageHit.x + 2, imageHit.y + 2, { button: 'right' });
+      await editor.getByRole('menuitem', { name: '図の書式設定...', exact: true }).click();
       deck = await download();
       picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
       assert.equal(getShapeImageCrop(picture).left, 0.2);
@@ -586,6 +592,11 @@ test(
       await editor.locator('.floating-text-format-bar summary').click();
       await bar.getByRole('button', { name: 'Done', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       assert.equal(await editor.locator('.bespoke textarea').inputValue(), 'Hello 日本語 🌎!');
       const runs = async () => {
@@ -644,6 +655,11 @@ test(
       assert.equal(result[1].format.color, '#FF0000');
       assert.equal(result[0].format.bold, true);
       // Editing through the properties pane must keep the same mixed formatting.
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: '図形の書式設定...', exact: true }).click();
       await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
       await editor.locator('.bespoke textarea').fill('Hello 日本語 🌎!?');
       await editor.locator('.bespoke textarea').press('Tab');
@@ -688,6 +704,17 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      // A cell's context menu has no Format item, so open the pane from the
+      // slide background beside the table; it then follows the table selection.
+      // The pane is closed after every reload, which also shifts the canvas.
+      const openFormatPane = async (label) => {
+        const area = await editor.locator('.hit').first().boundingBox();
+        await page.mouse.click(area.x + area.width * 1.5, area.y + area.height / 2, {
+          button: 'right',
+        });
+        await editor.getByRole('menuitem', { name: label, exact: true }).click();
+      };
+      await openFormatPane('Format Background...');
       await editor.locator('.hit').first().click();
       const panel = editor.getByRole('region', { name: 'Table options', exact: true });
       const tableBox = await editor.locator('.hit').first().boundingBox();
@@ -779,6 +806,7 @@ test(
       assert.equal(getTableCells(await readTable())[0].length, 2);
       await page.reload();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await openFormatPane('背景の書式設定...');
       await editor.locator('.hit').first().click();
       await editor.getByRole('button', { name: 'セル 2, 2', exact: true }).click();
       assert.equal(await editor.getByLabel('セルのテキスト', { exact: true }).inputValue(), '追加');
@@ -825,6 +853,7 @@ test(
       assert.equal(getTableCellSpan(getTableCells(await readTable())[0][0]).gridSpan, 2);
       await page.reload();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await openFormatPane('背景の書式設定...');
       await editor.locator('.hit').first().click();
       assert.equal(await editor.getByRole('button', { name: 'セル 1, 2', exact: true }).count(), 0);
       await editor.locator('select').first().selectOption('en');
@@ -869,6 +898,7 @@ test(
       assert.notEqual(getTableCellParagraphs(cells[2][0])[0].elements[0].format?.size, 18.5);
       await page.reload();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await openFormatPane('Format Background...');
       await editor.locator('.hit').first().click();
       assert.equal(await fontPanel.getByLabel('Font size', { exact: true }).inputValue(), '18.5');
       assert.equal(
@@ -938,6 +968,7 @@ test(
       await page.reload();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.deepEqual(await readBorders(), borders);
+      await openFormatPane('Format Background...');
       await editor.locator('.hit').first().click();
       await editor.locator('select').first().selectOption('ja');
       await editor.getByText('セルの罫線', { exact: true }).click();
@@ -1022,6 +1053,9 @@ test(
           )[0],
         );
       await editor.locator('select').first().selectOption('ja');
+      // Open the pane from the slide first; it then follows the inserted table.
+      await editor.locator('.thumb-row').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       await editor.getByRole('tab', { name: '挿入', exact: true }).click();
       await editor.locator('button[title$="— addSlideTable"]').click();
       const jpDialog = editor.getByRole('dialog', { name: '表を挿入', exact: true });
@@ -1150,6 +1184,11 @@ test(
       assert.deepEqual(chart(pres).series[1].values, [0, 0, 0, 42.5]);
       const bounds = getShapeBoundsResolved(pres, getSlideShapes(getSlides(pres)[0])[0]);
       await editor.locator('select').first().selectOption('en');
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       const dialog = editor.getByRole('dialog', { name: 'Edit chart', exact: true });
       await dialog.getByLabel('Chart type', { exact: true }).selectOption('pie');
@@ -1266,6 +1305,8 @@ test(
         );
       await saved();
       assert.equal(getSlideText((await slides())[0]), 'Keep this text');
+      await editor.locator('.thumb-row').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
       await pane
         .getByLabel('Slide layout', { exact: true })
@@ -1368,6 +1409,8 @@ test(
       assert.equal(tableFontSize(await read()), undefined);
       const original = await read();
       const bounds = getShapeBoundsResolved(original, getSlideShapes(getSlides(original)[0])[0]);
+      await editor.locator('.thumb-row').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.getByRole('button', { name: 'Page setup', exact: true }).click();
       let dialog = editor.getByRole('dialog', { name: 'Page setup', exact: true });
       await dialog.getByLabel('Slide size', { exact: true }).selectOption('standard');
@@ -1459,6 +1502,8 @@ test(
         getShapeBoundsResolved(result, getSlideShapes(getSlides(result)[0])[0]),
         bounds,
       );
+      await editor.locator('.thumb-row').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       await editor.getByRole('button', { name: 'ページ設定', exact: true }).click();
       await dialog.getByLabel('単位', { exact: true }).selectOption('cm');
       assert.equal(Number(await dialog.getByLabel('ページの幅', { exact: true }).inputValue()), 21);
@@ -1470,6 +1515,14 @@ test(
       for (const language of ['ja', 'en']) {
         await editor.locator('select').first().selectOption(language);
         const ja = language === 'ja';
+        // The previous iteration reloaded, which closes the pane.
+        await editor.locator('.thumb-row').first().click({ button: 'right' });
+        await editor
+          .getByRole('menuitem', {
+            name: ja ? '背景の書式設定...' : 'Format Background...',
+            exact: true,
+          })
+          .click();
         const targetInches = ja ? 10 : 12;
         const target = targetInches * 914400;
         const beforeFit = await read();
@@ -1589,6 +1642,8 @@ test(
           ),
         );
       await saved();
+      await editor.locator('.thumb-row').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.getByRole('button', { name: 'Speaker notes', exact: true }).click();
       let notesInput = editor.getByLabel('Notes content', { exact: true });
       const notes = 'Opening remarks\n日本語の説明 🎉\n\nFinal point';

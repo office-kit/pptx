@@ -143,7 +143,7 @@ test(
       await saved();
 
       await thumbs.first().click({ button: 'right' });
-      await editor.getByRole('menuitem', { name: 'New slide', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'New Slide', exact: true }).click();
       await saved();
       let deck = await slides();
       assert.equal(deck.length, 2);

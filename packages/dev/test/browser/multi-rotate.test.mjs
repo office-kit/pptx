@@ -125,8 +125,11 @@ test(
         .locator('.hit')
         .nth(2)
         .click({ position: { x: 2, y: 2 } });
+      const beforeSingle = (await waitForState(preview.url, () => true)).revision;
       await beginTurn(45, true);
       await page.mouse.up();
+      // "Saved" is still showing from the reload; wait for this turn's write.
+      await waitForState(preview.url, (state) => state.revision !== beforeSingle);
       await saved();
       const singleTurn = await geometry();
       assert.equal(

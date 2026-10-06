@@ -26,8 +26,6 @@ const WORDS = {
   ja: (key) =>
     ({
       'Saved to this project': 'このプロジェクトに保存済み',
-      'Copy formatting': '書式のコピー',
-      'Paste formatting': '書式の貼り付け',
     })[key],
 };
 
@@ -102,20 +100,14 @@ for (const language of ['en', 'ja']) {
           .locator('.hit')
           .first()
           .click({ position: { x: 2, y: 2 } });
-        await editor
-          .locator('.hit')
-          .first()
-          .click({ button: 'right', position: { x: 2, y: 2 } });
-        await editor.getByRole('menuitem', { name: word('Copy formatting') }).click();
+        // PowerPoint copies and pastes object formatting by shortcut, not menu.
+        await page.keyboard.press('Control+Alt+KeyC');
         await editor
           .locator('.hit')
           .nth(1)
           .click({ position: { x: 2, y: 2 } });
-        await editor
-          .locator('.hit')
-          .nth(1)
-          .click({ button: 'right', position: { x: 2, y: 2 } });
-        await editor.getByRole('menuitem', { name: word('Paste formatting') }).click();
+        // PowerPoint copies and pastes object formatting by shortcut, not menu.
+        await page.keyboard.press('Control+Alt+KeyV');
         await editor.getByText(word('Saved to this project'), { exact: true }).waitFor();
 
         const { pres, shapes } = await savedShapes(preview);

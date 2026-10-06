@@ -3,7 +3,7 @@
   // tabs (Shape Format, Table) only appear when the matching selection is
   // active, mirroring PowerPoint. Buttons dispatch through runOrPrompt, so a
   // command needing arguments opens its (auto-generated or bespoke) dialog.
-  import { getShapeMedia, getShapeMediaPlayback } from '@office-kit/pptx';
+  import { getShapeChartSpec, getShapeMedia, getShapeMediaPlayback, isTableShape } from '@office-kit/pptx';
   import MediaPlaybackRibbon from './MediaPlaybackRibbon.svelte';
   import { getEditor } from '../core/context.ts';
   import { RIBBON, type RibbonTab } from './config.ts';
@@ -12,18 +12,31 @@
   import ViewRibbon from './ViewRibbon.svelte';
   import SlideShowRibbon from './SlideShowRibbon.svelte';
   import TransitionsRibbon from './TransitionsRibbon.svelte';
+  import DrawRibbon from './DrawRibbon.svelte';
+  import RecordRibbon from './RecordRibbon.svelte';
+  import ReviewRibbon from './ReviewRibbon.svelte';
   import AnimationsRibbon from './AnimationsRibbon.svelte';
-  import BackgroundStyles from './BackgroundStyles.svelte';
-  import ShapeQuickStyles from './ShapeQuickStyles.svelte';
+  import ShapeFormatRibbon from './ShapeFormatRibbon.svelte';
   import HomeRibbon from './HomeRibbon.svelte';
+  import DesignRibbon from './DesignRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
+  import { downloadPptx } from '../core/download.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
 
   let activeTab = $state('home');
   let collapsed = $state(false);
+  let shareOpen = $state(false);
+  async function sendCopy() {
+    shareOpen = false;
+    try {
+      await downloadPptx(editor.doc);
+    } catch (err) {
+      editor.toast('error', `${t('Save failed')}: ${(err as Error).message}`);
+    }
+  }
 
   const visibleTabs = $derived.by<RibbonTab[]>(() => {
     const sel = doc.selection;
@@ -31,13 +44,24 @@
     const shapes = editor.selectedShapes();
     const media = shapes.length === 1 && getShapeMediaPlayback(shapes[0]!) !== null;
     const kind = shapes.length === 1 ? getShapeMedia(shapes[0]!)?.kind : undefined;
+    const chart = shapes.length === 1 && getShapeChartSpec(shapes[0]!) !== null;
+    // PowerPoint shows Table Design and Layout for a selected table as well as
+    // for cells being edited, and replaces Shape Format with them.
+    const table = sel.kind === 'cell' || (shapes.length === 1 && isTableShape(shapes[0]!));
     return RIBBON.filter((t) => {
       if (!t.contextual) return true;
+      if (t.contextual === 'master') return editor.masterView;
       if (t.contextual === 'media') return media;
-      if (t.contextual === 'shape') return sel.kind === 'shape';
-      if (t.contextual === 'cell' || t.contextual === 'table') return sel.kind === 'cell';
+      if (t.contextual === 'chart') return chart;
+      if (t.contextual === 'shape') return sel.kind === 'shape' && !table;
+      if (t.contextual === 'cell' || t.contextual === 'table') return table;
       return false;
-    }).map(tab => tab.id === 'shape' && kind === 'video' ? { ...tab, title: 'Video Format' } : tab);
+    }).map(tab => tab.id !== 'shape' ? tab : kind === 'video' ? { ...tab, title: 'Video Format' } : chart ? { ...tab, title: 'Format' } : tab);
+  });
+
+  // Entering Slide Master view opens its tab, as PowerPoint does.
+  $effect(() => {
+    if (editor.masterView) activeTab = 'slideMaster';
   });
 
   // If the active tab disappears (selection changed), fall back to Home.
@@ -64,6 +88,8 @@
 
 </script>
 
+<svelte:window onpointerdown={(event) => { if (shareOpen && !(event.target as Element).closest?.('.share-anchor')) shareOpen = false; }} onkeydown={(event) => { if (shareOpen && event.key === 'Escape') shareOpen = false; }} />
+
 <div class="ribbon">
   <div class="tab-row">
     <div class="tabs" role="tablist" tabindex="-1" aria-label={t('Ribbon')} onkeydown={tabKeys}>
@@ -84,6 +110,21 @@
       {/each}
     </div>
 
+    <!-- Mac PowerPoint ends the tab row with Comments and Share. -->
+    <div class="actions">
+      <button class="comments" aria-label={t('Comments')} aria-pressed={editor.activeDialog === 'addSlideComment'} disabled={!editor.doc.currentSlide} onclick={() => { if (editor.activeDialog === 'addSlideComment') editor.activeDialog = null; else editor.runOrPrompt('addSlideComment'); }}><Icon name="comment" size={16} /><span>{t('Comments')}</span></button>
+      <div class="share-anchor">
+        <button class="share" aria-label={t('Share')} aria-haspopup="menu" aria-expanded={shareOpen} onclick={() => (shareOpen = !shareOpen)}><Icon name="share" size={16} /><span>{t('Share')}</span><span aria-hidden="true">⌄</span></button>
+        {#if shareOpen}
+          <div class="share-menu" role="menu" aria-label={t('Share')}>
+            <button role="menuitem" title={t('Sharing with people needs OneDrive or SharePoint.')} disabled>{t('Share with People...')}</button>
+            <button role="menuitem" title={t('Sharing with people needs OneDrive or SharePoint.')} disabled>{t('Copy Link')}</button>
+            <hr />
+            <button role="menuitem" onclick={sendCopy}>{t('Send a Copy (PowerPoint Presentation)')}</button>
+          </div>
+        {/if}
+      </div>
+    </div>
     <button class="ribbon-toggle" aria-label={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} title={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} aria-expanded={!collapsed} aria-controls="ribbon-panel" onclick={() => (collapsed = !collapsed)}>{collapsed ? '⌄' : '⌃'}</button>
   </div>
 
@@ -94,34 +135,30 @@
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
+    {#if current?.id === 'draw'}<DrawRibbon />{/if}
+    {#if current?.id === 'record'}<RecordRibbon />{/if}
+    {#if current?.id === 'review'}<ReviewRibbon />{/if}
     {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
     {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}
-    {#if current?.id === 'shape'}
-      <div class="group shape-style-group">
-        <div class="group-items"><ShapeQuickStyles inline /></div>
-      </div>
-    {/if}
+    {#if current?.id === 'design'}<DesignRibbon />{/if}
+    {#if current?.id === 'shape'}<ShapeFormatRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group" role="group" aria-label={t(group.title)}>
         <div class="group-items">
-          {#if current?.id === 'design' && group.title === 'Background'}
-            <BackgroundStyles />
-          {:else}
           {#each group.items as item (item.id + (item.label ?? ''))}
             {@const cap = capabilityById.get(item.id)}
             <button
               class="cmd"
-              disabled={!editor.canRun(item.id)}
-              title={tip(item.id)}
+              disabled={item.unavailable ? true : item.enabled ? !item.enabled(editor) : !editor.canRun(item.id)}
+              title={item.unavailable ? t(item.unavailable) : cap ? tip(item.id) : item.label ? t(item.label) : item.id}
               aria-label={item.label ? t(item.label) : cap ? capLabel(cap) : item.id}
-              onclick={() => (item.run ? item.run(editor) : editor.runOrPrompt(item.id, item.preset ?? {}))}
+              onclick={(event) => (item.run ? item.run(editor, event.currentTarget) : editor.runOrPrompt(item.id, item.preset ?? {}))}
             >
               <span class="icon"><Icon name={item.icon ?? 'dot'} size={32} /></span>
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
           {/each}
-          {/if}
         </div>
       </div>
     {/each}
@@ -138,6 +175,18 @@
     flex-direction: column;
   }
   .tab-row { display: flex; min-width: 0; align-items: center; }
+  .actions { display: flex; align-items: center; gap: 6px; flex: none; margin-left: 8px; }
+  .actions button { display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; font: inherit; font-size: 12px; color: var(--ok-text); border: 1px solid var(--ok-border-strong); border-radius: 6px; background: var(--ok-panel); cursor: pointer; }
+  .actions button:hover:not(:disabled) { background: var(--ok-hover); }
+  .actions button:disabled { opacity: 0.4; cursor: default; }
+  .actions .comments[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
+  /* PowerPoint's Share button is the one filled accent control in the window. */
+  .actions .share { color: #fff; border-color: var(--ok-accent); background: var(--ok-accent); }
+  .actions .share:hover:not(:disabled) { background: var(--ok-accent); filter: brightness(1.08); }
+  .share-anchor { position: relative; }
+  .share-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 500; display: flex; flex-direction: column; min-width: 260px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .share-menu button { height: auto; padding: 6px 10px; border: none; background: none; color: var(--ok-text); text-align: left; filter: none; }
+  .share-menu hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }
   .ribbon-toggle { flex: none; width: 30px; height: 28px; margin: 0 4px; border: none; background: none; color: var(--ok-text-2); cursor: pointer; font-size: 18px; }
   .ribbon-toggle:hover { background: var(--ok-hover); }
   .groups[hidden] { display: none; }

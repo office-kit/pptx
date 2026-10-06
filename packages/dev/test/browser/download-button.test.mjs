@@ -76,9 +76,12 @@ test(
       assert.equal(await settle(redo), second);
       assert.equal(await settle(undo), first);
 
+      // Download sits under the Quick Access Toolbar's ⋯, as PowerPoint keeps
+      // extra commands there.
+      await editor.getByRole('button', { name: 'More Commands', exact: true }).click();
       const [download] = await Promise.all([
         page.waitForEvent('download'),
-        editor.getByRole('button', { name: 'Download', exact: true }).click(),
+        editor.getByRole('menuitem', { name: 'Download', exact: true }).click(),
       ]);
       assert.match(download.suggestedFilename(), /\.pptx$/);
       const saved = join(dir, download.suggestedFilename());

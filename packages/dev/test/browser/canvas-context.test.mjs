@@ -75,13 +75,40 @@ test(
       await hits.nth(0).click();
       await hits.nth(1).click({ button: 'right' });
       assert.equal(await selected.count(), 1);
-      await menu.getByRole('menuitem', { name: 'Delete', exact: false }).click();
+      // PowerPoint's object menu, in its order. It has no Delete; the key
+      // deletes the selection.
+      assert.deepEqual(
+        (
+          await menu.locator(':scope > .ctx-item, :scope > .branch > .ctx-item').allTextContents()
+        ).map((text) => text.replace(/[›⌘⌥⇧].*$/, '').trim()),
+        [
+          'Cut',
+          'Copy',
+          'Paste',
+          'Edit Text',
+          'Group',
+          'Bring to Front',
+          'Send to Back',
+          'Link...',
+          'Edit Alt Text...',
+          'Size and Position...',
+          'Format Shape...',
+          'New Comment',
+        ],
+      );
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Delete');
       await saved();
       assert.deepEqual((await shapes()).filter((s) => !isTableShape(s)).map(getShapeText), ['A']);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
+      // The cell menu has no Format item, so open the pane on the slide (before
+      // measuring the table, as the pane narrows the canvas); it then follows
+      // the selection to the cell.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 3, y: 3 } });
+      await menu.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       const tableBox = await hits.nth(2).boundingBox();
       const cellContext = async (row, col) => {
         await page.mouse.click(

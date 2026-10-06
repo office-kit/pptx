@@ -287,6 +287,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  setShapeTextLanguage: { labelEn: 'Language', labelJa: '言語' },
   setShapeTextField: {
     labelEn: 'Insert field',
     labelJa: 'フィールドを挿入',
@@ -470,6 +471,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setMediaPartBytes: { labelJa: 'メディアデータの置換' },
   setParagraphLevel: { labelJa: '段落の階層' },
   setShapeAltTitle: { labelJa: '代替テキストのタイトル' },
+  setShapeCustomGeometry: { labelEn: 'Edit points', labelJa: '頂点の編集' },
   setShapeDescription: { labelJa: '代替テキストの説明' },
   setShapeHidden: { labelJa: '図形の表示・非表示' },
   setShapeHyperlink: { labelJa: '図形のリンク' },
@@ -488,6 +490,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setShapeStrokeCap: { labelJa: '線の端の形状' },
   setShapeStrokeCompound: { labelJa: '線の種類' },
   setShapeStrokeJoin: { labelJa: '線の接合部の形状' },
+  setShapeText3D: { labelEn: 'Text 3-D format', labelJa: '文字の 3-D 書式' },
   setShapeTextBodyRotationDeg: { labelJa: 'テキストの回転' },
   setShapeZIndex: { labelJa: '図形の重なり順' },
   setSlideBackground: { labelJa: '背景色' },
@@ -955,6 +958,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  setSlideTransitionSound: { labelEn: 'Transition sound', labelJa: '画面切り替えのサウンド' },
   setSlideTransition: {
     labelEn: 'Transition',
     labelJa: '画面切り替え',

@@ -2,10 +2,9 @@
 // evaluator, the public `getShapeCustomGeometry` reader, and round-trip
 // safety of a custGeom shape through load → save.
 //
-// There is no public API to author custGeom, so the reader/round-trip
-// tests inject the geometry at the OPC zip layer (the same internal hook
-// the chart-fallback renderer test uses): build a rect shape, then swap
-// its `<a:prstGeom>` for a `<a:custGeom>` in the saved slide XML.
+// The reader tests inject guide formulas at the OPC zip layer (the same
+// internal hook the chart-fallback renderer test uses), since
+// `setShapeCustomGeometry` writes only literal coordinates.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +14,9 @@ import {
   addSlideShape,
   findSlideLayout,
   getShapeCustomGeometry,
+  getShapeId,
+  getSlideXmlString,
+  setShapeCustomGeometry,
   getShapeXmlString,
   getSlideShapes,
   getSlides,
@@ -26,6 +28,7 @@ import {
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { NS, parseXml } from '../src/internal/xml/index.ts';
 import { parseCustomGeometry } from '../src/internal/drawingml/index.ts';
+import { expectSchemaValid } from './lib/expect-schema-valid.ts';
 
 // ---------------------------------------------------------------------------
 // Guide-formula evaluator (black-box: a guide's value is read back through
@@ -359,5 +362,77 @@ describe('getShapeCustomGeometry (public reader)', () => {
     const after = getShapeCustomGeometry(custGeomShapeOf(reloaded));
     expect(after).toEqual(before);
     expect(after).not.toBeNull();
+  });
+});
+
+describe('setShapeCustomGeometry', () => {
+  const freeform = async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    return { pres, slide, shape };
+  };
+
+  it('writes paths the reader returns unchanged and survives save and load', async () => {
+    const { pres, slide, shape } = await freeform();
+    const commands = [
+      { kind: 'moveTo', pt: { x: 0, y: 100 } },
+      { kind: 'lnTo', pt: { x: 50, y: 0 } },
+      {
+        kind: 'quadBezTo',
+        pts: [
+          { x: 75, y: 0 },
+          { x: 100, y: 50 },
+        ],
+      },
+      {
+        kind: 'cubicBezTo',
+        pts: [
+          { x: 120, y: 60 },
+          { x: 150, y: 80 },
+          { x: 200, y: 100 },
+        ],
+      },
+      { kind: 'arcTo', wR: 10, hR: 10, stAng: 0, swAng: 5400000 },
+      { kind: 'close' },
+    ] as const;
+    setShapeCustomGeometry(shape, {
+      paths: [{ w: 200, h: 100, fill: 'none', commands }],
+    });
+    expectSchemaValid(getSlideXmlString(slide), 'pml');
+    const reloaded = getSlideShapes(
+      getSlides(await loadPresentation(await savePresentation(pres))).at(-1)!,
+    ).find((s) => getShapeId(s) === getShapeId(shape))!;
+    const geometry = getShapeCustomGeometry(reloaded)!;
+    expect(geometry.paths).toEqual([{ w: 200, h: 100, fill: 'none', stroke: true, commands }]);
+    expect(getShapeXmlString(reloaded)).not.toContain('prstGeom');
+  });
+
+  it('rejects invalid input before touching the shape', async () => {
+    const { shape } = await freeform();
+    const before = getShapeXmlString(shape);
+    expect(() => setShapeCustomGeometry(shape, { paths: [] })).toThrow(/at least one path/);
+    expect(() =>
+      setShapeCustomGeometry(shape, {
+        paths: [{ w: 0, h: 1, commands: [{ kind: 'moveTo', pt: { x: 0, y: 0 } }] }],
+      }),
+    ).toThrow(/out of range/);
+    expect(() =>
+      setShapeCustomGeometry(shape, {
+        paths: [{ w: 1, h: 1, commands: [{ kind: 'lnTo', pt: { x: 0, y: 0 } }] }],
+      }),
+    ).toThrow(/must start with moveTo/);
+    expect(() =>
+      setShapeCustomGeometry(shape, {
+        paths: [{ w: 1, h: 1, commands: [{ kind: 'moveTo', pt: { x: Number.NaN, y: 0 } }] }],
+      }),
+    ).toThrow(/finite/);
+    expect(getShapeXmlString(shape)).toBe(before);
   });
 });

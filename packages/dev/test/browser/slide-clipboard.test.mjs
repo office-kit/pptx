@@ -101,6 +101,7 @@ test(
       // The captured slide also survives replacing the entire document.
       await editor.locator('.thumb-row').nth(1).click();
       await editor.locator('.thumb-row').nth(1).press('Control+c');
+      await editor.getByRole('button', { name: 'その他のコマンド', exact: true }).click();
       await editor.getByTitle('新規', { exact: true }).click();
       await saved();
       await editor.locator('.thumb-row').first().click();

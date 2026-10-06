@@ -1,10 +1,11 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getShapeKind, setSlideOutlineCollapsed } from '@office-kit/pptx';
+  import { getShapeChartSpec, getShapeKind, getShapeMedia, isSlideHidden, type SlideShapeData, setSlideHidden, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
+  import { addSection, UNTITLED_SECTION } from '../core/sections.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -38,10 +39,34 @@
 
   function slideItems(): Item[] {
     return [
-      { label: 'New slide', run: () => editor.addNewSlide() },
-      { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
-      { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
+      { label: 'New Slide', run: () => editor.addNewSlide() },
+      { label: 'Duplicate Slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
+      { label: 'Delete Slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
     ];
+  }
+
+  // Layout ▸ applies to the selected slides (the current one on the canvas).
+  function slideLayoutItem(): Item {
+    const slides = (doc.selection.kind === 'slide' ? selected : [doc.selection.slideIndex]).map((index) => doc.slideAt(index)).filter((slide) => slide !== null);
+    const current = slides[0] ? getSlideLayoutPartName(getSlideLayout(slides[0])!) : '';
+    return {
+      label: 'Layout', sep: true,
+      children: getSlideLayouts(doc.pres).map((layout) => ({
+        label: getSlideLayoutName(layout),
+        checked: getSlideLayoutPartName(layout) === current,
+        run: () => doc.transact(t('Slide layout'), () => { for (const slide of slides) setSlideLayout(slide, layout); }),
+      })),
+    };
+  }
+
+  // PowerPoint names the Format pane after what is selected.
+  function formatLabel(shapes: readonly SlideShapeData[]): string {
+    if (shapes.length !== 1) return 'Format Shape...';
+    const shape = shapes[0]!;
+    if (getShapeMedia(shape)?.kind === 'video') return 'Format Video...';
+    if (getShapeChartSpec(shape)) return 'Format Chart Area...';
+    if (getShapeKind(shape) === 'picture') return 'Format Picture...';
+    return 'Format Shape...';
   }
 
   const hasShapes = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
@@ -72,30 +97,54 @@
           const selection = doc.selection;
           if (selection.kind === 'cell') doc.select({ kind: 'shape', slideIndex: selection.slideIndex, shapeIds: [selection.shapeId] });
         } },
+        // PowerPoint's cell menu formats the table from here too.
+        { label: 'Size and Position...', sep: true, run: () => editor.showShapeFormat('size') },
+        { label: 'Format Shape...', run: () => editor.showShapeFormat() },
       );
     } else if (hasShapes) {
       list.push(
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
-        { label: 'Duplicate', accel: '⌘D', run: () => editor.duplicateSelection() },
-        { label: 'Copy formatting', accel: '⌘⌥C', run: () => editor.copyObjectFormat() },
-        { label: 'Paste formatting', accel: '⌘⌥V', run: () => editor.pasteObjectFormat(), disabled: !editor.formatClipboard },
-        { label: 'Delete', accel: 'Del', run: () => editor.deleteSelection(), sep: true },
-        { label: 'Bring to front', run: () => editor.invoke('bringShapeToFront') },
-        { label: 'Bring forward', run: () => editor.invoke('bringShapeForward') },
-        { label: 'Send backward', run: () => editor.invoke('sendShapeBackward') },
-        { label: 'Send to back', run: () => editor.invoke('sendShapeToBack'), sep: true },
-        { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: !editor.canRun('groupShapes') },
-        { label: 'Ungroup', run: () => editor.invoke('ungroupShapes'), disabled: !editor.canRun('ungroupShapes') },
       );
+      // PowerPoint's object menu: Edit Text, Group / Bring to Front / Send to
+      // Back as submenus, Link, Alt Text, Size and Position, Format, Comment.
       const shapes = editor.selectedShapes();
-      if (shapes.length && shapes.every((shape) => ['shape', 'connector', 'group'].includes(getShapeKind(shape)))) {
+      const single = shapes.length === 1 ? shapes[0]! : null;
+      if (single && getShapeKind(single) === 'shape') list.push({ label: 'Edit Text', sep: true, run: () => editor.editSelectedText() });
+      list.push(
+        {
+          label: 'Group', sep: !single || getShapeKind(single) !== 'shape',
+          children: [
+            { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: !editor.canRun('groupShapes') },
+            { label: 'Ungroup', run: () => editor.invoke('ungroupShapes'), disabled: !editor.canRun('ungroupShapes') },
+            { label: 'Regroup', run: () => editor.regroupSelection(), disabled: !editor.canRegroup() },
+          ],
+        },
+        {
+          label: 'Bring to Front',
+          children: [
+            { label: 'Bring to Front', run: () => editor.invoke('bringShapeToFront') },
+            { label: 'Bring Forward', run: () => editor.invoke('bringShapeForward') },
+          ],
+        },
+        {
+          label: 'Send to Back',
+          children: [
+            { label: 'Send to Back', run: () => editor.invoke('sendShapeToBack') },
+            { label: 'Send Backward', run: () => editor.invoke('sendShapeBackward') },
+          ],
+        },
+        { label: 'Link...', sep: true, run: () => editor.runOrPrompt('setShapeHyperlink'), disabled: !editor.canRun('setShapeHyperlink') },
+        { label: 'Edit Alt Text...', run: () => editor.runOrPrompt('setShapeDescription'), disabled: !editor.canRun('setShapeDescription') },
+      );
+      if (shapes.length) {
         list.push(
-          { label: 'Size and Position...', run: () => editor.showShapeFormat('size') },
-          { label: 'Format Shape...', run: () => editor.showShapeFormat() },
+          { label: 'Size and Position...', sep: true, run: () => editor.showShapeFormat('size') },
+          { label: formatLabel(shapes), run: () => editor.showShapeFormat() },
         );
       }
+      list.push({ label: 'New Comment', sep: true, run: () => editor.runOrPrompt('addSlideComment') });
     } else if (doc.selection.kind === 'slide') {
       list.push(
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
@@ -104,23 +153,49 @@
         ...slideItems(),
       );
       if (menu.source === 'outline') {
-        list.push(...outlineCollapseItems());
+        list.push(
+          ...outlineCollapseItems(),
+          { label: 'Move Up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
+          { label: 'Move Down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
+        );
+      } else {
+        // PowerPoint's thumbnail menu.
+        const slides = selected.map((index) => doc.slideAt(index)).filter((slide) => slide !== null);
+        const hidden = slides.length > 0 && slides.every((slide) => isSlideHidden(slide));
+        list.push(
+          { label: 'Add Section', sep: true, run: () => {
+            const start = firstSelected;
+            doc.transact(t('Add Section'), () => addSection(doc.pres, start, t(UNTITLED_SECTION)));
+          } },
+          slideLayoutItem(),
+          { label: 'Reset Slide', run: () => editor.invoke('resetSlideLayout'), disabled: !editor.canRun('resetSlideLayout') },
+          { label: 'Format Background...', sep: true, run: () => editor.showBackgroundFormat() },
+          { label: 'New Comment', sep: true, run: () => editor.runOrPrompt('addSlideComment') },
+          { label: 'Hide Slide', checked: hidden, run: () => doc.transact(t('Hide Slide'), () => { for (const slide of slides) setSlideHidden(slide, !hidden); }) },
+        );
       }
-      list.push(
-        { label: menu.source === 'outline' ? 'Move Up' : 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
-        { label: menu.source === 'outline' ? 'Move Down' : 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
-      );
     } else {
       list.push(
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
         { label: 'Select all', accel: '⌘A', run: () => editor.selectAllShapes() },
       );
     }
-    if (!hasShapes && editor.viewMode !== 'sorter' && menu.source !== 'outline') {
+    if (!hasShapes && doc.selection.kind !== 'slide' && editor.viewMode !== 'sorter' && menu.source !== 'outline') {
+      // PowerPoint's menu for the slide itself.
+      const slide = doc.currentSlide;
       list.push(
-        { label: 'Add Vertical Guide', run: () => editor.addDrawingGuide('x') },
-        { label: 'Add Horizontal Guide', run: () => editor.addDrawingGuide('y') },
-        { label: 'Grid Options...', run: () => editor.activeDialog = 'gridOptions' },
+        slideLayoutItem(),
+        { label: 'Reset Slide', run: () => editor.invoke('resetSlideLayout'), disabled: !editor.canRun('resetSlideLayout') },
+        {
+          label: 'Grid and Guides', sep: true,
+          children: [
+            { label: 'Add Vertical Guide', run: () => editor.addDrawingGuide('x') },
+            { label: 'Add Horizontal Guide', run: () => editor.addDrawingGuide('y') },
+            { label: 'Grid Options...', run: () => editor.activeDialog = 'gridOptions' },
+          ],
+        },
+        { label: 'Format Background...', sep: true, run: () => editor.showBackgroundFormat() },
+        { label: 'New Comment', run: () => editor.runOrPrompt('addSlideComment'), disabled: !slide },
       );
     }
     if (menu.source === 'outline') list.push({
@@ -216,13 +291,13 @@
   {#each items as item (item.label)}
     {#if item.children}
       <div class="branch">
-        <button class="ctx-item" role="menuitem" tabindex="-1" aria-label={t(item.label)} aria-haspopup="menu" aria-expanded={submenu === item.label} data-submenu={item.label} onclick={() => activate(item)} onpointerenter={() => submenu = item.label}>
+        <button class="ctx-item" class:sep={item.sep} role="menuitem" tabindex="-1" aria-label={t(item.label)} aria-haspopup="menu" aria-expanded={submenu === item.label} data-submenu={item.label} onclick={() => activate(item)} onpointerenter={() => submenu = item.label}>
           <span>{t(item.label)}</span><span>›</span>
         </button>
         {#if submenu === item.label}
           <div class="ctx submenu" role="menu" aria-label={t(item.label)} use:placeSubmenu>
             {#each item.children as child (child.label)}
-              <button class="ctx-item" role="menuitem" tabindex="-1" disabled={child.disabled} onclick={() => activate(child)}>{t(child.label)}</button>
+              <button class="ctx-item" role={child.checked === undefined ? 'menuitem' : 'menuitemradio'} aria-checked={child.checked} tabindex="-1" disabled={child.disabled} onclick={() => activate(child)}>{child.checked ? '✓ ' : ''}{t(child.label)}</button>
             {/each}
           </div>
         {/if}

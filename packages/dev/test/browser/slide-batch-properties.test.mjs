@@ -56,6 +56,8 @@ test(
       };
       await saved();
       await thumbs.nth(0).click();
+      await thumbs.nth(0).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
       await pane.getByLabel('Slide layout', { exact: true }).selectOption({ label: 'Title Slide' });
       await saved();

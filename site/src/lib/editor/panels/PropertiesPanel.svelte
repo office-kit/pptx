@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getShapeKind, getShapeMedia } from '@office-kit/pptx';
+  import { untrack } from 'svelte';
+  import { getShapeChartSpec, getShapeKind, getShapeMedia } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import {
     capabilities,
@@ -45,6 +46,15 @@
     return selectedVideo || (shapes.length > 0 && shapes.every((shape) =>
       ['shape', 'connector', 'group'].includes(getShapeKind(shape)),
     ));
+  });
+  // Like PowerPoint's Format pane, it follows the selection: an object shows
+  // its format, the slide shows Format Background.
+  const objectSelected = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
+  let lastObjectSelected = untrack(() => objectSelected);
+  $effect(() => {
+    if (objectSelected === lastObjectSelected) return;
+    lastObjectSelected = objectSelected;
+    untrack(() => { editor.propertiesPaneMode = objectSelected ? 'selection' : 'background'; });
   });
   $effect(() => {
     if (isShape && !formatTabs.some((tab) => tab.id === editor.formatPaneTab)) editor.formatPaneTab = 'paint';
@@ -94,12 +104,15 @@
     }));
   });
 
+  const backgroundPane = $derived(editor.propertiesPaneMode === 'background' || !objectSelected);
   const selLabel = $derived.by(() => {
-    if (editor.propertiesPaneMode === 'background') return t('Format Background');
+    if (backgroundPane) return t('Format Background');
     const sel = doc.selection;
-    if (sel.kind === 'shape') return selectedVideo ? t('Format Video') : isShape ? t('Format Shape') : t('Shape');
-    if (sel.kind === 'cell') return t('Table cell');
-    return t('Slide');
+    if (selectedVideo) return t('Format Video');
+    const shape = sel.kind === 'shape' && sel.shapeIds.length === 1 ? doc.shapeById(sel.slideIndex, sel.shapeIds[0]!) : null;
+    if (shape && getShapeChartSpec(shape)) return t('Format Chart Area');
+    if (shape && getShapeKind(shape) === 'picture') return t('Format Picture');
+    return t('Format Shape');
   });
 
   // Which category sections are expanded.
@@ -109,17 +122,60 @@
   }
 </script>
 
-<div class="panel ok-scroll" class:background-pane={editor.propertiesPaneMode === 'background'} hidden={!editor.propertiesPaneVisible}>
+{#snippet selectionSections()}
+  <SlideSection />
+  <LayoutSection />
+  {#if selectedVideo && editor.formatPaneTab === 'video'}
+    <VideoSection />
+  {/if}
+  <div hidden={isShape && editor.formatPaneTab !== 'size'}>
+    <ChartSection />
+    <TableSection />
+    <ImageSection />
+  </div>
+  {#if !selectedVideo || editor.formatPaneTab !== 'video'}
+    <BespokeSections tab={isShape && editor.formatPaneTab !== 'video' ? editor.formatPaneTab : 'all'} />
+  {/if}
+  <div hidden={isShape && editor.formatPaneTab !== 'size'}>
+    <ParagraphSection />
+    <ArrangeSection />
+    <AnimationSection />
+  </div>
+
+  {#if !selectedVideo || editor.formatPaneTab !== 'video'}
+  <div class="all">
+    <div class="all-title">{t('All applicable capabilities')}</div>
+    {#each grouped as g (g.category)}
+      <section class="cat">
+        <button class="cat-head" onclick={() => toggle(g.category)}>
+          <span class="chev" class:open={open[g.category]}>▸</span>
+          {catLabel(g.label)}
+          <span class="n">{g.items.length}</span>
+        </button>
+        {#if open[g.category]}
+          <div class="cat-items">
+            {#each g.items as cap (cap.id)}
+              <button class="row" title={cap.id} onclick={() => editor.runOrPrompt(cap.id)}>
+                <span class="row-label">{capLabel(cap)}</span>
+                <span class="row-args">{argLabel(cap.params.length)}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    {/each}
+  </div>
+  {/if}{/snippet}
+
+<div class="panel ok-scroll" class:background-pane={backgroundPane} hidden={!editor.propertiesPaneVisible}>
   <div class="panel-head">
     <strong>{selLabel}</strong>
-    {#if isShape || editor.propertiesPaneMode === 'background'}
-      <button class="close-pane" aria-label={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : selectedVideo ? 'Close Format Video' : 'Close Format Shape')} title={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : selectedVideo ? 'Close Format Video' : 'Close Format Shape')} onclick={(event) => {
+          <button class="close-pane" aria-label={t(backgroundPane ? 'Close Format Background' : selectedVideo ? 'Close Format Video' : 'Close Format Shape')} title={t(backgroundPane ? 'Close Format Background' : selectedVideo ? 'Close Format Video' : 'Close Format Shape')} onclick={(event) => {
         editor.propertiesPaneVisible = false;
         const shell = event.currentTarget.closest('.ok-shell');
-        const target = shell?.querySelector<HTMLElement>(editor.propertiesPaneMode === 'background' ? '.format-background-trigger' : '.hit.selected');
+        const target = shell?.querySelector<HTMLElement>(backgroundPane ? '.format-background-trigger' : '.hit.selected');
         target?.focus({ preventScroll: true });
       }}>×</button>
-    {/if}
   </div>
 
   {#if isShape}
@@ -151,52 +207,11 @@
     role={isShape ? 'tabpanel' : undefined}
     aria-labelledby={isShape ? `format-tab-${editor.formatPaneTab}` : undefined}
   >
-    {#if editor.propertiesPaneMode === 'background'}
-      <BackgroundSection />
+    {#if backgroundPane}
+      <BackgroundSection extra={objectSelected ? undefined : selectionSections} />
     {:else}
-      <SlideSection />
-      <LayoutSection />
-      {#if selectedVideo && editor.formatPaneTab === 'video'}
-        <VideoSection />
-      {/if}
-      <div hidden={isShape && editor.formatPaneTab !== 'size'}>
-        <ChartSection />
-        <TableSection />
-        <ImageSection />
-      </div>
-      {#if !selectedVideo || editor.formatPaneTab !== 'video'}
-        <BespokeSections tab={isShape && editor.formatPaneTab !== 'video' ? editor.formatPaneTab : 'all'} />
-      {/if}
-      <div hidden={isShape && editor.formatPaneTab !== 'size'}>
-        <ParagraphSection />
-        <ArrangeSection />
-        <AnimationSection />
-      </div>
+      {@render selectionSections()}
 
-      {#if !selectedVideo || editor.formatPaneTab !== 'video'}
-      <div class="all">
-        <div class="all-title">{t('All applicable capabilities')}</div>
-        {#each grouped as g (g.category)}
-          <section class="cat">
-            <button class="cat-head" onclick={() => toggle(g.category)}>
-              <span class="chev" class:open={open[g.category]}>▸</span>
-              {catLabel(g.label)}
-              <span class="n">{g.items.length}</span>
-            </button>
-            {#if open[g.category]}
-              <div class="cat-items">
-                {#each g.items as cap (cap.id)}
-                  <button class="row" title={cap.id} onclick={() => editor.runOrPrompt(cap.id)}>
-                    <span class="row-label">{capLabel(cap)}</span>
-                    <span class="row-args">{argLabel(cap.params.length)}</span>
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          </section>
-        {/each}
-      </div>
-      {/if}
     {/if}
   </div>
 </div>

@@ -154,6 +154,60 @@
     <rect x="3" y="5" width="18" height="16" rx="1.5" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" /><circle cx="15.5" cy="15.5" r="2.5" />
   {:else if name === 'slide-number'}
     <rect x="3" y="5" width="18" height="14" rx="1" /><path d="M10 9h4M12 9v6M10 15h4" /><path d="M9 11l1-2" />
+  {:else if name === 'screenshot'}
+    <rect x="3" y="4" width="14" height="10" rx="1" stroke-dasharray="2 2" /><rect x="10" y="13" width="9" height="7" rx="1" /><circle cx="14.5" cy="16.5" r="1.6" /><path d="M20 17v4M18 19h4" />
+  {:else if name === 'cameo'}
+    <rect x="3" y="4" width="18" height="14" rx="1" /><circle cx="15" cy="10" r="2.5" /><path d="M10.5 18c0-3 9-3 9 0" /><path d="M6 8h4M6 11h3" />
+  {:else if name === 'icons'}
+    <circle cx="12" cy="7" r="3" /><path d="M6 21c0-5 3-7 6-7s6 2 6 7" /><path d="M4 12l3-2M20 12l-3-2" />
+  {:else if name === 'cube'}
+    <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" />
+  {:else if name === 'font-color'}
+    <path d="m7 15 5-11 5 11M8.8 11h6.4" /><path d="M4 19h16" stroke-width="3" />
+  {:else if name === 'height'}
+    <path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4" />
+  {:else if name === 'width'}
+    <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
+  {:else if name === 'format-pane'}
+    <rect x="3" y="4" width="18" height="16" rx="1.5" /><path d="M14 4v16M16.5 8h2M16.5 11h2M16.5 14h2" />
+  {:else if name === 'swap'}
+    <path d="M4 8h13l-3-3M20 16H7l3 3" />
+  {:else if name === 'share'}
+    <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+  {:else if name === 'columns'}
+    <path d="M3 6h7M3 10h7M3 14h7M3 18h7M14 6h7M14 10h7M14 14h7M14 18h5" />
+  {:else if name === 'text-direction'}
+    <path d="M6 4h8M10 4v9M18 7v13M15.5 17.5 18 20l2.5-2.5" />
+  {:else if name === 'align-text'}
+    <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M7 10h10M7 14h10" />
+  {:else if name === 'designer'}
+    <rect x="3" y="7" width="18" height="13" rx="1.5" /><path d="m13 2-4 7h4l-2 6" />
+  {:else if name === 'add-ins'}
+    <rect x="3" y="3" width="8" height="8" rx="1" /><rect x="13" y="3" width="8" height="8" rx="1" /><rect x="3" y="13" width="8" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" />
+  {:else if name === 'smartart'}
+    <rect x="3" y="4" width="6" height="5" rx="1" /><rect x="15" y="4" width="6" height="5" rx="1" /><rect x="9" y="15" width="6" height="5" rx="1" /><path d="M6 9v3h12V9M12 12v3" />
+  {:else if name === 'zoom-slide'}
+    <rect x="3" y="5" width="12" height="9" rx="1" /><rect x="9" y="10" width="12" height="9" rx="1" /><path d="M7 9h4" />
+  {:else if name === 'action'}
+    <path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z" />
+  {:else if name === 'header-footer'}
+    <path d="M6 3h9l4 4v14H6z" /><path d="M8 6h6M8 18h8" /><path d="M8 10h8M8 13h8" stroke-opacity="0.4" />
+  {:else if name === 'wordart'}
+    <path d="M5 20 11 4h2l6 16M8 14h8" /><path d="M3 21c6-2 12-2 18 0" />
+  {:else if name === 'object'}
+    <rect x="4" y="3" width="16" height="18" rx="1" /><rect x="7" y="7" width="10" height="7" /><path d="M7 17h6" />
+  {:else if name === 'equation'}
+    <path d="M5 5h12M8 5v14M14 5v11c0 3 3 3 4 2" />
+  {:else if name === 'symbol'}
+    <path d="M5 20h4v-2.5A7 7 0 1 1 15 17.5V20h4" />
+  {:else if name === 'video'}
+    <rect x="3" y="5" width="13" height="14" rx="1" /><path d="M16 10l5-3v10l-5-3" /><path d="M3 9h13M3 15h13" />
+  {:else if name === 'audio'}
+    <path d="M4 9h4l5-4v14l-5-4H4z" /><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" />
+  {:else if name === 'rename'}
+    <rect x="3" y="7" width="18" height="10" rx="1" /><path d="M7 10v4M14 5v14M12 5h4M12 19h4" />
+  {:else if name === 'close-master'}
+    <rect x="3" y="4" width="18" height="16" rx="1" /><path d="m9 9 6 6M15 9l-6 6" stroke="#d13438" />
   {:else}
     <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
   {/if}

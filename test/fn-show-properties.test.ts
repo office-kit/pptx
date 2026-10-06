@@ -25,6 +25,7 @@ it('reads schema defaults for omitted browse and kiosk attributes', async () => 
       showNarration: false,
       showAnimation: true,
       useTimings: true,
+      showMediaControls: true,
     });
     pptx.setSlideShowProperties(p, settings);
     expect(
@@ -45,6 +46,7 @@ it('round-trips slideshow choices and flags with valid OOXML', async () => {
     showNarration: false,
     showAnimation: true,
     useTimings: true,
+    showMediaControls: true,
   });
   pptx.setCustomShows(p, [{ id: 7, name: 'Details', slides: [slide] }]);
   const choices: pptx.SlideShowProperties[] = [
@@ -61,6 +63,7 @@ it('round-trips slideshow choices and flags with valid OOXML', async () => {
       slides: { kind: 'customShow', id: 7 },
       useTimings: false,
       showAnimation: false,
+      showMediaControls: false,
     },
     defaults,
   ];

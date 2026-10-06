@@ -56,6 +56,9 @@ test(
       await saved();
       const bounds = getShapeBounds(await table());
       await editor.locator('.hit').first().click();
+      // Right-clicking a table targets a cell, so open the table's menu from the keyboard.
+      await editor.locator('.hit').first().press('Shift+F10');
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await cell(1, 1).click();
       let panel = editor.getByRole('region', { name: 'Paragraph formatting', exact: true });
       const properties = async (row, col, index = 0) => {

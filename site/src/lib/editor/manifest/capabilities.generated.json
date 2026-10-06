@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 197,
+  "count": 201,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1711,6 +1711,23 @@
       ]
     },
     {
+      "id": "setShapeCustomGeometry",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-custom-geometry.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "geometry",
+          "type": "CustomGeometryInput",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setShapeDescription",
       "operand": "shape",
       "takesOperand": true,
@@ -2434,6 +2451,23 @@
       ]
     },
     {
+      "id": "setShapeText3D",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "Text3D | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setShapeTextAnchor",
       "operand": "shape",
       "takesOperand": true,
@@ -2569,6 +2603,23 @@
           "type": "{ range?: { start: number; end: number }; reset?: boolean }",
           "kind": "object",
           "optional": true
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextLanguage",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text-language.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "lang",
+          "type": "string",
+          "kind": "string",
+          "optional": false
         }
       ]
     },
@@ -3063,6 +3114,23 @@
         {
           "name": "options",
           "type": "TransitionOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideTransitionSound",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "transition",
+      "file": "api/fn/slide-transition.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "sound",
+          "type": "TransitionSoundInput | null",
           "kind": "object",
           "optional": false
         }

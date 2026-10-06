@@ -4,10 +4,13 @@
   import { orderCommentThreads } from '../core/comment-threads.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  // Docked beside the slide like PowerPoint's Comments pane, so the deck stays
+  // usable while it is open. `floating` places it over views without a side
+  // pane (Slide Sorter, Notes Page).
+  let { floating = false }: { floating?: boolean } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   const openedSlide = untrack(() => doc.currentSlide);
-  const version = untrack(() => doc.version);
   const slides = untrack(() => getSlides(doc.pres));
   const original = slides.map(slide => getSlideComments(slide));
   // `status` is `null` for a comment that has nowhere to keep one — an
@@ -42,9 +45,29 @@
   const visible = $derived(showResolved ? ordered : ordered.filter(draft => !resolvedRoot(draft)));
   const hidden = $derived(ordered.length - visible.length);
   let error = $state('');
-  let dialog: HTMLDialogElement;
+  let dialog: HTMLElement;
   const valid = $derived(slides.length > 0 && complete && changed);
-  onMount(() => dialog.showModal());
+  onMount(() => dialog.querySelector<HTMLElement>('textarea, input, select')?.focus());
+  // The pane follows the slide being edited; drafts on other slides are kept.
+  $effect(() => {
+    const index = doc.selection.slideIndex;
+    if (index >= 0 && index < slides.length) untrack(() => (reviewIndex = index));
+  });
+  // Other edits may happen while the pane is open; Apply only refuses when the
+  // slides or their comments changed underneath the drafts.
+  const stale = () => {
+    const current = getSlides(doc.pres);
+    return current.length !== slides.length || current.some((slide, index) => {
+      const comments = getSlideComments(slide);
+      return slide !== slides[index] || comments.length !== original[index]!.length || comments.some((comment, i) => getCommentText(comment) !== getCommentText(original[index]![i]!) || getCommentStatus(comment) !== getCommentStatus(original[index]![i]!));
+    });
+  };
+  function keydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    editor.closeDialog();
+  }
   async function addDraft(parent: number | null = null) {
     const draft = newDraft(parent);
     drafts.push(draft);
@@ -77,7 +100,7 @@
   function apply(event: SubmitEvent) {
     event.preventDefault();
     if (!valid) return;
-    if (doc.version !== version || doc.currentSlide !== openedSlide) { error = t('The slide changed. Reopen this dialog.'); return; }
+    if (stale()) { error = t('The comments changed elsewhere. Close and reopen Comments.'); return; }
     try {
       doc.transact(t('Comments'), () => {
         for (const [slideIndex, comments] of pending.entries()) {
@@ -102,7 +125,7 @@
     } catch (cause) { error = `${t('Comment update failed')}: ${cause instanceof Error ? cause.message : String(cause)}`; }
   }
 </script>
-<dialog bind:this={dialog} aria-label={t('Comments')} onclose={() => editor.closeDialog()}>
+<div class="comments-pane ok-scroll" class:floating bind:this={dialog} tabindex="-1" role="dialog" aria-modal="false" aria-label={t('Comments')} onkeydown={keydown}>
   <form onsubmit={apply}>
     <header><strong>{t('Comments')}</strong><button type="button" class="ok-btn" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
     <p>{t('Review comments across slides. Apply saves all your changes; Cancel discards them.')}</p>
@@ -134,12 +157,11 @@
     {#if error}<p role="alert">{error}</p>{/if}
     <footer><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!valid}>{t('Apply')}</button></footer>
   </form>
-</dialog>
+</div>
 <style>
-  dialog { width: min(640px, 90vw); max-height: 85vh; padding: 18px; border: 1px solid var(--ok-border); border-radius: var(--ok-radius-lg); background: var(--ok-panel); color: var(--ok-text); box-shadow: var(--ok-shadow-lg); }
-  dialog::backdrop { background: #0006; }
+  .comments-pane { min-width: 0; min-height: 0; overflow: auto; padding: 12px; border-left: 1px solid var(--ok-border); background: var(--ok-panel); color: var(--ok-text); }
+  .comments-pane.floating { position: fixed; z-index: 300; top: 140px; right: 12px; bottom: 40px; width: min(340px, 90vw); border: 1px solid var(--ok-border); border-radius: var(--ok-radius-lg); box-shadow: var(--ok-shadow-lg); }
   form, label, .comments, section { display: grid; gap: 12px; }
-  .comments { max-height: 50vh; overflow: auto; }
   section { padding: 12px; border: 1px solid var(--ok-border); border-radius: 6px; }
   section.reply { margin-left: 20px; border-left: 3px solid var(--ok-border); }
   section.resolved { opacity: 0.75; }

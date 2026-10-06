@@ -6,6 +6,8 @@
 // context menus and the palette all funnel through `invoke` / `runOrPrompt`,
 // so there is exactly one path from "user intent" to "library call".
 
+import { InkState } from './ink.svelte.ts';
+import type { GalleryShape } from './shape-gallery.ts';
 import { lockedShapeIds, selectionLocked } from './shape-locks.ts';
 import {
   setShapeLocked,
@@ -115,6 +117,7 @@ let toastSeq = 0;
 export class EditorController {
   readonly doc = new EditorDocument();
   readonly view = new ViewPreferences();
+  readonly ink = new InkState();
   inlineTextFormat = $state<{
     formats: TextFormat[];
     displayFormats?: TextFormat[];
@@ -128,6 +131,8 @@ export class EditorController {
     changeCase?: (value: TextCase) => void;
     fontSize?: (direction: 1 | -1) => void;
     toggle: (property: TextFormatToggle) => void;
+    /** Replaces the text selection (or inserts at the caret), as typing does. */
+    insertText?: (text: string) => void;
   } | null>(null);
   /** Selection-aware formatting target used by the speaker-notes editor. */
   notesInlineTextFormat = $state<{
@@ -142,7 +147,7 @@ export class EditorController {
   ribbonVisible = $state(true);
   thumbnailsVisible = $state(true);
   selectionPaneVisible = $state(false);
-  propertiesPaneVisible = $state(true);
+  propertiesPaneVisible = $state(false);
   propertiesPaneMode = $state<'selection' | 'background'>('selection');
   alignmentReference = $state<'selection' | 'slide'>('selection');
   rotationFocusRequested = $state(false);
@@ -150,16 +155,47 @@ export class EditorController {
   thumbnailWidth = $state<number | null>(null);
   outlineWidth = $state<number | null>(null);
   outlineShowFormatting = $state(false);
-  viewMode = $state<'normal' | 'outline' | 'sorter'>('normal');
+  viewMode = $state<'normal' | 'outline' | 'sorter' | 'notesPage'>('normal');
+  /** View ▸ Slide Master: shows the Slide Master tab that edits the current slide's layout. */
+  masterView = $state(false);
   sorterZoom = $state(1);
   // Normal view shows the notes pane by default, as PowerPoint does.
   notesVisible = $state(true);
   notesHeight = $state(120);
   notesFocusRequest = $state(0);
+  /** Bumped by Edit Text; the canvas starts editing the selected shape's text. */
+  textEditRequest = $state(0);
+  editSelectedText(): void {
+    this.textEditRequest++;
+  }
 
   /** Open the Custom Shows manager. The actual sequence edits still flow
    * through EditorDocument.transact so save/undo treats each gesture as one
    * PowerPoint-style document edit. */
+  /** Slide times from Rehearse Timings, waiting for the user to keep or discard them. */
+  /** Title bar AutoSave: hosts that save on their own pause while it is off. */
+  autoSave = $state(true);
+  rehearsalTimings = $state<readonly { slide: number; ms: number }[] | null>(null);
+  /** The Accessibility issue list (status bar, Review ▸ Check Accessibility). */
+  accessibilityOpen = $state(false);
+  /** Where Insert ▸ Symbol's picker opens (the button's rectangle), or null when closed. */
+  /** Where the Shapes gallery is open, under its ribbon button. */
+  shapeGallery = $state<DOMRect | null>(null);
+  /** The shape chosen in the gallery, drawn by dragging on the slide. */
+  drawShape = $state<GalleryShape | null>(null);
+  openShapeGallery(anchor: HTMLElement): void {
+    this.shapeGallery = this.shapeGallery ? null : anchor.getBoundingClientRect();
+  }
+  /** The Insert ▸ WordArt button while its gallery is open. */
+  wordArtGallery = $state<HTMLElement | null>(null);
+  openWordArtGallery(anchor: HTMLElement): void {
+    this.wordArtGallery = this.wordArtGallery ? null : anchor;
+  }
+  symbolPicker = $state<DOMRect | null>(null);
+  openSymbolPicker(anchor: HTMLElement): void {
+    this.symbolPicker = this.symbolPicker ? null : anchor.getBoundingClientRect();
+  }
+
   openCustomShows(): void {
     this.activeDialog = 'customShows';
   }
@@ -231,7 +267,7 @@ export class EditorController {
   }
 
   showNotes(): void {
-    if (this.viewMode === 'sorter') this.setViewMode('normal');
+    if (this.viewMode === 'sorter' || this.viewMode === 'notesPage') this.setViewMode('normal');
     this.notesVisible = true;
     this.notesFocusRequest++;
   }
@@ -256,7 +292,7 @@ export class EditorController {
     this.rotationFocusRequested = true;
   }
 
-  setViewMode(mode: 'normal' | 'outline' | 'sorter'): void {
+  setViewMode(mode: 'normal' | 'outline' | 'sorter' | 'notesPage'): void {
     this.contextMenu = null;
     if (mode === 'outline') this.thumbnailsVisible = true;
     this.viewMode = mode;
@@ -808,6 +844,21 @@ export class EditorController {
       : null;
     if (layout) this.invoke('addSlide', { options: { layout } });
     else this.invoke('addBlankSlide');
+  }
+
+  /**
+   * The slide show runs in the preview page around the editor; the standalone
+   * editor has no stage to present on.
+   */
+  readonly canPresent = typeof window !== 'undefined' && window.parent !== window;
+
+  /** Asks the preview page to present: full screen, in the window, or with presenter view. */
+  present(action: 'start' | 'current' | 'reading' | 'presenter' | 'rehearse'): void {
+    if (!this.canPresent) return;
+    window.parent.postMessage(
+      { type: 'editor-command', action, slide: this.doc.selection.slideIndex },
+      window.location.origin,
+    );
   }
 
   /** Pastes the copied formatting onto every selected object. */

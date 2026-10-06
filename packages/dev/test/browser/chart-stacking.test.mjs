@@ -60,6 +60,8 @@ test(
       assert.equal((await read()).series[1].color.toLowerCase(), '#ed7d31');
       await editor.locator('select').first().selectOption('en');
       ja = false;
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       assert.equal(
         await dialog.getByLabel('Series stacking', { exact: true }).inputValue(),
@@ -110,7 +112,8 @@ test(
       await page.reload();
       await saved();
       assert.equal((await read()).grouping, 'percentStacked');
-      await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       assert.equal(
         await dialog.getByLabel('Series stacking', { exact: true }).inputValue(),

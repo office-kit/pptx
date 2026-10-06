@@ -40,7 +40,11 @@ test(
         return getShapeGradientFill(getSlideShapes(getSlides(deck)[0])[index]);
       };
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       let initialGradient = await gradient();
       const direction = editor.getByRole('button', { name: 'Gradient direction', exact: true });
       await direction.click();
@@ -207,7 +211,11 @@ test(
       assert.equal((await gradient()).stops.length, 3);
       await page.reload();
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       assert.equal(await brightness.inputValue(), '-25');
       assert.equal(await opacity.inputValue(), '60');
       await brightness.fill('101');
@@ -293,7 +301,11 @@ test(
       await page.reload();
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       assert.deepEqual(await gradient(), radialSaved);
       await direction.click();
       assert.equal(

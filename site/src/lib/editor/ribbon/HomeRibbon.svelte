@@ -23,6 +23,9 @@
   import { editTargetParagraphs, targetParagraphProperties } from '../core/paragraph-targets.ts';
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
+  import ParagraphLayoutMenus from './ParagraphLayoutMenus.svelte';
+  import SectionMenu from './SectionMenu.svelte';
+  import LayoutThumbnail from '../ui/LayoutThumbnail.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import FontRibbon from './FontRibbon.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
@@ -77,7 +80,7 @@
   });
   let openGroup = $state<Group | null>(null);
   let paragraphOptions = $state(false);
-  let openMenu = $state<'newSlide' | 'layout' | null>(null);
+  let openMenu = $state<'newSlide' | 'layout' | 'paste' | null>(null);
   let popup = $state<HTMLDivElement>();
 
   const shapeIds = $derived(selectedShapeIds(doc.selection));
@@ -136,9 +139,23 @@
     openGroup = openGroup === group ? null : group;
     if (openGroup) { await tick(); popup?.querySelector<HTMLElement>('button:not(:disabled), input')?.focus(); }
   }
-  async function toggleMenu(menu: 'newSlide' | 'layout') {
+  async function toggleMenu(menu: 'newSlide' | 'layout' | 'paste') {
     openMenu = openMenu === menu ? null : menu;
     if (openMenu) { await tick(); document.querySelector<HTMLElement>('.home-menu [aria-checked="true"], .home-menu button')?.focus(); }
+  }
+  // Keep Text Only: the system clipboard's plain text, at the text cursor or
+  // as a new text box.
+  async function pasteTextOnly() {
+    let text = '';
+    try {
+      text = await navigator.clipboard.readText();
+    } catch (cause) {
+      editor.toast('error', `${t('Paste failed')}: ${(cause as Error).message}`);
+      return;
+    }
+    if (!text) return;
+    if (editor.inlineTextFormat?.insertText) editor.inlineTextFormat.insertText(text);
+    else editor.runOrPrompt('addSlideTextBox', { opts: { ...PRESET.textBox.opts, text } });
   }
   function closeAfterCommand(event: MouseEvent) {
     const button = (event.target as Element).closest('button');
@@ -174,13 +191,16 @@
 {#snippet layoutMenu(kind: 'newSlide' | 'layout')}
   <div class="home-menu" role="menu" tabindex="-1" aria-label={t(kind === 'newSlide' ? 'New Slide' : 'Layout')} use:place>
     <div class="heading">{t('Layouts')}</div>
-    {#each layouts as layout (getSlideLayoutPartName(layout))}
-      {#if kind === 'newSlide'}
-        <button role="menuitem" onclick={() => insertSlide(layout)}><Icon name="layout" size={16} />{t(getSlideLayoutName(layout))}</button>
-      {:else}
-        <button role="menuitemradio" aria-checked={getSlideLayoutPartName(layout) === currentLayout} onclick={() => applyLayout(layout)}><Icon name="layout" size={16} />{t(getSlideLayoutName(layout))}</button>
-      {/if}
-    {/each}
+    <!-- PowerPoint shows the layouts as a gallery of thumbnails. -->
+    <div class="layout-grid">
+      {#each layouts as layout (getSlideLayoutPartName(layout))}
+        {#if kind === 'newSlide'}
+          <button class="layout-item" role="menuitem" onclick={() => insertSlide(layout)}><LayoutThumbnail pres={doc.pres} {layout} /><span>{t(getSlideLayoutName(layout))}</span></button>
+        {:else}
+          <button class="layout-item" role="menuitemradio" aria-checked={getSlideLayoutPartName(layout) === currentLayout} onclick={() => applyLayout(layout)}><LayoutThumbnail pres={doc.pres} {layout} /><span>{t(getSlideLayoutName(layout))}</span></button>
+        {/if}
+      {/each}
+    </div>
     {#if kind === 'newSlide'}
       <hr />
       <button role="menuitem" disabled={!hasSlide} onclick={() => { openMenu = null; editor.invoke('duplicateSlide'); }}>{t('Duplicate Selected Slides')}</button>
@@ -200,6 +220,7 @@
       {#if openMenu === 'layout'}{@render layoutMenu('layout')}{/if}
     </div>
     <button class:big={!small} class:row={small} disabled={!editor.canRun('resetSlideLayout')} aria-label={t('Reset')} title={t('Reset the position, size, and formatting of the slide placeholders to their default settings.')} onclick={() => editor.invoke('resetSlideLayout')}><Icon name="reset" size={small ? 18 : 32} /><span>{t('Reset')}</span></button>
+    <SectionMenu {small} />
   </div>
 {/snippet}
 
@@ -213,15 +234,17 @@
       <button class="tool" aria-label={t('Increase List Level')} disabled={!paragraphEnabled} onclick={() => changeLevel(1)}><Icon name="indent-more" size={18} /></button>
       <span class="sep" aria-hidden="true"></span>
       <LineSpacingMenu onoptions={() => (paragraphOptions = true)} />
+      <span class="sep" aria-hidden="true"></span>
+      <ParagraphLayoutMenus row={1} />
     </div>
-    <div class="row-controls"><ParagraphAlignment /></div>
+    <div class="row-controls"><ParagraphAlignment /><span class="sep" aria-hidden="true"></span><ParagraphLayoutMenus row={2} /></div>
   </div>
 {/snippet}
 
 {#snippet insert()}
   <button class="big" aria-label={t('Picture')} disabled={!editor.canRun('addSlideImage')} onclick={() => editor.runOrPrompt('addSlideImage')}><Icon name="picture" size={32} /><span>{t('Picture')}</span></button>
   <div class="stack" class:small>
-    <button class:big={!small} class:row={small} aria-label={t('Shapes')} disabled={!editor.canRun('addSlideShape')} onclick={() => editor.runOrPrompt('addSlideShape', PRESET.shape)}><Icon name="shapes" size={small ? 18 : 32} /><span>{t('Shapes')}</span></button>
+    <button class:big={!small} class:row={small} aria-label={t('Shapes')} aria-haspopup="menu" aria-expanded={!!editor.shapeGallery} disabled={!editor.canRun('addSlideShape')} onclick={(event) => editor.openShapeGallery(event.currentTarget)}><Icon name="shapes" size={small ? 18 : 32} /><span>{t('Shapes')}</span></button>
     <button class:big={!small} class:row={small} aria-label={t('Text Box')} disabled={!editor.canRun('addSlideTextBox')} onclick={() => editor.runOrPrompt('addSlideTextBox', PRESET.textBox)}><Icon name="textbox" size={small ? 18 : 32} /><span>{t('Text Box')}</span></button>
   </div>
 {/snippet}
@@ -230,8 +253,8 @@
   <ArrangeMenu />
   <ShapeQuickStyles />
   <div class="stack small fill-outline">
-    <span class="paint-row"><Icon name="fill" size={18} /><span class="label">{t('Shape Fill')}</span><ColorPicker label={t('Shape Fill')} disabled={!paintable} choose={fill} /></span>
-    <span class="paint-row"><Icon name="outline" size={18} /><span class="label">{t('Shape Outline')}</span><ColorPicker label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
+    <span class="paint-row"><Icon name="fill" size={18} /><span class="label">{t('Shape Fill')}</span><ColorPicker compact label={t('Shape Fill')} disabled={!paintable} choose={fill} /></span>
+    <span class="paint-row"><Icon name="outline" size={18} /><span class="label">{t('Shape Outline')}</span><ColorPicker compact label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
   </div>
 {/snippet}
 
@@ -254,7 +277,18 @@
 
 <div class="home" bind:this={home} bind:clientWidth={width}>
   <section class="cluster" aria-label={t('Clipboard')}>
-    <button class="big" aria-label={t('Paste')} onclick={() => editor.paste()}><Icon name="paste" size={32} /><span>{t('Paste')}</span></button>
+    <div class="split large">
+      <button class="big" aria-label={t('Paste')} onclick={() => editor.paste()}><Icon name="paste" size={32} /><span>{t('Paste')}</span></button>
+      <button class="arrow menu-trigger" aria-label={t('Paste options')} aria-haspopup="menu" aria-expanded={openMenu === 'paste'} onclick={() => toggleMenu('paste')}>⌄</button>
+      {#if openMenu === 'paste'}
+        <div class="home-menu" role="menu" tabindex="-1" aria-label={t('Paste options')} use:place>
+          <button role="menuitem" onclick={() => { openMenu = null; void editor.paste(); }}>{t('Paste')}</button>
+          <button role="menuitem" onclick={() => { openMenu = null; void pasteTextOnly(); }}>{t('Keep Text Only')}</button>
+          <hr />
+          <button role="menuitem" title={t('Paste Special needs the system clipboard formats, which the browser does not expose.')} disabled>{t('Paste Special...')}</button>
+        </div>
+      {/if}
+    </div>
     <div class="stack small tools">
       <button class="tool" aria-label={t('Cut')} title={t('Cut')} disabled={!canCopy} onclick={() => editor.cutSelection()}><Icon name="cut" size={18} /></button>
       <button class="tool" aria-label={t('Copy')} title={t('Copy')} disabled={!canCopy} onclick={() => editor.copySelection()}><Icon name="copy" size={18} /></button>
@@ -266,6 +300,10 @@
   {@render group('Paragraph', 'align', paragraph)}
   {@render group('Insert', 'textbox', insert)}
   {@render group('Drawing', 'quick-styles', drawing)}
+  <section class="cluster" aria-label={t('Add-ins')}>
+    <button class={small ? 'tool' : 'big'} aria-label={t('Add-ins')} title={t('Office Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
+    <button class={small ? 'tool' : 'big'} aria-label={t('Designer')} title={t('Designer needs the Microsoft 365 design service.')} disabled><Icon name="designer" size={small ? 18 : 32} />{#if !small}<span>{t('Designer')}</span>{/if}</button>
+  </section>
 </div>
 {#if paragraphOptions}
   <ParagraphDialog properties={paragraphs} apply={edit => editTargetParagraphs(editor, edit)} onclose={() => {
@@ -276,14 +314,14 @@
 
 <style>
   .home { display: flex; align-items: stretch; min-width: 0; width: 100%; gap: 0; }
-  .cluster { position: relative; display: flex; align-items: center; gap: 4px; padding: 0 7px; border-right: 1px solid var(--ok-border); flex: none; }
+  .cluster { position: relative; display: flex; align-items: center; gap: 2px; padding: 0 4px; border-right: 1px solid var(--ok-border); flex: none; }
   .cluster:last-child { border-right: none; }
   button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
   button[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
-  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 52px; padding: 3px 4px; font-size: 11px; line-height: 1.15; }
-  .big > span { max-width: 64px; text-align: center; }
+  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 40px; padding: 3px 2px; font-size: 11px; line-height: 1.15; }
+  .big > span { max-width: 52px; text-align: center; }
   .icon-row { display: flex; align-items: center; gap: 2px; max-width: none !important; }
   .row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 11px; white-space: nowrap; }
   .tool { display: flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 0; }
@@ -295,13 +333,17 @@
   .anchor { position: relative; }
   .rows { display: flex; flex-direction: column; gap: 4px; }
   .row-controls { display: flex; align-items: center; gap: 2px; }
-  .sep { width: 1px; height: 20px; margin: 0 4px; background: var(--ok-border); }
+  .sep { width: 1px; height: 20px; margin: 0 2px; background: var(--ok-border); }
   .paint-row { display: flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
   .home-menu, .group-popup { position: fixed; z-index: 400; padding: 6px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .group-popup { display: flex; align-items: center; gap: 4px; }
   .home-menu { display: flex; flex-direction: column; min-width: 220px; max-height: 70vh; overflow-y: auto; }
   .home-menu button { display: flex; align-items: center; gap: 8px; padding: 5px 8px; text-align: left; font-size: 12px; }
   .home-menu button[aria-checked='true'] { background: var(--ok-selected); }
+  .layout-grid { display: grid; grid-template-columns: repeat(3, 120px); gap: 6px; padding: 2px 4px; }
+  .home-menu .layout-item { flex-direction: column; align-items: stretch; gap: 3px; padding: 4px; text-align: center; font-size: 11px; }
+  .layout-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-menu .layout-item[aria-checked='true'] { background: var(--ok-selected); }
   .home-menu .heading { padding: 4px 8px; font-size: 11px; font-weight: 600; color: var(--ok-text-2); }
   .home-menu hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }
 </style>

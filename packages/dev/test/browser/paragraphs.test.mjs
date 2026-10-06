@@ -54,7 +54,11 @@ test(
           )[0],
         )[0];
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       let panel = editor.getByRole('region', { name: 'Paragraph formatting', exact: true });
       await panel.getByLabel('List style', { exact: true }).selectOption('bullet');
@@ -109,7 +113,11 @@ test(
       await page.reload();
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'サイズと位置...', exact: true }).click();
       await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
       await panel.getByLabel('対象の段落', { exact: true }).selectOption('1');
       assert.equal(await panel.getByLabel('行間の値', { exact: true }).inputValue(), '24');

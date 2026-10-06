@@ -79,7 +79,11 @@ test(
         await saved();
       };
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       const original = (await read()).fill;
       const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
       await upload(picture);
@@ -174,7 +178,11 @@ test(
       assert.deepEqual(await read(), replacement);
       await page.reload();
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       assert.equal(await picture.isChecked(), true);
       assert.equal(
         await editor

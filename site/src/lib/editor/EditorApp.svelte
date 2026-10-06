@@ -31,6 +31,13 @@
   import TransitionDialog from './ui/TransitionDialog.svelte';
   import ShowPropertiesDialog from './ui/ShowPropertiesDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
+  import HeaderFooterDialog from './ui/HeaderFooterDialog.svelte';
+  import SymbolPicker from './ui/SymbolPicker.svelte';
+  import ShapeGallery from './ui/ShapeGallery.svelte';
+  import WordArtGallery from './ui/WordArtGallery.svelte';
+  import { insertWordArt } from './core/insert-objects.ts';
+  import NotesPageView from './ui/NotesPageView.svelte';
+  import RehearsalDialog from './ui/RehearsalDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
   import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
   import FontDialog from './ui/FontDialog.svelte';
@@ -47,6 +54,7 @@
   const editor = untrack(() => initialEditor);
   setEditor(editor);
   const doc = editor.doc;
+  const commentsOpen = $derived(['addSlideComment', 'setCommentText', 'removeSlideComment'].includes(editor.activeDialog ?? ''));
   $effect(() => {
     doc.selection;
     untrack(() => editor.completeFormatPainter());
@@ -164,6 +172,9 @@
       else if (e.key === 'ArrowUp') editor.nudge(0, -d);
       else if (e.key === 'ArrowDown') editor.nudge(0, d);
     } else if (e.key === 'Escape') {
+      // A ribbon menu or collapsed group that closed on this Escape claims it;
+      // window listeners run in mount order, so this one may run first.
+      if (e.defaultPrevented || (e.target instanceof Element && e.target.closest('[role="menu"], .group-popup'))) return;
       if (editor.contextMenu) editor.closeContextMenu();
       else if (editor.paletteOpen) editor.togglePalette(false);
       else if (editor.activeDialog) editor.closeDialog();
@@ -189,16 +200,26 @@
     }
   }
 
+  // The preview page reports a finished rehearsal (Slide Show ▸ Rehearse Timings).
+  function onParentMessage(event: MessageEvent) {
+    if (event.origin !== window.location.origin || event.source !== window.parent || event.source === window) return;
+    if (event.data?.type !== 'rehearsal-timings' || !Array.isArray(event.data.timings)) return;
+    editor.rehearsalTimings = event.data.timings.filter(
+      (item: unknown): item is { slide: number; ms: number } =>
+        typeof item === 'object' && item !== null && Number.isInteger((item as { slide: unknown }).slide) && Number.isFinite((item as { ms: unknown }).ms),
+    );
+    editor.activeDialog = 'rehearsal';
+  }
 </script>
 
-<svelte:window on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
+<svelte:window on:message={onParentMessage} on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
 
 <div class="ok-editor ok-shell" class:compact-host={compactHost} style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
   <TopBar {onsave} {status} compact={compactHost} />
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
-  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode !== 'sorter' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
-    {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
-    {#if editor.viewMode !== 'sorter'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
+  <div class="ok-body" class:sorter={editor.viewMode === 'sorter' || editor.viewMode === 'notesPage'} class:thumbnails-hidden={editor.viewMode !== 'sorter' && !editor.thumbnailsVisible} class:panel-hidden={!commentsOpen && !editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
+    {#if editor.viewMode === 'notesPage'}<NotesPageView />{:else if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
+    {#if editor.viewMode !== 'sorter' && editor.viewMode !== 'notesPage'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if commentsOpen}<CommentsDialog />{:else if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
   </div>
   <StatusBar />
 
@@ -222,8 +243,9 @@
       <FindReplaceDialog />
     {:else if editor.activeDialog === 'setShapeHyperlink' || editor.activeDialog === 'setTableCellClickAction'}
       <LinkDialog />
-    {:else if ['addSlideComment', 'setCommentText', 'removeSlideComment'].includes(editor.activeDialog ?? '')}
-      <CommentsDialog />
+    {:else if commentsOpen}
+      <!-- Docked in the right pane; views without one float it instead. -->
+      {#if editor.viewMode === 'sorter' || editor.viewMode === 'notesPage'}<CommentsDialog floating />{/if}
     {:else if editor.activeDialog === 'addSlide'}
       <NewSlideDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}
@@ -232,6 +254,10 @@
       <ShowPropertiesDialog />
     {:else if editor.activeDialog === 'setSlideSize'}
       <SlideSizeDialog />
+    {:else if editor.activeDialog === 'rehearsal'}
+      <RehearsalDialog />
+    {:else if editor.activeDialog === 'headerFooter'}
+      <HeaderFooterDialog />
     {:else if editor.activeDialog === 'addSlideTable'}
       <TableDialog />
     {:else if editor.activeDialog === 'customShows'}
@@ -244,6 +270,19 @@
   {/if}
   {#if editor.contextMenu}
     <ContextMenu />
+  {/if}
+  <SymbolPicker />
+  <ShapeGallery />
+  {#if editor.wordArtGallery}
+    <WordArtGallery
+      label={t('WordArt')}
+      anchor={editor.wordArtGallery}
+      close={() => (editor.wordArtGallery = null)}
+      choose={(preset) => {
+        editor.wordArtGallery = null;
+        insertWordArt(editor, t('WordArt'), t('Your text here'), preset);
+      }}
+    />
   {/if}
   <ToastStack />
 </div>

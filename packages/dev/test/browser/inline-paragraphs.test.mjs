@@ -371,6 +371,11 @@ test(
       assert.deepEqual(getTableCellParagraphs(cells[0][0])[1].elements[0].format ?? {}, {});
       assert.equal(getTableCellParagraphs(cells[0][0])[1].elements[1].format.strike, true);
       await commitInlineEditing(input);
+      await hit.click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Select table', exact: true }).click();
+      // Right-clicking a table targets a cell, so open the table's menu from the keyboard.
+      await hit.press('Shift+F10');
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('button', { name: 'Cell 1, 1', exact: true }).click();
       await editor
         .getByRole('group', { name: 'Format selected cells', exact: true })

@@ -31,7 +31,7 @@ body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
 <div class="workspace-heading"><span>✦ AI WORKSPACE</span><b>LOCAL</b></div><div id="agent-workspace"></div><div id="chat-context" hidden></div></aside>
 </div>
 <footer><span id="count" aria-live="polite">No slides</span><span class="hint">Select an area to ask AI · Edit text directly</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
-<div id="presentation-scrollbar" role="scrollbar" aria-label="Slide position" aria-controls="slide" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span></span></div><div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
+<div id="presentation-scrollbar" role="scrollbar" aria-label="Slide position" aria-controls="slide" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span></span></div><div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="rehearsal-timer" role="timer" aria-label="Rehearsal time" hidden></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
 let showOrder=[],showCursor=0,lastViewed=null,linkedShowId=null;
@@ -474,7 +474,7 @@ function update(updated){
   if(presenting&&(previous.showProperties?.mode?.kind!==state.showProperties?.mode?.kind||previous.showProperties?.mode?.restart!==state.showProperties?.mode?.restart))scheduleKioskRestart();
 }
 function setPresenting(value,from){
-  if(!value)presentationFullscreen=false;
+  if(!value){presentationFullscreen=false;finishRehearsal();}
   fullscreenRequest=null;
   clearKioskRestart();
   linkedShowId=null;showReturns=[];
@@ -531,6 +531,33 @@ function followCustomShowLink(href){
  if(id!==null&&/^[0-9]+$/.test(id))launchCustomShow(Number(id),params.get('return')==='true');
  return true;
 }
+// Slide Show ▸ Rehearse Timings: time each slide while presenting, then hand
+// the times to the editor, which asks whether to keep them as slide timings.
+let rehearsal=null;
+const clock=ms=>{const total=Math.floor(ms/1000),two=n=>String(n).padStart(2,'0');return Math.floor(total/3600)+':'+two(Math.floor(total/60)%60)+':'+two(total%60);};
+function rehearsalTick(){
+ if(!rehearsal)return;
+ const now=performance.now();
+ // The show's cursor names the slide on screen; a custom show can repeat one.
+ const showing=showOrder[showCursor]??index;
+ if(showing!==rehearsal.slide){rehearsal.times.set(rehearsal.slide,(rehearsal.times.get(rehearsal.slide)??0)+now-rehearsal.since);rehearsal.slide=showing;rehearsal.since=now;}
+ byId('rehearsal-timer').textContent=clock(now-rehearsal.since)+' · '+clock(now-rehearsal.started);
+}
+function startRehearsal(){
+ const now=performance.now();
+ rehearsal={times:new Map(),slide:showOrder[showCursor]??index,since:now,started:now,timer:setInterval(rehearsalTick,200)};
+ byId('rehearsal-timer').hidden=false;rehearsalTick();
+}
+function finishRehearsal(){
+ if(!rehearsal)return;
+ rehearsalTick();
+ const now=performance.now();
+ rehearsal.times.set(rehearsal.slide,(rehearsal.times.get(rehearsal.slide)??0)+now-rehearsal.since);
+ clearInterval(rehearsal.timer);byId('rehearsal-timer').hidden=true;
+ const timings=[...rehearsal.times].map(([slide,ms])=>({slide,ms:Math.round(ms)}));
+ rehearsal=null;
+ editorFrame.contentWindow?.postMessage({type:'rehearsal-timings',timings},location.origin);
+}
 async function exitPresentation(){
   if(presenting&&showReturns.length){
     const caller=showReturns.pop();
@@ -544,9 +571,9 @@ async function exitPresentation(){
   setPresenting(false);
   if(document.fullscreenElement)await document.exitFullscreen();
 }
-async function startPresentation(from){
+async function startPresentation(from,windowed=false){
   setPresenting(true,from);
-  if(state.showProperties?.mode?.kind==='browse')return;
+  if(windowed||state.showProperties?.mode?.kind==='browse')return;
   const request=fullscreenRequest={};
   try{await document.documentElement.requestFullscreen();}
   catch{if(fullscreenRequest===request){fullscreenRequest=null;byId('exit-present').textContent=pt('Exit view · Esc');}}
@@ -730,8 +757,9 @@ window.addEventListener('message',event=>{
  if(byId('present').disabled)return;
  const slide=event.data.slide;
  if(event.data.action==='start')void startPresentation();
- else if(event.data.action==='current'&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide);
+ else if((event.data.action==='current'||event.data.action==='reading')&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide,event.data.action==='reading');
  else if(event.data.action==='presenter')byId('presenter').click();
+ else if(event.data.action==='rehearse'){void startPresentation();if(presenting)startRehearsal();}
 });
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-focus')return;

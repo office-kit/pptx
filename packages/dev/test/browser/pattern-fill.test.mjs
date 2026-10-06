@@ -49,7 +49,11 @@ test(
         await saved();
       };
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('radio', { name: 'Pattern fill', exact: true }).check();
       await saved();
       assert.deepEqual((await read())[0], {
@@ -74,7 +78,11 @@ test(
       await saved();
       await page.reload();
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await foreground.click();
       assert.equal(
         await palette
@@ -151,7 +159,11 @@ test(
       await page.screenshot({ path: '/tmp/pptx-pattern-gallery.png' });
       await page.reload();
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       assert.equal(
         await gallery
           .getByRole('button', { name: 'Wave', exact: true })

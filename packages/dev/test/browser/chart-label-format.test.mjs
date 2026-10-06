@@ -60,6 +60,13 @@ test(
       const label = editor.locator('.paint text').filter({ hasText: /^10\.00$/ });
       assert.equal(await label.count(), 1);
       const outsideX = await label.getAttribute('x');
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor
+        .getByRole('menuitem', { name: 'グラフ エリアの書式設定...', exact: true })
+        .click();
       await editor.locator('select').first().selectOption('en');
       ja = false;
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
@@ -91,7 +98,11 @@ test(
       await page.reload();
       await saved();
       assert.equal((await read()).dataLabels.position, 'ctr');
-      await editor.locator('.hit').first().click();
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Chart Area...', exact: true }).click();
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       await dialog.getByText('Data label format', { exact: true }).click();
       await dialog.getByLabel('Label position', { exact: true }).selectOption('');

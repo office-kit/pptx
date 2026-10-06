@@ -8,11 +8,13 @@
   import { getSlideSize, isSlideHidden } from '@office-kit/pptx';
   import { tick } from 'svelte';
   import { selectedSlideIndices } from '../core/selection.ts';
+  import { sectionRanges } from '../core/sections.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { mode = 'normal' }: { mode?: 'normal' | 'sorter' } = $props();
   const editor = getEditor();
   const doc = editor.doc;
+  const sectionStarts = $derived.by(() => { doc.version; return new Map(sectionRanges(doc.pres).map(range => [range.start, range.name])); });
   const selected = $derived(selectedSlideIndices(doc.selection));
   const firstSelected = $derived(selected[0] ?? 0);
 
@@ -101,6 +103,7 @@
 
   {#each doc.slides as _slide, i (i)}
     {@const preview = thumb(i)}
+    {#if sectionStarts.has(i)}<div class="section-header" role="heading" aria-level="2">{sectionStarts.get(i)}</div>{/if}
     <div
       class="thumb-row"
       class:active={doc.selection.kind === 'slide' ? selected.includes(i) : doc.selection.slideIndex === i}
@@ -164,6 +167,7 @@
     padding: 8px;
     overflow-y: auto;
   }
+  .section-header { grid-column: 1 / -1; padding: 6px 4px 2px; font-size: 11px; font-weight: 600; color: var(--ok-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .render-error { font-size: 11px; color: var(--ok-text-2); }
   .thumb-row:focus-visible { outline: 2px solid var(--ok-selected-border); outline-offset: 1px; }
   .thumb-row {

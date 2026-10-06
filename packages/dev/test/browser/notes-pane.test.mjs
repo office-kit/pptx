@@ -334,6 +334,9 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      // Open the Format pane first; it follows the selection to the shape later.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await openNotes(editor);
       const notes = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       assert.equal(await notes.evaluate((element) => element === document.activeElement), true);

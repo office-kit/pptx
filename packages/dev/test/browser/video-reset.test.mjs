@@ -126,7 +126,8 @@ test(
       };
 
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Video...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
       const format = editor.getByRole('tablist', { name: 'Format Video', exact: true });
       await format.getByRole('tab', { name: 'Video', exact: true }).click();
@@ -179,7 +180,8 @@ test(
 
       await page.reload();
       await saved();
-      await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Video...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
       await editor.getByRole('tab', { name: 'Video', exact: true }).click();
       // Reset remains available after corrections have returned to neutral.

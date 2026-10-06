@@ -27,7 +27,17 @@ const WORDS = {
       'Layout background color': 'レイアウトの背景色',
       'Reset layout background': 'レイアウトの背景をリセット',
       'Slides using this layout': 'このレイアウトを使うスライド',
+      Design: 'デザイン',
+      'Background Styles': '背景のスタイル',
+      'Format Background...': '背景の書式設定...',
     })[key],
+};
+
+// The layout section lives in the Format Background pane, which starts closed.
+const openFormatBackground = async (editor, word) => {
+  await editor.getByRole('tab', { name: word('Design'), exact: true }).click();
+  await editor.getByRole('button', { name: word('Background Styles'), exact: true }).click();
+  await editor.getByRole('menuitem', { name: word('Format Background...'), exact: true }).click();
 };
 
 const deck = async (dir) => {
@@ -70,6 +80,7 @@ for (const language of ['en', 'ja']) {
         await saved();
       }
 
+      await openFormatBackground(editor, word);
       const pane = editor.getByRole('region', { name: word('Layout'), exact: true });
       // Both slides share the layout, which is what makes the edit deck-wide.
       await pane.getByText(`${word('Slides using this layout')}: 2`, { exact: true }).waitFor();
@@ -102,6 +113,7 @@ for (const language of ['en', 'ja']) {
 
       await page.reload();
       await saved();
+      await openFormatBackground(editor, word);
       await color.click();
       assert.equal(
         await palette
@@ -145,6 +157,7 @@ test('a layout edit is one undo step', { timeout: 60000 }, async () => {
     await saved();
     const before = getSlideLayoutName(await savedLayout(preview));
 
+    await openFormatBackground(editor, WORDS.en);
     const pane = editor.getByRole('region', { name: 'Layout', exact: true });
     await pane.getByLabel('Layout name', { exact: true }).fill('Temporary');
     await pane.getByLabel('Layout name', { exact: true }).press('Tab');

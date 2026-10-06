@@ -35,6 +35,33 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Mac PowerPoint follows the system appearance; so does the editor. The
+   slide itself keeps its own colors. */
+@media (prefers-color-scheme: dark) {
+  .ok-editor {
+    color-scheme: dark;
+    --ok-accent: #e0643f;
+    --ok-accent-2: #f07a55;
+    --ok-bg: #1f1f1f;
+    --ok-panel: #2b2b2b;
+    --ok-panel-2: #252525;
+    --ok-ribbon: #2a2a2a;
+    --ok-ribbon-active: #333333;
+    --ok-border: #3d3d3d;
+    --ok-border-strong: #555555;
+    --ok-text: #f0f0f0;
+    --ok-text-2: #c4c4c4;
+    --ok-text-3: #8f8f8f;
+    --ok-hover: #3a3a3a;
+    --ok-selected: #3b4a5c;
+    --ok-selected-border: #6fa8e6;
+    --ok-canvas-bg: #1b1b1b;
+    --ok-danger: #f1707a;
+    --ok-shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.5), 0 0.3px 0.9px rgba(0, 0, 0, 0.4);
+    --ok-shadow-lg: 0 6.4px 14.4px rgba(0, 0, 0, 0.55), 0 1.2px 3.6px rgba(0, 0, 0, 0.45);
+  }
+}
+
 .ok-editor *,
 .ok-editor *::before,
 .ok-editor *::after {

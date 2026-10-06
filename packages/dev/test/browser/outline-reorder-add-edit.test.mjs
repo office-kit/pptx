@@ -46,7 +46,7 @@ test(
         await waitForState(preview.url, (state) => state.revision !== before);
       };
       await icon(0).click({ button: 'right' });
-      await change(() => menu.getByRole('menuitem', { name: 'New slide', exact: true }).click());
+      await change(() => menu.getByRole('menuitem', { name: 'New Slide', exact: true }).click());
       assert.equal(getSlides(await read()).length, 4);
       const last = outline.locator('[data-outline-slide="3"]');
       const bounds = await last.boundingBox();

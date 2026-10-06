@@ -128,6 +128,8 @@ test(
       };
       await saved();
       await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Video...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
       await editor.getByRole('tab', { name: 'Video', exact: true }).click();
       const detail = editor.getByRole('tabpanel', { name: 'Video', exact: true });
@@ -249,6 +251,8 @@ test(
       // A crop source rectangle at the ST_Percentage boundary must be rejected
       // without changing the document or leaving the invalid input visible.
       await editor.locator('.hit').first().click();
+      await editor.locator('.hit').first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Video...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
       await editor.getByRole('tab', { name: 'Video', exact: true }).click();
       const reloadedCrop = editor

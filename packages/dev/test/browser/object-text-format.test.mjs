@@ -51,7 +51,15 @@ test(
       };
       await saved();
       const original = await read();
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ position: { x: 2, y: 2 } });
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const bar = editor.locator('.ribbon .font-ribbon');
       await bar.getByRole('button', { name: 'Bold', exact: true }).click();
@@ -191,7 +199,15 @@ test('blank shapes retain their chosen text format before typing', { timeout: 60
       return getSlideShapes(getSlides(deck)[0])[0];
     };
     await saved();
-    await editor.locator('.hit').first().click();
+    await editor
+      .locator('.hit')
+      .first()
+      .click({ position: { x: 2, y: 2 } });
+    await editor
+      .locator('.hit')
+      .first()
+      .click({ button: 'right', position: { x: 2, y: 2 } });
+    await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
     await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
     const bar = editor.locator('.ribbon .font-ribbon');
     await bar.getByRole('button', { name: 'Bold', exact: true }).click();
@@ -202,7 +218,15 @@ test('blank shapes retain their chosen text format before typing', { timeout: 60
     await saved();
     await page.reload();
     await saved();
-    await editor.locator('.hit').first().click();
+    await editor
+      .locator('.hit')
+      .first()
+      .click({ position: { x: 2, y: 2 } });
+    await editor
+      .locator('.hit')
+      .first()
+      .click({ button: 'right', position: { x: 2, y: 2 } });
+    await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
     await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
     assert.equal(
       await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
@@ -264,7 +288,10 @@ test(
       };
       await saved();
       const before = await read();
-      await editor.locator('.hit').nth(1).click();
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ position: { x: 2, y: 2 } });
       assert.equal(
         await editor
           .locator('.paragraph-alignment')
@@ -272,7 +299,10 @@ test(
           .getAttribute('aria-pressed'),
         'true',
       );
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ position: { x: 2, y: 2 } });
       assert.equal(
         await editor
           .locator('.paragraph-alignment')
@@ -280,6 +310,11 @@ test(
           .getAttribute('aria-pressed'),
         'true',
       );
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const panel = editor.locator('.bespoke');
       await editor
@@ -337,7 +372,15 @@ test(
       await saved();
       await page.reload();
       await saved();
-      await editor.locator('.hit').nth(1).click();
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ position: { x: 2, y: 2 } });
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'サイズと位置...', exact: true }).click();
       await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
       await panel.getByText('テキスト ボックス', { exact: true }).click();
       assert.equal(

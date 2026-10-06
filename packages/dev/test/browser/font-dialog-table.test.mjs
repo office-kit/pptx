@@ -55,9 +55,17 @@ test(
       assert.equal(before[0][1][0].format.italic, true);
       assert.equal(before[1][0][0].format.color, '#FF0000');
 
+      // A right-clicked table targets a cell, whose menu has no Format item, so open
+      // the pane on the slide; it then follows the selection to the table.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const tableHit = await editor.locator('.hit').first().boundingBox();
       assert.ok(tableHit, 'the table hit target is visible');
-      await page.mouse.click(tableHit.x + 2, tableHit.y + 2);
+      // The opened pane narrows the canvas, so let the locator find the moved table.
+      await editor
+        .locator('.hit')
+        .first()
+        .click({ position: { x: 2, y: 2 } });
       await cell(1, 1).click();
       await cell(1, 2).click({ modifiers: ['Shift'] });
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 2);

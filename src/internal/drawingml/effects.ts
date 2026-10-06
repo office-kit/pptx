@@ -9,6 +9,11 @@ import type { Color } from './color.ts';
 import { emuExtent } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
+import {
+  type ColorTransform,
+  buildColorTransforms,
+  colorTransformOpacity,
+} from './color-transforms.ts';
 
 const NAME_EFFECT_LST = qname('a', 'effectLst', NS.dml);
 const NAME_OUTER_SHDW = qname('a', 'outerShdw', NS.dml);
@@ -35,6 +40,7 @@ const ATTR_KY = qname('', 'ky', '');
 const ATTR_VAL = qname('', 'val', '');
 
 const PERCENTAGE_UNITS = 100000;
+const ALPHA_TRANSFORMS = new Set(['alpha', 'alphaMod', 'alphaOff']);
 const ANGLE_UNITS_PER_DEGREE = 60000;
 const FULL_TURN_DEGREES = 360;
 const FULL_TURN_UNITS = FULL_TURN_DEGREES * ANGLE_UNITS_PER_DEGREE;
@@ -45,6 +51,12 @@ const SIGNED_INT_MAX = 2147483647;
 export interface ShadowOptions {
   /** `#RRGGBB`, bare `RRGGBB`, or scheme token. Defaults to black. */
   readonly color?: Color;
+  /**
+   * Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, ...), written
+   * as its children — the same field gradient stops take. Requires `color`.
+   * An `opacity` that differs from the one these transforms state wins.
+   */
+  readonly colorTransforms?: readonly ColorTransform[];
   /** Edge blur in EMU. Defaults to 50800 (4pt). */
   readonly blurEmu?: number;
   /** Offset distance in EMU. Defaults to 38100 (3pt). */
@@ -66,6 +78,12 @@ export interface ShadowOptions {
 export interface InnerShadowOptions {
   /** `#RRGGBB`, bare `RRGGBB`, or scheme token. Defaults to black. */
   readonly color?: Color;
+  /**
+   * Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, ...), written
+   * as its children — the same field gradient stops take. Requires `color`.
+   * An `opacity` that differs from the one these transforms state wins.
+   */
+  readonly colorTransforms?: readonly ColorTransform[];
   /** Edge blur in EMU. Defaults to 50800 (4pt). */
   readonly blurEmu?: number;
   /** Offset distance in EMU. Defaults to 38100 (3pt). */
@@ -79,6 +97,12 @@ export interface InnerShadowOptions {
 export interface GlowOptions {
   /** `#RRGGBB`, bare `RRGGBB`, or scheme token. */
   readonly color: Color;
+  /**
+   * Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, ...), written
+   * as its children — the same field gradient stops take. Requires `color`.
+   * An `opacity` that differs from the one these transforms state wins.
+   */
+  readonly colorTransforms?: readonly ColorTransform[];
   /** Glow radius in EMU. Defaults to 63500 (5pt). */
   readonly radiusEmu?: number;
   /** Opacity (0–1). Defaults to fully opaque. */
@@ -211,11 +235,37 @@ const putEffect = (
   list.children = kept;
 };
 
-const colorWithAlpha = (color: string, opacity: number | undefined): XmlElement => {
-  const base = buildColorElement(color);
-  if (opacity !== undefined && opacity >= 0 && opacity < 1) {
-    const amt = Math.round(opacity * 100000);
-    base.children.push(elem(NAME_ALPHA, { attrs: [attr(ATTR_VAL, String(amt))] }));
+// The effect's color element: the transforms in the caller's order, then the
+// opacity as a trailing `<a:alpha>` — the order PowerPoint writes
+// (`<a:lumMod/><a:alpha/>`). An opacity the transforms already state is not
+// repeated, so a color read back from a deck writes back unchanged.
+const effectColor = (
+  options: {
+    readonly color?: Color;
+    readonly colorTransforms?: readonly ColorTransform[];
+    readonly opacity?: number;
+  },
+  caller: string,
+): XmlElement => {
+  const { color, colorTransforms, opacity } = options;
+  if (colorTransforms !== undefined && color === undefined)
+    throw new Error(`${caller}: colorTransforms requires color`);
+  const base = buildColorElement(color ?? '#000000');
+  const transforms = colorTransforms ?? [];
+  base.children = buildColorTransforms(transforms);
+  if (
+    opacity !== undefined &&
+    (colorTransforms === undefined || opacity !== colorTransformOpacity(transforms))
+  ) {
+    base.children = base.children.filter(
+      (c) => !(c.kind === 'element' && ALPHA_TRANSFORMS.has(c.name.localName)),
+    );
+    if (opacity >= 0 && opacity < 1)
+      base.children.push(
+        elem(NAME_ALPHA, {
+          attrs: [attr(ATTR_VAL, String(Math.round(opacity * PERCENTAGE_UNITS)))],
+        }),
+      );
   }
   return base;
 };
@@ -229,7 +279,6 @@ export const setShadow = (
   options: ShadowOptions = {},
   place?: EffectPlacement,
 ): void => {
-  const color = options.color ?? '#000000';
   // blurRad and dist are ST_PositiveCoordinate (EMU, 0..27273042316900); a
   // fractional/negative/non-finite/over-max value would emit a schema-invalid
   // `<a:outerShdw>`. Validate at this boundary like every other EMU input.
@@ -246,7 +295,7 @@ export const setShadow = (
       attr(ATTR_ALGN, options.alignment ?? 'tl'),
       attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === true ? '1' : '0'),
     ],
-    children: [colorWithAlpha(color, options.opacity)],
+    children: [effectColor(options, 'setShapeShadow')],
   });
   putEffect(host, outerShdw, place);
 };
@@ -272,7 +321,7 @@ export const setInnerShadow = (
   );
   const innerShdw = elem(NAME_INNER_SHDW, {
     attrs: [attr(ATTR_BLUR_RAD, String(blur)), attr(ATTR_DIST, String(dist)), attr(ATTR_DIR, dir)],
-    children: [colorWithAlpha(options.color ?? '#000000', opacity)],
+    children: [effectColor(options, 'setInnerShadow')],
   });
   putEffect(host, innerShdw, place);
 };
@@ -286,7 +335,7 @@ export const setGlow = (host: XmlElement, options: GlowOptions, place?: EffectPl
   const rad = String(emuExtent(options.radiusEmu ?? 63500, 'setShapeGlow: radiusEmu'));
   const glow = elem(NAME_GLOW, {
     attrs: [attr(ATTR_RAD, rad)],
-    children: [colorWithAlpha(options.color, options.opacity)],
+    children: [effectColor(options, 'setShapeGlow')],
   });
   putEffect(host, glow, place);
 };

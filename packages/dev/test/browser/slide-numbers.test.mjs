@@ -31,6 +31,7 @@ const WORDS = {
       'Saved to this project': 'このプロジェクトに保存済み',
       'Slide numbers': 'スライド番号',
       'Undo (Ctrl+Z)': '元に戻す (Ctrl+Z)',
+      'Format Background...': '背景の書式設定...',
     })[key],
 };
 
@@ -83,6 +84,11 @@ for (const language of ['en', 'ja']) {
 
       assert.deepEqual(await savedFields(preview), [[], []]);
 
+      // The switch lives in the slide's Format Background pane, which starts closed.
+      await editor.locator('.thumb-row').nth(0).click({ button: 'right' });
+      await editor
+        .getByRole('menuitem', { name: word('Format Background...'), exact: true })
+        .click();
       const toggle = editor.getByLabel(word('Slide numbers'), { exact: true });
       await toggle.check();
       await editor.getByText(word('Saved to this project'), { exact: true }).waitFor();

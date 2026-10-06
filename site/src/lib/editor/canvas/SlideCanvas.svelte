@@ -32,6 +32,8 @@
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
+  import InkLayer from './InkLayer.svelte';
+  import DrawShapeLayer from './DrawShapeLayer.svelte';
   import {
     getShapePlaceholderType,
     getParagraphPropertiesEffective,
@@ -607,6 +609,14 @@
       updateEditing(e.key);
     }
   }
+  // Context menu ▸ Edit Text.
+  let handledEditRequest = editor.textEditRequest;
+  $effect(() => {
+    if (editor.textEditRequest === handledEditRequest) return;
+    handledEditRequest = editor.textEditRequest;
+    const box = selectedIds.size === 1 ? boxes.find((b) => selectedIds.has(b.id)) : undefined;
+    if (box) untrack(() => startEditing(box));
+  });
   type EditCheckpoint = { text: string; changes: TextEdit[]; changeCount: number; range: { start: number; end: number } };
   let editingUndo: EditCheckpoint[] = [];
   let editingRedo: EditCheckpoint[] = [];
@@ -1093,6 +1103,7 @@
       fontSize: stepInlineFontSize,
       changeCase: changeInlineCase,
       toggle: toggleInlineFormat,
+      insertText: (text: string) => { replaceSelectedText(text); void tick().then(() => textInput?.focus()); },
     };
     editor.inlineTextFormat = api;
     return () => { if (editor.inlineTextFormat?.apply === api.apply) editor.inlineTextFormat = null; };
@@ -1422,6 +1433,8 @@
       {#key doc.selection.slideIndex}
         <div class="paint" bind:this={paintEl}>{@html doc.currentSvg}</div>
       {/key}
+      {#if editor.ink.tool}<InkLayer widthEmu={metrics.widthEmu} heightEmu={metrics.heightEmu} />{/if}
+      {#if editor.drawShape}<DrawShapeLayer widthEmu={metrics.widthEmu} heightEmu={metrics.heightEmu} />{/if}
 
       <div class="overlay">
         {#if editor.view.grid}

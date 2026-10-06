@@ -316,7 +316,8 @@ export function planPropEdit(request: PropEditRequest): PropEditPlan {
     /[jt]sx$/.test(file.path) ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const element = anchoredElement(source, anchor);
-  if (!element || ts.isJsxFragment(element)) return { ok: false, reason: 'not-element' };
+  if (!element || !(ts.isJsxElement(element) || ts.isJsxSelfClosingElement(element)))
+    return { ok: false, reason: 'not-element' };
   const opening = ts.isJsxElement(element) ? element.openingElement : element;
   if (
     !ts.isIdentifier(opening.tagName) ||

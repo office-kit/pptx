@@ -38,6 +38,20 @@ export {
   applyValidatedFormatToAllRuns,
   validateFormatEnums,
 } from './text-format.ts';
+export type {
+  Bevel,
+  BevelPreset,
+  CameraPreset,
+  LightRig,
+  LightRigDirection,
+  LightRigType,
+  PresetMaterial,
+  ReadText3D,
+  Rotation3D,
+  Scene3D,
+  Text3D,
+} from './text-3d.ts';
+export { applyText3D, bodyPrChildRank, readText3D } from './text-3d.ts';
 export type { Color, HexColor, ParsedColor, SchemeColorToken } from './color.ts';
 export { asColor, buildColorElement, parseColor, parseSrgbHex } from './color.ts';
 export type {

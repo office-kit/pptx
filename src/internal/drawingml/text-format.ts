@@ -29,6 +29,7 @@ import {
 import { UNDERLINES, STRIKES } from '../enum-values.ts';
 import { oneOf, fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
 import { asColor, parseColor } from './color.ts';
+import { type ColorTransform, buildColorTransforms } from './color-transforms.ts';
 import {
   type EffectPlacement,
   type GlowOptions,
@@ -132,6 +133,13 @@ export interface TextFormat {
    */
   color?: Color | null;
   /**
+   * Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,
+   * ...), written as children of its color element — PowerPoint's theme
+   * tints, such as Accent 2 Lighter 60%. Same field as on gradient stops;
+   * requires `color`, and replaces any transforms the run's color had.
+   */
+  colorTransforms?: readonly ColorTransform[];
+  /**
    * Non-solid glyph fill. The `color` field remains the shorthand for a solid
    * fill. Both are the same OOXML fill choice, so supplying both is rejected.
    */
@@ -227,6 +235,8 @@ export type ReadTextFill =
 export interface TextOutline {
   /** Same accepted forms as `TextFormat.color`. */
   readonly color?: Color;
+  /** Ordered adjustments to `color`, as on `TextFormat.colorTransforms`. Requires `color`. */
+  readonly colorTransforms?: readonly ColorTransform[];
   /** Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt). */
   readonly widthEmu?: number;
 }
@@ -272,6 +282,7 @@ export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: st
 export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
   const {
     color,
+    colorTransforms,
     textFill,
     underlineColor,
     highlight,
@@ -282,6 +293,7 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
     reflection,
     ...rest
   } = format;
+  const writableColor = color == null ? null : asColor(color);
   const outlineColor = outline?.color === undefined ? null : asColor(outline.color);
   const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
   const innerShadowColor = innerShadow?.color === undefined ? null : asColor(innerShadow.color);
@@ -289,7 +301,8 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
   const writableFill = textFill === undefined ? undefined : toWritableTextFill(textFill);
   return {
     ...rest,
-    ...(color == null ? {} : { color: asColor(color) }),
+    ...(color == null ? {} : { color: writableColor }),
+    ...(writableColor === null || colorTransforms === undefined ? {} : { colorTransforms }),
     ...(writableFill === undefined ? {} : { textFill: writableFill }),
     ...(underlineColor === undefined
       ? {}
@@ -301,6 +314,9 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
           outline: {
             ...(outline.widthEmu === undefined ? {} : { widthEmu: outline.widthEmu }),
             ...(outlineColor === null ? {} : { color: outlineColor }),
+            ...(outlineColor === null || outline.colorTransforms === undefined
+              ? {}
+              : { colorTransforms: outline.colorTransforms }),
           },
         }),
     ...(shadow == null
@@ -316,6 +332,9 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
             ...(shadow.angleDeg === undefined ? {} : { angleDeg: shadow.angleDeg }),
             ...(shadow.opacity === undefined ? {} : { opacity: shadow.opacity }),
             ...(shadowColor === null ? {} : { color: shadowColor }),
+            ...(shadowColor === null || shadow.colorTransforms === undefined
+              ? {}
+              : { colorTransforms: shadow.colorTransforms }),
           },
         }),
     ...(innerShadow === undefined
@@ -329,6 +348,9 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
               ...(innerShadow.angleDeg === undefined ? {} : { angleDeg: innerShadow.angleDeg }),
               ...(innerShadow.opacity === undefined ? {} : { opacity: innerShadow.opacity }),
               ...(innerShadowColor === null ? {} : { color: innerShadowColor }),
+              ...(innerShadowColor === null || innerShadow.colorTransforms === undefined
+                ? {}
+                : { colorTransforms: innerShadow.colorTransforms }),
             },
           }),
     ...(glow == null || glowColor === null
@@ -336,6 +358,9 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
       : {
           glow: {
             color: glowColor,
+            ...(glow.colorTransforms === undefined
+              ? {}
+              : { colorTransforms: glow.colorTransforms }),
             ...(glow.radiusEmu === undefined ? {} : { radiusEmu: glow.radiusEmu }),
             ...(glow.opacity === undefined ? {} : { opacity: glow.opacity }),
           },
@@ -400,7 +425,11 @@ const setOrRemoveAttr = (
   return filtered;
 };
 
-const setSolidFill = (rPr: XmlElement, value: string | null): void => {
+const setSolidFill = (
+  rPr: XmlElement,
+  value: string | null,
+  transforms: readonly ColorTransform[] | undefined,
+): void => {
   if (value === null) {
     removeAnyFill(rPr);
     return;
@@ -414,6 +443,7 @@ const setSolidFill = (rPr: XmlElement, value: string | null): void => {
     parsed.kind === 'srgb'
       ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
       : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
+  if (transforms !== undefined) inner.children = buildColorTransforms(transforms);
   const fill = elem(NAME_SOLID_FILL, { children: [inner] });
   insertChildByRank(rPr, fill, rprChildRank);
 };
@@ -512,6 +542,22 @@ export const validateFormatEnums = (format: TextFormat, caller: string): void =>
   if (format.strike != null && typeof format.strike !== 'boolean')
     oneOf(format.strike, STRIKES, `${caller}: strike`);
   if (format.cap != null) oneOf(format.cap, ['none', 'small', 'all'], `${caller}: cap`);
+  if (format.colorTransforms !== undefined) {
+    if (format.color == null) throw new Error(`${caller}: colorTransforms requires color`);
+    buildColorTransforms(format.colorTransforms);
+  }
+  const effectColors = [
+    ['outline', format.outline],
+    ['shadow', format.shadow],
+    ['innerShadow', format.innerShadow],
+    ['glow', format.glow],
+  ] as const;
+  for (const [field, value] of effectColors) {
+    if (value?.colorTransforms === undefined) continue;
+    if (value.color === undefined)
+      throw new Error(`${caller}: ${field}.colorTransforms requires ${field}.color`);
+    buildColorTransforms(value.colorTransforms);
+  }
   if (format.textFill !== undefined) {
     if (format.color !== undefined)
       throw new Error(`${caller}: color and textFill are mutually exclusive; pass one`);
@@ -585,7 +631,7 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
   if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
   if (format.textFill !== undefined) setTextFill(rPr, format.textFill);
-  else if (format.color !== undefined) setSolidFill(rPr, format.color);
+  else if (format.color !== undefined) setSolidFill(rPr, format.color, format.colorTransforms);
   if (format.underlineColor !== undefined) setUnderlineFill(rPr, format.underlineColor);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
   if (format.outline !== undefined) setRunOutline(rPr, format.outline);
@@ -627,6 +673,13 @@ const setRunOutline = (rPr: XmlElement, outline: TextOutline | null): void => {
   }
   const ln = existing ?? elem(NAME_LN);
   applySolidStroke(ln, outline);
+  if (outline.colorTransforms !== undefined) {
+    // applySolidStroke keeps a previous color's alpha; stated transforms replace them all.
+    const color = firstChildElement(ln, NAME_SOLID_FILL)?.children.find(
+      (child) => child.kind === 'element',
+    );
+    if (color?.kind === 'element') color.children = buildColorTransforms(outline.colorTransforms);
+  }
   if (!existing) insertChildByRank(rPr, ln, rprChildRank);
 };
 

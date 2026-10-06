@@ -65,6 +65,9 @@ test(
         return { body: getShapeBodyPrEffective(copy, title), literal: getShapeTextColumns(title) };
       };
       await saved();
+      // The Format pane starts closed; opened from the slide, it follows the selection.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.locator('.hit').first().click();
       const box = editor.locator('.text-box');
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
@@ -150,6 +153,9 @@ test(
       };
       await saved();
       const initial = await read();
+      // The Format pane starts closed; opened from the slide, it follows the selection.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 8, y: 8 } });
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.locator('.hit').first().click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       await box.locator('summary').click();

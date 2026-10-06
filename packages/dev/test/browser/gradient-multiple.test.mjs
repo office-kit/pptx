@@ -44,6 +44,11 @@ test(
         .locator('.hit')
         .nth(1)
         .click({ modifiers: ['Shift'] });
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       assert.equal(
         await editor.getByRole('spinbutton', { name: 'Gradient angle', exact: true }).inputValue(),
         '',
@@ -71,7 +76,11 @@ test(
       await page.reload();
       await saved();
       assert.deepEqual(await read(), changed);
-      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ button: 'right', position: { x: 2, y: 2 } });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('button', { name: 'Add gradient stop', exact: true }).click();
       await saved();
       const differing = await read();
