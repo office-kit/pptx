@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { getSlidePartName, getShapeId, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
+  import { getSlidePartName, getShapeId, getShapeImageFillBytes, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
   import { switchRememberedImageLayout } from '../core/remembered-image-fill.ts';
-  import { insertRememberedPictureFill } from '../core/remembered-fill.ts';
+  import { canFillWithPicture, fillSelectionWithPicture } from '../core/picture-fill.ts';
+  import { texturePng, textureIdOf } from '../core/textures.ts';
+  import TexturePicker from '../ui/TexturePicker.svelte';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -95,26 +97,16 @@
     });
   }
   async function insertImage(read: () => Promise<ArrayBuffer>) {
-    if (locked || doc.selection.kind !== 'shape' || shapes.some(shape => getShapeKind(shape) !== 'shape')) return;
-    const targets = [...shapes], presentation = doc.pres, version = doc.version, selection = doc.selection;
-    const slideKey = getSlidePartName(doc.slideAt(doc.selection.slideIndex)!);
+    await fill(async () => new Uint8Array(await read()), 'picture');
+  }
+  async function fill(read: () => Promise<Uint8Array>, kind: 'picture' | 'texture') {
+    if (locked || !canFillWithPicture(editor)) return;
     loading = true; error = '';
-    try {
-      const bytes = new Uint8Array(await read());
-      if (doc.pres !== presentation || doc.version !== version || doc.selection !== selection || editor.selectionLocked()) {
-        error = t('The selection changed. Choose the picture again.'); return;
-      }
-      doc.transact(t('Picture or texture fill'), () => {
-        for (const target of targets) {
-          const key = `${slideKey}:${getShapeId(target)}`;
-          const remembered = doc.rememberedFills.get(key) ?? {};
-          insertRememberedPictureFill(doc.pres, target, bytes, remembered);
-          doc.rememberedFills.set(key, remembered);
-        }
-      });
-    } catch (cause) { error = cause instanceof DOMException && cause.name === 'NotAllowedError' ? t('Clipboard access was denied') : cause instanceof Error ? cause.message : String(cause); }
+    try { await fillSelectionWithPicture(editor, read, kind); }
+    catch (cause) { error = cause instanceof DOMException && cause.name === 'NotAllowedError' ? t('Clipboard access was denied') : cause instanceof Error ? cause.message : String(cause); }
     finally { loading = false; }
   }
+  const texture = $derived(common(shapes.map(shape => textureIdOf(getShapeImageFillBytes(shape)))) ?? null);
 </script>
 
 <input type="file" accept="image/*" hidden bind:this={input} onchange={upload} aria-label={t('Picture source')} />
@@ -123,6 +115,7 @@
     <span>{t('Picture source')}</span>
     <button class="ok-btn" disabled={shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={chooseImage}>{t('Insert...')}</button>
     <button class="ok-btn" disabled={!navigator.clipboard?.read || shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={pasteImage}>{t('Clipboard')}</button>
+    <TexturePicker disabled={locked || shapes.some(shape => getShapeKind(shape) !== 'shape')} selected={texture} choose={id => fill(() => texturePng(id), 'texture')} more={chooseImage} />
     <span>{t('Transparency')}</span>
     <div class="transparency">
       <input type="range" min="0" max="100" value={transparency ?? 0} aria-label={t('Picture transparency')} aria-valuetext={transparency === undefined ? t('Mixed') : `${transparency}%`} onchange={event => { const value = event.currentTarget.valueAsNumber; apply('Picture transparency', shape => setShapeImageOpacity(shape, 1 - value / 100)); }} />

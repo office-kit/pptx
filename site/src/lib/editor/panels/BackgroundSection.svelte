@@ -1,6 +1,9 @@
 <script lang="ts">
-  import { getSlides, copySlideBackground, getSlidePartName, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, clearSlideBackground } from '@office-kit/pptx';
-  import { readSlideBackground } from '../core/slide-background.ts';
+  import { getSlides, copySlideBackground, getSlidePartName, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, setSlideBackgroundImageFillLayout, clearSlideBackground } from '@office-kit/pptx';
+  import { TEXTURE_TILE_LAYOUT } from '../core/remembered-fill.ts';
+  import { texturePng, textureIdOf } from '../core/textures.ts';
+  import TexturePicker from '../ui/TexturePicker.svelte';
+  import { readSlideBackground, readSlideBackgroundImageBytes } from '../core/slide-background.ts';
   import { rememberBackgroundFill } from '../core/remembered-background-fill.ts';
   import BackgroundPictureLayout from './BackgroundPictureLayout.svelte';
   import PatternFillSection from './PatternFillSection.svelte';
@@ -34,6 +37,8 @@
       setSlideBackground(target, color ?? (current.kind === 'solid' ? asColor(current.color) : null) ?? '#FFFFFF', opacity ?? (current.kind === 'solid' ? current.opacity : undefined));
     });
   }
+  const textures = $derived(slides.map(item => textureIdOf(readSlideBackgroundImageBytes(doc.pres, item))));
+  const texture = $derived(textures.every(id => id === textures[0]) ? textures[0] ?? null : null);
   const canReset = $derived(slides.some(item => getSlideBackground(item)?.kind !== 'inherit'));
   let fileInput = $state<HTMLInputElement>();
   let error = $state('');
@@ -76,7 +81,7 @@
     if (!(input instanceof HTMLInputElement)) return;
     const file = input.files?.[0];
     if (!file) return;
-    try { await insertImage(() => file.arrayBuffer()); }
+    try { await insertImage(async () => new Uint8Array(await file.arrayBuffer()), 'picture'); }
     finally { input.value = ''; }
   }
   async function pasteImage() {
@@ -84,12 +89,12 @@
       const items = await navigator.clipboard.read();
       for (const item of items) {
         const type = item.types.find(type => type.startsWith('image/'));
-        if (type) return (await item.getType(type)).arrayBuffer();
+        if (type) return new Uint8Array(await (await item.getType(type)).arrayBuffer());
       }
       throw new Error(t('The clipboard does not contain a picture.'));
-    });
+    }, 'picture');
   }
-  async function insertImage(read: () => Promise<ArrayBuffer>) {
+  async function insertImage(read: () => Promise<Uint8Array>, kind: 'picture' | 'texture') {
     if (loading || !slides.length) return;
     const targets = slides;
     const selection = doc.selection;
@@ -98,12 +103,16 @@
     loading = true;
     error = '';
     try {
-      const bytes = new Uint8Array(await read());
+      const bytes = await read();
       if (doc.pres !== presentation || doc.version !== version || doc.selection !== selection) {
         error = t('The slide changed. Choose the background image again.');
         return;
       }
-      apply('Background image', target => { remember(target); setSlideBackgroundImage(target, bytes); }, targets);
+      apply('Background image', target => {
+        remember(target);
+        setSlideBackgroundImage(target, bytes);
+        if (kind === 'texture') setSlideBackgroundImageFillLayout(target, TEXTURE_TILE_LAYOUT);
+      }, targets);
     } catch (cause) { error = cause instanceof DOMException && cause.name === 'NotAllowedError' ? t('Clipboard access was denied') : cause instanceof Error ? cause.message : String(cause); }
     finally { loading = false; }
   }
@@ -128,6 +137,7 @@
           <span class="selection">{t('Picture source')}</span>
           <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Insert...')}</button>
           <button class="ok-btn" disabled={loading || !navigator.clipboard?.read} onclick={pasteImage}>{t('Clipboard')}</button>
+          <TexturePicker disabled={loading} selected={texture} choose={id => insertImage(() => texturePng(id), 'texture')} more={() => fileInput?.click()} />
           <BackgroundPictureLayout />
         {:else if patternBackground}
           <PatternFillSection background />

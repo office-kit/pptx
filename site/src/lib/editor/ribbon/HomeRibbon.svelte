@@ -28,6 +28,7 @@
   import SectionMenu from './SectionMenu.svelte';
   import LayoutThumbnail from '../ui/LayoutThumbnail.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
+  import ShapeFillPicker from './ShapeFillPicker.svelte';
   import FontRibbon from './FontRibbon.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
   import LineSpacingMenu from './LineSpacingMenu.svelte';
@@ -132,7 +133,6 @@
     openMenu = null;
     editor.invoke('addSlide', { options: { layout } });
   }
-  function fill(color: Color) { editor.invoke('setShapeFill', { color: { color } }); }
   function outline(color: Color) { editor.invoke('setShapeStroke', { options: { color } }); }
 
   async function toggleGroup(group: Group) {
@@ -248,7 +248,7 @@
   <ArrangeMenu />
   <ShapeQuickStyles />
   <div class="stack small fill-outline">
-    <span class="paint-row"><Icon name="fill" size={18} /><span class="label">{t('Shape Fill')}</span><ColorPicker compact label={t('Shape Fill')} disabled={!paintable} choose={fill} /></span>
+    <span class="paint-row"><Icon name="fill" size={18} /><span class="label">{t('Shape Fill')}</span><ShapeFillPicker disabled={!paintable} /></span>
     <span class="paint-row"><Icon name="outline" size={18} /><span class="label">{t('Shape Outline')}</span><ColorPicker compact label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
   </div>
 {/snippet}
