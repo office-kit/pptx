@@ -1,5 +1,4 @@
 ---
-'@office-kit/pptx-site': patch
 '@office-kit/pptx-dev': minor
 ---
 
