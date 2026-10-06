@@ -498,6 +498,7 @@ export {
   getTableCellSpan,
   getTableCellText,
   getTableCellTextDirection,
+  getTableCellText3D,
   hasShapeImage,
   getTableCells,
   getTableColumnWidths,

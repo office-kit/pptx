@@ -138,6 +138,7 @@ const BASELINE_LEADING_DROP = 0.036;
 // coordinates compensates; sub-pixel so it is invisible at any zoom.
 const GRID_NUDGE_X = -0.75;
 const EMU_PER_PX = 9525;
+type EffectIdKind = 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow' | 'bevel';
 let reflectionNamespace = 0;
 
 // ---------------------------------------------------------------------------
@@ -199,6 +200,8 @@ export interface PieceInput {
    * from the same laid-out group so mixed runs and wrapping keep their exact
    * positions. */
   readonly reflection?: TextReflectionInput;
+  /** Text-body bevel (`<a:bodyPr><a:sp3d><a:bevelT>`), shaded over the glyph fill. */
+  readonly bevel?: TextBevelInput;
 }
 
 /** User-space bounds of a laid-out text block, in px. */
@@ -225,7 +228,7 @@ export type TextFillPaint = (bounds: TextBlockBounds) => {
  * gradient- and pattern-filled runs (with their outline, shadow, glow and
  * decorations), for a foreignObject body whose HTML cannot paint those fills.
  */
-export type TextEffectKind = 'reflection' | 'outer' | 'innerShadow' | 'fill' | 'all';
+export type TextEffectKind = 'reflection' | 'outer' | 'innerShadow' | 'bevel' | 'fill' | 'all';
 
 export interface TextShadowInput {
   readonly color?: string;
@@ -247,6 +250,28 @@ export interface TextInnerShadowInput {
   readonly offsetEmu?: number;
   readonly angleDeg?: number;
   readonly opacity?: number;
+}
+
+/**
+ * A bevel already resolved to lighting parameters (see text-bevel.ts). The
+ * engine shades the glyph alpha as a height field: `profile` samples the
+ * surface height from the glyph edge (first value) to `widthEmu` inside it
+ * (last value), and a distant light at `azimuthDeg`/`elevationDeg` lights it.
+ */
+export interface TextBevelInput {
+  readonly widthEmu: number;
+  readonly heightEmu: number;
+  /** Evenly spaced heights in [0, 1], edge to inner bevel edge. */
+  readonly profile: readonly number[];
+  /** SVG `feDistantLight` azimuth: clockwise from +x, in screen space. */
+  readonly azimuthDeg: number;
+  readonly elevationDeg: number;
+  /** Peak opacity of the highlight and shade layers, in [0, 1]. */
+  readonly contrast: number;
+  /** Multiplies the height field's slope; 1 is the authored h / w. */
+  readonly relief: number;
+  /** Specular highlight; `null` for matte materials. */
+  readonly specular: { readonly constant: number; readonly exponent: number } | null;
 }
 
 export interface TextReflectionInput {
@@ -984,8 +1009,7 @@ const emitPlacements = (
   };
   let effectIndex = 0;
   const namespace = reflectionNamespace++;
-  const nextEffectId = (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow'): string =>
-    `text-${kind}-${namespace}-${effectIndex++}`;
+  const nextEffectId = (kind: EffectIdKind): string => `text-${kind}-${namespace}-${effectIndex++}`;
   for (const { line, baselineY, dx } of placements) {
     if (line.paraIndex !== paraIndex) {
       close();
@@ -1047,7 +1071,7 @@ const emitLine = (
   baselineY: number,
   dx: number,
   descent: number,
-  nextEffectId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+  nextEffectId: (kind: EffectIdKind) => string,
   effectsOnly: boolean,
   effectKind: TextEffectKind,
 ): string => {
@@ -1098,12 +1122,17 @@ const emitLine = (
     effectKind === 'innerShadow' || effectKind === 'all'
       ? emitTextInnerShadows(groups, line.textAnchor, x0, baselineY, nextEffectId)
       : '';
-  if (effectsOnly) return outerEffects + reflections + innerShadows;
+  const bevels =
+    effectKind === 'bevel' || effectKind === 'all'
+      ? emitTextBevel(groups, line.textAnchor, x0, baselineY, nextEffectId)
+      : '';
+  if (effectsOnly) return outerEffects + reflections + bevels + innerShadows;
   return (
     emitHighlights(groups, line.textAnchor, x0, baselineY) +
     outerEffects +
     reflections +
     text +
+    bevels +
     innerShadows +
     emitTextDecorations(groups, line.textAnchor, x0, baselineY)
   );
@@ -1154,7 +1183,7 @@ const emitTextReflections = (
   x0: number,
   baselineY: number,
   descent: number,
-  nextEffectId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+  nextEffectId: (kind: EffectIdKind) => string,
 ): string => {
   const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
   let cursor =
@@ -1245,7 +1274,7 @@ const emitTextOuterEffects = (
   textAnchor: 'start' | 'middle' | 'end',
   x0: number,
   baselineY: number,
-  nextId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+  nextId: (kind: EffectIdKind) => string,
 ): string => {
   const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
   let cursor =
@@ -1307,7 +1336,7 @@ const emitTextInnerShadows = (
   textAnchor: 'start' | 'middle' | 'end',
   x0: number,
   baselineY: number,
-  nextId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+  nextId: (kind: EffectIdKind) => string,
 ): string => {
   const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
   let cursor =
@@ -1340,6 +1369,55 @@ const emitTextInnerShadows = (
     cursor += group.width;
   }
   return parts.join('');
+};
+
+// The bevel overlay: the line's glyphs once more, filtered down to the light
+// and shade a bevel adds, composited over whatever painted the glyphs (solid
+// SVG text, the gradient/pattern fill layer, or the editor's HTML text).
+//
+// The glyph alpha, blurred by half the bevel width, rises from 0.5 at the
+// glyph edge to ~1 the bevel width inside it; a component-transfer table
+// maps that ramp onto the preset's height profile. Lighting the profile with
+// a distant light and subtracting the flat-surface brightness splits it into
+// a white highlight (slopes facing the light) and a black shade (slopes facing
+// away); the plateau inside the bevel stays the fill color. Sharing one
+// filter per line is safe because the bevel is a text-body property.
+const emitTextBevel = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+  nextId: (kind: EffectIdKind) => string,
+): string => {
+  const bevel = groups.find((g) => g.piece.bevel && !g.isTab && g.width > 0)?.piece.bevel;
+  if (!bevel) return '';
+  const id = nextId('bevel');
+  const widthPx = bevel.widthEmu / EMU_PER_PX;
+  const surfaceScale = (bevel.heightEmu / EMU_PER_PX) * bevel.relief;
+  // Blurred alpha below 0.5 lies outside the glyph; the profile spans the rest.
+  const table = [...bevel.profile.slice(1).map(() => 0), ...bevel.profile];
+  const flat = Math.sin((bevel.elevationDeg * Math.PI) / 180);
+  const lightGain = bevel.contrast / (1 - flat);
+  const shadeGain = bevel.contrast / flat;
+  const light = `<feDistantLight azimuth="${fmt(bevel.azimuthDeg)}" elevation="${fmt(bevel.elevationDeg)}"/>`;
+  const specular = bevel.specular
+    ? `<feSpecularLighting in="bevelHeight" surfaceScale="${fmt(surfaceScale)}" specularConstant="${fmt(bevel.specular.constant)}" specularExponent="${fmt(bevel.specular.exponent)}" lighting-color="#fff" result="bevelSpecular">${light}</feSpecularLighting>`
+    : '';
+  const defs =
+    `<defs><filter id="${id}" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB" data-pptx-bevel="1">` +
+    `<feGaussianBlur in="SourceAlpha" stdDeviation="${fmt(widthPx / 2)}" result="bevelBlur"/>` +
+    `<feComponentTransfer in="bevelBlur" result="bevelHeight"><feFuncA type="table" tableValues="${table.map(fmt).join(' ')}"/></feComponentTransfer>` +
+    `<feDiffuseLighting in="bevelHeight" surfaceScale="${fmt(surfaceScale)}" diffuseConstant="1" lighting-color="#fff" result="bevelDiffuse">${light}</feDiffuseLighting>` +
+    `<feColorMatrix in="bevelDiffuse" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 ${fmt(lightGain)} 0 0 0 ${fmt(-lightGain * flat)}" result="bevelLight"/>` +
+    `<feColorMatrix in="bevelDiffuse" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ${fmt(-shadeGain)} 0 0 0 ${fmt(shadeGain * flat)}" result="bevelShade"/>` +
+    specular +
+    `<feMerge result="bevelMerged"><feMergeNode in="bevelShade"/><feMergeNode in="bevelLight"/>${specular ? '<feMergeNode in="bevelSpecular"/>' : ''}</feMerge>` +
+    `<feComposite in="bevelMerged" in2="SourceAlpha" operator="in"/>` +
+    `</filter></defs>`;
+  const beveled = groups.map((g) =>
+    g.piece.bevel && !g.isTab ? g : { ...g, piece: unpaintedPiece(g.piece) },
+  );
+  return `${defs}<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${textAnchor}" xml:space="preserve" filter="url(#${id})" aria-hidden="true" pointer-events="none" data-pptx-bevel="text">${beveled.map(tspan).join('')}</text>`;
 };
 
 // SVG baseline-shift sign convention: positive shifts the glyph UP (smaller

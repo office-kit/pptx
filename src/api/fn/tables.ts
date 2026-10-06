@@ -32,6 +32,8 @@ import {
   type ParagraphAlignmentToken,
   type ParagraphSpec,
   parseAlignmentToken,
+  readText3D,
+  type ReadText3D,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import {
@@ -102,6 +104,7 @@ const NAME_A_GRAPHIC_DATA_TBL = qname('a', 'graphicData', NS.dml);
 const NAME_A_TBL = qname('a', 'tbl', NS.dml);
 const NAME_A_TC_PR = qname('a', 'tcPr', NS.dml);
 const NAME_A_TX_BODY_TBL = qname('a', 'txBody', NS.dml);
+const NAME_A_BODY_PR_TBL = qname('a', 'bodyPr', NS.dml);
 const NAME_A_TBL_STYLE = qname('a', 'tblStyle', NS.dml);
 const NAME_A_TC_TX_STYLE = qname('a', 'tcTxStyle', NS.dml);
 const NAME_A_TC_STYLE = qname('a', 'tcStyle', NS.dml);
@@ -1219,6 +1222,17 @@ export const getTableCellTextDirection = (
   )
     return v;
   return null;
+};
+
+/**
+ * Reads the 3-D on the cell's text body (`<a:scene3d>` / `<a:sp3d>` under its
+ * `<a:bodyPr>`) — the table-cell counterpart of `getShapeText3D`. Returns
+ * `null` when the body has neither.
+ */
+export const getTableCellText3D = (cell: TableCellData): ReadText3D | null => {
+  const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+  const bodyPr = txBody && firstChildElement(txBody, NAME_A_BODY_PR_TBL);
+  return bodyPr ? readText3D(bodyPr) : null;
 };
 
 /**
