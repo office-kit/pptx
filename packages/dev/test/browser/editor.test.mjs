@@ -602,9 +602,10 @@ test(
         return getShapeParagraphElements(getSlideShapes(getSlides(pres)[0])[0], 0);
       };
       let result = await runs();
+      // The '!' typed at the end of the italic run extends it, as in PowerPoint.
       assert.deepEqual(
         result.map((r) => r.text),
-        ['Hello ', '日本語', ' 🌎', '!'],
+        ['Hello ', '日本語', ' 🌎!'],
       );
       assert.equal(result[0].format.bold, true);
       assert.equal(result[0].format.color, undefined);

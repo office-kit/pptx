@@ -47,6 +47,26 @@ describe('incremental text replacement', () => {
       { numRuns: 200 },
     );
   });
+  it('extends the run being typed into instead of adding one run per keystroke', () => {
+    const doc = body('<a:p><a:pPr algn="ctr"/><a:endParaRPr lang="en-US"/></a:p>');
+    let value = '';
+    for (const char of 'Hi 🌎!') {
+      editTextBody(doc.root, char, { start: value.length, end: value.length });
+      value += char;
+    }
+    expect(serializeXml(doc)).toContain(
+      '<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="en-US"/><a:t>Hi 🌎!</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>',
+    );
+  });
+  it('rejoins the halves of a run around an insertion or a deletion', () => {
+    const doc = body(rich);
+    editTextBody(doc.root, 'X', { start: 2, end: 2 });
+    expect(serializeXml(doc)).toContain('<a:rPr b="1"/><a:t>HeXllo </a:t>');
+    editTextBody(doc.root, '', { start: 1, end: 4 });
+    expect(serializeXml(doc)).toContain('<a:rPr b="1"/><a:t>Hlo </a:t>');
+    // Runs that differ in format stay apart.
+    expect(serializeXml(doc)).toContain('<a:rPr i="1"/><a:t>世界🌎</a:t>');
+  });
   it('keeps insertion formatting after deleting all text', () => {
     const doc = body(rich);
     editTextBody(doc.root, '');
@@ -59,8 +79,8 @@ describe('incremental text replacement', () => {
     expect(textBodyText(doc.root)).toBe('Hello 日本🌎\nTail');
     const xml = serializeXml(doc);
     expect(xml).toContain('<a:rPr b="1"/><a:t>Hello </a:t>');
-    expect(xml).toContain('<a:rPr i="1"/><a:t>🌎</a:t>');
-    expect(xml).toContain('<a:rPr i="1"/><a:t>日本</a:t>');
+    // The replacement extends the italic run it lands in, as typing does.
+    expect(xml).toContain('<a:rPr i="1"/><a:t>日本🌎</a:t>');
     expect(xml).toContain('<a:endParaRPr sz="1800"/>');
     expect(xml).toContain('<a:pPr lvl="2"/>');
   });

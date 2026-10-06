@@ -90,7 +90,11 @@ test(
       const edited = await read();
       assert.equal(getSlideNotes(getSlides(edited)[0]), 'New suffix!');
       const xml = new TextDecoder().decode(_internalPackageOf(edited).getPart(name).data);
-      assert.ok(xml.includes(suffix), 'unchanged italic run survives both edits');
+      // The '!' typed at the end of the italic run extends it, as in PowerPoint.
+      assert.ok(
+        xml.includes('<a:r><a:rPr i="1"/><a:t> suffix!</a:t></a:r>'),
+        'the italic run survives both edits',
+      );
       assert.ok(xml.includes('<a:rPr b="1"/>'), 'replacement inherits original bold formatting');
       await input.press('Meta+z');
       await waitForState(preview.url, (s) => s.revision !== after.revision);
