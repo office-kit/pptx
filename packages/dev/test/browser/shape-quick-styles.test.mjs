@@ -41,7 +41,6 @@ test(
         page.on('pageerror', (error) => pageErrors.push(error));
         try {
           await page.goto(preview.url);
-          await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
           const editor = page.frameLocator('#editor-frame');
           await saved(editor);
           const panel = editor.locator('#ribbon-panel');

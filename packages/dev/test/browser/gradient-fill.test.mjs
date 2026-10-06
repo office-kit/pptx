@@ -30,7 +30,6 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       const gradient = async (index = 0) => {
@@ -299,7 +298,6 @@ test(
       }
       const radialSaved = await gradient();
       await page.reload();
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
       await editor
         .locator('.hit')

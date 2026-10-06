@@ -61,7 +61,6 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let ja = false;
       const saved = () =>
@@ -158,7 +157,6 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let ja = false;
       const saved = () =>
@@ -251,7 +249,6 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let ja = false;
       const saved = () =>
@@ -359,7 +356,6 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let ja = false;
       const saved = () =>

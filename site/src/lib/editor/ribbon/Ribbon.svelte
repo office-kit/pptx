@@ -29,6 +29,20 @@
   let activeTab = $state('home');
   let collapsed = $state(false);
   let shareOpen = $state(false);
+  // The dev shell owns the Agents task pane and reports its state; null until
+  // a host announces one, so the button never shows in the standalone editor.
+  let agentsOpen = $state<boolean | null>(null);
+  let agentsButton = $state<HTMLButtonElement>();
+  function onHostMessage(event: MessageEvent) {
+    if (window.parent === window || event.origin !== window.location.origin || event.source !== window.parent) return;
+    const data: unknown = event.data;
+    if (!data || typeof data !== 'object' || !('type' in data) || data.type !== 'host-panes' || !('agents' in data) || typeof data.agents !== 'boolean') return;
+    agentsOpen = data.agents;
+    if ('focus' in data && data.focus === true) agentsButton?.focus();
+  }
+  function toggleAgents() {
+    window.parent.postMessage({ type: 'editor-command', action: 'agents' }, window.location.origin);
+  }
   async function sendCopy() {
     shareOpen = false;
     try {
@@ -88,7 +102,7 @@
 
 </script>
 
-<svelte:window onpointerdown={(event) => { if (shareOpen && !(event.target as Element).closest?.('.share-anchor')) shareOpen = false; }} onkeydown={(event) => { if (shareOpen && event.key === 'Escape') shareOpen = false; }} />
+<svelte:window onmessage={onHostMessage} onpointerdown={(event) => { if (shareOpen && !(event.target as Element).closest?.('.share-anchor')) shareOpen = false; }} onkeydown={(event) => { if (shareOpen && event.key === 'Escape') shareOpen = false; }} />
 
 <div class="ribbon">
   <div class="tab-row">
@@ -110,8 +124,12 @@
       {/each}
     </div>
 
-    <!-- Mac PowerPoint ends the tab row with Comments and Share. -->
+    <!-- Mac PowerPoint ends the tab row with Comments and Share; task-pane
+         toggles such as Copilot sit beside them, and so does Agents. -->
     <div class="actions">
+      {#if agentsOpen !== null}
+        <button bind:this={agentsButton} class="agents" aria-pressed={agentsOpen} title={t('Agents')} onclick={toggleAgents}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 9.4 6.6 14.5 8 9.4 9.4 8 14.5 6.6 9.4 1.5 8 6.6 6.6Z" /></svg><span>{t('Agents')}</span></button>
+      {/if}
       <button class="comments" aria-label={t('Comments')} aria-pressed={editor.activeDialog === 'addSlideComment'} disabled={!editor.doc.currentSlide} onclick={() => { if (editor.activeDialog === 'addSlideComment') editor.activeDialog = null; else editor.runOrPrompt('addSlideComment'); }}><Icon name="comment" size={16} /><span>{t('Comments')}</span></button>
       <div class="share-anchor">
         <button class="share" aria-label={t('Share')} aria-haspopup="menu" aria-expanded={shareOpen} onclick={() => (shareOpen = !shareOpen)}><Icon name="share" size={16} /><span>{t('Share')}</span><span aria-hidden="true">⌄</span></button>
@@ -179,6 +197,9 @@
   .actions button { display: flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; font: inherit; font-size: 12px; color: var(--ok-text); border: 1px solid var(--ok-border-strong); border-radius: 6px; background: var(--ok-panel); cursor: pointer; }
   .actions button:hover:not(:disabled) { background: var(--ok-hover); }
   .actions button:disabled { opacity: 0.4; cursor: default; }
+  .actions .agents svg { fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linejoin: round; }
+  .actions .agents[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
+  .actions .agents[aria-pressed='true'] svg { fill: var(--ok-accent); stroke: var(--ok-accent); }
   .actions .comments[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
   /* PowerPoint's Share button is the one filled accent control in the window. */
   .actions .share { color: #fff; border-color: var(--ok-accent); background: var(--ok-accent); }

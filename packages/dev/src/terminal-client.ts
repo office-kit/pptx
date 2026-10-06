@@ -2,6 +2,59 @@ import { mountWorkspace } from './workspace-client.ts';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 
+// ANSI colors tuned for contrast on the editor's pane background in each scheme.
+const ANSI_LIGHT = {
+  black: '#15171c',
+  red: '#c92a2a',
+  green: '#2b8a3e',
+  yellow: '#a35d00',
+  blue: '#1c5fc0',
+  magenta: '#b4235a',
+  cyan: '#0b7285',
+  white: '#8a909c',
+  brightBlack: '#545b69',
+  brightRed: '#e03131',
+  brightGreen: '#37a14a',
+  brightYellow: '#c27400',
+  brightBlue: '#2f74d6',
+  brightMagenta: '#d6336c',
+  brightCyan: '#1098ad',
+  brightWhite: '#c9cdd6',
+};
+const ANSI_DARK = {
+  black: '#1f1f1f',
+  red: '#f1707a',
+  green: '#7bc88a',
+  yellow: '#e8c06a',
+  blue: '#7aaef5',
+  magenta: '#e85a90',
+  cyan: '#6fcfdc',
+  white: '#c4c4c4',
+  brightBlack: '#8f8f8f',
+  brightRed: '#ff9aa2',
+  brightGreen: '#9fe0ab',
+  brightYellow: '#f5d78e',
+  brightBlue: '#a3c8ff',
+  brightMagenta: '#ff9cbf',
+  brightCyan: '#9ae3ec',
+  brightWhite: '#f0f0f0',
+};
+const SELECTION_ALPHA = '4d';
+const darkScheme = matchMedia('(prefers-color-scheme: dark)');
+const token = (name: string) =>
+  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function terminalTheme() {
+  return {
+    ...(darkScheme.matches ? ANSI_DARK : ANSI_LIGHT),
+    background: token('--ok-panel'),
+    foreground: token('--ok-text'),
+    cursor: token('--ok-accent'),
+    cursorAccent: token('--ok-panel'),
+    // Translucent accent so selected text keeps its own ANSI color.
+    selectionBackground: token('--ok-accent') + SELECTION_ALPHA,
+  };
+}
+
 export function mountTerminal() {
   const base = location.pathname === '/' ? '' : location.pathname;
   const element = (id: string) => document.getElementById(id)!;
@@ -13,17 +66,17 @@ export function mountTerminal() {
   const client = sessionStorage.getItem(key) || crypto.randomUUID();
   sessionStorage.setItem(key, client);
   const terminal = new Terminal({
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    fontFamily: token('--ok-mono'),
     fontSize: 12,
     lineHeight: 1.2,
     cursorBlink: true,
     scrollback: 5000,
-    theme: {
-      background: '#171b24',
-      foreground: '#e4e8f0',
-      cursor: '#aebdff',
-      selectionBackground: '#4b5980',
-    },
+    theme: terminalTheme(),
+  });
+  // The pane follows the system appearance like the editor; xterm paints its
+  // own canvas, so it is told when the scheme flips.
+  darkScheme.addEventListener('change', () => {
+    terminal.options.theme = terminalTheme();
   });
   const fit = new FitAddon();
   terminal.loadAddon(fit);

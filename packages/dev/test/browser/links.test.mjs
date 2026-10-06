@@ -40,7 +40,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let ja = false;
       const saved = () =>
@@ -160,7 +159,6 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       const readAction = async () => {
@@ -227,7 +225,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let ja = false;
       const saved = () =>
@@ -298,7 +295,11 @@ test(
       const viewer = await browser.newPage();
       viewer.on('pageerror', (error) => errors.push(error.message));
       await viewer.goto(preview.url);
-      await viewer.getByRole('button', { name: 'Preview', exact: true }).click();
+      await viewer
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       const imageLink = viewer.locator('#slide a').filter({ has: viewer.locator('image') });
       assert.equal(await imageLink.locator('title').textContent(), '画像の参考資料');
       await imageLink.click();
@@ -424,7 +425,6 @@ for (const target of ['shape', 'cell'])
         page.on('pageerror', (e) => errors.push(e.message));
         await installRichTextSelection(page);
         await page.goto(preview.url);
-        await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
         let ja = false;
         const saved = () =>
@@ -536,7 +536,11 @@ for (const target of ['shape', 'cell'])
         const viewer = await browser.newPage();
         viewer.on('pageerror', (error) => errors.push(error.message));
         await viewer.goto(preview.url);
-        await viewer.getByRole('button', { name: 'Preview', exact: true }).click();
+        await viewer
+          .frameLocator('#editor-frame')
+          .locator('.statusbar')
+          .getByRole('button', { name: 'Reading View', exact: true })
+          .click();
         const link = viewer.locator('#slide a').filter({ hasText: '日本語' });
         assert.equal(await link.count(), 1);
         await link.locator('span').last().click();
@@ -612,7 +616,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let ja = false;
       const saved = () =>
@@ -761,7 +764,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       const read = async () =>

@@ -67,7 +67,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let locale = 'en';
       const saved = () =>
@@ -242,7 +241,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let locale = 'en';
       const saved = () =>
@@ -417,7 +415,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let locale = 'en';
       const saved = () =>
@@ -560,7 +557,6 @@ for (const control of ['keyboard', 'toolbar'])
         page.on('pageerror', (e) => errors.push(e.message));
         await installRichTextSelection(page);
         await page.goto(preview.url);
-        await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
         let locale = 'en';
         const saved = () =>
@@ -766,7 +762,6 @@ test(
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.canvas-shell .inline-edit');
@@ -908,7 +903,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.canvas-shell .inline-edit');

@@ -2,14 +2,12 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 
-export async function startPreview(file) {
-  const process = spawn(globalThis.process.execPath, [
-    fileURLToPath(new URL('../../dist/cli.mjs', import.meta.url)),
-    'dev',
-    file,
-    '--port',
-    '0',
-  ]);
+export async function startPreview(file, { env } = {}) {
+  const process = spawn(
+    globalThis.process.execPath,
+    [fileURLToPath(new URL('../../dist/cli.mjs', import.meta.url)), 'dev', file, '--port', '0'],
+    { env: env ?? globalThis.process.env },
+  );
   let output = '';
   process.stderr.on('data', (chunk) => {
     output += chunk;

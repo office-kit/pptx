@@ -97,7 +97,11 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await assertCustomOrder(page, page);
       await page.locator('#slide a[href="#pptx-next-slide"]').click();
@@ -122,7 +126,11 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.waitForFunction(() => document.body.classList.contains('presenting'));
       await page.keyboard.press('Escape');
@@ -189,7 +197,11 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       const popupPromise = page.waitForEvent('popup');
       // Headless Chromium on Linux never settles a fullscreen request made
       // while the presenter popup opens, and macOS grants it at an arbitrary

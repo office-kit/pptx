@@ -88,7 +88,11 @@ test(
         };
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.waitForFunction(() => state.slides.length === 2);
       const persistedMedia = await page
         .evaluate(async () => (await fetch('/state')).json())
@@ -220,7 +224,11 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage();
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.waitForFunction(() => state.slides.length === 2);
       const persistedMedia = await page
         .evaluate(async () => (await fetch('/state')).json())
@@ -291,7 +299,11 @@ test('audio rewinds after natural playback when requested', { timeout: 60000 }, 
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(preview.url);
-    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    await page
+      .frameLocator('#editor-frame')
+      .locator('.statusbar')
+      .getByRole('button', { name: 'Reading View', exact: true })
+      .click();
     const playback = await page
       .evaluate(async () => (await fetch('/state')).json())
       .then((value) => value.media[0].playback);
@@ -356,7 +368,11 @@ test('preview honors media trim boundaries and fades', { timeout: 60000 }, async
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(preview.url);
-    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    await page
+      .frameLocator('#editor-frame')
+      .locator('.statusbar')
+      .getByRole('button', { name: 'Reading View', exact: true })
+      .click();
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const element = page.locator('foreignObject[data-pptx-media] audio');
     await element.waitFor({ state: 'attached' });
@@ -423,7 +439,11 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage();
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       const element = page.locator('foreignObject[data-pptx-media] audio');
       await element.waitFor({ state: 'attached' });
@@ -489,7 +509,11 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage();
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.waitForFunction(() => state.slides.length === 3);
       const popup = page.waitForEvent('popup');
       await page.getByRole('button', { name: 'Presenter view', exact: true }).click();

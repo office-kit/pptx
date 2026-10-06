@@ -31,7 +31,6 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const revision = (await waitForState(preview.url, () => true)).revision;
@@ -98,7 +97,6 @@ test(
       );
       const second = await page.context().newPage();
       await second.goto(preview.url);
-      await second.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const otherEditor = second.frameLocator('#editor-frame');
       await otherEditor.getByRole('button', { name: 'View', exact: true }).waitFor();
       await otherEditor.locator('.grid-dots').waitFor();

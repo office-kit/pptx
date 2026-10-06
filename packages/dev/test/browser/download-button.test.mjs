@@ -40,7 +40,6 @@ test(
         if (message.type() === 'error') consoleErrors.push(message.text());
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       // The served deck only records each autosaved step for comparison; the

@@ -38,7 +38,6 @@ test(
       });
       const page = await context.newPage();
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const bar = editor.locator('.statusbar');
@@ -54,15 +53,21 @@ test(
       await editor.getByText('Slide 2 of 2', { exact: true }).waitFor();
       assert.equal(await editor.locator('.hit.selected').count(), 1);
 
-      // Reading View presents the current slide in the window, without full screen.
+      // Reading View opens the rendered viewer at the current slide, in the
+      // window rather than full screen; Esc returns to Normal view.
       await bar.getByRole('button', { name: 'Reading View', exact: true }).click();
-      await page.waitForFunction(() => document.body.classList.contains('presenting'));
+      await page.waitForFunction(() => !document.body.classList.contains('editing'));
       assert.equal(await page.evaluate(() => document.fullscreenElement), null);
+      assert.equal(
+        await page.evaluate(() => document.body.classList.contains('presenting')),
+        false,
+      );
       await page.waitForFunction(
-        () => document.querySelector('#present-count')?.textContent === 'Slide 2 of 2',
+        () => document.querySelector('#count')?.textContent === 'Slide 2 of 2',
       );
       await page.keyboard.press('Escape');
-      await page.waitForFunction(() => !document.body.classList.contains('presenting'));
+      await page.waitForFunction(() => document.body.classList.contains('editing'));
+      await bar.getByRole('button', { name: 'Reading View', exact: true }).waitFor();
 
       const bytes = new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer());
       const picture = getSlideShapes(getSlides(await loadPresentation(bytes))[1])[0];

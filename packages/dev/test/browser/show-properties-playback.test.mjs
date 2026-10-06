@@ -60,7 +60,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       const slideText = () =>
         page.locator('#slide').evaluate((node) => node.shadowRoot?.textContent ?? '');
@@ -124,7 +128,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       const slideText = () =>
         page.locator('#slide').evaluate((node) => node.shadowRoot?.textContent ?? '');
@@ -172,7 +180,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       const slideText = () =>
         page.locator('#slide').evaluate((node) => node.shadowRoot?.textContent ?? '');
@@ -228,7 +240,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.waitForFunction(
         () => document.querySelector('#slide')?.shadowRoot?.textContent?.includes('B'),
@@ -272,7 +288,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.waitForFunction(() => animationPlayer?.cursor === 0);
       await page.getByRole('button', { name: 'Next slide', exact: true }).click();
@@ -312,7 +332,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.waitForFunction(() =>
         /3/.test(document.querySelector('#count')?.textContent ?? ''),
       );

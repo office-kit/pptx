@@ -36,7 +36,6 @@ test(
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let locale = 'en';
       const saved = () =>
@@ -111,7 +110,6 @@ test(
       await saved();
       await page.screenshot({ path: '/tmp/pptx-pr287-paragraph-ja.png', fullPage: true });
       await page.reload();
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       await saved();
       await editor
         .locator('.hit')

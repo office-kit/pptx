@@ -80,7 +80,11 @@ for (const fullScreen of [false, true]) {
         );
         preview = await startPreview(file);
         await page.goto(preview.url);
-        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        await page
+          .frameLocator('#editor-frame')
+          .locator('.statusbar')
+          .getByRole('button', { name: 'Reading View', exact: true })
+          .click();
         await page.waitForFunction(() => state.slides.length === 2);
         const popup = page.waitForEvent('popup');
         await page.getByRole('button', { name: 'Presenter view', exact: true }).click();

@@ -30,7 +30,6 @@ test('caret formatting is inherited by subsequent notes typing', { timeout: 6000
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
     await page.goto(preview.url);
-    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
     const editor = page.frameLocator('#editor-frame');
     await editor.getByText('Saved to this project', { exact: true }).waitFor();
     await openNotes(editor);
@@ -73,7 +72,6 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await openNotes(editor);
@@ -166,7 +164,6 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await openNotes(editor);
@@ -220,7 +217,6 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await openNotes(editor);
@@ -277,7 +273,6 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await openNotes(editor);
@@ -331,7 +326,6 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       // Open the Format pane first; it follows the selection to the shape later.
@@ -388,7 +382,6 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const state = () => waitForState(preview.url, () => true);
@@ -487,7 +480,6 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const state = () => waitForState(preview.url, () => true);

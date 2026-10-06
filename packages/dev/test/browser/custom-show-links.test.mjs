@@ -77,7 +77,11 @@ for (const [returnToShow, automatic] of [
             await route.fulfill({ response, body: JSON.stringify(body) });
           });
         await page.goto(preview.url);
-        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        await page
+          .frameLocator('#editor-frame')
+          .locator('.statusbar')
+          .getByRole('button', { name: 'Reading View', exact: true })
+          .click();
         const expectSlide = async (name) =>
           page.waitForFunction(
             (name) => document.querySelector('#slide')?.shadowRoot?.textContent?.includes(name),

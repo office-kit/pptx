@@ -73,7 +73,11 @@ test(
       );
       preview = await startPreview(file);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
 
       const inlinePlay = page.getByRole('button', { name: /Play media|メディアを再生/ });
@@ -189,7 +193,11 @@ test(
       );
       preview = await startPreview(file);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       const overlay = page.locator('[data-pptx-media-fullscreen]');
       const video = overlay.locator('video');
@@ -257,7 +265,11 @@ test(
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.waitForFunction(() => document.fullscreenElement === document.documentElement);
       const video = page.locator('video');
