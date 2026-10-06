@@ -49,6 +49,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Same test prerequisites as the CI test job; without them `pnpm test`
+      # fails here and nothing is ever released.
+      - name: Fetch ECMA-376 schemas for enum domain tests
+        run: git submodule update --init --depth 1 references/ecma-376-5th
+
+      - name: Install XML schema validator
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
+
       - uses: pnpm/action-setup@v6
 
       # Use Node 24 here. `changeset publish` shells out to `npm publish`, and
