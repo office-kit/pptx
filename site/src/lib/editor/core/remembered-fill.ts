@@ -10,6 +10,8 @@ import {
   getShapePatternFill,
   getShapeFillColorResolved,
   asColor,
+  emu,
+  type ImageFillLayout,
   type PresentationData,
   type SlideData,
   type SlideShapeData,
@@ -78,5 +80,34 @@ export function insertRememberedPictureFill(
     : { mode: 'stretch' as const };
   setShapeImageFill(target, bytes);
   setShapeImageFillLayout(target, layout);
+  setShapeImageOpacity(target, opacity);
+}
+
+/** PowerPoint's tiling for a gallery texture: no offset, 100%, top left, no mirror, rotating with the shape. */
+export const TEXTURE_TILE_LAYOUT = {
+  mode: 'tile',
+  offsetX: emu(0),
+  offsetY: emu(0),
+  scaleX: 1,
+  scaleY: 1,
+  alignment: 'tl',
+  flip: 'none',
+  rotateWithShape: true,
+} as const satisfies ImageFillLayout;
+
+/** Fills the shape with a gallery texture, keeping its picture transparency like a picture insert does. */
+export function insertRememberedTextureFill(
+  pres: PresentationData,
+  target: SlideShapeData,
+  bytes: Uint8Array,
+  remembered: RememberedFill,
+): void {
+  rememberShapeFill(pres, target, remembered);
+  const current = getShapeImageFillLayout(target);
+  // Record the outgoing placement so unticking Tile restores its stretch offsets.
+  if (current) switchRememberedImageLayout(current, 'tile', (remembered.imageLayouts ??= {}));
+  const opacity = getShapeImageOpacity(target) ?? remembered.image?.opacity ?? null;
+  setShapeImageFill(target, bytes);
+  setShapeImageFillLayout(target, TEXTURE_TILE_LAYOUT);
   setShapeImageOpacity(target, opacity);
 }

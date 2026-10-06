@@ -1,5 +1,8 @@
 import {
   getSlideBackground,
+  getSlideBackgroundImageBytes,
+  getSlideLayoutBackgroundImageBytes,
+  getSlideMasterBackgroundImageBytes,
   getSlideBackgroundGradientFill,
   getSlideBackgroundPatternFill,
   getSlideLayout,
@@ -40,4 +43,17 @@ export function readSlideBackground(
     gradient: getSlideMasterBackgroundGradientFill(pres, layout),
     pattern: getSlideMasterBackgroundPatternFill(pres, layout, options),
   };
+}
+
+/** The visible background picture's bytes, following the same inheritance as `readSlideBackground`. */
+export function readSlideBackgroundImageBytes(
+  pres: PresentationData,
+  slide: SlideData,
+): Uint8Array | null {
+  if (getSlideBackground(slide).kind !== 'inherit') return getSlideBackgroundImageBytes(slide);
+  const layout = getSlideLayout(slide);
+  if (!layout) return null;
+  if (getSlideLayoutBackground(layout).kind !== 'inherit')
+    return getSlideLayoutBackgroundImageBytes(pres, layout);
+  return getSlideMasterBackgroundImageBytes(pres, layout);
 }

@@ -4,8 +4,10 @@
   import { getEditor } from '../core/context.ts';
   import { resolveColor } from '../core/theme-color.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import type { TextureId } from '../core/textures.ts';
+  import TextureGallery from './TextureGallery.svelte';
 
-  let { label, value, resolvedColor, disabled = false, compact = false, glyph, showThemeShades = false, selectedColorTransforms = [], automatic, automaticSelected = false, choose }: {
+  let { label, value, resolvedColor, disabled = false, compact = false, glyph, showThemeShades = false, selectedColorTransforms = [], automatic, automaticSelected = false, texture, choose }: {
     label: string;
     /** Only a ⌄ arrow, as PowerPoint's Shape Fill / Shape Outline split buttons show. */
     compact?: boolean;
@@ -18,6 +20,8 @@
     disabled?: boolean;
     showThemeShades?: boolean;
     selectedColorTransforms?: readonly ColorTransform[];
+    /** Shape Fill's Texture ▸ submenu; `disabled` greys it out where textures do not apply. */
+    texture?: { selected?: TextureId | null; disabled?: boolean; choose: (id: TextureId) => void; more: () => void };
     choose: (color: Color, colorTransforms?: readonly ColorTransform[]) => void;
   } = $props();
   const editor = getEditor();
@@ -86,7 +90,10 @@
   let trigger: HTMLButtonElement;
   let custom: HTMLInputElement;
   let menu = $state<HTMLDivElement>();
-  function close(restore = true) { open = false; if (restore) trigger.focus(); }
+  let textureItem = $state<HTMLButtonElement>();
+  let textureOpen = $state(false);
+  let submenu = $state<HTMLDivElement>();
+  function close(restore = true) { open = false; textureOpen = false; if (restore) trigger.focus(); }
   function select(color: string) {
     const parsed = asColor(color);
     if (parsed && !disabled && !trigger.matches(':disabled')) choose(parsed);
@@ -117,6 +124,7 @@
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); close(); return; }
     if (event.key === 'Tab') { close(false); return; }
+    if (event.key === 'ArrowRight' && event.target === textureItem) { event.preventDefault(); textureOpen = true; return; }
     const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -10, ArrowDown: 10 };
     if (!(event.key in offsets) && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
@@ -127,7 +135,7 @@
   $effect(() => { value; disabled; editor.doc.selection; open = false; });
 </script>
 
-<svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
+<svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !submenu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 <button type="button" class={compact ? 'trigger compact' : 'ok-input trigger'} bind:this={trigger} aria-label={label} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>{#if !compact}<span class="swatch" style:background={paint ?? 'transparent'}></span>{:else if glyph}<span class="glyph" aria-hidden="true">{glyph}<span class="swatch" style:background={paint ?? 'transparent'}></span></span>{/if}<span>▾</span></button>
 <input class="custom" type="color" bind:this={custom} aria-label={`${label}: ${t('More Colors...')}`} tabindex="-1" {disabled} value={paint?.startsWith('#') ? paint : '#000000'} onchange={event => select(event.currentTarget.value)} />
 {#if open}
@@ -147,7 +155,18 @@
       {/if}
     {/each}
     <button type="button" class="more" role="menuitem" onclick={() => { close(); custom.click(); }}>{t('More Colors...')}</button>
+    {#if texture}
+      <button type="button" class="more submenu-item" role="menuitem" aria-haspopup="menu" aria-expanded={textureOpen} disabled={texture.disabled} bind:this={textureItem} onclick={() => { textureOpen = true; }} onpointerenter={() => { if (!texture.disabled) textureOpen = true; }}><span>{t('Texture')}</span><span aria-hidden="true">▸</span></button>
+    {/if}
   </div>
+  {#if texture && textureOpen && textureItem}
+    <div class="submenu" bind:this={submenu}>
+      <TextureGallery label={t('Texture')} anchor={textureItem} side="right" selected={texture.selected}
+        choose={id => { close(); texture.choose(id); }}
+        more={() => { close(); texture.more(); }}
+        close={() => { textureOpen = false; }} />
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -165,4 +184,7 @@
   .colors button:hover, .colors button:focus-visible, .colors button[aria-checked=true] { outline: 2px solid var(--ok-accent); outline-offset: 1px; }
   .more { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--ok-border); background: transparent; color: inherit; padding: 6px 2px 2px; font-size: inherit; }
   .more:hover, .more:focus-visible { background: var(--ok-hover); }
+  .more:disabled { color: var(--ok-muted); background: transparent; }
+  .submenu-item { display: flex; justify-content: space-between; border-top: 0; }
+  .submenu { display: contents; }
 </style>

@@ -7,6 +7,7 @@
   import { applyWordArtPreset, type WordArtPreset } from '../core/wordart-presets.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
+  import ShapeFillPicker from './ShapeFillPicker.svelte';
   import Icon from '../ui/Icon.svelte';
   import WordArtGallery from '../ui/WordArtGallery.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
@@ -63,7 +64,6 @@
     open = null;
     doc.transact(t('Change Shape'), () => { for (const shape of shapes) if (getShapeKind(shape) === 'shape') setShapePreset(shape, preset); });
   }
-  function fill(color: Color) { editor.invoke('setShapeFill', { color: { color } }); }
   function outline(color: Color) { editor.invoke('setShapeStroke', { options: { color } }); }
 
   const geometry = $derived(shapes.flatMap((shape) => {
@@ -110,7 +110,7 @@
   <section class="group" aria-label={t('Shape Styles')}>
     <ShapeQuickStyles inline />
     <div class="stack">
-      <span class="paint"><Icon name="fill" size={18} /><span>{t('Shape Fill')}</span><ColorPicker compact label={t('Shape Fill')} disabled={!paintable} choose={fill} /></span>
+      <span class="paint"><Icon name="fill" size={18} /><span>{t('Shape Fill')}</span><ShapeFillPicker disabled={!paintable} /></span>
       <span class="paint"><Icon name="outline" size={18} /><span>{t('Shape Outline')}</span><ColorPicker compact label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
       <div class="anchor">
         {@render menuButton('shapeEffects', 'shadow', 'Shape Effects', paintable)}
