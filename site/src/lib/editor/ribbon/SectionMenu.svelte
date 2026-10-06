@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { placeBelowTrigger } from './place-menu.ts';
   import { getEditor } from '../core/context.ts';
   import {
     addSection,
@@ -44,7 +45,7 @@
     {#if small}<Icon name="section" size={18} /><span>{t('Section')}</span><span aria-hidden="true">⌄</span>{:else}<span class="icon-row"><Icon name="section" size={32} /><span aria-hidden="true">⌄</span></span><span>{t('Section')}</span>{/if}
   </button>
   {#if open}
-    <div class="menu" role="menu" aria-label={t('Section')}>
+    <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Section')}>
       <button role="menuitem" onclick={add}>{t('Add Section')}</button>
       <button role="menuitem" disabled={!current} onclick={() => { open = false; if (current) renaming = { start: current.start, name: current.name }; }}>{t('Rename Section')}</button>
       <button role="menuitem" disabled={!current} onclick={() => { open = false; if (current) { const start = current.start; doc.transact(t('Remove Section'), () => removeSection(doc.pres, start)); } }}>{t('Remove Section')}</button>
@@ -70,7 +71,7 @@
   .big { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 44px; padding: 3px 3px; font-size: 11px; line-height: 1.15; }
   .icon-row { display: flex; align-items: center; gap: 2px; }
   .row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 11px; white-space: nowrap; }
-  .menu { position: absolute; top: 100%; left: 0; z-index: 400; display: flex; flex-direction: column; min-width: 200px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .menu { position: fixed; z-index: 400; display: flex; flex-direction: column; min-width: 200px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { padding: 5px 8px; text-align: left; font-size: 12px; }
   hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }
   dialog { width: min(340px, 90vw); padding: 16px; border: 1px solid var(--ok-border); border-radius: var(--ok-radius-lg); background: var(--ok-panel); color: var(--ok-text); }

@@ -46,6 +46,25 @@ test(
       };
       await page.getByRole('tab', { name: 'Design', exact: true }).click();
       const panel = page.locator('#ribbon-panel');
+      // The ribbon panel scrolls horizontally, which also clips vertically: a
+      // dropdown must open below its button over the slide, not inside the ribbon.
+      const assertMenuUnclipped = async (label) => {
+        const menu = panel.getByRole('menu', { name: label, exact: true });
+        await menu.waitFor();
+        const layout = await menu.evaluate((node) => {
+          const ribbon = document.getElementById('ribbon-panel');
+          const box = node.getBoundingClientRect();
+          return {
+            ribbonGrew: ribbon.scrollHeight > ribbon.clientHeight,
+            below: box.top >= ribbon.getBoundingClientRect().bottom - 40,
+            topmost:
+              document
+                .elementFromPoint(box.left + 10, box.bottom - 10)
+                ?.closest('[role="menu"]') === node,
+          };
+        });
+        assert.deepEqual(layout, { ribbonGrew: false, below: true, topmost: true }, label);
+      };
       assert.deepEqual(
         await panel
           .locator('.design > section')
@@ -70,14 +89,17 @@ test(
       );
 
       await panel.getByRole('button', { name: 'Colors', exact: true }).click();
+      await assertMenuUnclipped('Colors');
       await changed(() => panel.getByRole('menuitemradio', { name: 'Green' }).click());
       assert.equal(getPresentationTheme(await pres()).accent1.toUpperCase(), '#549E39');
 
       await panel.getByRole('button', { name: 'Fonts', exact: true }).click();
+      await assertMenuUnclipped('Fonts');
       await changed(() => panel.getByRole('menuitemradio', { name: /^Georgia/ }).click());
       assert.equal(getPresentationFonts(await pres()).minorLatin, 'Georgia');
 
       await panel.getByRole('button', { name: 'Slide Size', exact: true }).click();
+      await assertMenuUnclipped('Slide Size');
       await changed(() => panel.getByRole('menuitem', { name: 'Standard (4:3)' }).click());
       deck = await pres();
       assert.equal(getSlideSize(deck).width, SLIDE_SIZE_4_3.width);

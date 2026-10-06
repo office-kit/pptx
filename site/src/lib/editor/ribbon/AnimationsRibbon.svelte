@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { placeBelowTrigger } from './place-menu.ts';
   import {
     getSlideAnimations,
     removeSlideAnimation,
@@ -143,7 +144,7 @@
       <span>{t('Exit Effects')}</span>
     </button>
     {#if exitMenu}
-      <div class="menu" role="menu" aria-label={t('Exit Effects')}>
+      <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Exit Effects')}>
         {#each EXITS as item (item.effect)}
           <button role="menuitemradio" class="exit" aria-checked={step?.effect === item.effect} onclick={() => { exitMenu = false; choose(item.effect); }}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path class="star" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /></svg>{t(item.label)}
@@ -199,7 +200,7 @@
   .exit .star { fill: #c8423b; stroke: #9c2d27; }
   .big { min-width: 52px; max-width: 72px; min-height: 66px; text-align: center; }
   .exit-anchor { position: relative; }
-  .menu { position: absolute; top: 100%; left: 0; z-index: 300; display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .menu { position: fixed; z-index: 300; display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { flex-direction: row; gap: 8px; padding: 4px 8px; font-size: 12px; }
   .menu svg { width: 18px; height: 18px; }
   .timing { flex-direction: column; align-items: flex-end; justify-content: center; gap: 8px; font-size: 12px; }

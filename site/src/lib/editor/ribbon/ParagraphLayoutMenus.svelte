@@ -1,6 +1,7 @@
 <script lang="ts">
   // Home ▸ Paragraph's Columns, Text Direction and Align Text menus and
   // Convert to SmartArt, acting on every selected text-bearing shape.
+  import { placeBelowTrigger } from './place-menu.ts';
   import {
     getShapeKind,
     getShapeTextAnchor,
@@ -53,7 +54,7 @@
 <span class="paragraph-layout">
   {@render trigger('columns', 'columns', 'Columns')}
   {#if open === 'columns'}
-    <div class="menu" role="menu" aria-label={t('Columns')}>
+    <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Columns')}>
       {#each [1, 2, 3] as count (count)}
         <button role="menuitem" onclick={() => apply('Columns', (shape) => setShapeTextColumns(shape, count === 1 ? null : { count }))}>{t(['One Column', 'Two Columns', 'Three Columns'][count - 1]!)}</button>
       {/each}
@@ -66,7 +67,7 @@
 <span class="paragraph-layout">
   {@render trigger('direction', 'text-direction', 'Text Direction')}
   {#if open === 'direction'}
-    <div class="menu" role="menu" aria-label={t('Text Direction')}>
+    <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Text Direction')}>
       {#each DIRECTIONS as [value, label] (value)}
         <button role="menuitemradio" aria-checked={direction === value} onclick={() => apply('Text Direction', (shape) => setShapeTextDirection(shape, value))}>{t(label)}</button>
       {/each}
@@ -76,7 +77,7 @@
 <span class="paragraph-layout">
   {@render trigger('align', 'align-text', 'Align Text')}
   {#if open === 'align'}
-    <div class="menu" role="menu" aria-label={t('Align Text')}>
+    <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Align Text')}>
       {#each ANCHORS as [value, label] (value)}
         <button role="menuitemradio" aria-checked={anchor === value} onclick={() => apply('Align Text', (shape) => setShapeTextAnchor(shape, value))}>{t(label)}</button>
       {/each}
@@ -93,7 +94,7 @@
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
   .tool { display: flex; align-items: center; justify-content: center; gap: 1px; min-width: 28px; height: 26px; padding: 0 2px; font-size: 10px; }
-  .menu { position: absolute; top: 100%; left: 0; z-index: 400; display: flex; flex-direction: column; min-width: 190px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .menu { position: fixed; z-index: 400; display: flex; flex-direction: column; min-width: 190px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { padding: 5px 8px; text-align: left; font-size: 12px; }
   .menu button[aria-checked='true'] { background: var(--ok-selected); }
   hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }

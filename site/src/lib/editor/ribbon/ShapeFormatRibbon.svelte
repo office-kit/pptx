@@ -1,6 +1,7 @@
 <script lang="ts">
   // Mac PowerPoint's Shape Format tab, in its order: Insert Shapes, Shape
   // Styles, WordArt Styles, Alt Text, Arrange, Size and Format Pane.
+  import { placeBelowTrigger } from './place-menu.ts';
   import { cm, emu, getShapeBoundsResolved, getShapeKind, setShapeBounds, setShapePreset, setShapeText3D, setShapeTextFormat, type Color, type PresetShape, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { applyWordArtPreset, type WordArtPreset } from '../core/wordart-presets.ts';
@@ -93,7 +94,7 @@
       <div class="anchor">
         {@render menuButton('editShape', 'shapes', 'Edit Shape', texty)}
         {#if open === 'editShape'}
-          <div class="menu" role="menu" aria-label={t('Edit Shape')}>
+          <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Edit Shape')}>
             <div class="heading">{t('Change Shape')}</div>
             {#each CHANGE_SHAPES as [preset, label] (preset)}<button role="menuitem" onclick={() => changeShape(preset)}>{t(label)}</button>{/each}
             <hr />
@@ -114,7 +115,7 @@
       <div class="anchor">
         {@render menuButton('shapeEffects', 'shadow', 'Shape Effects', paintable)}
         {#if open === 'shapeEffects'}
-          <div class="menu" role="menu" aria-label={t('Shape Effects')}>
+          <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Shape Effects')}>
             <button role="menuitem" disabled={!editor.canRun('setShapeShadow')} onclick={() => { open = null; editor.runOrPrompt('setShapeShadow'); }}>{t('Shadow')}</button>
             <button role="menuitem" disabled={!editor.canRun('setShapeGlow')} onclick={() => { open = null; editor.runOrPrompt('setShapeGlow'); }}>{t('Glow')}</button>
             <hr />
@@ -138,7 +139,7 @@
       <div class="anchor">
         {@render menuButton('textEffects', 'glow', 'Text Effects', texty)}
         {#if open === 'textEffects'}
-          <div class="menu" role="menu" aria-label={t('Text Effects')}>
+          <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Text Effects')}>
             <button role="menuitem" onclick={() => textFormat({ shadow: TEXT_SHADOW })}>{t('Shadow')}</button>
             <button role="menuitem" onclick={() => textFormat({ reflection: TEXT_REFLECTION })}>{t('Reflection')}</button>
             <button role="menuitem" onclick={() => textFormat({ glow: TEXT_GLOW })}>{t('Glow')}</button>
@@ -184,7 +185,7 @@
   .size label { display: flex; align-items: center; gap: 4px; font-size: 11px; }
   .size input { width: 64px; padding: 2px 3px; font-size: 11px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .menu { position: absolute; top: 100%; left: 0; z-index: 400; display: flex; flex-direction: column; min-width: 220px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .menu { position: fixed; z-index: 400; display: flex; flex-direction: column; min-width: 220px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { padding: 5px 8px; text-align: left; font-size: 12px; white-space: nowrap; }
   .menu .heading { padding: 4px 8px; font-size: 11px; font-weight: 600; color: var(--ok-text-2); }
   .menu hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }

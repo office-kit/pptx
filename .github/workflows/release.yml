@@ -75,7 +75,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # Run the gates one more time before publishing — the release workflow is
-      # the last line of defense.
+      # the last line of defense. These builds are also what gets published:
+      # packages have no `prepublishOnly` rebuild, because `changeset publish`
+      # publishes them concurrently and a dependency's `tsdown` clean would
+      # delete its `dist` while pptx-dev is bundling the editor from it.
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test

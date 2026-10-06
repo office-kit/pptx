@@ -63,8 +63,7 @@
     "validate:ooxml": "dotnet run --project tools/ooxml-validate -c Release -- samples/out",
     "bench": "PERF=1 vitest run test/perf-bench.test.ts",
     "changeset": "changeset",
-    "release": "changeset publish",
-    "prepublishOnly": "pnpm run build"
+    "release": "changeset publish"
   },
   "dependencies": {
     "fflate": "^0.8.3"

@@ -39,8 +39,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "tsdown"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@office-kit/pptx": "workspace:*",
