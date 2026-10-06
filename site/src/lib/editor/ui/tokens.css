@@ -1,30 +1,31 @@
-/* Design tokens for the editor — a restrained, Office-like light theme.
+/* Design tokens for the editor — a restrained light theme in the office-kit
+   palette (the pptx rose accent over the site's cool neutrals).
    Scoped under .ok-editor so the editor's chrome never leaks into the docs
    site (and vice versa). */
 .ok-editor {
-  --ok-accent: #b83b1d; /* office-kit brand rust, used like PowerPoint's orange */
-  --ok-accent-2: #d95a3a;
-  --ok-bg: #f3f2f1;
+  --ok-accent: #b4235a; /* site-kit pptx --accent-ink */
+  --ok-accent-2: #d6336c; /* site-kit pptx --accent */
+  --ok-bg: #f4f5f7;
   --ok-panel: #ffffff;
-  --ok-panel-2: #faf9f8;
-  --ok-ribbon: #f9f8f7;
+  --ok-panel-2: #f9fafb;
+  --ok-ribbon: #f7f8fa;
   --ok-ribbon-active: #ffffff;
-  --ok-border: #e1dfdd;
-  --ok-border-strong: #c8c6c4;
-  --ok-text: #201f1e;
-  --ok-text-2: #605e5c;
-  --ok-text-3: #8a8886;
-  --ok-hover: #f3f2f1;
-  --ok-selected: #eef4fb;
-  --ok-selected-border: #2b6cb0;
-  --ok-canvas-bg: #d0cfce;
-  --ok-danger: #a4262c;
+  --ok-border: #dfe2e7;
+  --ok-border-strong: #c9cdd6;
+  --ok-text: #15171c;
+  --ok-text-2: #545b69;
+  --ok-text-3: #8a909c;
+  --ok-hover: #eef0f3;
+  --ok-selected: #fdebf1;
+  --ok-selected-border: #b4235a;
+  --ok-canvas-bg: #d3d6dc;
+  --ok-danger: #c92a2a;
   --ok-radius: 3px;
   --ok-radius-lg: 6px;
-  --ok-shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.13), 0 0.3px 0.9px rgba(0, 0, 0, 0.1);
-  --ok-shadow-lg: 0 6.4px 14.4px rgba(0, 0, 0, 0.13), 0 1.2px 3.6px rgba(0, 0, 0, 0.11);
-  --ok-font: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  --ok-mono: 'Cascadia Code', 'SF Mono', 'Consolas', monospace;
+  --ok-shadow: 0 1px 2px rgba(16, 18, 23, 0.08), 0 0 0 1px rgba(16, 18, 23, 0.04);
+  --ok-shadow-lg: 0 12px 32px -8px rgba(16, 18, 23, 0.22), 0 2px 6px rgba(16, 18, 23, 0.08);
+  --ok-font: system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --ok-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   --ok-ribbon-h: 92px;
   --ok-nav-w: 200px;
   --ok-panel-w: 300px;
@@ -40,8 +41,8 @@
 @media (prefers-color-scheme: dark) {
   .ok-editor {
     color-scheme: dark;
-    --ok-accent: #e0643f;
-    --ok-accent-2: #f07a55;
+    --ok-accent: #e85a90;
+    --ok-accent-2: #ff9cbf;
     --ok-bg: #1f1f1f;
     --ok-panel: #2b2b2b;
     --ok-panel-2: #252525;
@@ -53,12 +54,12 @@
     --ok-text-2: #c4c4c4;
     --ok-text-3: #8f8f8f;
     --ok-hover: #3a3a3a;
-    --ok-selected: #3b4a5c;
-    --ok-selected-border: #6fa8e6;
+    --ok-selected: #3a2230;
+    --ok-selected-border: #ff7aa8;
     --ok-canvas-bg: #1b1b1b;
     --ok-danger: #f1707a;
-    --ok-shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.5), 0 0.3px 0.9px rgba(0, 0, 0, 0.4);
-    --ok-shadow-lg: 0 6.4px 14.4px rgba(0, 0, 0, 0.55), 0 1.2px 3.6px rgba(0, 0, 0, 0.45);
+    --ok-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --ok-shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.35);
   }
 }
 

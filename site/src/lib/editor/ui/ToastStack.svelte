@@ -30,7 +30,7 @@
     max-width: 60vw;
   }
   .toast.info {
-    background: #323130;
+    background: #15171c;
   }
   .toast.error {
     background: var(--ok-danger);

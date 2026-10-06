@@ -48,7 +48,7 @@
 </div>
 <div class="group">
   <button disabled title={t('Rehearse with Coach needs Microsoft 365 online services.')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="16" height="12" rx="1" /><path d="M11 16v4M7 20h8" /><path d="M19 9a2 2 0 0 1 2 2v3a2 2 0 0 1-4 0v-3a2 2 0 0 1 2-2z" stroke="#0078d4" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="16" height="12" rx="1" /><path d="M11 16v4M7 20h8" /><path d="M19 9a2 2 0 0 1 2 2v3a2 2 0 0 1-4 0v-3a2 2 0 0 1 2-2z" style="stroke: var(--ok-accent)" /></svg>
     {t('Rehearse with Coach')}
   </button>
 </div>
@@ -64,11 +64,11 @@
 </div>
 <div class="group">
   <button disabled={!editor.canPresent} onclick={() => editor.present('rehearse')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="16" height="12" rx="1" /><circle cx="17" cy="16" r="5" stroke="#0078d4" /><path d="M17 13v3l2 1" stroke="#0078d4" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="16" height="12" rx="1" /><circle cx="17" cy="16" r="5" style="stroke: var(--ok-accent)" /><path d="M17 13v3l2 1" style="stroke: var(--ok-accent)" /></svg>
     {t('Rehearse Timings')}
   </button>
   <button disabled={!editor.canPresent} onclick={() => editor.present('start')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="14" height="11" rx="1" /><path d="M10 14v5M6 19h8" /><circle cx="19" cy="14" r="3" fill="#d13438" stroke="none" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="14" height="11" rx="1" /><path d="M10 14v5M6 19h8" /><circle cx="19" cy="14" r="3" fill="#c92a2a" stroke="none" /></svg>
     {t('Record')}
   </button>
 </div>

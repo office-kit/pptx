@@ -74,18 +74,18 @@
 </div>
 <div class="group">
   <button onclick={() => (editor.accessibilityOpen = true)}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" /><circle cx="15" cy="12" r="1.2" stroke="#0078d4" /><path d="M12 14h6M15 14v3l-2 3M15 17l2 3" stroke="#0078d4" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" /><circle cx="15" cy="12" r="1.2" style="stroke: var(--ok-accent)" /><path d="M12 14h6M15 14v3l-2 3M15 17l2 3" style="stroke: var(--ok-accent)" /></svg>
     {t('Check Accessibility')}
   </button>
 </div>
 <div class="group">
   <button disabled title={t('Translation needs an online service.')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17 6 9l3 8M4 14h4" stroke="#0078d4" /><path d="M13 4h8M17 3v2M14 11c3-1 5-3 6-6M15 7c1 2 3 4 6 4" stroke="#2e8b57" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17 6 9l3 8M4 14h4" style="stroke: var(--ok-accent)" /><path d="M13 4h8M17 3v2M14 11c3-1 5-3 6-6M15 7c1 2 3 4 6 4" stroke="#2e8b57" /></svg>
     {t('Translate')}
   </button>
   <div class="menu-anchor">
     <button aria-haspopup="menu" aria-expanded={menu === 'language'} disabled={textShapes.length === 0} onclick={() => (menu = menu === 'language' ? null : 'language')}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 9 5l5 15M6 15h6" /><path d="M16 4v6M14 6h6" stroke="#0078d4" /></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 9 5l5 15M6 15h6" /><path d="M16 4v6M14 6h6" style="stroke: var(--ok-accent)" /></svg>
       {t('Language')}
     </button>
     {#if menu === 'language'}
@@ -114,7 +114,7 @@
   </button>
   <div class="menu-anchor">
     <button aria-haspopup="menu" aria-expanded={menu === 'delete'} disabled={withComments.length === 0} onclick={() => (menu = menu === 'delete' ? null : 'delete')}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h16v11H9l-4 4v-4H3z" /><path d="m3 2 6 6M9 2 3 8" stroke="#d13438" /></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h16v11H9l-4 4v-4H3z" /><path d="m3 2 6 6M9 2 3 8" stroke="#c92a2a" /></svg>
       {t('Delete')}
     </button>
     {#if menu === 'delete'}
@@ -141,17 +141,17 @@
 </div>
 <div class="group">
   <button disabled title={t('Document protection is not available here.')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 3-1 11-11-2-2L5 17z" /><circle cx="17" cy="17" r="4" stroke="#d13438" /><path d="m14 20 6-6" stroke="#d13438" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 3-1 11-11-2-2L5 17z" /><circle cx="17" cy="17" r="4" stroke="#c92a2a" /><path d="m14 20 6-6" stroke="#c92a2a" /></svg>
     {t('Always Open Read-Only')}
   </button>
   <button disabled title={t('Document protection is not available here.')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h9l4 4v14H5z" /><circle cx="15" cy="16" r="4" stroke="#d13438" /><path d="M13 16h4" stroke="#d13438" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h9l4 4v14H5z" /><circle cx="15" cy="16" r="4" stroke="#c92a2a" /><path d="M13 16h4" stroke="#c92a2a" /></svg>
     {t('Restrict Permission')}
   </button>
 </div>
 <div class="group">
   <button aria-pressed={inkHidden} disabled={inks.length === 0} onclick={toggleInk}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20c4-6 6-9 9-10s4 3 7 0" stroke="#d13438" /><path d="m3 3 18 18" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20c4-6 6-9 9-10s4 3 7 0" stroke="#c92a2a" /><path d="m3 3 18 18" /></svg>
     {t('Hide Ink')}
   </button>
 </div>
