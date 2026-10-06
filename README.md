@@ -821,3 +821,11 @@ PRs are expected to:
 ## License
 
 [MIT](./LICENSE)
+
+## Trademarks
+
+Microsoft, PowerPoint, Excel, Word and Office are trademarks of the Microsoft
+group of companies. Keynote is a trademark of Apple Inc., and Google Slides is
+a trademark of Google LLC. Office Kit is an independent open-source project and
+is not affiliated with, sponsored by, or endorsed by any of them; these names
+are used only to describe file-format compatibility.

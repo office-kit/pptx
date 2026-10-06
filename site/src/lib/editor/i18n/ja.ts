@@ -1708,4 +1708,6 @@ export const ja: Record<string, string> = {
     'パターン塗りつぶし: 水色、アクセント カラー 5、右下がり対角線 (淡); 輪郭: 水色、アクセント カラー 5',
   'Pattern Fill: Dark Blue, Dark Upward Diagonal Stripe; Hard Shadow':
     'パターン塗りつぶし: 濃い青、右上がり対角線 (太); 影 (ぼかしなし)',
+  'Microsoft and PowerPoint are trademarks of the Microsoft group of companies. This editor is an independent project, not affiliated with or endorsed by Microsoft.':
+    'Microsoft および PowerPoint は Microsoft グループ各社の商標です。本エディタは独立したプロジェクトであり、Microsoft との提携や承認を受けたものではありません。',
 };

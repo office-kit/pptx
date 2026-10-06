@@ -1,12 +1,12 @@
 # @office-kit/pptx — Editor
 
-A PowerPoint-style editing UI built **entirely on the `@office-kit/pptx` public
+A ribbon-style presentation editing UI built **entirely on the `@office-kit/pptx` public
 API**, in Svelte 5. SvelteKit serves it at `/editor`; `@office-kit/pptx-dev`
 bundles the same components into its local development preview. The development
 host persists edits and resolves source conflicts; see
 [the development-tool README](../../../../../packages/dev/README.md).
 
-The design goal is _MS Office-like operation covering every pptx expression the
+The design goal is _familiar desktop-style operation covering every pptx expression the
 library can author_. Generated registry checks track API dispatch coverage;
 browser tests must separately establish usable editing workflows.
 
@@ -118,3 +118,10 @@ The same editor is available as a site route and bundled in the development
 preview. Completion requirements and remaining work are tracked in [the editor preview roadmap](../../../../docs/editor-preview-roadmap.md).
 Command discovery is not proof of complete editing workflows; browser interaction
 and persistence checks are required for each supported workflow.
+
+## Trademarks
+
+Microsoft and PowerPoint are trademarks of the Microsoft group of companies.
+This editor is an independent implementation, not affiliated with or endorsed
+by Microsoft. It ships no Microsoft icons, artwork, fonts or text; product
+names appear only to describe `.pptx` compatibility.
