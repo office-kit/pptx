@@ -347,6 +347,7 @@ export {
   getShapeParagraphElements,
   getShapePlaceholderIdx,
   getShapePreset,
+  getPresetGeometry,
   getMaxShapeId,
   getMaxShapeIdInPresentation,
   getMediaParts,

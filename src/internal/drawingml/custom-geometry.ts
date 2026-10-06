@@ -86,7 +86,7 @@ export interface CustomGeometry {
  * and reports it as "geometry could not be evaluated" (returns `null`),
  * while letting any genuine programming error propagate.
  */
-class GeomEvalError extends Error {}
+export class GeomEvalError extends Error {}
 
 const ATTR_NAME = qname('', 'name', '');
 const ATTR_FMLA = qname('', 'fmla', '');
@@ -125,7 +125,7 @@ const NUMERIC_TOKEN = /^-?\d+(?:\.\d+)?$/;
  * extents (`w`, `h` in EMU). `ss` is the short side, `ls` the long side.
  * The `cdN` / `NcdN` entries are constant angles in 60000ths of a degree.
  */
-const builtinGuides = (w: number, h: number): Map<string, number> => {
+export const builtinGuides = (w: number, h: number): Map<string, number> => {
   const ss = Math.min(w, h);
   const cd4 = FULL_TURN_60K / 4;
   const cd8 = FULL_TURN_60K / 8;
@@ -147,6 +147,8 @@ const builtinGuides = (w: number, h: number): Map<string, number> => {
     ['wd6', w / 6],
     ['wd8', w / 8],
     ['wd10', w / 10],
+    ['wd12', w / 12],
+    ['wd32', w / 32],
     ['hd2', h / 2],
     ['hd3', h / 3],
     ['hd4', h / 4],
@@ -158,6 +160,8 @@ const builtinGuides = (w: number, h: number): Map<string, number> => {
     ['ssd4', ss / 4],
     ['ssd6', ss / 6],
     ['ssd8', ss / 8],
+    ['ssd16', ss / 16],
+    ['ssd32', ss / 32],
     ['cd2', FULL_TURN_60K / 2],
     ['cd4', cd4],
     ['cd6', FULL_TURN_60K / 6],
@@ -170,7 +174,7 @@ const builtinGuides = (w: number, h: number): Map<string, number> => {
 };
 
 /** Resolves a single token to a number — literal or a defined guide. */
-const resolveToken = (token: string, guides: Map<string, number>): number => {
+export const resolveToken = (token: string, guides: Map<string, number>): number => {
   if (NUMERIC_TOKEN.test(token)) return Number.parseFloat(token);
   const v = guides.get(token);
   if (v === undefined) throw new GeomEvalError(`unresolved guide reference: ${token}`);
@@ -183,7 +187,7 @@ const resolveToken = (token: string, guides: Map<string, number>): number => {
  * yields `0` (the spec's defined result, so a `/0` formula degrades to a
  * point at the origin rather than `NaN`/`Infinity`).
  */
-const evalFormula = (fmla: string, guides: Map<string, number>): number => {
+export const evalFormula = (fmla: string, guides: Map<string, number>): number => {
   const parts = fmla.trim().split(/\s+/);
   const op = parts[0];
   const a = (i: number): number => resolveToken(parts[i + 1] ?? '', guides);

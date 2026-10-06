@@ -24,7 +24,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
-  import { renderTextEffectsSvg, resolveTextBodyRect, shapeAutoFitScale, shapeTextAnchorOffset, shapeCustomTextRect, textColumnsStyle, verticalTextStyle } from '@office-kit/pptx-preview';
+  import { renderTextEffectsSvg, resolveTextBodyRect, shapeAutoFitScale, shapeTextAnchorOffset, shapeTextRect, textColumnsStyle, verticalTextStyle } from '@office-kit/pptx-preview';
   import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
@@ -52,9 +52,6 @@
     getTableCellAnchor,
     getTableCellTextDirection,
     getShapeBodyPrEffective,
-    getShapeBounds,
-    getShapeCustomGeometry,
-    getShapePreset,
     getShapeTextDirection,
     getShapeTextBodyRotationDeg,
     insertTableRow,
@@ -954,11 +951,9 @@
     if (!target && editBox && scope) {
       const w = editBox.width / 100 * metrics.widthEmu * scope.textScale.x;
       const h = editBox.height / 100 * metrics.heightEmu * scope.textScale.y;
-      // Same rect the renderer lays text into, custom geometry included, so
-      // the caret sits where the glyphs will. A custom `<a:rect>` is in the
-      // shape's own `<a:ext>` space, so that — not the on-screen box, which
-      // carries the group and autofit scales — is what makes it a fraction.
-      const rect = resolveTextBodyRect(getShapePreset(shape), { x: 0, y: 0, w, h }, insets, shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)));
+      // Same rect the renderer lays text into, so the caret sits where the
+      // glyphs will.
+      const rect = resolveTextBodyRect({ x: 0, y: 0, w, h }, insets, shapeTextRect(shape));
       insets = { left: rect.x, top: rect.y, right: w - rect.x - rect.w, bottom: h - rect.y - rect.h };
     }
     // The body turn is applied around the inner rectangle below. Keep the
@@ -1066,12 +1061,7 @@
       bottom: margins.bottom ?? 45720,
       left: margins.left ?? 91440,
     };
-    const rect = resolveTextBodyRect(
-      getShapePreset(shape),
-      { x: 0, y: 0, w, h },
-      insets,
-      shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)),
-    );
+    const rect = resolveTextBodyRect({ x: 0, y: 0, w, h }, insets, shapeTextRect(shape));
     const originX = `${(rect.x + rect.w / 2) / w * 100}%`;
     const originY = `${(rect.y + rect.h / 2) / h * 100}%`;
     return `position:absolute; inset:0; transform:rotate(${bodyRotation + textBodyTurn}deg) ${textAnchorTranslation}; transform-origin:${originX} ${originY};`;

@@ -10,6 +10,7 @@ import {
   type PathFillMode,
   type Position,
   type Size,
+  evaluatePresetGeometry,
   parseCustomGeometry,
   readFlip,
   readPosition,
@@ -21,6 +22,7 @@ import {
 import type { Emu } from '../units.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import {
+  type PresetShape,
   REL_TYPES,
   type ShapeKind,
   readGroupChildren,
@@ -159,6 +161,23 @@ export const getShapeCustomGeometry = (shape: SlideShapeData): CustomGeometry | 
   if (size === null) return null;
   return parseCustomGeometry(custGeom, size.w, size.h);
 };
+
+/**
+ * Evaluates a preset shape's outline (`<a:prstGeom>`, ECMA-376 §20.1.9.18)
+ * at `size`, from the standard's own preset definitions: the same paths,
+ * shading modes (`lighten` / `darken` …) and text rectangle PowerPoint uses.
+ * The result has the shape of {@link getShapeCustomGeometry}'s, so a
+ * renderer draws presets and custom geometry the same way.
+ *
+ * `adjustValues` are the shape's adjust handles (`getShapeAdjustValues`);
+ * each replaces the preset default of the same name. Returns `null` for a
+ * preset name ECMA-376 does not define.
+ */
+export const getPresetGeometry = (
+  preset: PresetShape | string,
+  size: { readonly w: Emu; readonly h: Emu },
+  adjustValues: Readonly<Record<string, number>> = {},
+): CustomGeometry | null => evaluatePresetGeometry(preset, size.w, size.h, adjustValues);
 
 /**
  * Returns the highest `cNvPr@id` used by any shape on the slide,
