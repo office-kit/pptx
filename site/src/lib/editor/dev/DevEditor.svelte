@@ -5,6 +5,13 @@
   import { EditorController } from '../core/controller.svelte.ts';
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
 
+  /** A change the server could not merge; see packages/dev/src/deck-merge.ts. */
+  interface DeckConflict {
+    part: string;
+    slide: number | null;
+    shape: { id: string; name: string } | null;
+    reason: 'both-changed' | 'deleted-and-changed' | 'both-added';
+  }
   interface ServerState {
     projectId: string;
     revision: string;
@@ -13,10 +20,16 @@
     fileName: string;
     hasEdits: boolean;
     conflict: boolean;
+    conflicts: DeckConflict[];
     building: boolean;
     error: string | null;
     available: boolean;
     message?: string;
+    /** Why a save was refused: `busy` saves are retried after the rebuild. */
+    refused?: 'busy' | 'stale' | 'conflict';
+    mergeConflicts?: DeckConflict[];
+    /** The save was merged with source changes; the uploaded deck's revision. */
+    uploadRevision?: string;
   }
   const editor = new EditorController();
   const doc = editor.doc;
@@ -24,7 +37,11 @@
   let loaded = $state(false);
   let saving = $state(false);
   let conflict = $state(false);
+  let conflicts = $state<DeckConflict[]>([]);
+  // A refused save stays a conflict until it is resolved, whatever the server state says.
+  let saveConflict = false;
   let failure = $state('');
+  // The server revision of the deck the local document was derived from.
   let baseRevision = '';
   let baseHash: string | undefined;
   let refreshing = false;
@@ -44,6 +61,7 @@
     const projectId = serverState?.projectId;
     const id = draftId;
     const hash = baseHash;
+    const revision = baseRevision;
     const fileName = doc.fileName;
     // Observe serialization failures immediately, even while an earlier write is pending.
     const snapshot = bytes.then(value => ({ value }), error => ({ error }));
@@ -51,7 +69,7 @@
       const result = await snapshot;
       if ('error' in result) throw result.error;
       if (!drafts || !projectId) throw new Error('Recovery storage unavailable');
-      await drafts.put({ id, projectId, baseHash: hash, fileName, bytes: result.value, version, updated: Date.now() });
+      await drafts.put({ id, projectId, baseHash: hash, baseRevision: revision, fileName, bytes: result.value, version, updated: Date.now() });
       draftFailure = false;
     });
     draftQueue = operation.catch(() => { draftFailure = true; });
@@ -64,8 +82,10 @@
     try {
       await doc.loadBytes(draft.bytes, draft.fileName);
       restoredDraft = draft;
+      // A draft of an older deck merges with the current one when it is saved.
+      if (draft.baseHash !== serverState?.documentHash) baseRevision = draft.baseRevision ?? '';
       baseHash = draft.baseHash;
-      conflict = serverState?.documentHash !== baseHash || !!serverState?.conflict;
+      showServerConflict(serverState);
       doc.dirty = true;
       recovery = [];
       if (await checkpoint(doc.toBytes(), doc.version)) {
@@ -81,6 +101,24 @@
       recovery = recovery.filter(item => item.id !== draft.id);
     } catch { recoveryFailure = true; }
   }
+
+  function showServerConflict(state: ServerState | undefined) {
+    if (saveConflict) return;
+    conflict = !!state?.conflict;
+    conflicts = state?.conflicts ?? [];
+  }
+  function conflictMessage(item: DeckConflict): string {
+    const deleted = item.reason === 'deleted-and-changed';
+    if (item.part === 'ppt/presentation.xml' && !item.shape)
+      return t('The slide list or presentation settings were changed both here and in the source.');
+    const where = item.slide === null ? item.part : t('Slide {n}').replace('{n}', String(item.slide));
+    if (item.shape)
+      return t(deleted ? '{where}: {shape} was deleted on one side and changed on the other.' : '{where}: {shape} was changed both here and in the source.')
+        .replace('{where}', where).replace('{shape}', item.shape.name || `#${item.shape.id}`);
+    return t(deleted ? '{where} was deleted on one side and changed on the other.' : '{where} was changed both here and in the source.')
+      .replace('{where}', where);
+  }
+  const conflictMessages = $derived([...new Set(conflicts.map(conflictMessage))]);
 
   async function refresh() {
     if (refreshing || saving || recovering) { refreshAgain = true; return; }
@@ -100,21 +138,26 @@
       if (loaded && recovery.length) return;
       if (loaded && next.documentHash === baseHash) {
         baseRevision = next.revision;
-        conflict = next.conflict;
+        showServerConflict(next);
         return;
       }
-      if (loaded && doc.dirty) { conflict = true; return; }
+      // Unsaved edits keep their base revision; saving merges them with the new deck.
+      if (loaded && doc.dirty) { showServerConflict(next); return; }
       const version = doc.version;
       const deck = await fetch('/editor/document');
       if (!deck.ok) throw new Error(t('Preview unavailable'));
       const bytes = new Uint8Array(await deck.arrayBuffer());
       if (saving || recovering || doc.version !== version) { refreshAgain = true; return; }
       if (deck.headers.get('etag') !== next.revision) { refreshAgain = true; return; }
+      // Reloading starts a new undo history; stay on the slide being edited.
+      const slideIndex = doc.selection.slideIndex;
       await doc.loadBytes(bytes, next.fileName);
+      if (loaded) doc.selection = { kind: 'none', slideIndex: Math.max(0, Math.min(slideIndex, doc.slides.length - 1)) };
       baseRevision = next.revision;
       baseHash = next.documentHash;
       loaded = true;
-      conflict = next.conflict;
+      saveConflict = false;
+      showServerConflict(next);
     } catch (cause) {
       failure = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -143,10 +186,22 @@
       });
       const next: ServerState = await response.json();
       serverState = next;
-      if (response.status === 409) { conflict = true; return; }
+      if (response.status === 409) {
+        if (next.refused === 'busy') return;
+        saveConflict = true;
+        conflict = true;
+        conflicts = next.mergeConflicts ?? [];
+        return;
+      }
       if (!response.ok) throw new Error(next.message ?? t('Save failed'));
-      baseRevision = next.revision;
-      baseHash = next.documentHash;
+      if (next.uploadRevision) {
+        // The server merged source changes into the upload; reload once no edits are pending.
+        baseRevision = next.uploadRevision;
+        baseHash = undefined;
+      } else {
+        baseRevision = next.revision;
+        baseHash = next.documentHash;
+      }
       doc.markSaved(version);
       await draftQueue;
       try {
@@ -154,7 +209,8 @@
         if (restoredDraft) { await drafts?.remove(restoredDraft.id, restoredDraft.version); restoredDraft = undefined; }
       }
       catch { draftFailure = true; }
-      conflict = next.conflict;
+      saveConflict = false;
+      showServerConflict(next);
     } catch (cause) {
       failure = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -183,7 +239,9 @@
       if (version !== doc.version) { conflict = true; return; }
       doc.dirty = false;
       loaded = false;
+      saveConflict = false;
       conflict = false;
+      conflicts = [];
     } catch (cause) {
       failure = cause instanceof Error ? cause.message : String(cause);
     } finally {
@@ -233,7 +291,12 @@
     </div>
     {#if conflict}
       <div class="conflict" role="alert">
-        <span>{t('The source or saved deck changed. Your edits are still here.')}</span>
+        {#if conflictMessages.length}
+          <span>{t('These edits could not be merged with the source. Your edits are still here.')}</span>
+          <ul>{#each conflictMessages as message (message)}<li>{message}</li>{/each}</ul>
+        {:else}
+          <span>{t('The source or saved deck changed. Your edits are still here.')}</span>
+        {/if}
         <button onclick={() => save(true)} disabled={saving || serverState?.building || !!serverState?.error}>{t('Keep my edits')}</button>
         <button onclick={useSource} disabled={saving || serverState?.building || !!serverState?.error}>{t('Use source')}</button>
         <a href="/editor/source" download="source.pptx">{t('Download source')}</a>
@@ -271,6 +334,7 @@
   :global(.compact-host) .save-status { gap:6px; padding:3px 8px; font-size:11px; }
   .save-status span:first-child { flex:1; }
   .conflict { background:#fff0cd; color:#583b00; }
+  .conflict ul { flex-basis:100%; order:1; margin:0; padding-left:18px; }
   button, a { font:inherit; color:inherit; cursor:pointer; }
   .loading { position:fixed; inset:110px 0 0; z-index:51; background:#ffffff90; }
   @media (prefers-color-scheme: dark) {

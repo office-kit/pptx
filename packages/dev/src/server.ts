@@ -7,7 +7,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
 import { basename, dirname, resolve, sep } from 'node:path';
 import { renderDeck, type BuildResult } from './build.ts';
-import { editorStore, sourceFingerprint } from './editor-store.ts';
+import { editorStore, type SavedEdits } from './editor-store.ts';
+import { sourceFingerprint } from './fingerprint.ts';
+import { mergeDecks, type DeckConflict } from './deck-merge.ts';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
 import { presenterPage } from './presenter-page.ts';
@@ -72,6 +74,10 @@ function mediaRange(value: string | undefined, length: number) {
 // Files `build-editor.mjs` puts next to the CLI, served as they are. The
 // animation player is one build shared by the preview page, the presenter
 // window and the editor panel, so all three play a slide the same way.
+// Documents the editor may still be editing, by revision. An editor that saves
+// edits made on one of these after the source rebuilt gets them merged.
+const REMEMBERED_DOCUMENTS = 32;
+
 const BUNDLED_ASSETS: Record<string, string> = {
   '/terminal.js': 'terminal-client.js',
   '/terminal.css': 'terminal-client.css',
@@ -90,6 +96,14 @@ export async function serveDeck(entry: string, port = 4173) {
   let publishedMedia: BuildResult['media'] = [];
   const store = editorStore(entry);
   let saved = await store.read();
+  // Why the saved edits could not be merged with the current source.
+  let conflicts: DeckConflict[] = [];
+  const documents = new Map<string, Uint8Array>();
+  let uploads = 0;
+  function remember(id: string, bytes: Uint8Array) {
+    documents.set(id, bytes);
+    if (documents.size > REMEMBERED_DOCUMENTS) documents.delete(documents.keys().next().value!);
+  }
   const serverId = randomUUID();
   const projectId = createHash('sha256').update(resolve(entry)).digest('hex');
   let publishing = Promise.resolve();
@@ -156,6 +170,7 @@ export async function serveDeck(entry: string, port = 4173) {
     return result;
   }
   function editorState() {
+    const conflict = !!saved && !!sourceHash && saved.sourceHash !== sourceHash;
     return {
       projectId,
       revision: `${serverId}:${revision}`,
@@ -164,7 +179,8 @@ export async function serveDeck(entry: string, port = 4173) {
       sourceHash,
       fileName: basename(entry).replace(/\.[^.]+$/, '') + '.pptx',
       hasEdits: !!saved,
-      conflict: !!saved && !!sourceHash && saved.sourceHash !== sourceHash,
+      conflict,
+      conflicts: conflict ? conflicts : [],
       building,
       error,
       available: !!latest,
@@ -179,15 +195,46 @@ export async function serveDeck(entry: string, port = 4173) {
     ({ cache: mediaCache, published: publishedMedia } = cacheEmbeddedMedia(result.media));
     documentHash = sourceFingerprint(result.bytes);
     revision++;
+    remember(`${serverId}:${revision}`, result.bytes);
   }
   function notify() {
     for (const client of clients) client.write('data: updated\n\n');
+  }
+  type Upload =
+    | { ok: true; bytes: Uint8Array; merged: boolean; source: BuildResult; sourceHash: string }
+    | { ok: false; refused: 'busy' | 'stale' | 'conflict'; conflicts: DeckConflict[] };
+  /**
+   * Accepts an editor upload. An upload based on an older document the editor
+   * loaded (the source rebuilt meanwhile) is merged with the current one.
+   */
+  function acceptUpload(bytes: Uint8Array, basis: string | undefined, keepEdits: boolean): Upload {
+    if (!source || !sourceHash || !latest || building || error || closed)
+      return { ok: false, refused: 'busy', conflicts: [] };
+    const state = editorState();
+    if (state.conflict && !keepEdits)
+      return { ok: false, refused: 'conflict', conflicts: state.conflicts };
+    const accepted = { ok: true, source, sourceHash } as const;
+    if (basis === state.revision) return { ...accepted, bytes, merged: false };
+    const based = basis !== undefined && !keepEdits ? documents.get(basis) : undefined;
+    if (!based) return { ok: false, refused: 'stale', conflicts: [] };
+    const merged = mergeDecks(based, bytes, latest.bytes);
+    return merged.ok
+      ? { ...accepted, bytes: merged.bytes, merged: true }
+      : { ok: false, refused: 'conflict', conflicts: merged.conflicts };
   }
   async function edit(request: IncomingMessage, response: ServerResponse) {
     const json = (status: number, message?: string, extra: Record<string, unknown> = {}) => {
       response.writeHead(status, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ ...editorState(), ...(message ? { message } : {}), ...extra }));
     };
+    const refuse = (upload: Extract<Upload, { ok: false }>) =>
+      json(
+        409,
+        upload.refused === 'conflict'
+          ? 'These edits conflict with changes in the source.'
+          : 'The preview changed. Review the current source before saving.',
+        { refused: upload.refused, mergeConflicts: upload.conflicts },
+      );
     if (
       request.headers.origin !== `http://${request.headers.host}` ||
       request.headers['sec-fetch-site'] === 'cross-site'
@@ -211,6 +258,16 @@ export async function serveDeck(entry: string, port = 4173) {
     const chunks: Buffer[] = [];
     let length = 0;
     const MAX_EDITOR_BYTES = 64 * 1024 * 1024;
+    const basis = request.headers['if-match'];
+    const keepEdits = request.headers['x-editor-resolve'] === 'edits';
+    // Remembers what the editor uploaded, so later edits made on top of it
+    // while the merged result was on its way can merge again.
+    const uploaded = (bytes: Uint8Array, upload: Extract<Upload, { ok: true }>) => {
+      if (!upload.merged) return {};
+      const id = `${serverId}:upload:${++uploads}`;
+      remember(id, bytes);
+      return { merged: true, uploadRevision: id };
+    };
     try {
       for await (const chunk of request) {
         length += chunk.length;
@@ -221,19 +278,13 @@ export async function serveDeck(entry: string, port = 4173) {
         chunks.push(chunk);
       }
       if (save && sourceSync) {
-        if (
-          !source ||
-          !sourceHash ||
-          building ||
-          error ||
-          closed ||
-          request.headers['if-match'] !== editorState().revision ||
-          (editorState().conflict && request.headers['x-editor-resolve'] !== 'edits')
-        ) {
-          json(409, 'The preview changed. Review the current source before saving.');
+        const received = new Uint8Array(Buffer.concat(chunks));
+        const upload = acceptUpload(received, basis, keepEdits);
+        if (!upload.ok) {
+          refuse(upload);
           return;
         }
-        const bytes = new Uint8Array(Buffer.concat(chunks));
+        const bytes = upload.bytes;
         // Runs outside `publish`: verifying a write rebuilds, and a rebuild
         // publishes too. A refused write still saves the edits to the sidecar.
         let synced: SyncResult;
@@ -249,7 +300,9 @@ export async function serveDeck(entry: string, port = 4173) {
         }
         await publish(async () => {
           if (!source || !sourceHash || closed) {
-            json(409, 'The preview changed. Review the current source before saving.');
+            json(409, 'The preview changed. Review the current source before saving.', {
+              refused: 'busy',
+            });
             return;
           }
           if (synced.complete) {
@@ -264,12 +317,13 @@ export async function serveDeck(entry: string, port = 4173) {
               json(400, cause instanceof Error ? cause.message : String(cause));
               return;
             }
-            const edits = { sourceHash, bytes };
+            const edits = { sourceHash, base: source.bytes, bytes };
             await store.write(edits);
             saved = edits;
             update(result);
           }
           json(200, undefined, {
+            ...uploaded(received, upload),
             writeBack: { written: synced.written.length, pending: synced.pending },
           });
           notify();
@@ -277,42 +331,54 @@ export async function serveDeck(entry: string, port = 4173) {
         return;
       }
       await publish(async () => {
-        if (
-          !source ||
-          !sourceHash ||
-          building ||
-          error ||
-          closed ||
-          request.headers['if-match'] !== editorState().revision ||
-          (save && editorState().conflict && request.headers['x-editor-resolve'] !== 'edits')
-        ) {
-          json(409, 'The preview changed. Review the current source before saving.');
-          return;
-        }
-        const started = generation;
         if (useSource) {
+          if (
+            !source ||
+            !sourceHash ||
+            building ||
+            error ||
+            closed ||
+            basis !== editorState().revision
+          ) {
+            json(409, 'The preview changed. Review the current source before saving.', {
+              refused: 'busy',
+            });
+            return;
+          }
           await store.clear();
           saved = undefined;
           update(source);
-        } else {
-          const bytes = new Uint8Array(Buffer.concat(chunks));
-          let result: BuildResult;
-          try {
-            result = (await renderDeck(bytes, source.dependencies)).result;
-          } catch (cause) {
-            json(400, cause instanceof Error ? cause.message : String(cause));
-            return;
-          }
-          if (started !== generation) {
-            json(409, 'Source changed during save.');
-            return;
-          }
-          const edits = { sourceHash, bytes };
-          await store.write(edits);
-          saved = edits;
-          update(result);
+          json(200);
+          notify();
+          return;
         }
-        json(200);
+        const received = new Uint8Array(Buffer.concat(chunks));
+        const upload = acceptUpload(received, basis, keepEdits);
+        if (!upload.ok) {
+          refuse(upload);
+          return;
+        }
+        const started = generation;
+        let result: BuildResult;
+        try {
+          result = (await renderDeck(upload.bytes, upload.source.dependencies)).result;
+        } catch (cause) {
+          json(400, cause instanceof Error ? cause.message : String(cause));
+          return;
+        }
+        if (started !== generation) {
+          json(409, 'Source changed during save.', { refused: 'busy' });
+          return;
+        }
+        const edits = {
+          sourceHash: upload.sourceHash,
+          base: upload.source.bytes,
+          bytes: upload.bytes,
+        };
+        await store.write(edits);
+        saved = edits;
+        update(result);
+        json(200, undefined, uploaded(received, upload));
         notify();
       });
     } catch (cause) {
@@ -641,10 +707,25 @@ export async function serveDeck(entry: string, port = 4173) {
       const result = await builder.build();
       await publish(async () => {
         if (started !== generation || closed) return;
-        const edited = saved ? (await renderDeck(saved.bytes, result.dependencies)).result : result;
+        const nextHash = sourceFingerprint(result.bytes);
+        let unmerged: DeckConflict[] = [];
+        // `null` when the merged edits are exactly the new source.
+        let merged: (SavedEdits & { base: Uint8Array }) | null | undefined;
+        if (saved?.base && saved.sourceHash !== nextHash) {
+          const merge = mergeDecks(saved.base, saved.bytes, result.bytes);
+          if (!merge.ok) unmerged = merge.conflicts;
+          else if (sourceFingerprint(merge.bytes) === nextHash) merged = null;
+          else merged = { sourceHash: nextHash, base: result.bytes, bytes: merge.bytes };
+        }
+        const edits = merged === undefined ? saved : (merged ?? undefined);
+        const edited = edits ? (await renderDeck(edits.bytes, result.dependencies)).result : result;
         if (started !== generation || closed) return;
+        if (merged) await store.write(merged);
+        else if (merged === null) await store.clear();
+        saved = edits;
         source = result;
-        sourceHash = sourceFingerprint(result.bytes);
+        sourceHash = nextHash;
+        conflicts = unmerged;
         update(edited);
         error = null;
       });
