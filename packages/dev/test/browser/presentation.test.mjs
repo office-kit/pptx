@@ -55,7 +55,11 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.waitForFunction(() => state.slides.length === 4);
       const persisted = await (await fetch(preview.url + '/state')).json();
       assert.equal(persisted.transitions[0].advanceAfterMs, 1500);
@@ -144,7 +148,11 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.waitForFunction(() => state.slides.length === 2);
       const popupReady = page.waitForEvent('popup');
       await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
@@ -169,7 +177,7 @@ test(
       await page.waitForFunction(() => index === 0);
       await presenter.getByRole('button', { name: 'Exit presentation', exact: true }).click();
       await page.waitForFunction(() => !presenting);
-      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await page.getByRole('button', { name: 'Normal', exact: true }).click();
       await page.frameLocator('#editor-frame').locator('.lang select').selectOption('ja');
       await presenter.getByRole('heading', { name: '発表者ビュー', exact: true }).waitFor();
       const editor = page.frameLocator('#editor-frame');
@@ -180,7 +188,11 @@ test(
         .getByRole('textbox', { name: 'ノートの内容', exact: true })
         .fill('保存後のノート / Updated notes');
       await presenter.getByText('保存後のノート / Updated notes', { exact: true }).waitFor();
-      await page.getByRole('button', { name: 'プレビュー', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: '閲覧表示', exact: true })
+        .click();
       await presenter.getByText('スライド 1 / 2', { exact: true }).waitFor();
       assert.equal(
         await presenter.locator('#notes').textContent(),
@@ -265,7 +277,11 @@ test(
       await page.waitForFunction(() => state.hiddenSlides?.[0] === false);
       await skip.check();
       await page.waitForFunction(() => state.hiddenSlides?.[0] === true);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 5');
       assert.equal(await page.locator('.thumbnail[data-skipped="true"]').count(), 3);
       await page.getByRole('button', { name: 'Present', exact: true }).click();
@@ -302,7 +318,7 @@ test(
         true,
       );
       await presenter.getByRole('button', { name: 'Exit presentation', exact: true }).click();
-      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await page.getByRole('button', { name: 'Normal', exact: true }).click();
       await editor.locator('.lang select').selectOption('ja');
       for (let i = 0; i < 5; i++) {
         await editor.locator('.thumb-row').nth(i).click();
@@ -314,7 +330,11 @@ test(
         () => state.hiddenSlides?.length === 5 && state.hiddenSlides.every(Boolean),
       );
       await page.screenshot({ path: '/tmp/pptx-pr287-skip-ja.png', fullPage: true });
-      await page.getByRole('button', { name: 'プレビュー', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: '閲覧表示', exact: true })
+        .click();
       assert.equal(await page.locator('#present').isDisabled(), true);
       assert.equal(await page.locator('#presenter').isDisabled(), true);
       await page.reload();
@@ -371,7 +391,11 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.locator('#slide a').click();
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
       await page.locator('#slide a').focus();
@@ -470,7 +494,11 @@ test(
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.locator('#slide a').locator('span').last().click();
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
       await page.locator('#slide a').focus();

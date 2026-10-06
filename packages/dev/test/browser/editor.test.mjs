@@ -64,7 +64,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
@@ -277,7 +276,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const arrangeHit = await editor.locator('.hit').first().boundingBox();
@@ -394,7 +392,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const png = async (color) =>
@@ -531,7 +528,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
@@ -701,7 +697,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       // A cell's context menu has no Format item, so open the pane from the
@@ -1041,7 +1036,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const readShapes = async () =>
@@ -1144,7 +1138,6 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       const download = async () =>
@@ -1294,7 +1287,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       const slides = async () =>
@@ -1395,7 +1387,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       const read = async () =>
@@ -1626,7 +1617,6 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       await installRichTextSelection(page);
       await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       let locale = 'en';
       const saved = () =>

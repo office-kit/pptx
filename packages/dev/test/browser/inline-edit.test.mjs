@@ -52,9 +52,15 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(url);
       // The preview opens in the editor; this test drives the viewer's own
-      // inline editing, which lives behind the Preview toggle.
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      // inline editing, which lives in Reading View. Its region instructions go
+      // to an agent, so the Agents pane is opened as well.
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.locator('#slide p').first().waitFor();
+      await page.getByRole('button', { name: 'Agents', exact: true }).click();
       await page.frameLocator('#agent-workspace iframe').locator('#chat-provider').waitFor();
       const agent = page.frames().find((f) => /\/agents\//.test(f.url()));
       await agent.selectOption('#chat-provider', 'codex');

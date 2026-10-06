@@ -1,12 +1,11 @@
-import { previewStyles } from './styles.ts';
-export const agentPage = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/terminal.css"><style>${previewStyles}
-body{display:flex;flex-direction:column;background:#191e30;height:100dvh;min-width:0;overflow:auto;overflow-x:hidden} .chat-heading{flex-wrap:wrap} .chat-heading select{min-width:100px}.chat-heading,#chat-context{flex-shrink:0}#claude-panel{min-height:100px}#codex-panel{min-height:240px}
+import { agentStyles } from './styles.ts';
+export const agentPage = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/terminal.css"><style>${agentStyles}
 </style><div class="chat-heading"><select id="chat-provider" aria-label="AI provider"><option value="claude">Claude Code</option><option value="codex">Codex</option></select><button id="chat-reset" hidden>New chat</button></div>
 <div id="chat-context">No slide selected</div>
-<section id="claude-panel" aria-label="Claude Code terminal"><div class="terminal-toolbar"><span id="terminal-status" role="status">Start Claude Code to edit your slides.</span><button id="terminal-start">Start</button><button id="terminal-stop" hidden>End session</button></div><div class="terminal-frame"><div id="terminal"></div></div></section>
+<section id="claude-panel" aria-label="Claude Code terminal"><div class="terminal-toolbar"><span id="terminal-status" role="status">Start Claude Code to edit your slides.</span><button id="terminal-start" class="primary">Start</button><button id="terminal-stop" hidden>End session</button></div><div class="terminal-frame"><div id="terminal"></div></div></section>
 <div id="codex-panel" hidden>
 <div id="messages" role="log" aria-label="Conversation"><p class="chat-intro">Describe what you want to change. The current slide is included automatically. You can also ask about other slides or the whole deck.<br><br>Uses your locally installed Codex. Sign in through its CLI first. Sending a message allows it to edit this project.</p></div>
-<form id="chat-form"><textarea id="chat-input" aria-label="Message" maxlength="16000" placeholder="Ask for a change…" required></textarea><div class="chat-actions"><span class="chat-shortcut">⌘ / Ctrl + Enter</span><button id="chat-stop" type="button" hidden>Stop</button><button id="chat-send" type="submit">Send</button></div></form>
+<form id="chat-form"><textarea id="chat-input" aria-label="Message" maxlength="16000" placeholder="Ask for a change…" required></textarea><div class="chat-actions"><span class="chat-shortcut">⌘ / Ctrl + Enter</span><button id="chat-stop" type="button" hidden>Stop</button><button id="chat-send" class="primary" type="submit">Send</button></div></form>
 <div id="chat-status" role="status">Ready</div>
 </div>
 <script>

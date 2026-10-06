@@ -69,7 +69,11 @@ const openPreview = async (dir, deck, slides, prepare) => {
   page.on('pageerror', (error) => errors.push(error.message));
   if (prepare) await prepare(page);
   await page.goto(preview.url);
-  await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  await page
+    .frameLocator('#editor-frame')
+    .locator('.statusbar')
+    .getByRole('button', { name: 'Reading View', exact: true })
+    .click();
   await page.waitForFunction((n) => state.slides.length === n, slides);
   return { preview, browser, page, errors };
 };
@@ -442,7 +446,11 @@ test(
       page.on('pageerror', (error) => errors.push(error.message));
       session = { preview, browser, page, errors };
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.waitForFunction(() => state.slides.length === 1);
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.keyboard.press('ArrowRight');

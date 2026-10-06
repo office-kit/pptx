@@ -29,7 +29,6 @@ async function openOutline(dir) {
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await installRichTextSelection(page);
   await page.goto(preview.url);
-  await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
   const editor = page.frameLocator('#editor-frame');
   await editor.getByRole('tab', { name: 'View', exact: true }).click();
   await editor

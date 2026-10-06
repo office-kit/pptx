@@ -41,7 +41,6 @@ for (const locale of ['en', 'ja'])
             locale,
           );
           await page.goto(preview.url);
-          await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
           const editor = page.frameLocator('#editor-frame');
           const view = locale === 'en' ? 'View' : '表示';
           await editor.getByRole('tab', { name: view, exact: true }).click();

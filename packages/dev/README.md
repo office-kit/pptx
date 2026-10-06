@@ -82,15 +82,20 @@ formatting when its text matches the plain-text clipboard. Unsupported markup
 falls back to plain text; spreadsheet tables keep their cell-aware paste behavior.
 Paragraph styles, hyperlinks, stylesheets and theme inheritance are not transferred.
 
-**Download** exports the edited PPTX. **Preview** switches to the presentation
-viewer with thumbnails, zoom and presentation mode. Presentation playback animates
+The editor fills the window; the preview adds no header of its own. **Download**
+(Quick Access Toolbar ⋯) exports the edited PPTX, and build progress and errors
+appear in the editor's title bar. **View ▸ Reading View** (or the Reading View
+button in the status bar) switches to the rendered viewer with thumbnails, zoom
+and presentation mode; **Normal** in its status bar, or Esc, returns to the
+editor. The Slide Show tab starts the presentation and presenter view. Presentation playback animates
 fade, push, wipe, cover, uncover, and zoom using the saved speed and direction.
 Other effects currently switch immediately. Reduced-motion preferences disable
 these animations; automatic slide timing starts after each animation completes.
 
-The viewer has a vertical thumbnail strip, a large slide canvas and an AI chat
-panel on the right. Click a thumbnail or use arrow keys, Page Up/Down, Home/End
-to navigate; Fit/zoom and Present (Escape to exit) are viewing controls. Click an
+The viewer has a vertical thumbnail strip, a large slide canvas and a status bar
+with the slide count, build status, Present, Presenter view, Download PPTX,
+Agents, Normal and zoom. Click a thumbnail or use arrow keys, Page Up/Down,
+Home/End to navigate; Fit/zoom and Present (Escape to exit) are viewing controls. Click an
 object or drag an area for an AI instruction.
 
 Canvas edits are saved beside the entry in `.office-kit/<entry-name>.editor.zip`;
@@ -144,7 +149,10 @@ slides. Update time depends on the deck size and any code it runs.
 
 ## Agents in the preview
 
-The right panel defaults to **Claude Code**. Click **Start** to open the locally
+**Agents** at the right end of the editor's tab row, beside Comments and Share,
+opens the Agents task pane docked on the right (closed by default, like
+PowerPoint's panes; × closes it). The pane follows the editor's light or dark
+appearance, including the terminal colors. Each agent defaults to **Claude Code**. Click **Start** to open the locally
 installed `claude` CLI in an interactive terminal. Install and sign in to Claude
 Code first. Use a current version with HTTP `UserPromptSubmit` hook support.
 The session runs in the deck entry's directory and uses your normal account,
@@ -203,22 +211,22 @@ each request. The dev server retains up to 100 messages until it exits.
 sends a message. Model/settings menus in the embedded terminal are currently
 specific to Claude Code.
 
-Use the **Split right** or **Split down** icons in a pane's title bar to run up to
+Use the **Split right** or **Split down** icons in an agent's toolbar to run up to
 four agents side by side or stacked. Each pane independently selects Claude Code
 or Codex, retains its own conversation and receives the currently selected slide.
 Drag the divider to adjust the split, or focus it and use the arrow keys. Layout
 and Claude terminal sessions survive a browser reload. Splitting preserves running
-sessions and unsent drafts. **Close** ends only that pane's agent; closing the last
+sessions and unsent drafts. **Close agent** ends only that agent; closing the last
 pane opens a fresh one. All agents edit the same project directory, so assign
 separate slides or files when working simultaneously.
 
-Drag the left edge of the chat panel to adjust its width. The preview remembers the
+Drag the left edge of the Agents pane to adjust its width. The preview remembers the
 width in this browser; double-click the edge to reset it. You can also focus the
 edge and use the left/right arrow keys (Shift for larger steps), or Home/End for
 the minimum/maximum width. Narrow screens keep the stacked layout.
 
-Use **Agents** in the header to hide/show the panel. On narrow screens the panel
-moves below the preview. Presentation mode hides it without ending the session.
+The pane stays open across reloads of the same tab. On narrow screens it floats
+over the editor's right edge, and in the viewer it moves below the slide. Presentation mode hides it without ending the session.
 Both providers save TSX directly, which triggers the usual automatic rebuild.
 The server binds to loopback and requires same-origin JSON for terminal control;
 the local context hook uses a separate per-session token.

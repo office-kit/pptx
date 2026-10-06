@@ -53,7 +53,11 @@ test('dissolve reveals scattered cells at all transition speeds', { timeout: 600
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(preview.url);
-    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    await page
+      .frameLocator('#editor-frame')
+      .locator('.statusbar')
+      .getByRole('button', { name: 'Reading View', exact: true })
+      .click();
     await page.waitForFunction(() => state.slides.length === 4);
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     for (let i = 1; i < options.length; i++) {

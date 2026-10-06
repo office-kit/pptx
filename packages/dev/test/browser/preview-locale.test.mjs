@@ -30,7 +30,11 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.lang select').selectOption('ja');
-      await page.getByRole('button', { name: 'プレビュー', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: '閲覧表示', exact: true })
+        .click();
       await page.getByRole('button', { name: 'プレゼンテーション', exact: true }).waitFor();
       assert.equal(await page.locator('html').getAttribute('lang'), 'ja');
       assert.equal(await page.locator('#count').textContent(), 'スライド 1 / 2');
@@ -69,9 +73,16 @@ test(
       await page.unroute('**/state*', failState);
       await page.evaluate(() => refresh());
       assert.equal(await page.locator('#status').textContent(), '2 スライド・ライブ');
-      await page.getByRole('button', { name: '編集', exact: true }).click();
+      await page.getByRole('button', { name: '標準', exact: true }).click();
       await editor.locator('.lang select').selectOption('en');
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
+      // The shell relabels when the editor reports its new language; wait for it
+      // as the old shell Preview button's English name used to.
+      await page.getByRole('button', { name: 'Present', exact: true }).waitFor();
       assert.equal(await page.locator('html').getAttribute('lang'), 'en');
       assert.equal(await page.getByRole('button', { name: 'Present', exact: true }).count(), 1);
       assert.equal(await page.locator('#status').textContent(), '2 slides · Live');

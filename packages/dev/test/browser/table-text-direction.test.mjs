@@ -83,7 +83,6 @@ for (const anchor of ['top', 'center', 'bottom'])
             browser = await chromium.launch({ headless: true });
             const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
             await page.goto(preview.url);
-            await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
             const editor = page.frameLocator('#editor-frame');
             await editor.getByText('Saved to this project', { exact: true }).waitFor();
             const painted = editor

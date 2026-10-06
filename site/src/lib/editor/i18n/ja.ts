@@ -1722,4 +1722,5 @@ export const ja: Record<string, string> = {
     'パターン塗りつぶし: 濃い青、右上がり対角線 (太); 影 (ぼかしなし)',
   'Microsoft and PowerPoint are trademarks of the Microsoft group of companies. This editor is an independent project, not affiliated with or endorsed by Microsoft.':
     'Microsoft および PowerPoint は Microsoft グループ各社の商標です。本エディタは独立したプロジェクトであり、Microsoft との提携や承認を受けたものではありません。',
+  Agents: 'エージェント',
 };

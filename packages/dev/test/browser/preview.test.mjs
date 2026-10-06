@@ -77,7 +77,14 @@ process.stdin.on('data',async data=>{
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
+      // The Agents pane opens on demand and stays open across reloads.
+      assert.equal(await page.locator('#chat').isVisible(), false);
+      await page.getByRole('button', { name: 'Agents', exact: true }).click();
       await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
       const slideSvg = (label) => {
         const svg = document.querySelector('#slide').shadowRoot.querySelector('svg');
@@ -273,7 +280,7 @@ process.stdin.on('data',async data=>{
         '45',
       );
       for (let count = 4; count > 1; count--) {
-        await page.getByRole('button', { name: 'Close', exact: true }).last().click();
+        await page.getByRole('button', { name: 'Close agent', exact: true }).last().click();
         await page.waitForFunction(
           (count) => document.querySelectorAll('.agent-pane').length === count - 1,
           count,

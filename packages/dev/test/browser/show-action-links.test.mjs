@@ -64,7 +64,11 @@ for (const repeated of [false, true])
         browser = await chromium.launch({ headless: true });
         const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
         await page.goto(preview.url);
-        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        await page
+          .frameLocator('#editor-frame')
+          .locator('.statusbar')
+          .getByRole('button', { name: 'Reading View', exact: true })
+          .click();
         await page.getByRole('button', { name: 'Present', exact: true }).click();
         const expectSlide = async (name) => {
           await page.waitForFunction(

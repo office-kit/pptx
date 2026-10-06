@@ -43,7 +43,6 @@ for (const locale of ['en', 'ja'])
         );
         await installRichTextSelection(page);
         await page.goto(preview.url);
-        await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
         const view = locale === 'en' ? 'View' : '表示';
         const outlineName = locale === 'en' ? 'Outline View' : 'アウトライン表示';

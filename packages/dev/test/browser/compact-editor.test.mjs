@@ -25,9 +25,14 @@ test(
         const page = await browser.newPage({ viewport: { width, height: 900 } });
         try {
           await page.goto(preview.url);
-          const toggle = page.locator('#toggle-editor');
-          if ((await toggle.textContent())?.trim() === 'Edit') await toggle.click();
-          assert.equal((await page.locator('body > header').boundingBox()).height, 40);
+          // The shell has no header of its own: the editor fills the window.
+          assert.equal(await page.locator('body > header').count(), 0);
+          assert.deepEqual(await page.locator('#editor-frame').boundingBox(), {
+            x: 0,
+            y: 0,
+            width,
+            height: 900,
+          });
           const editor = page.frameLocator('#editor-frame');
           await editor.getByText('Saved to this project', { exact: true }).waitFor();
 
@@ -71,7 +76,10 @@ test(
           ]);
           assert.ok(jaHeader && jaStatus && jaStatus.y < jaHeader.y + jaHeader.height);
 
-          await toggle.click();
+          await editor
+            .locator('.statusbar')
+            .getByRole('button', { name: '閲覧表示', exact: true })
+            .click();
           await page.locator('.slide-edit-tools').waitFor({ state: 'visible' });
           assert.ok((await page.locator('.slide-edit-tools').boundingBox())?.height > 0);
         } finally {

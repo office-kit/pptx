@@ -194,7 +194,6 @@ const openEditor = async (dir, pres, language) => {
   await page.goto(preview.url);
   const word = WORDS[language];
   const reopen = async () => {
-    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
     const frame = page.frameLocator('#editor-frame');
     // The chosen language outlives a reload, so this asks for it only when the
     // editor is not already speaking it.

@@ -85,7 +85,6 @@ test('the ribbon resets a grouped placeholder without moving it', { timeout: 120
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(preview.url);
-    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
     const editor = page.frameLocator('#editor-frame');
     let ja = false;
     await editor.getByText('Saved to this project', { exact: true }).waitFor();
@@ -198,7 +197,6 @@ test('the ribbon resets a grouped placeholder without moving it', { timeout: 120
       'redo the layout reset',
     );
     await page.reload();
-    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
     await page
       .frameLocator('#editor-frame')
       .getByText('このプロジェクトに保存済み', { exact: true })

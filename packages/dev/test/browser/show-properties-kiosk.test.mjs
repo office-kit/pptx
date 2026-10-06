@@ -38,7 +38,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.waitForFunction(() =>
         document.querySelector('#slide')?.shadowRoot?.textContent?.includes('Last'),
@@ -104,7 +108,11 @@ test(
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page
+        .frameLocator('#editor-frame')
+        .locator('.statusbar')
+        .getByRole('button', { name: 'Reading View', exact: true })
+        .click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       const slideText = () =>
         page.locator('#slide').evaluate((node) => node.shadowRoot?.textContent ?? '');
@@ -168,8 +176,12 @@ test(
         body.customShows = [{ id: 7, name: 'Reverse', slideIndices: [2, 0, 1] }];
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
+      // The paused clock would stall the editor, so this tab opens in the
+      // Reading View it remembers instead of switching from the editor.
+      await page.addInitScript(() => {
+        if (window === window.top) sessionStorage.setItem('office-kit-view', 'preview');
+      });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
       const popup = page.waitForEvent('popup');
       await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
       presenter = await popup;
@@ -238,8 +250,12 @@ test(
         ];
         await route.fulfill({ response, body: JSON.stringify(body) });
       });
+      // The paused clock would stall the editor, so this tab opens in the
+      // Reading View it remembers instead of switching from the editor.
+      await page.addInitScript(() => {
+        if (window === window.top) sessionStorage.setItem('office-kit-view', 'preview');
+      });
       await page.goto(preview.url);
-      await page.getByRole('button', { name: 'Preview', exact: true }).click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       const slideText = () =>
         page.locator('#slide').evaluate((node) => node.shadowRoot?.textContent ?? '');

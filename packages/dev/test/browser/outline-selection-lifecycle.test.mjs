@@ -41,7 +41,6 @@ for (const locale of ['en', 'ja']) {
           locale,
         );
         await page.goto(preview.url);
-        await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
         const labels =
           locale === 'en'
@@ -90,7 +89,6 @@ test('canvas selection releases the outline ribbon range', { timeout: 60000 }, a
     const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
     await installRichTextSelection(page);
     await page.goto(preview.url);
-    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
     const editor = page.frameLocator('#editor-frame');
     await editor.getByRole('tab', { name: 'View', exact: true }).click();
     await editor

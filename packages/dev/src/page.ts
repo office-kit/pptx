@@ -8,29 +8,28 @@ export const page = `<!doctype html>
 <link rel="stylesheet" href="/terminal.css">
 <style>
 ${previewStyles}
-.slide-edit-tools{display:flex;gap:6px;padding:8px 14px;flex-shrink:0}.slide-edit-tools{align-items:center;flex-wrap:wrap}.slide-edit-tools [data-undo],.slide-edit-tools [data-redo]{width:32px;height:32px;padding:0;display:grid;place-items:center;border:1px solid transparent;border-radius:8px;background:transparent;color:#625873;box-shadow:none}.slide-edit-tools [data-undo]:hover:not(:disabled),.slide-edit-tools [data-redo]:hover:not(:disabled){background:#ede7fa;border-color:#d6cbea;color:#513399}.slide-edit-tools button:disabled{opacity:.35}.slide-edit-tools button:focus-visible{outline:2px solid #8966df;outline-offset:2px}.slide-edit-tools [hidden]{display:none}.slide-edit-tools span{font-size:11px;color:#625873;flex:1}.slide-edit-tools small{font-size:11px;color:#634396}.slide-hover{position:fixed;border:1px solid #b094ff;pointer-events:none;z-index:19;border-radius:2px}.slide-text-input{position:fixed;z-index:22;resize:none;background:#202438;color:#fff;border:2px solid #b094ff;border-radius:3px;padding:0;box-shadow:0 0 0 3px #b094ff30;line-height:1.15}.slide-text-input[hidden],.slide-hover[hidden]{display:none}.slide-selection{position:fixed;border:2px solid #b094ff;background:#a080ff18;pointer-events:none;z-index:20;box-shadow:0 0 0 1px #201632}.slide-edit-panel{position:fixed;z-index:21;width:min(380px,calc(100vw - 16px));padding:14px;background:#202438;border:1px solid #776591;border-radius:14px;box-shadow:0 16px 50px #0008;display:flex;flex-direction:column;gap:12px}.slide-edit-panel[hidden],.slide-selection[hidden]{display:none}.selection-heading,.selection-actions{display:flex;align-items:center;gap:8px}.selection-heading strong{flex:1}.slide-edit-panel textarea{width:100%;min-height:90px;max-height:35vh;resize:vertical;background:#141a2b;color:#f4efff;border:1px solid #514969;border-radius:8px;padding:10px;font:inherit}.selection-actions{flex-wrap:wrap}.selection-actions select{min-width:80px;flex:1}.slide-edit-panel small{color:#d1c9e3;line-height:1.5}.presenting .slide-edit-tools{display:none}
+.slide-edit-tools{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:4px 12px;flex-shrink:0;background:var(--ok-ribbon);border-bottom:1px solid var(--ok-border)}.slide-edit-tools [data-undo],.slide-edit-tools [data-redo]{width:26px;height:26px;padding:0;display:grid;place-items:center;color:var(--ok-text-2)}.slide-edit-tools [data-undo]:hover:not(:disabled),.slide-edit-tools [data-redo]:hover:not(:disabled){color:var(--ok-text)}.slide-edit-tools span{font-size:11px;color:var(--ok-text-2);flex:1}.slide-edit-tools small{font-size:11px;color:var(--ok-accent)}.slide-hover{position:fixed;border:1px solid var(--ok-selected-border);pointer-events:none;z-index:19;border-radius:2px}.slide-text-input{position:fixed;z-index:22;resize:none;background:var(--ok-panel);color:var(--ok-text);border:2px solid var(--ok-selected-border);border-radius:var(--ok-radius);padding:0;line-height:1.15}.slide-selection{position:fixed;border:2px solid var(--ok-selected-border);background:color-mix(in srgb,var(--ok-selected-border) 10%,transparent);pointer-events:none;z-index:20}.slide-edit-panel{position:fixed;z-index:21;width:min(380px,calc(100vw - 16px));padding:12px;background:var(--ok-panel);color:var(--ok-text);border:1px solid var(--ok-border);border-radius:var(--ok-radius-lg);box-shadow:var(--ok-shadow-lg);display:flex;flex-direction:column;gap:10px}.selection-heading,.selection-actions{display:flex;align-items:center;gap:6px}.selection-heading strong{flex:1}.slide-edit-panel textarea{width:100%;min-height:90px;max-height:35vh;resize:vertical;background:var(--ok-panel);color:var(--ok-text);border:1px solid var(--ok-border-strong);border-radius:var(--ok-radius);padding:6px 8px}.slide-edit-panel textarea:focus{outline:2px solid var(--ok-selected-border);outline-offset:-1px}.selection-actions{flex-wrap:wrap}.selection-actions select{min-width:80px;flex:1}.selection-actions button{border-color:var(--ok-border-strong)}.slide-edit-panel small{color:var(--ok-text-2);line-height:1.5}.presenting .slide-edit-tools{display:none}
 .editing:not(.presenting) .slide-edit-tools{display:none}
 
-#agent-workspace{position:relative;flex:1;min-height:0;min-width:0;display:flex;overflow:auto}.agent-pane{position:absolute;padding:3px 5px;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden}.agent-pane iframe{border:0;width:100%;flex:1;min-height:0;border-radius:0 0 9px 9px}.agent-tools{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:6px;background:#20253a;border:1px solid #34334e;border-radius:9px 9px 0 0}.agent-tools span{flex:1;font-size:10px;letter-spacing:.04em;color:#b3abc9}.agent-tools svg{width:14px;height:14px}.agent-pane:focus-within .agent-tools{border-color:#8b6ed577;background:#29243e}.agent-tools button{font-size:11px;padding:5px;background:transparent;border:0;display:grid;place-items:center}.agent-divider{position:absolute;z-index:2;background:#101422;cursor:col-resize;touch-action:none}.agent-divider.vertical{cursor:row-resize}.agent-divider:hover,.agent-divider:focus-visible{background:#9b87ff}.splitting-agents iframe,.resizing-chat iframe{pointer-events:none}
-.thumbnail[data-skipped="true"] .slide-number{text-decoration:line-through}
-.thumbnail[data-skipped="true"] img{opacity:.6}
+#agent-workspace{position:relative;flex:1;min-height:0;min-width:0;display:flex;overflow:auto}.agent-pane{position:absolute;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden}.agent-pane iframe{border:0;width:100%;flex:1;min-height:0;background:var(--ok-panel)}.agent-tools{display:flex;gap:2px;align-items:center;padding:3px 6px 3px 12px;min-height:30px;background:var(--ok-panel-2);border-bottom:1px solid var(--ok-border)}.agent-tools span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600;color:var(--ok-text-2)}.agent-pane:focus-within .agent-tools span{color:var(--ok-text)}.agent-tools button{width:24px;height:24px;padding:0;display:grid;place-items:center;color:var(--ok-text-2)}.agent-tools button:hover:not(:disabled){color:var(--ok-text)}.agent-tools svg{width:14px;height:14px}.agent-divider{position:absolute;z-index:2;background:transparent;cursor:col-resize;touch-action:none}.agent-divider.vertical{cursor:row-resize}.agent-divider::after{content:"";position:absolute;background:var(--ok-border)}.agent-divider.horizontal::after{top:0;bottom:0;left:50%;width:1px}.agent-divider.vertical::after{left:0;right:0;top:50%;height:1px}.agent-divider:hover::after,.agent-divider:focus-visible::after{background:var(--ok-selected-border)}.agent-divider.horizontal:hover::after,.agent-divider.horizontal:focus-visible::after{width:2px}.agent-divider.vertical:hover::after,.agent-divider.vertical:focus-visible::after{height:2px}.agent-divider:focus-visible{outline:none}.splitting-agents iframe,.resizing-chat iframe{pointer-events:none}
 #editor-frame{display:none;border:0;width:100%;height:100%;flex:1;min-height:0}
-body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
+body.editing:not(.presenting){grid-template-rows:minmax(0,1fr)}
 .editing:not(.presenting) .workspace{--filmstrip-width:0px;grid-template-columns:minmax(0,1fr) clamp(280px,var(--chat-width),calc(100vw - 500px))}
 .editing.chat-hidden:not(.presenting) .workspace{grid-template-columns:minmax(0,1fr)}
-.editing:not(.presenting) .filmstrip,.editing:not(.presenting) footer,.editing:not(.presenting) #stage,.editing:not(.presenting) #present,.editing:not(.presenting) #presenter,.editing:not(.presenting) .download{display:none}
+.editing:not(.presenting) .filmstrip,.editing:not(.presenting) footer,.editing:not(.presenting) #stage{display:none}
 .editing:not(.presenting) #editor-frame{display:block}
-@media(max-width:900px){.editing:not(.presenting) .workspace{grid-template-columns:minmax(0,1fr)}.editing:not(.presenting) #chat{display:none}}
+/* Too narrow to dock beside the editor: the pane floats over its right edge. */
+@media(max-width:900px){.editing:not(.presenting) .workspace{grid-template-columns:minmax(0,1fr)}.editing:not(.presenting) #chat{position:fixed;z-index:30;top:0;right:0;bottom:0;width:min(380px,100vw);box-shadow:var(--ok-shadow-lg)}.editing:not(.presenting) #chat-resizer{display:none}}
 </style>
-<body class="editing"><header><span class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><defs><linearGradient id="brand-gradient" x2="1" y2="1"><stop stop-color="#c39aff"/><stop offset="1" stop-color="#7165f4"/></linearGradient></defs><rect x="2" y="2" width="32" height="32" rx="10" fill="url(#brand-gradient)"/><path d="M11 10h9l6 6v10H11z" fill="none" stroke="white" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 10v7h6M15 21h7M15 25h4" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"/><path d="m28 3 1.2 3.8L33 8l-3.8 1.2L28 13l-1.2-3.8L23 8l3.8-1.2z" fill="#e7dbff"/></svg>Office <em>Kit</em></span><span class="badge">Studio</span><span id="status" role="status">Building…</span><button id="toggle-editor" aria-pressed="true">Preview</button><button id="toggle-chat" aria-expanded="true" aria-controls="chat">✦ Agents</button><button id="present" disabled>Present</button><button id="presenter" disabled>Presenter view</button><a class="download" href="/deck.pptx">Download PPTX</a></header>
+<body class="editing chat-hidden">
 <div class="workspace">
 <nav class="filmstrip" aria-label="Slides"><h2>Slides</h2><ol id="thumbnails"></ol></nav>
 <main aria-label="Slide viewer"><iframe id="editor-frame" title="Presentation editor"></iframe><pre id="error" role="alert" hidden></pre><div id="stage" tabindex="-1"><div id="empty">Waiting for slides…</div><div id="slide" hidden></div></div></main>
-<aside id="chat" aria-label="Slide chat">
+<aside id="chat" aria-labelledby="agents-title">
 <div id="chat-resizer" role="separator" tabindex="0" aria-label="Chat width" aria-orientation="vertical" aria-controls="chat" title="Drag to resize · Double-click to reset"></div>
-<div class="workspace-heading"><span>✦ AI WORKSPACE</span><b>LOCAL</b></div><div id="agent-workspace"></div><div id="chat-context" hidden></div></aside>
+<div class="pane-head"><strong id="agents-title">Agents</strong><button id="close-chat" class="pane-close" aria-label="Close Agents" title="Close Agents">×</button></div><div id="agent-workspace"></div><div id="chat-context" hidden></div></aside>
 </div>
-<footer><span id="count" aria-live="polite">No slides</span><span class="hint">Select an area to ask AI · Edit text directly</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
+<footer><span id="count" aria-live="polite">No slides</span><span id="status" role="status">Building…</span><span class="hint">Select an area to ask AI · Edit text directly</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><button id="present" disabled>Present</button><button id="presenter" disabled>Presenter view</button><a class="download" href="/deck.pptx">Download PPTX</a><button id="toggle-chat" aria-pressed="false" aria-controls="chat"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 9.4 6.6 14.5 8 9.4 9.4 8 14.5 6.6 9.4 1.5 8 6.6 6.6Z" stroke-linejoin="round"/></svg><span>Agents</span></button><span class="status-views" role="group" aria-label="Presentation views"><button id="toggle-editor" aria-label="Normal" title="Normal (Esc)"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><rect x=".5" y=".5" width="15" height="11" rx="1"/><path d="M5 1v10"/></svg></button></span><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer><div id="notice" role="alert" hidden></div>
 <div id="presentation-scrollbar" role="scrollbar" aria-label="Slide position" aria-controls="slide" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span></span></div><div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="rehearsal-timer" role="timer" aria-label="Rehearsal time" hidden></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
@@ -571,14 +570,19 @@ async function exitPresentation(){
   setPresenting(false);
   if(document.fullscreenElement)await document.exitFullscreen();
 }
-async function startPresentation(from,windowed=false){
+async function startPresentation(from){
   setPresenting(true,from);
-  if(windowed||state.showProperties?.mode?.kind==='browse')return;
+  if(state.showProperties?.mode?.kind==='browse')return;
   const request=fullscreenRequest={};
   try{await document.documentElement.requestFullscreen();}
   catch{if(fullscreenRequest===request){fullscreenRequest=null;byId('exit-present').textContent=pt('Exit view · Esc');}}
 }
 byId('present').onclick=()=>startPresentation();
+// Messages that used to sit in the shell's header now float over whichever
+// view is showing, so they are not lost while the editor fills the window.
+const NOTICE_MS=6000;
+let noticeTimer;
+function showNotice(text){const notice=byId('notice');notice.textContent=text;notice.hidden=false;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>{notice.hidden=true;},NOTICE_MS);}
 function updatePresenter(){
  if(!presenterWindow||presenterWindow.closed)return;
  // The presenter runs the same player over its own copy of the slide, from the
@@ -596,7 +600,7 @@ byId('presenter').onclick=()=>{
  if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
  presenterWindow=window.open('/presenter','office-kit-presenter','popup,width=1100,height=800');
  if(presenterWindow)setPresenting(true);
- else byId('status').textContent=pt('Allow popups to open presenter view.');
+ else showNotice(pt('Allow popups to open presenter view.'));
 };
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==presenterWindow||event.data?.type!=='presenter-command')return;
@@ -698,6 +702,9 @@ stage.onclick=event=>{
 };
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
+  // As in PowerPoint's Reading View, Esc goes back to Normal view, unless it
+  // is closing the viewer's own text field or area selection first.
+  if(event.key==='Escape'&&!document.body.classList.contains('editing')&&!event.target.closest('select,input,textarea,[contenteditable]')&&document.querySelector('.slide-edit-panel')?.hidden!==false){event.preventDefault();chooseView(true);return;}
   if(presenting&&state.showProperties?.mode?.kind==='kiosk')return;
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;
   const focusThumbnail=thumbnails.contains(document.activeElement);
@@ -727,21 +734,38 @@ async function refresh(){
   try{const response=await fetch('/state'+(state.revision===undefined?'':'?since='+state.revision));if(!response.ok)throw new Error('Preview unavailable');const updated=await response.json();if(id===refreshId){if(updated.changes){updated.slides=state.slides.slice(0,updated.count);updated.slides.length=updated.count;for(const [position,svg] of Object.entries(updated.changes))updated.slides[Number(position)]=svg;}update(updated);}}
   catch{if(id===refreshId){connectionLost=true;updatePreviewStatus();}}
 }
-byId('toggle-chat').onclick=()=>{const hidden=document.body.classList.toggle('chat-hidden');byId('toggle-chat').setAttribute('aria-expanded',String(!hidden));resize();};
 const editorFrame=byId('editor-frame');
 let editorFocus;
+// The Agents task pane opens on demand, like PowerPoint's panes; the editor's
+// Agents button (in its tab row) mirrors that state, so every change is reported back.
+const agentsKey='office-kit-agents-open';
+function agentsOpen(){return !document.body.classList.contains('chat-hidden');}
+function postAgentsState(focusButton=false){editorFrame.contentWindow?.postMessage({type:'host-panes',agents:agentsOpen(),focus:focusButton},location.origin);}
+function setAgentsOpen(open,{focusPane=false,returnFocus=false}={}){
+ document.body.classList.toggle('chat-hidden',!open);
+ byId('toggle-chat').setAttribute('aria-pressed',String(open));
+ try{sessionStorage.setItem(agentsKey,open?'1':'0');}catch(error){console.warn('Could not save the Agents pane state',error);}
+ postAgentsState(returnFocus&&document.body.classList.contains('editing'));
+ resize();
+ if(open&&focusPane)byId('close-chat').focus();
+ else if(returnFocus){if(document.body.classList.contains('editing'))editorFrame.focus();else byId('toggle-chat').focus();}
+}
+byId('toggle-chat').onclick=()=>setAgentsOpen(!agentsOpen());
+byId('close-chat').onclick=()=>setAgentsOpen(false,{returnFocus:true});
+try{if(sessionStorage.getItem(agentsKey)==='1')setAgentsOpen(true);}catch(error){console.warn('Could not restore the Agents pane state',error);}
 function setEditorMode(editing){
  document.body.classList.toggle('editing',editing);
  if(editing&&!editorFrame.getAttribute('src'))editorFrame.src='/editor';
- byId('toggle-editor').setAttribute('aria-pressed',String(editing));
- byId('toggle-editor').textContent=pt(editing?'Preview':'Edit');
  if(editing&&editorFocus)applyEditorFocus();else selectSlide(index);
  resize();
 }
-byId('toggle-editor').onclick=()=>{
- const editing=!document.body.classList.contains('editing');setEditorMode(editing);
+// The rendered viewer is the editor's Reading View; Normal (or Esc) returns.
+function chooseView(editing){
+ setEditorMode(editing);
  try{sessionStorage.setItem('office-kit-view',editing?'editor':'preview');}catch(error){console.warn('Could not save view preference',error);}
-};
+ if(editing)editorFrame.focus();else stage.focus();
+}
+byId('toggle-editor').onclick=()=>chooseView(true);
 try{setEditorMode(sessionStorage.getItem('office-kit-view')!=='preview');}catch(error){console.warn('Could not restore view preference',error);setEditorMode(true);}
 function applyEditorFocus(){
  if(!editorFocus)return;
@@ -752,12 +776,18 @@ function applyEditorFocus(){
 }
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-command')return;
+ const slide=event.data.slide;
+ if(event.data.action==='agents'){setAgentsOpen(!agentsOpen(),{focusPane:true});return;}
+ if(event.data.action==='reading'){
+  if(Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)index=slide;
+  chooseView(false);
+  return;
+ }
  // The editor's Slide Show tab; the click's user activation reaches this page,
  // so fullscreen and the presenter popup are still allowed.
  if(byId('present').disabled)return;
- const slide=event.data.slide;
  if(event.data.action==='start')void startPresentation();
- else if((event.data.action==='current'||event.data.action==='reading')&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide,event.data.action==='reading');
+ else if(event.data.action==='current'&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide);
  else if(event.data.action==='presenter')byId('presenter').click();
  else if(event.data.action==='rehearse'){void startPresentation();if(presenting)startRehearsal();}
 });
@@ -767,7 +797,7 @@ window.addEventListener('message',event=>{
  if(previewLocale!==editorFocus.locale&&(editorFocus.locale==='ja'||editorFocus.locale==='en')){previewLocale=editorFocus.locale;updatePreviewLabels();}
  updatePresenter();
  if(document.body.classList.contains('editing'))applyEditorFocus();
- byId('toggle-editor').textContent=pt(document.body.classList.contains('editing')?'Preview':'Edit');
+ postAgentsState();
 });
 updatePreviewLabels();
 const events=new EventSource('/events');events.onmessage=event=>{if(event.data==='history'){window.dispatchEvent(new Event('agent-history'));return;}if(event.data==='chat'){window.dispatchEvent(new Event('agent-chat'));return;}if(event.data==='ready'){delete state.revision;}void refresh();};events.onerror=()=>{connectionLost=true;updatePreviewStatus()};refresh();

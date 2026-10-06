@@ -121,7 +121,7 @@ export function mountWorkspace() {
       split.dataset.split = direction;
       tools.append(split);
     }
-    const close = button('Close', () => {
+    const close = button('Close agent', () => {
       void closePane();
     });
     close.dataset.close = '';

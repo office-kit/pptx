@@ -75,7 +75,11 @@ for (const rewindAfterPlaying of [false, true]) {
         );
         preview = await startPreview(file);
         await page.goto(preview.url);
-        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        await page
+          .frameLocator('#editor-frame')
+          .locator('.statusbar')
+          .getByRole('button', { name: 'Reading View', exact: true })
+          .click();
         await page.getByRole('button', { name: 'Present', exact: true }).click();
         const video = page.locator('#slide video');
         await video.waitFor();

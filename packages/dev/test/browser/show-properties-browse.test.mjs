@@ -58,7 +58,11 @@ for (const mode of [
             window.__fullscreenRequests += 1;
           };
         });
-        await page.getByRole('button', { name: 'Preview', exact: true }).click();
+        await page
+          .frameLocator('#editor-frame')
+          .locator('.statusbar')
+          .getByRole('button', { name: 'Reading View', exact: true })
+          .click();
         await page.getByRole('button', { name: 'Present', exact: true }).click();
         await page.waitForFunction(() => document.body.classList.contains('presenting'));
         assert.equal(
