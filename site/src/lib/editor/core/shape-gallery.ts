@@ -8,13 +8,23 @@ import {
   addSlideShape,
   createPresentation,
   findSlideLayout,
+  getShapeId,
   inches,
+  renameShape,
+  setShapeAlignment,
   setShapeNoFill,
   setShapeStroke,
+  setShapeStyle,
+  setShapeTextAnchor,
   setSlideSize,
+  type Emu,
   type PresetShape,
+  type ShapeStyleOptions,
+  type SlideData,
+  type SlideShapeData,
 } from '@office-kit/pptx';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
+import { quickStyleReferences } from './shape-quick-styles.ts';
 
 export type GalleryShape = PresetShape | 'line';
 
@@ -148,4 +158,70 @@ export function shapeSprite(): ShapeSprite {
     cells,
   };
   return sprite;
+}
+
+const NAMES: Partial<Record<GalleryShape, string>> = {
+  line: 'Line',
+  rect: 'Rectangle',
+  roundRect: 'Rounded Rectangle',
+  ellipse: 'Oval',
+  triangle: 'Isosceles Triangle',
+  rtTriangle: 'Right Triangle',
+  star5: '5-Point Star',
+  rightArrow: 'Right Arrow',
+  leftArrow: 'Left Arrow',
+  upArrow: 'Up Arrow',
+  downArrow: 'Down Arrow',
+  hexagon: 'Hexagon',
+  diamond: 'Diamond',
+};
+
+/** The shape's English name in the gallery and, numbered, on the slide. */
+export function galleryShapeLabel(preset: GalleryShape): string {
+  // Other presets read as their schema names spelled out ("leftRightArrow" → "Left Right Arrow").
+  return (
+    NAMES[preset] ??
+    preset.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase())
+  );
+}
+
+// PowerPoint draws brackets and braces as outlines: their filled path is only
+// the hit area, so it inserts them in the line style (no fill, dark text).
+const OPEN_SHAPES: ReadonlySet<GalleryShape> = new Set([
+  'bracketPair',
+  'bracePair',
+  'leftBracket',
+  'rightBracket',
+  'leftBrace',
+  'rightBrace',
+]);
+const OPEN_SHAPE_STYLE: ShapeStyleOptions = {
+  line: { idx: 2, color: 'accent1' },
+  fill: { idx: 0, color: 'accent1' },
+  effect: { idx: 1, color: 'accent1' },
+  font: { idx: 'minor', color: 'tx1' },
+};
+
+/**
+ * Adds a gallery shape the way PowerPoint draws one: in the theme's
+ * "Colored Fill - Accent 1" quick style (brackets and braces in its line
+ * style), with its text centered both ways, named like "Oval 3".
+ * `addSlideShape` alone writes bare geometry with neither fill nor outline,
+ * which PowerPoint and the preview render as nothing.
+ */
+export function addGalleryShape(
+  slide: SlideData,
+  preset: PresetShape,
+  bounds: { x: Emu; y: Emu; w: Emu; h: Emu },
+): SlideShapeData {
+  const shape = addSlideShape(slide, { preset, ...bounds });
+  // PowerPoint numbers a new shape after its id, less the slide's own group.
+  renameShape(shape, `${galleryShapeLabel(preset)} ${getShapeId(shape) - 1}`);
+  setShapeStyle(
+    shape,
+    OPEN_SHAPES.has(preset) ? OPEN_SHAPE_STYLE : quickStyleReferences('Colored Fill', 'accent1'),
+  );
+  setShapeTextAnchor(shape, 'center');
+  setShapeAlignment(shape, 'center');
+  return shape;
 }

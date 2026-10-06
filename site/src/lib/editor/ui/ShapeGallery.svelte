@@ -2,20 +2,13 @@
   // PowerPoint's Shapes gallery. Choosing a shape arms drawing: drag on the
   // slide to place it, or click for a one-inch shape.
   import { getEditor } from '../core/context.ts';
-  import { SHAPE_GALLERY, shapeSprite, type GalleryShape } from '../core/shape-gallery.ts';
+  import { SHAPE_GALLERY, galleryShapeLabel, shapeSprite, type GalleryShape } from '../core/shape-gallery.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
   const anchor = $derived(editor.shapeGallery);
   const sprite = $derived(anchor ? shapeSprite() : null);
   const ICON_PX = 24;
-
-  const NAMES: Partial<Record<GalleryShape, string>> = {
-    line: 'Line', rect: 'Rectangle', roundRect: 'Rounded Rectangle', ellipse: 'Oval', triangle: 'Isosceles Triangle', rtTriangle: 'Right Triangle',
-    star5: '5-Point Star', rightArrow: 'Right Arrow', leftArrow: 'Left Arrow', upArrow: 'Up Arrow', downArrow: 'Down Arrow', hexagon: 'Hexagon', diamond: 'Diamond',
-  };
-  // Other presets read as their schema names spelled out ("leftRightArrow" → "Left Right Arrow").
-  const label = (preset: GalleryShape) => NAMES[preset] ?? preset.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
 
   function choose(preset: GalleryShape) {
     editor.shapeGallery = null;
@@ -37,8 +30,8 @@
           {@const cell = sprite.cells.get(preset) ?? 0}
           <button
             role="menuitem"
-            aria-label={t(label(preset))}
-            title={t(label(preset))}
+            aria-label={t(galleryShapeLabel(preset))}
+            title={t(galleryShapeLabel(preset))}
             style:background-image="url('{sprite.url}')"
             style:background-size="{sprite.columns * ICON_PX}px {sprite.rows * ICON_PX}px"
             style:background-position="-{(cell % sprite.columns) * ICON_PX}px -{Math.floor(cell / sprite.columns) * ICON_PX}px"

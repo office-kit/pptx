@@ -1,7 +1,8 @@
 <script lang="ts">
   // Draws the shape chosen in the Shapes gallery: drag to size it (Shift keeps
   // it square), or click to drop a one-inch shape, as PowerPoint does.
-  import { addSlideLine, addSlideShape, emu, getShapeId, inches, type Emu } from '@office-kit/pptx';
+  import { addSlideLine, emu, getShapeId, inches, type Emu } from '@office-kit/pptx';
+  import { addGalleryShape } from '../core/shape-gallery.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -59,8 +60,7 @@
     doc.transact(t('Insert Shape'), () => {
       const shape = preset === 'line'
         ? addSlideLine(slide, { from: { x: point(area.x1), y: point(area.y1) }, to: { x: point(area.x2), y: point(area.y2) } })
-        : addSlideShape(slide, {
-            preset,
+        : addGalleryShape(slide, preset, {
             x: point(Math.min(area.x1, area.x2)),
             y: point(Math.min(area.y1, area.y2)),
             w: point(Math.max(1, Math.abs(area.x2 - area.x1))),
