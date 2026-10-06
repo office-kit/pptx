@@ -13,7 +13,7 @@ export default (
 
 const theme = `export const theme = {
   background: '#15171C',
-  accent: '#E5481F',
+  accent: '#D6336C',
   text: '#FFFFFF',
   muted: '#B4B9C4',
 } as const;

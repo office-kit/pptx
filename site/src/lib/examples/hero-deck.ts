@@ -26,7 +26,7 @@ export function buildHeroDeck(): PresentationData {
     w: inches(0.12),
     h: inches(0.95),
   });
-  setShapeFill(bar, '#E5481F');
+  setShapeFill(bar, '#D6336C');
   setShapeNoStroke(bar);
 
   const title = addSlideTextBox(slide, {
@@ -56,7 +56,7 @@ export function buildHeroDeck(): PresentationData {
       kind: 'column',
       categories: ['Q1', 'Q2', 'Q3', 'Q4'],
       series: [
-        { name: 'Revenue', values: [120, 180, 240, 300], color: '#E5481F' },
+        { name: 'Revenue', values: [120, 180, 240, 300], color: '#D6336C' },
         { name: 'Cost', values: [80, 90, 130, 160], color: '#C9CDD6' },
       ],
       legend: { position: 'b', textStyle: { sizePt: 14, color: '#5B616E' } },

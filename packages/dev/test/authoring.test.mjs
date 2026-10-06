@@ -36,7 +36,7 @@ test('initialized TSX typechecks, builds, and uses source-relative assets in imp
   assert.match((await buildDeck(deck)).slides[0], /Quarterly review/);
   const themePath = join(project, 'theme.ts');
   const theme = await readFile(themePath, 'utf8');
-  await writeFile(themePath, theme.replace('#E5481F', '#123456'));
+  await writeFile(themePath, theme.replace('#D6336C', '#123456'));
   assert.match((await buildDeck(deck)).slides[0], /#123456/i);
   assert.equal(await readFile(deck, 'utf8'), entry);
   await writeFile(join(project, 'template.pptx'), result.bytes);
