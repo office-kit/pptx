@@ -180,7 +180,8 @@ function mergeOrder(
   }
   const result: string[] = [];
   const emit = (key: string | null) => {
-    for (let at = key; at !== undefined; at = after.get(at)) if (at !== null) result.push(at);
+    for (let at: string | null | undefined = key; at !== undefined; at = after.get(at))
+      if (at !== null) result.push(at);
   };
   emit(null);
   for (const key of kept) emit(key);
