@@ -63,8 +63,11 @@ test(
         request('/editor/document', state.revision, edited),
         request('/editor/document', state.revision, original),
       ]);
-      assert.deepEqual(attempts.map((response) => response.status).sort(), [200, 409]);
-      // Whichever concurrent request won, explicitly save the edited document next.
+      // The later save merges with the earlier one; the unchanged upload keeps the edit.
+      assert.deepEqual(
+        attempts.map((response) => response.status),
+        [200, 200],
+      );
       state = await waitForState(preview.url, (state) => state.hasEdits);
       const saved = await request('/editor/document', state.revision, edited);
       assert.equal(saved.status, 200);
@@ -88,6 +91,14 @@ test(
 
       await writeFile(file, source('External change'));
       state = await waitForState(preview.url, (state) => state.conflict);
+      assert.deepEqual(state.conflicts, [
+        {
+          part: 'ppt/slides/slide1.xml',
+          slide: 1,
+          shape: { id: '2', name: 'TextBox 2' },
+          reason: 'both-changed',
+        },
+      ]);
       assert.equal(
         await title(
           new Uint8Array(await (await fetch(preview.url + '/editor/source')).arrayBuffer()),
@@ -95,7 +106,7 @@ test(
         'External change',
       );
       assert.equal((await request('/editor/document', state.revision, edited)).status, 409);
-      await assert.rejects(buildDeck(file), /Source changed/);
+      await assert.rejects(buildDeck(file), /Source changed[\s\S]*Slide 1: TextBox 2/);
       const keep = await request('/editor/document', state.revision, edited, {
         'X-Editor-Resolve': 'edits',
       });

@@ -2,6 +2,8 @@ export interface EditorDraft {
   id: string;
   projectId: string;
   baseHash: string | undefined;
+  /** Absent in drafts saved before edits could merge with source changes. */
+  baseRevision?: string;
   fileName: string;
   bytes: Uint8Array;
   version: number;

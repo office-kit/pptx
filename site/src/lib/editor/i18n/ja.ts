@@ -1003,6 +1003,18 @@ export const ja: Record<string, string> = {
     'ソースまたは保存済み文書が変更されました。現在の編集内容は保持されています。',
   'Keep my edits': '現在の編集を維持',
   'Download source': 'ソースのPPTXをダウンロード',
+  'These edits could not be merged with the source. Your edits are still here.':
+    'この編集内容をソースの変更と統合できませんでした。現在の編集内容は保持されています。',
+  '{where}: {shape} was changed both here and in the source.':
+    '{where}: {shape} はこのエディターとソースの両方で変更されました。',
+  '{where}: {shape} was deleted on one side and changed on the other.':
+    '{where}: {shape} は一方で削除され、もう一方で変更されました。',
+  '{where} was changed both here and in the source.':
+    '{where} はこのエディターとソースの両方で変更されました。',
+  '{where} was deleted on one side and changed on the other.':
+    '{where} は一方で削除され、もう一方で変更されました。',
+  'The slide list or presentation settings were changed both here and in the source.':
+    'スライドの構成またはプレゼンテーションの設定が、このエディターとソースの両方で変更されました。',
   Retry: '再試行',
 
   // TopBar / file

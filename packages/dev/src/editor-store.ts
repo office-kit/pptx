@@ -1,29 +1,22 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { renderDeck, type BuildResult } from './build.ts';
-
-/** ZIP container dates and generated core timestamps are not source edits. */
-export function sourceFingerprint(bytes: Uint8Array): string {
-  const parts = unzipSync(bytes);
-  const hash = createHash('sha256');
-  for (const name of Object.keys(parts).sort()) {
-    let content = parts[name]!;
-    if (name === 'docProps/core.xml') {
-      content = strToU8(
-        strFromU8(content).replace(/<(dcterms:(?:created|modified))\b[^>]*>[\s\S]*?<\/\1>/g, ''),
-      );
-    }
-    hash.update(JSON.stringify([name, createHash('sha256').update(content).digest('hex')]));
-  }
-  return hash.digest('hex');
-}
+import { describeConflict, mergeDecks } from './deck-merge.ts';
+import { sourceFingerprint } from './fingerprint.ts';
 
 export interface SavedEdits {
   sourceHash: string;
   bytes: Uint8Array;
+  /**
+   * The source build the edits were made against, which lets a later source
+   * change merge with them. Version 1 sidecars did not store it.
+   */
+  base: Uint8Array | null;
 }
+
+const STORE_VERSION = 2;
 
 /** One atomic sidecar keeps the saved deck and its source basis in agreement. */
 export function editorStore(entry: string) {
@@ -46,24 +39,29 @@ export function editorStore(entry: string) {
         !state ||
         typeof state !== 'object' ||
         !('version' in state) ||
-        state.version !== 1 ||
+        (state.version !== 1 && state.version !== STORE_VERSION) ||
         !('sourceHash' in state) ||
         typeof state.sourceHash !== 'string' ||
         !/^[a-f0-9]{64}$/.test(state.sourceHash)
       ) {
         throw new Error(`Invalid editor metadata: ${path}`);
       }
-      return { sourceHash: state.sourceHash, bytes: parts['document.pptx'] };
+      const base = parts['base.pptx'];
+      if (state.version === STORE_VERSION && !base) throw new Error(`Invalid editor file: ${path}`);
+      return { sourceHash: state.sourceHash, bytes: parts['document.pptx'], base: base ?? null };
     },
-    async write(edits: SavedEdits): Promise<void> {
+    async write(edits: SavedEdits & { base: Uint8Array }): Promise<void> {
       await mkdir(dirname(path), { recursive: true });
       const temporary = `${path}.${randomUUID()}.tmp`;
       try {
         await writeFile(
           temporary,
           zipSync({
-            'state.json': strToU8(JSON.stringify({ version: 1, sourceHash: edits.sourceHash })),
+            'state.json': strToU8(
+              JSON.stringify({ version: STORE_VERSION, sourceHash: edits.sourceHash }),
+            ),
             'document.pptx': edits.bytes,
+            'base.pptx': edits.base,
           }),
           { flag: 'wx' },
         );
@@ -81,10 +79,18 @@ export function editorStore(entry: string) {
 export async function applySavedEdits(entry: string, source: BuildResult): Promise<BuildResult> {
   const edits = await editorStore(entry).read();
   if (!edits) return source;
+  let bytes = edits.bytes;
   if (edits.sourceHash !== sourceFingerprint(source.bytes)) {
-    throw new Error(
-      'Source changed since the last editor save. Open office-pptx dev and resolve the editor conflict before exporting.',
-    );
+    const merged = edits.base ? mergeDecks(edits.base, edits.bytes, source.bytes) : null;
+    if (!merged?.ok) {
+      throw new Error(
+        [
+          'Source changed since the last editor save. Open office-pptx dev and resolve the editor conflict before exporting.',
+          ...(merged?.conflicts.map(describeConflict) ?? []),
+        ].join('\n'),
+      );
+    }
+    bytes = merged.bytes;
   }
-  return (await renderDeck(edits.bytes, source.dependencies)).result;
+  return (await renderDeck(bytes, source.dependencies)).result;
 }

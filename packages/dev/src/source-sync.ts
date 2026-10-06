@@ -5,7 +5,7 @@ import { readFile, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative } from 'node:path';
 import type { BuildResult } from './build.ts';
 import { diffDecks, type DeckChange } from './deck-diff.ts';
-import { sourceFingerprint } from './editor-store.ts';
+import { sourceFingerprint } from './fingerprint.ts';
 
 export interface SyncResult {
   /** Changes now stated in the TSX source. */

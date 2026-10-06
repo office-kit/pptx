@@ -43,8 +43,10 @@ Committed edits save automatically; **Save** or Ctrl/Cmd+S saves immediately.
 The browser keeps recovery copies of committed, unsaved changes. After reloading,
 choose **Restore changes** or **Discard recovery copy**. Copies are separate for
 each project and editing tab, and stay in this browser at the same preview URL
-(including its port). A restored copy still requires conflict resolution if the
-source or saved deck changed. Text still being typed must be committed first.
+(including its port). A restored copy merges with later source changes like any
+unsaved edit while the same server keeps running; after a server restart, a copy
+of an older deck requires conflict resolution. Text still being typed must be
+committed first.
 
 Resize handles follow each object's rotation and keep the opposite corner or edge
 fixed. Hold Shift while resizing to preserve the starting aspect ratio. Undo/Redo
@@ -93,16 +95,24 @@ object or drag an area for an AI instruction.
 
 Canvas edits are saved beside the entry in `.office-kit/<entry-name>.editor.zip`;
 for example, `.office-kit/deck.tsx.editor.zip`. Keep this file with your project:
-it contains the edited presentation and its source fingerprint. Canvas edits do
-not rewrite TSX. CLI `build`, `buildDeck` and `exportDeck` use the saved edited
-presentation, including after restarting the server.
+it contains the edited presentation and the source build it was edited from.
+Canvas edits do not rewrite TSX. CLI `build`, `buildDeck` and `exportDeck` use
+the saved edited presentation, including after restarting the server.
 
-Saving a slide file, `theme.ts` or `deck.tsx` rebuilds the source. If its generated
-presentation changes while canvas edits exist, the editor asks you to choose
-**Keep my edits** or **Use source**. Keeping edits preserves the entire edited
-deck; it does not merge changes from TSX. Using source discards the saved canvas
-version. You can download the source version before choosing. CLI export refuses
-an unresolved conflict so that it cannot silently export the wrong version.
+Saving a slide file, `theme.ts` or `deck.tsx` rebuilds the source. Changes from
+TSX merge with canvas edits, saved or not yet saved: shapes, slide settings,
+media and links changed on only one side are combined, and the editor reloads
+the merged presentation, which starts a new Undo history. The editor asks you
+to choose **Keep my edits** or **Use source** only when the same item was
+changed in both places, such as one shape edited on the canvas and in TSX, a
+shape deleted on one side and changed on the other, or slides added, removed or
+reordered on both sides. The message names each collision, for example
+"Slide 2: Title 1 was changed both here and in the source." Keeping edits keeps
+the entire edited deck without the TSX changes; using source discards the saved
+canvas version. You can download the source version before choosing. CLI export
+refuses an unresolved conflict so that it cannot silently export the wrong
+version. Editor files from versions before merging was available cannot merge
+until the conflict is resolved once.
 
 Keep the server running throughout the edit/review loop. In Preview mode, saving
 updates changed thumbnails and slides while preserving zoom, scroll and
