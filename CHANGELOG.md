@@ -1,5 +1,500 @@
 # @office-kit/pptx
 
+## 0.22.0
+
+### Minor Changes
+
+- e18d19d: `getSlideAnimations` reads what a timing tree says becomes of an effect's value once it has run. Each step reports it as `valueAfterEnd`: `'held'` when every behaviour that animates something carries a `fill` that keeps its value, `'removed'` when one says it is taken away again, and `'unstated'` when the tree does not say — the schema gives `fill` no default, so an absent one is not the same as `'hold'`.
+
+  A step is now `playable` (and so `editable`) only when the tree states that the effect leaves the shape where it puts it: the effect node's own `fill`, and that of the `<p:set>` that flips visibility — or, for an effect that only fades, the fade's. An effect that says its value is taken away there, or says nothing there, is still listed and still saved exactly as it arrived, but is reported as one this library reads rather than plays.
+
+  `valueAfterEnd` itself decides nothing: an effect whose fade is removed or unstated still plays, because on its own the shape ends up where its own visibility puts it. It is what a player needs when two effects animate one object at the same time and the shorter one ends first — whether its value stays above the longer one or gives way to it. Decks this library authored are unaffected: it has always written `fill="hold"`.
+
+- e18d19d: `setShapeAnimation` and `updateSlideAnimation` take five more effects, and
+  `getSlideAnimations` reads them back: `flyIn` / `flyOut` travel in from, or out
+  through, one edge of the slide, `zoomIn` / `zoomOut` grow from nothing and
+  shrink back to it about the shape's centre, and `spin` turns the shape one
+  clockwise turn.
+
+  `spin` is the first emphasis effect. It animates a shape that is already on the
+  slide and leaves it exactly where it was, so unlike an entrance or an exit it
+  never decides whether the shape is shown — a shape no entrance has revealed
+  stays unrevealed while it turns.
+
+  A fly takes a `direction`: `'top'`, `'right'`, `'bottom'` (the default) or
+  `'left'`, naming the edge it comes from or leaves by. Steps report it as
+  `direction`, `null` for every effect that does not fly, and passing it for one
+  of those is an error rather than a silently dropped field.
+
+  An effect is only named when the tree states what it does. A preset is matched
+  on all three of `presetClass`, `presetID` and `presetSubtype`, so an imported
+  entrance that shrinks in from four times its size is no longer read as one that
+  grows from nothing; and a rotation is only reported as `spin` when it really is
+  a single full clockwise turn, so a half turn or one the other way is listed and
+  saved as it arrived rather than rewritten as a full one.
+
+  Fixes: an exit fade hid its shape the moment it started instead of fading it
+  out. The `<p:set>` that takes the shape off the slide now trails the motion the
+  way PowerPoint writes it, and moves when the effect's duration changes.
+
+- e18d19d: `setShapeAnimation` accepts `byParagraph`, which reveals a shape's text one paragraph at a time instead of animating the shape as a whole — PowerPoint's and Google Slides' "By paragraph". Each paragraph gets its own effect with the `start` you asked for, so the default advances a paragraph per click, and they share the one `<p:bldP build="p">` that makes PowerPoint treat them as a single build. `getSlideAnimations` reports each paragraph as its own step, targeting a paragraph range. A shape with no text is refused rather than silently animated as a whole, and a call that cannot be completed leaves the slide's existing timing exactly as it was.
+- e18d19d: `setShapeAnimation` accepts `start` and `delayMs`. `'withPrevious'` runs an effect alongside the one before it and `'afterPrevious'` once that one has finished, both off the click that started their predecessor, so several shapes can animate from a single click. As a slide's first effect neither has a predecessor to follow, so both run as the slide appears.
+
+  `'afterPrevious'` needs to know when the effect before it ends. On a slide whose timing states that in a form this library does not model — an effect that runs indefinitely or states no duration, one that repeats or is rescaled, or one that starts from another node rather than at a fixed offset — the call throws and leaves the slide's timing untouched rather than placing the effect at a guessed moment. `'click'` and `'withPrevious'` need no such measurement and still work there.
+
+  Existing calls are unaffected: the defaults still write the click-triggered, zero-delay tree they wrote before, byte for byte.
+
+- e18d19d: Apply the active slide's background to the whole presentation with `applySlideBackgroundToAll` or the editor's Apply to All button. Backgrounds move to slide masters and individual slide/layout overrides are cleared, preserving theme colors and image references. The editor supports undoing the whole operation together.
+- e18d19d: Add `setSlideMasterBackgroundStyle` to select PowerPoint's twelve theme background styles. The selected slide's master receives the theme fill reference and light or dark text/background mapping, preserving accent colors and existing slide overrides.
+- e18d19d: Read and edit PowerPoint’s Rewind After Playing setting for audio and video, preserving it when saving and reopening presentations.
+- e18d19d: Preview background images with their stretch offsets, tile scale, alignment, offsets, and alternating reflections, including inherited backgrounds. Expose natural background image dimensions using embedded resolution and fill DPI, so tiling matches the image size instead of stretching it across the slide.
+- e18d19d: Read and change slide background image placement with `getSlideBackgroundImageFillLayout` and `setSlideBackgroundImageFillLayout`. Stretch offsets and tiled scale, position, alignment, and mirroring preserve the image data. Editing inherited images creates a slide override without changing other slides.
+- e18d19d: Render background picture cropping for stretched and tiled images, including inherited backgrounds. Add `getSlideBackgroundImageCrop` to read the effective source rectangle without changing the deck.
+- e18d19d: Edit slide background patterns with a pattern gallery and foreground/background theme color controls. Selected slides support undo, reset and saving. Editing an inherited pattern creates a slide override while preserving the layout or master and the original color transforms.
+
+  Background pattern readers accept `preserveTheme` to retain unmodified theme color references.
+
+- e18d19d: Add `setSlideBackgroundPatternFill` to edit background patterns and colors. Partial edits preserve unspecified pattern colors and their original DrawingML transforms.
+- e18d19d: Restore picture backgrounds when returning from another fill type during editing, preserving placement, transparency, cropping and imported effects. Add `copySlideBackground` to copy an effective background between slides or presentations while retaining its XML and referenced media.
+- e18d19d: Read and edit slide background picture opacity, including inherited backgrounds. Format Background now provides a transparency slider and percentage field, and the preview displays the selected opacity.
+- e18d19d: Add a Background Styles gallery to the editor's Design ribbon, with theme color previews, master-wide application, undo, and links to background formatting and reset. Expose `getSlideMasterBackgroundStyles` to read the available presets and master selection without modifying a presentation.
+- e18d19d: Insert several slides at one position with `addSlideAt` and distribute formatted text ranges to multiple shapes with `setShapeParagraphs`. Batch text copies preserve paragraph properties, fields and hyperlinks, including when a destination is also the source. Slide insertion rejects layouts from another presentation before changing the deck.
+
+  Read all paragraph inline elements in one pass by omitting the paragraph index from `getShapeParagraphElements`.
+
+- e18d19d: Allow setShapeTextFormat to target a UTF-16 text range while retaining surrounding
+  run and paragraph properties. Reject invalid ranges without changing the document.
+
+  Add a bilingual selected-text formatting bar to the development preview with
+  bold, italic, underline, fonts, size and color, backed by persisted edits and undo.
+
+  Keep property controls synchronized with canvas edits and preserve mixed text
+  formatting when editing in the properties pane. Build the preview editor into
+  the development package regardless of the working directory.
+
+- e18d19d: Support `TextFormat.underlineColor` for independently colored underlines. Set it to `null` to follow the text color. Preserve the color when reading, editing, copying, and saving text, and expose underline color and Automatic in the editor's Font dialog.
+- e18d19d: Support reading and changing transparency on image-filled shapes as well as pictures, including preview rendering. Invalid opacity values now leave the existing transparency unchanged.
+- e18d19d: Support PowerPoint's Top, Middle and Bottom Centered text anchors through the existing `setShapeTextAnchor` API's `centered` option. Resolve inherited centering through `getShapeBodyPrEffective`, preserve paragraph alignment, and expose all six anchor choices in the editor with preview and text-editing support.
+
+  Preview integrations can use `shapeTextAnchorOffset` to position editable text consistently with the rendered text block.
+
+- e18d19d: Text can now carry its own outline, shadow and glow — the WordArt half of a
+  character format.
+
+  `TextFormat` gained `outline`, `shadow` and `glow`, so every writer that takes
+  one (`setShapeTextFormat`, `setShapeRunFormat`, `setTableCellTextFormat`, …)
+  writes `<a:ln>` and `<a:effectLst>` into the run's `<a:rPr>`, and
+  `getShapeRunFormat` / `getShapeRunFormatEffective` read them back. Passing
+  `null` removes one effect and leaves the others alone. `GlowOptions` also
+  gained the `opacity` its reader already reported, so a glow with `<a:alpha>`
+  round-trips instead of losing it.
+
+  The preview paints all three, and the editor exposes them in the text-format
+  dialog and the properties panel in English and Japanese, including through the
+  format painter. In the rasterised SVG text path only the outline is painted so
+  far.
+
+  `<Text>` in `@office-kit/pptx-dsl` keeps `shadow` and `glow` as the text box's
+  own effects; per-run effects go through `paragraphs`.
+
+- e18d19d: Add Clear text formatting to the preview's English and Japanese text and table-cell toolbars, with Ctrl/Command+Backslash for selected text. Clearing preserves hyperlinks and paragraph settings and supports Undo/Redo.
+
+  The existing `setShapeTextFormat` and `setTableCellTextFormat` APIs now accept `{ reset: true }` to restore inherited run appearance before applying a new format, optionally limited to a character range.
+
+- e18d19d: Add comment replies through `addSlideComment({ replyTo })` and `getCommentParent`, preserving PowerPoint p15 threading extensions through save and reload. Removing a comment also removes its descendant replies.
+
+  The preview comments dialog supports creating and editing replies in English and Japanese, shows each reply's parent, and deletes threads with undo/redo support.
+
+- e18d19d: `setShapeShadow` and `setShapeGlow` no longer erase each other. Each now
+  replaces only the effect of its own kind and leaves the rest of the shape's
+  `<a:effectLst>` in place, written in the order `CT_EffectList` states — so a
+  shape can carry a shadow and a glow at once, as PowerPoint routinely writes
+  them. Setting the same effect twice still replaces it, because the schema
+  allows each one only once. `clearShapeEffects` remains the way to empty the
+  list.
+
+  `getShapePatternFill` now reports `preset` as the `PatternPreset` union rather
+  than a bare `string`, so what it reads can be handed straight back to
+  `setShapePatternFill`. An unrecognised `prst` in the file reads as `'pct50'`,
+  which is what PowerPoint paints when the attribute is absent.
+
+- e18d19d: Concatenate text from multiple shapes with `setShapeParagraphs(target, { sources })`, retaining paragraph formatting and hyperlinks. In Outline View, demote a slide title into the previous slide's body with Tab or the context menu, with Undo support. Slides with additional objects or no destination body placeholder report an error before changing their content.
+- e18d19d: Copy existing formatted text into a shape with `setShapeParagraphs(shape, { source, range })`. The optional UTF-16 range retains paragraph properties, fields, run formatting and link relationships while keeping the destination text body's settings.
+
+  Splitting an outline title now retains hyperlinks and paragraph formatting in the new title.
+
+- e18d19d: `getShapeCustomGeometry` now reports the `<a:rect>` a custom-geometry shape
+  states for its text, as `textRect`, with its guide formulas already evaluated.
+
+  The preview lays a custGeom shape's text in that rectangle instead of the whole
+  bounding box, through the new `shapeCustomTextRect` in `@office-kit/pptx-preview`,
+  and inline editing in the dev editor puts the caret in the same place. A custom
+  shape that states no rectangle still gets its whole box — a preset's
+  approximated region is never substituted for a shape that describes itself.
+
+- e18d19d: Add `setShapeCustomGeometry(shape, { paths })`, the writer counterpart of `getShapeCustomGeometry`. It replaces a shape's preset or custom geometry with `<a:custGeom>` paths (moveTo, lnTo, arcTo, quadBezTo, cubicBezTo, close), rounding coordinates to whole numbers and rejecting non-finite values, empty paths and paths that do not start with moveTo before touching the shape.
+- e18d19d: Add custom show destinations to shape and text-range click actions.
+- e18d19d: Add public Custom Show APIs for reading, replacing, and validating named slide sequences, including repeated slides and safe cleanup when a slide is removed.
+- e18d19d: Set slide background gradients with `setSlideBackgroundGradientFill`, including theme colors, stop opacity and brightness, and linear or radial direction settings. Invalid gradient settings leave the previous background unchanged.
+- e18d19d: Edit individual objects inside groups in the development preview, with English and Japanese group navigation, transformed pointer/keyboard movement, and undoable deletion and duplication.
+
+  Allow `copyShape` to preserve ancestor group transforms with `preserveGroupTransform`. Deletion and z-order operations now handle nested shapes in their owning group and preserve trailing extension metadata.
+
+- e18d19d: Animations on a slide can now be edited, not only added. `updateSlideAnimation` changes an effect's preset, duration, delay, start condition or paragraph build; `removeSlideAnimation` takes one out; `moveSlideAnimation` changes its place in the click order. Every effect is addressed by the `<p:cTn id>` `getSlideAnimations` reports, and that id survives each call — including a `byParagraph` toggle, where the addressed effect keeps its place and the rest of the build is new. Reordering and retiming recompute the offsets that make `afterPrevious` mean it, so the effects after the one you changed still start when the one before them ends, and an effect that starts as the slide appears is never quietly turned into one that waits for a click.
+
+  Copying a shape now brings its animations across as the effects they are: a build with a paragraph deleted stays deleted, per-paragraph timings survive, and a preset this library can only read comes along rather than being dropped. Removing a shape takes its effects with it and moves up whatever started when they ended.
+
+  An edit, copy or removal this library cannot reproduce faithfully is refused before anything changes, with a message naming what is in the way — a `<p:tn>` condition that would be left waiting on nothing, an effect shared with a shape that is staying behind, an interactive sequence, or a main sequence laid out in a way it could not write again. In particular, `copyShape` refuses before adding the shape, its relationships or its parts, and `removeShape` refuses before taking the shape out, so the presentation is left exactly as it was.
+
+- e18d19d: Expose inherited bullet color, size, and font details through `getParagraphPropertiesEffective`.
+
+  Preserve bullet formatting inherited from layouts and masters in previews and while editing text, including explicit follow-text overrides.
+
+- e18d19d: Allow `setShapeTextFormat` and `setTableCellTextFormat` to target a paragraph end mark with `paragraphEnd`, preserving existing runs and paragraph properties.
+
+  Fix Increase/Decrease Font Size leaving empty paragraphs unchanged when formatting an entire text box or table cell.
+
+- e18d19d: Read and write PowerPoint's Equalize character height setting with `TextFormat.normalizeHeight`, preserving explicit enabled and disabled values through editing and saving.
+- e18d19d: Add an optional proportional content fit when changing slide size, with English and Japanese page setup controls. Scale object coordinates, explicit text formatting, table dimensions and outlines, and center the original page on the new canvas. Invalid scaled dimensions leave the presentation unchanged.
+- e18d19d: Read and update slide show mode, slide range, looping, narration, animation, and timing settings while preserving other presentation properties.
+- e18d19d: Preserve gradient stop transparency when reading shapes and expose theme-resolved stop colors. Shape previews now render the brightness and transparency saved by PowerPoint for linear and radial gradient stops.
+- e18d19d: Allow gradient stops to specify brightness and opacity, and gradients to preserve scaling and rotation settings. Reject invalid stop edits without discarding the shape's existing fill.
+
+  Edit gradient stop color, position, brightness and transparency in the Format Shape pane, with add/remove controls and Undo support. Drag stops directly, commit each drag as one undoable edit, and cancel an in-progress drag with Escape.
+
+- e18d19d: Expose gradient tile bounds through `GradientFillOptions.tileRect` and gradient readers. Preserve PowerPoint's corner-gradient tile bounds when changing stops or rotation and saving the presentation.
+- e18d19d: Add image-fill placement readers and setters for tile alignment, scale, offsets, mirroring, stretch offsets and rotation with the shape. Placement changes preserve the embedded image, crop and effects. Preview now renders stretch offsets and clips the image to the shape.
+- e18d19d: Add `isSlideBackgroundGraphicsHidden`, `setSlideBackgroundGraphicsHidden`, and `isSlideLayoutBackgroundGraphicsHidden` to inspect and control inherited decoration without deleting template content. Apply to All also copies the graphics visibility setting to slides and layouts. The preview honors both levels, and the editor's Format Background pane supports changing selected slides with undo and save/reload.
+- e18d19d: Fix horizontal text overrides on placeholders inheriting vertical text from a layout or master. Explicit `horz` values now stop the inheritance cascade. Behavior change: `setShapeTextDirection(shape, 'horz')` writes an explicit override; use `null` to clear the override and restore inheritance.
+- e18d19d: Add `setShapeImageRecolor` for PowerPoint-compatible grayscale, duotone, threshold, and washout image effects.
+- e18d19d: Allow effective run formatting to resolve layout and master inheritance from an original shape while reading a detached editing preview. Show inherited character styles during inline shape editing, including pending text and paragraph changes, without baking those styles into saved text or clipboard data.
+- e18d19d: Resolve inherited text autofit and columns through `getShapeBodyPrEffective`, and use them consistently in previews and editing controls. Allow `setShapeTextColumns` to author one column explicitly, overriding inherited columns; invalid column settings leave the previous values intact.
+- e18d19d: Allow effective paragraph properties to retain original placeholder and slide inheritance when reading a detached shape preview. Display paragraph alignment, line spacing, spacing before and after, indentation and text direction during inline editing, with canvas zoom applied to absolute dimensions.
+- e18d19d: Add character-level inner shadow formatting to the text API, including PowerPoint OOXML read, write, inheritance, and independent removal.
+- e18d19d: Edit a slide layout, not just apply one: `setSlideLayoutName`,
+  `setSlideLayoutBackground`, `clearSlideLayoutBackground` and
+  `setSlideLayoutPlaceholderBounds`.
+
+  A layout could be read and applied but never changed, so a deck's shared design
+  was fixed at whatever the template shipped. A layout handle now carries its own
+  document and writes back into the layout part, and every slide on the layout
+  follows the change — except where a slide set its own position or background,
+  which still wins.
+
+  Adding or removing a layout, adding a placeholder slot, and editing the slide
+  master are still not supported.
+
+  The editor exposes the settings through its properties panel and the
+  Design ▸ Layout ribbon group, in English and Japanese.
+
+- e18d19d: Resolve line-break formatting with `{ breakIndex }` in getShapeRunFormatEffective and getTableCellRunFormatEffective. Preserve inherited font, size, and emphasis when selecting, editing, or copying line breaks.
+- e18d19d: Add PowerPoint link destinations for the last slide viewed and ending the slide show.
+- e18d19d: `SlideShowProperties` gains an optional `showMediaControls` (PowerPoint's Show Media Controls, stored as `p14:showMediaCtrls`); `getSlideShowProperties` always reports it. The editor's Slide Show tab adds Rehearse Timings (time each slide while presenting, then keep the times as slide timings), Record, and the Use Timings, Play Narrations and Show Media Controls options; the Microsoft 365-only commands are shown disabled.
+- e18d19d: Add read and write support for named bookmarks in embedded media playback.
+- e18d19d: Say how a clip plays: `getShapeMediaPlayback` and `setShapeMediaPlayback`.
+
+  A deck could embed a video or a sound but not state anything about playing it,
+  so every clip waited for a click at PowerPoint's default volume. The new pair
+  reads and writes autoplay, loop, volume, mute, hide-when-stopped and (video
+  only) full screen, from the clip's media time node. Omitted properties keep
+  their current value.
+
+  Trimming a clip is still not supported: PowerPoint stores it in a 2010
+  extension rather than in the core schema.
+
+  The editor exposes the settings through its properties panel and command
+  palette, in English and Japanese.
+
+- e18d19d: Read and edit the OOXML `numSld` setting for audio and video playback across slides.
+- e18d19d: Preserve automatic media start delays through `MediaPlayback.delayMs`. Presentation preview now waits for the saved delay before playing audio or video and cancels pending playback when leaving a slide or starting media manually.
+- e18d19d: Comments written by PowerPoint 2021 and Microsoft 365 are now read and edited,
+  not merely carried along. Those decks keep their comments in a different format
+  from the one ECMA-376 defines ([MS-PPTX] §2.16.1): a thread owns its replies
+  instead of the replies pointing back at a parent, the text is a DrawingML body
+  rather than a string, authors are identified by GUID in their own
+  `/ppt/authors.xml`, and — the part that has no equivalent at all in ECMA-376 — a
+  thread can be **resolved**.
+
+  `getSlideComments` returns both kinds. `getCommentFormat` says which one a
+  comment came from, `getCommentStatus` reports `'active'`, `'resolved'` or
+  `'closed'`, and `setCommentStatus` resolves a thread or reopens it. Asking for
+  a status on an ECMA-376 comment gives `null`, and setting one throws rather than
+  quietly doing nothing: that file has nowhere to keep it.
+
+  `setCommentText`, `removeSlideComment` and `clearSlideComments` work on either
+  format. `addSlideComment` follows the file rather than the caller — a reply
+  joins its own thread, and a new thread goes where the slide already keeps its
+  comments, so a deck that has never had one still starts an ECMA-376 list that
+  every reader understands. Everything the library does not model is left exactly
+  where it was: the slide or shape anchor, extension lists, reactions, and the
+  pin.
+
+  Fixes: a comment added without a pin produced invalid XML. `<p:pos>` is
+  required by `CT_Comment`, and nothing in the API made a caller pass one — so
+  every comment the editor added was rejected by the schema. Such a comment is now
+  pinned to the slide's origin, and `getCommentPosition` reports that rather than
+  `null`. Comments read from a file that omits the element still report no
+  position, and are still saved the way they arrived.
+
+- e18d19d: Move all selected objects together with Bring to Front, Send to Back, Bring Forward and Send Backward, preserving their relative stacking order and supporting a single undo step in the editor.
+
+  The four existing stacking APIs also accept an array of sibling shapes. Selections from different parent containers are rejected before any shape is moved.
+
+- e18d19d: Preserve shadow alignment and rotation when reading and editing PowerPoint text. Shadow formatting now accepts `alignment` and `rotateWithShape`, including native WordArt anchors.
+- e18d19d: Add character-level reflection formatting to `TextFormat`, including native PowerPoint read, write, merge, removal, and round-trip support.
+- e18d19d: Group sibling shapes and ungroup groups inside an existing group without removing the outer group or changing its transform. Grouping preserves the members' stacking order regardless of selection order. Preview group commands support nested selections with Undo/Redo and reject selections spanning different parents.
+- e18d19d: Format selected speaker-note text from the Home ribbon, preserving mixed formatting when editing and saving notes. Add APIs to read and update notes character formatting and change letter case.
+- e18d19d: Read and update paragraph levels across a UTF-16 text selection with `getParagraphLevel` and `setParagraphLevel`. Relative updates preserve differences between levels and keep text, formatting and links intact. Indenting a long outline selection now updates its text body once instead of once per paragraph.
+- e18d19d: Persist outline collapse with `getCollapsedOutlineSlides` and `setSlideOutlineCollapsed`, preserving PowerPoint's per-slide view state. Deleting a slide removes its outline reference.
+
+  In the editor, double-click a slide icon in Outline View to collapse or expand its body. The right-click menu also collapses or expands the selected slides or the whole outline. Each change supports Undo and survives saving and reopening.
+
+- e18d19d: Allow `addSlidePlaceholder` to inherit a placeholder directly from the slide master without changing the slide layout.
+
+  The editor now confirms deletion of additional objects when demoting an outline title, and restores a missing body placeholder even on Title Only slides. Cancel keeps the document unchanged; Undo restores the deleted slide and its objects.
+
+- e18d19d: Move selected outline body paragraphs up or down from the context menu, retaining paragraph formatting and hyperlinks through save and Undo. The existing `setShapeParagraphs` API now accepts ordered source ranges for a single destination.
+- e18d19d: Allow `setShapeZIndex` to insert an ordered batch of sibling shapes in one update, preserving non-shape XML and rejecting mixed containers before mutation.
+
+  Add a layer preview for Arrange > Reorder Overlapping Objects. Drag or use arrow keys to stage an order, cancel without changing the document, or confirm with one undoable change.
+
+- e18d19d: Add `setParagraphIndent` to edit left, right, and first-line indentation in text boxes and table cells, or remove individual overrides to restore inherited values.
+
+  Expose paragraph indentation in the editor command palette.
+
+- e18d19d: Add `setParagraphTabs` to edit custom tab positions, left/center/right/decimal alignment, and automatic tab spacing in text boxes and table cells. Effective paragraph properties now include inherited tab settings. Empty tab lists clear custom stops, while null removes a local override.
+- e18d19d: Read and update paragraph Asian line breaking, Latin word wrapping, hanging punctuation, and font alignment with `setParagraphTypography`, including inherited settings and removal of local overrides.
+
+  Add the Paragraph dialog's Line Breaks and Alignment tab. Apply changes to selected paragraphs or table cells together, preserve mixed values, and support undo and redo. These settings are saved in exported PowerPoint files; preview rendering does not yet reproduce all typography rules.
+
+- e18d19d: Choose pattern foreground and background colors from theme and standard palettes. Base theme colors stay linked when switching fill types and after saving.
+
+  `getShapePatternFill` accepts `preserveTheme: true` to return untransformed theme references; its default continues to return resolved RGB colors.
+
+- e18d19d: Read and update shape aspect-ratio constraints with `isShapeAspectRatioLocked` and `setShapeAspectRatioLocked`. The editor now preserves the saved Lock aspect ratio setting when resizing videos and using the size pane.
+- e18d19d: Add setShapePreset and read picture presets through getShapePreset. Clip picture previews to their preset shape while preserving source-image crop and effects. Add bilingual image-shape controls for ellipse, rounded rectangle, triangle, diamond, pentagon, hexagon, star, and heart masks, with undo and saved persistence.
+- e18d19d: Read and edit presentation drawing guides, guide visibility, grid spacing and grid snapping while preserving unrelated view settings.
+
+  The editor adds grid settings, draggable and colored guides, guide/grid snapping, Slide Sorter, a View ribbon, resizable slide thumbnails and zoom controls. Edit speaker notes directly below the slide, with autosave and undo/redo. Display preferences remain separate from presentation edits.
+
+  Keep View submenus inside the window, including when space at the right edge is limited.
+
+- e18d19d: Allow `getShapeImageDuotone` to preserve theme references and color transforms with `resolveColors: false`. Keep two-color image recoloring when switching a shape's fill away from an image and back in the editor.
+- e18d19d: Preserve mixed text formatting during inline preview edits. `setShapeText` now accepts `preserveFormatting` for incremental changes, retaining unchanged runs, paragraph properties, fields and hyperlinks.
+- e18d19d: `setShapePatternFill` now accepts partial settings, so changing a pattern preset or one color preserves the other color's theme reference and imported transforms. Invalid presets no longer remove the existing fill before throwing.
+- e18d19d: Preserve existing speaker-note run formatting and fields when editing notes in the editor. `setSlideNotes` now accepts optional `range` and `preserveFormatting` options for targeted text edits; its default replacement behavior is unchanged.
+- e18d19d: Add a bilingual find-and-replace dialog to the development preview, with match navigation, individual and bulk replacement, case sensitivity, current-slide scope, table cell support, keyboard shortcuts and undoable changes. Replacement values are literal text.
+
+  Add an optional UTF-16 `range` to `setShapeText` and `setTableCellText` to replace an exact selection while retaining unaffected formatting, including when adjacent characters are identical. Invalid boundaries and split surrogate pairs are rejected.
+
+- e18d19d: Add a canonical `setShapeStyle` API for applying native PowerPoint shape style references while preserving shape geometry and text formatting.
+
+  Allow `setShapeHidden` to update multiple shapes in one call while preserving animation data.
+
+- e18d19d: Render PNG and JPEG image fills as repeating tiles with alignment, offsets, independent scaling and alternating horizontal/vertical reflections. Use embedded PNG/JFIF resolution or an explicit fill DPI to size the tiles. Add `getShapeImageIntrinsicSize` to read the image's unscaled physical size.
+- e18d19d: Add optional speaker-notes color resolution through the notes master theme and color map. The notes editor uses it for display while retaining literal color references for editing and round trips.
+
+  Expose notes line-break metadata and paragraph/break-aware editing so soft breaks survive save/load and undo.
+
+  Keep the notes caret after inserted paragraph breaks and preserve theme-based typing colors across consecutive empty paragraphs.
+
+- e18d19d: Add a bilingual table properties pane with cell selection, text, fill, alignment,
+  row and column dimensions, insertion and deletion. Save edits and restore them
+  through undo and reload.
+
+  Allow setTableCellText to preserve unaffected formatting. Read soft breaks and
+  field text in getTableCellText so editing does not silently drop visible content.
+
+  Merge selected table cells in the preview while retaining their formatted text,
+  and split merged cells. Expose splitTableCell and an append text policy for
+  mergeTableCells; preserve text and reject malformed merges before mutation.
+
+  Apply fill, alignment, bold and italic to selected cell ranges in a single undo
+  step, including merged cells, from the English and Japanese preview.
+
+  Use the shared text toolbar for table ranges, including font families, size,
+  color and underline. Display saved color and mixed sizes when selection changes.
+
+  Edit table border colors, widths and styles, with all-cell and outside-border
+  placement. Reset borders and undo the changes from the bilingual preview.
+
+  Double-click table cells directly on the canvas to edit their text and format
+  selected text, with merged-cell hit areas, visible cell selection, save and undo.
+  Allow setTableCellTextFormat to accept an optional UTF-16 range.
+
+  Insert tables with a bilingual dialog for row and column counts, header rows
+  and alternating row colors. Center new tables and select the first cell for
+  immediate editing; preserve insertion and cell edits through history and reload.
+
+- e18d19d: `resetSlidePlaceholderTextFormatting` and `resetSlideLayout` now reach
+  placeholders inside a group. A group scales and turns what is inside it; it
+  does not decide what font the text is in, so a grouped placeholder inherits its
+  layout's formatting and appearance like any other. Both functions count those
+  placeholders in what they return.
+
+  `resetSlidePlaceholderGeometry` still leaves them where they are, and so does
+  the geometry half of `resetSlideLayout`. The layout states a rectangle on the
+  slide, while a grouped shape's geometry is written in its group's coordinate
+  space — restoring it would either tear the shape out of the arrangement it was
+  grouped into, or invent a rectangle the layout never described.
+
+- e18d19d: Add `resetShapeImageColorEffects` for clearing PowerPoint image recolor and brightness/contrast effects while preserving other image effects.
+- e18d19d: Add resetSlidePlaceholderGeometry to restore top-level placeholder position, size, rotation and flips from the current layout or master while preserving content and formatting. The bilingual development editor exposes it for individual or selected slides with undo/redo.
+- e18d19d: Add `resetSlidePlaceholderTextFormatting` to restore inherited text, paragraph and text-body formatting on layout-bound placeholders while retaining content, hyperlinks, language and outline levels. Expose the operation in English and Japanese in the preview, with selected-slide support and undo/redo.
+- e18d19d: Add `resetSlideLayout` to restore missing placeholders, layout geometry and inherited shape/text formatting together while preserving content and image relationships. Expose Reset layout in the English and Japanese preview, with multi-slide selection and a single undo step.
+- e18d19d: Add `addMissingSlidePlaceholders` to restore deleted layout slots without changing existing content or formatting. Expose the action in the preview editor in English and Japanese, with selected-slide support and undo/redo.
+- e18d19d: Preserve imported gradient stop color adjustments when changing gradient position, direction, brightness, or transparency in the editor. Gradient stops now expose ordered `colorTransforms` for round-trip editing through the API.
+- e18d19d: Support null in getShapeRunFormatEffective to resolve paragraph end formatting. Preserve empty shape paragraph sizes when displaying and editing text so the following text does not shift when editing begins.
+- e18d19d: Allow getShapeRunFormatEffective to resolve fields with a fieldIndex selector. Preserve inherited fonts, sizes, colors, and emphasis for shape fields when displaying, editing, inspecting, and copying their text.
+- e18d19d: Read and preview theme-referenced shape fills, including solid colors, transparency, and gradient stops, using each shape's slide master theme. Direct shape fills continue to override theme references. The fill opacity reader accepts an optional presentation argument to resolve theme transparency.
+
+  Use a shape style's text color and theme font defaults when its existing text formatting does not supply them, so text in PowerPoint's colored shape styles keeps its intended color.
+
+- e18d19d: Add `isShapeLocked` and `setShapeLocked` for PowerPoint-compatible object geometry locks, preserving text editing and unrelated drawing constraints.
+
+  Add individual and all-object locks in the editor Selection Pane. Locked objects cannot be moved, resized, rotated, aligned or grouped; their lock state survives saving and undo/redo.
+
+- e18d19d: Add `getSlideAnimations` to read a slide's animation effects in click order, with each effect's target (whole shape or paragraph range), preset, start condition, duration, delay and paragraph-build settings. Each effect also says which `<p:seq>` it belongs to, so a player can tell the slide's click order from a sequence a viewer triggers by clicking a shape, and carries separate `playable` and `editable` flags. Effects this library cannot author or render — custom presets, composite effects driving several shapes, interactive sequences — are reported rather than dropped, and flagged so they are never silently rewritten or folded into the normal progression.
+
+  `slideHasAnimations` no longer reports a slide whose only `<p:timing>` holds a video or audio clip's play controls as animated.
+
+- e18d19d: Add slide copy, cut and paste to the preview navigator's context menu and keyboard shortcuts, with independent snapshots, undo/redo and saved output. Allow importSlide to omit the target layout to preserve the source layout, master and theme, registering imported masters in the destination presentation.
+- e18d19d: Allow `getSlideMasterPartName` to resolve the owning master from either a slide or a slide layout handle.
+- e18d19d: Slide numbers, as live fields rather than typed text.
+
+  `setShapeTextField(shape, type, { text })` writes an `<a:fld>` — the slide's
+  number, a date, a footer — replacing the shape's text body the way PowerPoint
+  writes one, and carrying the replaced text's formatting onto the field.
+  `addSlidePlaceholder(slide, type)` restores a single slot the layout reserves
+  (`sldNum`, `dt`, `ftr`, …), where `addMissingSlidePlaceholders` restores them
+  all. `getPresentationFirstSlideNumber(pres)` reads `<p:presentation
+firstSlideNum>`.
+
+  The preview now substitutes `slidenum` fields with the slide's own position
+  instead of whatever number the file last cached, counting from the deck's
+  `firstSlideNum`. The editor gains a deck-wide slide-number switch in the slide
+  panel and an "Insert field" command under Insert ▸ Text, both in English and
+  Japanese.
+
+- e18d19d: Set solid slide background transparency with the optional opacity argument to `setSlideBackground`. Background readers and previews retain the alpha channel, and the editor provides transparency controls for selected slides with Undo and save/reload support.
+- e18d19d: Edit solid fill and outline opacity through the existing shape setters while preserving imported theme colors and color transforms. The editor adds percentage transparency controls with mixed-selection support, undo and saved reloads.
+- e18d19d: Extend the existing paragraph formatting API to table cells, render their bullets and paragraph spacing, and add bilingual editor controls for individual cell paragraphs and selected cell ranges. Preserve rich text and support undo, redo, and save/reload.
+- e18d19d: Preserve empty table paragraphs' authored font size in the preview and text editor, so blank lines no longer collapse to a default size. The font controls now resolve inherited formatting at an empty cell paragraph's caret. Pass a null run index to getTableCellRunFormatEffective to read the effective paragraph end format.
+- e18d19d: Table fields such as dates and slide numbers now inherit cell text formatting in previews, text editing, and copied text. The existing getTableCellRunFormatEffective API accepts a fieldIndex selector to resolve field formatting.
+- e18d19d: Add effective table cell appearance resolution for embedded table styles and the built-in Medium Style 2 – Accent 1 style. Resolve theme fill and line references, preview solid cell fills and styled borders, preserve explicitly transparent cells, and stop adding white table backgrounds or gray borders that are absent from the presentation.
+- e18d19d: Convert shape and table-cell text with sentence, lowercase, uppercase, title, or toggle case through the existing text setters while preserving formatting, hyperlinks, and original run XML.
+
+  Add a Change Case menu to the editor's Home ribbon for selected text, the word at the caret, and selected text shapes, including outline editing and Undo/Redo.
+
+  Keep Home ribbon controls accessible without horizontal scrolling at intermediate window widths.
+
+- e18d19d: Text formats can now carry PowerPoint's theme tints and WordArt bevels.
+
+  - `TextFormat.colorTransforms`, and `colorTransforms` on `outline`, `shadow`, `innerShadow` and `glow`, write `<a:lumMod>`, `<a:lumOff>`, `<a:tint>`, ... on the run's colors — the same field gradient stops already take — so "Accent 2, Lighter 60%" stays a theme color instead of a fixed RGB. `getShapeRunFormat` reads them back beside the unresolved color and `toWritableTextFormat` carries them. The shared `ShadowOptions`, `InnerShadowOptions` and `GlowOptions` gain the field, so `setShapeShadow` and `setShapeGlow` accept it too.
+  - New `setShapeText3D(shape, value | null)` / `getShapeText3D(shape)` write and read the text body's 3-D (`<a:scene3d>` camera and light rig, `<a:sp3d>` top bevel, extrusion height, material and contour color), which is where PowerPoint puts its WordArt bevels. Presets are typed by the schema's enums (`CameraPreset`, `LightRigType`, `LightRigDirection`, `BevelPreset`, `PresetMaterial`).
+  - `setShapeTextAutoFit` now places its element ahead of any `<a:scene3d>` / `<a:sp3d>`, as the schema requires.
+  - `getShapeRunFormat` reports a run effect's scheme color as its token (it returned an empty string without a theme), and a text gradient stop without alpha no longer reads back as `opacity: 1`, which wrote an `<a:alpha val="100000"/>` on the way back.
+
+- e18d19d: Support paragraph-internal line breaks when replacing shape or table-cell text with `newlines: 'break'`. The editor preserves these breaks for Shift+Enter and for Enter in title placeholders, matching Mac PowerPoint.
+- e18d19d: Add `setShapeTextLanguage(shape, lang)` and `getShapeTextLanguage(shape)` for the proofing language of a shape's text (`lang` on every run and paragraph end). The editor's Review tab gains Check Accessibility, Language, comment Delete/Previous/Next, Show Comments and Hide Ink; commands the library cannot support yet are shown disabled with the reason.
+- e18d19d: Support gradient and pattern fills on formatted text runs through `textFill`,
+  including theme color transforms and round-tripping native WordArt fills.
+  The existing `color` property remains the solid text color shorthand; passing
+  both `color` and `textFill` is rejected.
+- e18d19d: Add slide-background shape fills through `setShapeSlideBackgroundFill` and the editor's Fill pane, including multiple selection, undo and saved reloads. Fill readers expose the new `background` kind. Preview paints the slide background through these shapes while keeping it aligned through shape and group transforms.
+- e18d19d: Allow `copyShape` to copy between presentations while preserving related images, charts, embedded workbooks and unknown dependencies. Allocate unique IDs for every shape inside copied groups and preserve their internal connector references.
+
+  Fix cut and paste in the development preview. Copied content now retains its state even after editing or deleting the source or opening another document, and undo/redo restores the pasted selection.
+
+- e18d19d: Support reading and editing source crops on image-filled shapes with the existing image crop functions. Preview cropped image tiles at their cropped size, including mirrored tiles.
+- e18d19d: Read table-cell paragraph and outline-level character defaults with `getTableCellRunFormatEffective`. Preserve inherited fonts, sizes, emphasis, and colors when displaying, editing, inspecting, and copying table text.
+
+  Resolve inherited shape and table text colors through the slide color map, including detached editing previews.
+
+- e18d19d: Transitions can now carry a duration and a sound. `setSlideTransition` accepts `durationMs`, written as PowerPoint 2010 writes it (`p14:dur` inside `mc:AlternateContent`, with the nearest `speed` as the fallback), and `getSlideTransition` reads it back, including from decks saved by PowerPoint. New `setSlideTransitionSound` / `getSlideTransitionSound` embed a WAV sound or stop earlier sounds; changing the effect keeps the sound. The editor's Transitions tab gains Preview, Duration and Sound, and the preview plays fast/medium/slow transitions at PowerPoint's 0.5/0.75/1 s.
+- e18d19d: Add typed media trim and fade playback controls with PowerPoint OOXML round-trip support.
+- e18d19d: Add video formatting reset to the editor ribbon and the `resetShapeVideoFormatting` API. Reset removes color corrections, borders and effects and restores a rectangular shape while preserving the video, poster image, crop and dimensions.
+- e18d19d: Preserve and edit wheel transition spoke counts, with Japanese and English controls. Play clockwise wheel transitions in presentation mode, including default four spokes and a fade for zero spokes.
+
+### Patch Changes
+
+- e18d19d: Read imported HSL and scRGB background colors instead of displaying an empty color.
+- e18d19d: Read transparency, brightness, focus position, tile bounds and scaling from slide, layout and master background gradients. These settings are no longer omitted when inspecting an imported presentation.
+- e18d19d: Allow setting text formatting on blank autoshapes before typing. Preserve paragraph-end formatting through save/reload and subsequent text insertion, report zero paragraphs when a text-capable shape has no body, and show the preview formatting bar for empty shapes. Restore the Japanese text-format command label.
+- e18d19d: Replace text across adjacent formatting runs in slide text, including table cells. Replacement text inherits the first matched run’s format, while surrounding text and run metadata stay intact. Matches stop at paragraph and explicit line-break boundaries. Regular expressions now operate on each complete text segment instead of each individual run, so anchors and replacement context follow the visible segment text. The return value remains the number of changed text nodes.
+- e18d19d: Display the borders and transparent cells of the built-in No Style, Table Grid style when a presentation stores only its style ID.
+- e18d19d: Read percent-form bullet sizes at their intended scale instead of rendering the list marker a thousand times too small.
+- e18d19d: Add bilingual speaker-note and slide-transition dialogs to the development preview, including automatic advance and applying a transition to all slides in one undo step. Correct speaker-note reads and updates to use the body placeholder without overwriting footers, read soft breaks and field results, and retain automatic-advance settings when no transition effect is selected.
+- e18d19d: Fix changing font colors on text with gradient, pattern, or other fills so the previous fill is replaced instead of producing conflicting fills in saved PowerPoint files.
+- e18d19d: Fix reading and rendering of DrawingML preset colors such as `red`, including
+  colors used by shape fills and text after a presentation is saved and reopened.
+- e18d19d: Scale table text with no authored font size when fitting slide content to a new page size. Preserve explicit font-size inheritance and retain scaled defaults for empty cells and saved presentations.
+- e18d19d: Fix explicit text-range replacements that switch between paragraph separators and soft line breaks without changing the visible text.
+- e18d19d: Respect explicit shape, layout, and master fill choices when resolving effective gradient fills, so `noFill` and solid fills no longer inherit an ancestor gradient.
+- e18d19d: Preserve preset and system colors when reading gradient stops from imported presentations.
+- e18d19d: Preserve both recolor colors when imported pictures use HSL or scRGB duotone colors.
+- e18d19d: Image brightness and contrast now work on image-filled shapes. The editor preserves these corrections when switching fill types and restoring the image.
+
+  Image corrections, opacity, and DrawingML color transforms now read both fixed-point and percent-suffixed values correctly. Hue offsets use angle units, preventing incorrect colors in imported presentations.
+
+- e18d19d: Preserve the actual package path when switching slide layouts, including imported layouts outside the conventional slideLayouts folder. This prevents broken or incorrect layout references after switching and saving.
+- e18d19d: Recognize `true` and `false` as well as numeric DrawingML flip flags in imported presentations. Flipped shapes and groups now retain their orientation in the preview and when ungrouped, including after saving and reloading.
+- e18d19d: Resolve internal slide link targets by package and part name so preview links retain the correct destination after reading, reordering, and saving a presentation.
+- e18d19d: Read imported percentage line spacing at the correct scale, including paragraph and inherited list styles. Percent-form spacing such as `150%` no longer collapses the lines together.
+- e18d19d: Keep event-triggered audio and video from being reported as automatic playback. Remove media timing nodes inside nested playback sequences when their shapes are deleted while preserving unrelated timing content.
+- e18d19d: Apply last-column formatting to horizontally merged table cells that reach the right edge, matching PowerPoint even when the cell starts in an earlier column.
+- e18d19d: Apply total-row formatting to vertically merged table cells that reach the last row, matching PowerPoint even when the cell starts in an earlier row.
+- e18d19d: Convert PowerPoint's native Play in Background timing tree when changing an audio clip between automatic and click playback, preserving the existing timing IDs and media settings.
+- e18d19d: Show and edit playback settings for audio and video nested inside animation timing groups. Preserve enclosing start conditions when changing volume, looping, or video display settings, and account for parent delays when reading and editing simple automatic playback. Reject unsupported start-condition edits before changing the document. Also reject non-finite volume values instead of writing invalid XML.
+- e18d19d: Fix existing text in shapes and table cells incorrectly adopting the font, size, or emphasis saved for newly inserted text at the end of a paragraph.
+- e18d19d: Read imported path-gradient focus rectangles correctly when PowerPoint omits zero insets. Preserve small integer percentage values and percentage-string values when editing and saving gradient fills.
+- e18d19d: Read image crop offsets correctly when imported presentations store them as percentages. Include selected text and theme fonts in the editor's font picker, including custom font names.
+- e18d19d: Preserve charts, embedded workbooks, speaker notes, media, and relationship-linked extension parts when importing slides. Retain shared dependencies and cycles, allocate independent copies for repeated imports, and reject missing dependencies before modifying the destination package.
+- e18d19d: Keep nested audio and video playback settings when clearing a slide's animations, preserving their enclosing timing conditions.
+- e18d19d: Keep existing outline color, theme references, and opacity when changing only line width. Image border width and dash controls preserve the existing color instead of replacing it with an opaque resolved color.
+- e18d19d: Preserve original run XML on the unchanged portions of a text range replacement in shapes and table cells. Partially edited fields still become literal text without retaining field-only paragraph properties.
+- e18d19d: Honor imported XML boolean spellings for through-black transitions and click advancement. Play cut-through-black transitions in presentation mode, respecting transition speed, reduced motion, and cleanup when interrupted or exited.
+- e18d19d: Read explicit XML `false` values for bold and italic correctly, preventing imported text from appearing bold or italic when those styles are disabled.
+- e18d19d: Preserve fonts, text colors, bold and italic formatting inherited from embedded table styles when displaying, editing and copying table text. Apply header, footer, banded row and column, and corner formatting in PowerPoint's precedence order while keeping explicitly formatted cell text unchanged.
+- e18d19d: Read scRGB and HSL colors in imported fills, strokes, and gradient stops.
+- e18d19d: Resolve scRGB and HSL color elements used by shape shadows and glow effects when reading imported presentations.
+
+  Preserve opacity modifiers and offsets on imported effects, including percent-form shadow opacity.
+
+- e18d19d: Recognize automatic playback for audio saved with PowerPoint's Play in Background command. Preserve its command timing when editing other playback settings, and reject unsupported start or delay changes instead of leaving conflicting playback instructions.
+- e18d19d: Slide background readers now resolve imported DrawingML preset and system colors instead of treating them as an empty solid fill.
+- e18d19d: Preserve the original outline after rejecting invalid width or opacity values, including when a later edit saves the shape.
+- e18d19d: Resolve DrawingML percentage RGB and HSL colors when reading imported presentations.
+- e18d19d: Resolve DrawingML color transforms and theme color-map overrides when reading slide, layout, and master backgrounds.
+- e18d19d: Apply gradient stop brightness and theme colors when previewing slide, layout and master backgrounds. Background gradient readers now include resolved stop colors while preserving their original color tokens for editing.
+- e18d19d: Resolve text and shape theme colors through layout color-map overrides. Preserve an explicit slide choice to use the master's color map.
+- e18d19d: Preserve placeholder orientation and size categories when creating slides from layouts, including slides inserted in the development editor. New placeholders still inherit layout formatting and start with empty editable text.
+- e18d19d: Preserve group rotation and reflections when ungrouping objects. Children retain their transformed positions and compose the group angle and flips with their own, including nested groups. The development preview supports this through the existing English and Japanese ungroup controls and Undo/Redo.
+- e18d19d: Open the editor's Selection Pane to select nested objects, rename them, and show or hide individual objects or the whole slide's objects with undo and autosave.
+
+  Fix renaming and visibility changes on group shapes. Omit hidden objects and hidden group descendants from previews and canvas hit targets while preserving their editable content.
+
+- e18d19d: Allow text alignment and vertical anchoring on blank autoshapes. Add bilingual quick alignment controls that reflect mixed selections and apply to all selected text shapes with a single undo step.
+- e18d19d: Read preset and system colors in imported shape fills and outlines, including inherited placeholder paint, instead of returning an empty color.
+- e18d19d: fix: setShapeText / appendShapeText now add text to a shape that has no text body
+
+  Previously, setting text on a shape authored without one (e.g. `addSlideShape`
+  called without `text`) threw `shape "…" has no <p:txBody>`. PowerPoint always
+  gives an autoshape a text body so you can click in and type, so these functions
+  now create the body on demand and populate it, matching that behavior. Picture /
+  table shapes still throw, since they are not text-bearing.
+
+- e18d19d: Resolve text fonts from each slide's own master theme, and honor shape-style font and color defaults ahead of inherited placeholder formatting. Shapes using their group's fill now inherit solid colors, transparency, and gradient details instead of falling back to their own theme style.
+- e18d19d: Preserve and render negative image crop offsets, including when switching away from a picture fill and restoring it in the editor.
+- e18d19d: Preserve slides with absolute or normalized relative relationship targets when moving or sorting a presentation. Speed up moving multiple editor slides by applying the final order once.
+- e18d19d: Preserve explicit cell-side borders in banded table styles, including interior cells, while retaining interior borders when a side is unspecified.
+- e18d19d: Read small and percent-suffixed text baseline offsets correctly so imported superscript and subscript positions retain their intended values.
+- e18d19d: Display theme-referenced background gradients instead of a solid color, including radial backgrounds selected with PowerPoint's Background Styles gallery. Resolve gradient colors through the owning slide master's theme and color map while preserving the original theme and background XML on save.
+- e18d19d: Resolve shape style effect references against the owning slide master's theme, including placeholder colors and explicit empty effect lists in the layout-to-master cascade.
+- e18d19d: Preserve theme-based shape outlines in previews, including line colors and widths from PowerPoint Quick Styles. Direct line formatting now retains theme properties that it does not override.
+- e18d19d: Replacing a copied picture now changes only that picture, preserving other pictures that share its media or slide relationship. Repeated same-format replacements reuse the detached media part. Invalid image crop input now preserves the previous crop, including when a subsequent edit is saved.
+- e18d19d: Reject invalid slide dimensions before modifying the presentation. Page setup now enforces PPTX’s 1–56 inch range in both inches and centimeters, with matching Japanese and English validation messages.
+
 ## 0.21.0
 
 ### Minor Changes

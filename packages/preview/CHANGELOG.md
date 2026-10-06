@@ -1,5 +1,361 @@
 # pptx-kit-preview
 
+## 0.13.0
+
+### Minor Changes
+
+- e18d19d: Support PowerPoint's Top, Middle and Bottom Centered text anchors through the existing `setShapeTextAnchor` API's `centered` option. Resolve inherited centering through `getShapeBodyPrEffective`, preserve paragraph alignment, and expose all six anchor choices in the editor with preview and text-editing support.
+
+  Preview integrations can use `shapeTextAnchorOffset` to position editable text consistently with the rendered text block.
+
+- e18d19d: Text can now carry its own outline, shadow and glow — the WordArt half of a
+  character format.
+
+  `TextFormat` gained `outline`, `shadow` and `glow`, so every writer that takes
+  one (`setShapeTextFormat`, `setShapeRunFormat`, `setTableCellTextFormat`, …)
+  writes `<a:ln>` and `<a:effectLst>` into the run's `<a:rPr>`, and
+  `getShapeRunFormat` / `getShapeRunFormatEffective` read them back. Passing
+  `null` removes one effect and leaves the others alone. `GlowOptions` also
+  gained the `opacity` its reader already reported, so a glow with `<a:alpha>`
+  round-trips instead of losing it.
+
+  The preview paints all three, and the editor exposes them in the text-format
+  dialog and the properties panel in English and Japanese, including through the
+  format painter. In the rasterised SVG text path only the outline is painted so
+  far.
+
+  `<Text>` in `@office-kit/pptx-dsl` keeps `shadow` and `glow` as the text box's
+  own effects; per-run effects go through `paragraphs`.
+
+- e18d19d: `getShapeCustomGeometry` now reports the `<a:rect>` a custom-geometry shape
+  states for its text, as `textRect`, with its guide formulas already evaluated.
+
+  The preview lays a custGeom shape's text in that rectangle instead of the whole
+  bounding box, through the new `shapeCustomTextRect` in `@office-kit/pptx-preview`,
+  and inline editing in the dev editor puts the caret in the same place. A custom
+  shape that states no rectangle still gets its whole box — a preset's
+  approximated region is never substituted for a shape that describes itself.
+
+- e18d19d: Show bullet and numbered-list markers during inline editing, including nested numbering, without changing copied text or selection offsets. Share the preview renderer's numbering through `paragraphNumberLabels` so editing surfaces use the same counter and restart rules. Build inline paragraph text in one pass instead of copying the whole shape for every paragraph.
+- e18d19d: Inline editing now reads vertical text the way the preview paints it, and
+  shrinks autofit text by the same factor — a `<a:normAutofit/>` title no longer
+  jumps back to its authored size the moment the caret appears.
+
+  Two new exports carry the shared rules: `verticalTextStyle` / `textColumnsStyle`
+  turn `<a:bodyPr vert=… numCol=… spcCol=…>` into the CSS both surfaces use, and
+  `shapeAutoFitScale` reports the shrink factor the renderer applies to a shape,
+  for the box it is actually laid out in.
+
+- e18d19d: Keep character reflection and inner-shadow effects visible while shape or table-cell text is being edited, including tables in scaled groups, and align rotated editing text around the text body's inner rectangle.
+
+  Add `renderTextEffectsSvg` to render character reflection and inner-shadow overlays in local text-box coordinates, including text-body rotation and vertical layout.
+
+- e18d19d: Add setShapePreset and read picture presets through getShapePreset. Clip picture previews to their preset shape while preserving source-image crop and effects. Add bilingual image-shape controls for ellipse, rounded rectangle, triangle, diamond, pentagon, hexagon, star, and heart masks, with undo and saved persistence.
+- e18d19d: Share the preview's preset text rectangle calculation through `resolveTextBodyRect`. Inline editing now retains the preview's constrained text region in triangles, diamonds, pentagons, stars and double arrows, and respects default centered autoshape paragraphs.
+- e18d19d: Expose optional glyph ink ascent and descent measurements separately from text line metrics. Ink bounds include shaped glyph placement, preserve signed distances from the baseline, and remain unavailable for estimated glyphs.
+- e18d19d: Slide numbers, as live fields rather than typed text.
+
+  `setShapeTextField(shape, type, { text })` writes an `<a:fld>` — the slide's
+  number, a date, a footer — replacing the shape's text body the way PowerPoint
+  writes one, and carrying the replaced text's formatting onto the field.
+  `addSlidePlaceholder(slide, type)` restores a single slot the layout reserves
+  (`sldNum`, `dt`, `ftr`, …), where `addMissingSlidePlaceholders` restores them
+  all. `getPresentationFirstSlideNumber(pres)` reads `<p:presentation
+firstSlideNum>`.
+
+  The preview now substitutes `slidenum` fields with the slide's own position
+  instead of whatever number the file last cached, counting from the deck's
+  `firstSlideNum`. The editor gains a deck-wide slide-number switch in the slide
+  panel and an "Insert field" command under Insert ▸ Text, both in English and
+  Japanese.
+
+- e18d19d: Extend the existing paragraph formatting API to table cells, render their bullets and paragraph spacing, and add bilingual editor controls for individual cell paragraphs and selected cell ranges. Preserve rich text and support undo, redo, and save/reload.
+- e18d19d: Paint text runs with a gradient fill (`<a:gradFill>`) or pattern fill (`<a:pattFill>`), such as PowerPoint's gradient and pattern WordArt presets. These runs were previously drawn in the default text color. A gradient spans the whole text block, including every line, as in PowerPoint. Theme colors and their tints are resolved. Pattern fills use the same tiles as shape pattern fills. This works in both the SVG and the browser (`foreignObject`) text layouts. The editor canvas now shows these fills, also while the text is being edited.
+- e18d19d: Keep heavy, long-dash, dash-dot, double-wave, and words-only underlines visible when entering text editing, without moving the text or changing solid strikethroughs. Expose `textUnderlineStyle` so custom HTML editors can share the preview's DrawingML underline rendering.
+
+### Patch Changes
+
+- e18d19d: Render DrawingML picture biLevel effects as black and white, including saturated colors, and preserve the requested threshold without rounding to coarse steps.
+- e18d19d: Preview background images with their stretch offsets, tile scale, alignment, offsets, and alternating reflections, including inherited backgrounds. Expose natural background image dimensions using embedded resolution and fill DPI, so tiling matches the image size instead of stretching it across the slide.
+- e18d19d: Render background picture cropping for stretched and tiled images, including inherited backgrounds. Add `getSlideBackgroundImageCrop` to read the effective source rectangle without changing the deck.
+- e18d19d: Read and edit slide background picture opacity, including inherited backgrounds. Format Background now provides a transparency slider and percentage field, and the preview displays the selected opacity.
+- e18d19d: Render character-level outer shadows and glows in the SVG preview path, including mixed formatted runs and theme colors.
+- e18d19d: Support `TextFormat.underlineColor` for independently colored underlines. Set it to `null` to follow the text color. Preserve the color when reading, editing, copying, and saving text, and expose underline color and Automatic in the editor's Font dialog.
+- e18d19d: Render custom paragraph tab stops in browser previews, including left, center, right and decimal alignment using the browser's font measurements.
+- e18d19d: Preserve tab characters and paragraph default tab spacing in browser previews and direct text editing, including scaled text.
+- e18d19d: Display the borders and transparent cells of the built-in No Style, Table Grid style when a presentation stores only its style ID.
+- e18d19d: Support reading and changing transparency on image-filled shapes as well as pictures, including preview rendering. Invalid opacity values now leave the existing transparency unchanged.
+- e18d19d: Keep chart titles, axes, data labels, trendline names, and legends readable when a chart or parent group is flipped. Preserve label rotation and its side of the anchor.
+- e18d19d: Follow custom slide show links during playback and in presenter view, with the option to return to the calling slide when the linked show ends.
+- e18d19d: Expose inherited bullet color, size, and font details through `getParagraphPropertiesEffective`.
+
+  Preserve bullet formatting inherited from layouts and masters in previews and while editing text, including explicit follow-text overrides.
+
+- e18d19d: Hide bullet markers on empty paragraphs in the browser preview, matching PowerPoint while preserving their list formatting.
+- e18d19d: Add bilingual image upload and replacement dialogs, crop and appearance controls,
+  and alternative text editing to the development preview. Preserve picture geometry
+  and crop during replacement and support undo and persisted reloads.
+
+  Correct signed image contrast rendering so zero is neutral and negative contrast
+  reduces color separation without inverting the picture.
+
+- e18d19d: Keep linear gradients fixed to the slide when Rotate with shape is disabled, including on wide or tall rotated shapes.
+- e18d19d: Preserve gradient stop transparency when reading shapes and expose theme-resolved stop colors. Shape previews now render the brightness and transparency saved by PowerPoint for linear and radial gradient stops.
+- e18d19d: Add image-fill placement readers and setters for tile alignment, scale, offsets, mirroring, stretch offsets and rotation with the shape. Placement changes preserve the embedded image, crop and effects. Preview now renders stretch offsets and clips the image to the shape.
+- e18d19d: Keep shape text readable inside flipped groups, including nested rotated groups, while preserving the transformed text position and baseline direction.
+- e18d19d: Add `isSlideBackgroundGraphicsHidden`, `setSlideBackgroundGraphicsHidden`, and `isSlideLayoutBackgroundGraphicsHidden` to inspect and control inherited decoration without deleting template content. Apply to All also copies the graphics visibility setting to slides and layouts. The preview honors both levels, and the editor's Format Background pane supports changing selected slides with undo and save/reload.
+- e18d19d: Recognize `true` and `false` as well as numeric DrawingML flip flags in imported presentations. Flipped shapes and groups now retain their orientation in the preview and when ungrouped, including after saving and reloading.
+- e18d19d: Preserve the opening text size of placeholders that inherit automatic fitting without a saved shrink factor. Titles now retain their intended line breaks instead of shrinking prematurely.
+- e18d19d: Resolve inherited text autofit and columns through `getShapeBodyPrEffective`, and use them consistently in previews and editing controls. Allow `setShapeTextColumns` to author one column explicitly, overriding inherited columns; invalid column settings leave the previous values intact.
+- e18d19d: Keep text at the same layout scale in the preview and editing view so entering text editing no longer shifts wrapped lines at fractional zoom levels. Preserve the size, spacing, and font of large or explicitly styled bullets while editing.
+- e18d19d: Resolve internal slide link targets by package and part name so preview links retain the correct destination after reading, reordering, and saving a presentation.
+- e18d19d: Apply OOXML kerning thresholds consistently in SVG and HTML preview layout, fontkit and browser measurement, and inline text editing.
+- e18d19d: Preserve the font size of leading empty lines in shapes and table cells, preventing text from jumping when editing begins.
+- e18d19d: Apply last-column formatting to horizontally merged table cells that reach the right edge, matching PowerPoint even when the cell starts in an earlier column.
+- e18d19d: Apply total-row formatting to vertically merged table cells that reach the last row, matching PowerPoint even when the cell starts in an earlier row.
+- e18d19d: Fix existing text in shapes and table cells incorrectly adopting the font, size, or emphasis saved for newly inserted text at the end of a paragraph.
+- e18d19d: Keep ordinary Latin words intact in SVG previews unless the paragraph explicitly allows mid-word wrapping, while still emergency-splitting words that cannot fit on an empty line as PowerPoint does. This matches the DrawingML `latinLnBrk` setting and PowerPoint's handling of narrow preset shapes.
+
+  When mid-word wrapping is enabled, use the remaining line width while keeping East Asian closing punctuation attached to its preceding character.
+
+- e18d19d: Render picture outlines along the image shape, including cropped masks and rotation. Add bilingual image-border color, width, and line-style controls with undo, redo, and saved persistence.
+- e18d19d: Preserve image detail when applying Washout and match PowerPoint's brightness and contrast calculation in slide previews, live video, and correction thumbnails.
+- e18d19d: Preserve different outline colors and widths on adjacent text runs in SVG previews instead of applying the first run's outline to the entire word.
+- e18d19d: Preserve double strikethrough in browser and SVG previews instead of displaying it as a single line, including text with underlines.
+- e18d19d: Render picture duotone recolor colors without unintentionally brightening their RGB values.
+- e18d19d: Render radial gradient focus positions using PowerPoint's edge insets, so corner directions no longer appear centered.
+- e18d19d: Preserve custom superscript and subscript offsets in previews instead of drawing all offsets at the same height. Keep the run's own font size when shrinking script text in HTML previews.
+- e18d19d: Align browser-preview custom tabs with the painted width of text that uses expanded or condensed character spacing, including combining characters.
+- e18d19d: Render character-level inner shadows in both SVG and editable foreignObject preview text paths.
+- e18d19d: Render PNG and JPEG image fills as repeating tiles with alignment, offsets, independent scaling and alternating horizontal/vertical reflections. Use embedded PNG/JFIF resolution or an explicit fill DPI to size the tiles. Add `getShapeImageIntrinsicSize` to read the image's unscaled physical size.
+- e18d19d: Preserve fonts, text colors, bold and italic formatting inherited from embedded table styles when displaying, editing and copying table text. Apply header, footer, banded row and column, and corner formatting in PowerPoint's precedence order while keeping explicitly formatted cell text unchanged.
+- e18d19d: Render character-level DrawingML reflections in the SVG preview using the laid-out glyph positions, including per-run opacity, fade, blur, and vertical scale.
+- e18d19d: Render rectangular gradient fills with rectangular contours and the correct center or corner direction. Correct radial gradient color order so the first stop appears at the focus, matching PowerPoint.
+- e18d19d: Apply gradient stop brightness and theme colors when previewing slide, layout and master backgrounds. Background gradient readers now include resolved stop colors while preserving their original color tokens for editing.
+- e18d19d: Preserve the axis-swapped text rectangle used by pure SVG vertical layout, including asymmetric text margins.
+- e18d19d: Open the editor's Selection Pane to select nested objects, rename them, and show or hide individual objects or the whole slide's objects with undo and autosave.
+
+  Fix renaming and visibility changes on group shapes. Omit hidden objects and hidden group descendants from previews and canvas hit targets while preserving their editable content.
+
+- e18d19d: Support null in getShapeRunFormatEffective to resolve paragraph end formatting. Preserve empty shape paragraph sizes when displaying and editing text so the following text does not shift when editing begins.
+- e18d19d: Allow getShapeRunFormatEffective to resolve fields with a fieldIndex selector. Preserve inherited fonts, sizes, colors, and emphasis for shape fields when displaying, editing, inspecting, and copying their text.
+- e18d19d: Read and preview theme-referenced shape fills, including solid colors, transparency, and gradient stops, using each shape's slide master theme. Direct shape fills continue to override theme references. The fill opacity reader accepts an optional presentation argument to resolve theme transparency.
+
+  Use a shape style's text color and theme font defaults when its existing text formatting does not supply them, so text in PowerPoint's colored shape styles keeps its intended color.
+
+- e18d19d: Resolve text fonts from each slide's own master theme, and honor shape-style font and color defaults ahead of inherited placeholder formatting. Shapes using their group's fill now inherit solid colors, transparency, and gradient details instead of falling back to their own theme style.
+- e18d19d: Preserve and play links that return to the last viewed slide or end the slide show. Offer both destinations in the link editor for shapes, selected text, and table cells.
+- e18d19d: Resolve next, previous, first, and last slide links against the active slide show's order, including repeated slides in custom shows. SVG navigation links now retain their action as a `#pptx-*` fragment so playback can choose the correct destination.
+
+  Keep presenter playback active when it is opened immediately after leaving a fullscreen presentation.
+
+- e18d19d: Preserve and render negative image crop offsets, including when switching away from a picture fill and restoring it in the editor.
+- e18d19d: Set solid slide background transparency with the optional opacity argument to `setSlideBackground`. Background readers and previews retain the alpha channel, and the editor provides transparency controls for selected slides with Undo and save/reload support.
+- e18d19d: Keep Latin words together across formatting changes when breaks within words are disabled, so making part of a word bold or italic does not introduce an unwanted line break.
+- e18d19d: Render paragraph tab stops and default tab spacing in SVG text and Node image output, including left, center, right, and decimal alignment in text boxes and table cells.
+- e18d19d: Preserve explicit cell-side borders in banded table styles, including interior cells, while retaining interior borders when a side is unspecified.
+- e18d19d: Correct default table cell margins in SVG and browser previews so text wrapping and padding remain proportional when fitting content to a new page size. Explicit zero margins remain supported.
+- e18d19d: Preserve empty table paragraphs' authored font size in the preview and text editor, so blank lines no longer collapse to a default size. The font controls now resolve inherited formatting at an empty cell paragraph's caret. Pass a null run index to getTableCellRunFormatEffective to read the effective paragraph end format.
+- e18d19d: Table fields such as dates and slide numbers now inherit cell text formatting in previews, text editing, and copied text. The existing getTableCellRunFormatEffective API accepts a fieldIndex selector to resolve field formatting.
+- e18d19d: Add effective table cell appearance resolution for embedded table styles and the built-in Medium Style 2 – Accent 1 style. Resolve theme fill and line references, preview solid cell fills and styled borders, preserve explicitly transparent cells, and stop adding white table backgrounds or gray borders that are absent from the presentation.
+- e18d19d: Keep table cell text readable when a table or its containing group is flipped, in both browser preview and SVG output.
+- e18d19d: Honor table-cell text direction in previews and inline editing. Keep vertical text in place when editing cells with asymmetric margins, including bottom-to-top and upright right-to-left text.
+- e18d19d: Display theme-referenced background gradients instead of a solid color, including radial backgrounds selected with PowerPoint's Background Styles gallery. Resolve gradient colors through the owning slide master's theme and color map while preserving the original theme and background XML on save.
+- e18d19d: Resolve shape style effect references against the owning slide master's theme, including placeholder colors and explicit empty effect lists in the layout-to-master cascade.
+- e18d19d: Preserve theme-based shape outlines in previews, including line colors and widths from PowerPoint Quick Styles. Direct line formatting now retains theme properties that it does not override.
+- e18d19d: Add slide-background shape fills through `setShapeSlideBackgroundFill` and the editor's Fill pane, including multiple selection, undo and saved reloads. Fill readers expose the new `background` kind. Preview paints the slide background through these shapes while keeping it aligned through shape and group transforms.
+- e18d19d: Keep Japanese punctuation attached to neighboring text when a font or formatting change splits the text into separate runs in SVG previews.
+- e18d19d: Support reading and editing source crops on image-filled shapes with the existing image crop functions. Preview cropped image tiles at their cropped size, including mirrored tiles.
+- e18d19d: Render DrawingML small caps in SVG previews with reduced-size capitals for lowercase source letters while preserving authored line metrics.
+- e18d19d: Read table-cell paragraph and outline-level character defaults with `getTableCellRunFormatEffective`. Preserve inherited fonts, sizes, emphasis, and colors when displaying, editing, inspecting, and copying table text.
+
+  Resolve inherited shape and table text colors through the slide color map, including detached editing previews.
+
+- e18d19d: Render double, dotted, dashed, and heavy underline styles distinctly in previews, including dash-dot and double-wave patterns. Keep strikethrough solid when combined with a patterned underline, and omit spaces from words-only underlines.
+
+  Enable Home font controls for selected table cells, including the Font dialog, while preserving mixed formatting and single-step undo.
+
+- e18d19d: Show imported inner shadows over opaque shapes instead of hiding them behind the shape fill.
+- e18d19d: Use zero spacing between text columns when the presentation omits a column gap, matching Mac PowerPoint in previews and inline editing.
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+- Updated dependencies [e18d19d]
+  - @office-kit/pptx@0.22.0
+
 ## 0.12.0
 
 ### Minor Changes
