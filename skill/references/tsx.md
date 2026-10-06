@@ -13,7 +13,7 @@ approximately 13.333 × 7.5 inches. Child order is drawing order.
 ```tsx
 import { Presentation, Slide, Text, Shape, Chart, Table } from '@office-kit/pptx-dsl';
 
-const accent = '#E5481F';
+const accent = '#D6336C';
 
 export default (
   <Presentation>

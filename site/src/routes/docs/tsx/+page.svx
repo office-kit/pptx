@@ -33,7 +33,7 @@ export default (
         spec={{
           kind: 'column',
           categories: ['Q1', 'Q2', 'Q3', 'Q4'],
-          series: [{ name: 'Revenue', values: [120, 180, 240, 300], color: '#E5481F' }],
+          series: [{ name: 'Revenue', values: [120, 180, 240, 300], color: '#D6336C' }],
         }}
       />
     </Slide>

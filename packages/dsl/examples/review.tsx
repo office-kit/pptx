@@ -1,7 +1,7 @@
 /** @jsxImportSource @office-kit/pptx-dsl */
 import { Presentation, Slide, Text, Shape, Chart, Table } from '@office-kit/pptx-dsl';
 
-const accent = '#E5481F';
+const accent = '#D6336C';
 const kpis = [
   ['$300k', 'Q4 revenue'],
   ['47%', 'Gross margin'],
