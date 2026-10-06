@@ -1,5 +1,14 @@
 # @office-kit/pptx-dsl
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [e860ae8]
+- Updated dependencies [089140c]
+- Updated dependencies [8db2360]
+  - @office-kit/pptx@0.23.0
+
 ## 0.9.0
 
 ### Minor Changes
