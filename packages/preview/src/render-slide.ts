@@ -65,6 +65,7 @@ import {
   getShapeId,
   getShapeName,
   getShapeTextBodyRotationDeg,
+  getShapeText3D,
   getShapeTextDirection,
   getShapeImageBiLevelThreshold,
   getShapeImageBrightness,
@@ -135,6 +136,7 @@ import {
   getSlideSize,
   getTableCellAnchor,
   getTableCellTextDirection,
+  getTableCellText3D,
   getTableCellMargins,
   getTableCellAppearanceEffective,
   getTableCellParagraphs,
@@ -175,6 +177,7 @@ import {
   type ColumnLayout,
   type ParaInput,
   type PieceInput,
+  type TextBevelInput,
   type RenderSlideOptions,
   type TextBlockBounds,
   type TextBodyInput,
@@ -185,6 +188,7 @@ import {
   type VerticalLayout,
 } from './text-layout.ts';
 import { browserTextMeasurer } from './browser-measure.ts';
+import { textBevelOf } from './text-bevel.ts';
 
 export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from './text-layout.ts';
 
@@ -2524,6 +2528,8 @@ export interface SvgTextArgs {
   readonly columns: ColumnLayout | null;
   readonly effectsOnly?: boolean;
   readonly effectKind?: TextEffectKind;
+  /** The text body's bevel, shaded over every run's glyphs. */
+  readonly bevel?: TextBevelInput | null;
   /** Maps an authored font name onto the family the measurer keys off.
    *  The render paths leave this unset (= `substituteFamily`, whose output
    *  must match the bundled TTFs' internal names for resvg). The audit path
@@ -2713,6 +2719,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
               },
             }
           : {}),
+        ...(a.bevel ? { bevel: a.bevel } : {}),
         href: run.href ?? null,
         ...(run.hrefTip !== undefined ? { hrefTip: run.hrefTip } : {}),
       };
@@ -3522,6 +3529,7 @@ const renderTextBody = (
     ctx.mode === 'svg' && output === 'body',
   );
   if (model === null) return '';
+  const bevel = textBevelOf(getShapeText3D(shape));
   const {
     paraData,
     numberLabels,
@@ -3603,6 +3611,7 @@ const renderTextBody = (
       ...(ctx.mode === 'foreignObject' ? { resolveFamily: browserFontFamily } : {}),
       vert: svgVert,
       columns: svgColumns,
+      bevel,
     };
     if (output === 'effects') {
       const effectArgs: SvgTextArgs = {
@@ -3618,6 +3627,7 @@ const renderTextBody = (
         paraData.some((para) => para.runs.some(hasPaintedTextFill))
           ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'fill' })
           : '',
+        bevel ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'bevel' }) : '',
         paraData.some((para) => para.runs.some((run) => run.fmt?.innerShadow != null))
           ? buildAndLayoutSvgText({ ...effectArgs, effectKind: 'innerShadow' })
           : '',
@@ -3678,17 +3688,20 @@ const renderTextBody = (
   // effects in a sibling SVG layer. Mirroring an HTML inline box changes
   // line metrics and reflects unstyled runs, so the deterministic layout
   // engine emits only the affected glyph groups here.
-  const hasCharacterEffect = paraData.some((para) =>
-    para.runs.some(
-      (run) =>
-        (run.fmt?.reflection !== undefined && run.fmt.reflection !== null) ||
-        (run.fmt?.innerShadow !== undefined && run.fmt.innerShadow !== null) ||
-        hasPaintedTextFill(run),
-    ),
-  );
+  const hasCharacterEffect =
+    bevel !== null ||
+    paraData.some((para) =>
+      para.runs.some(
+        (run) =>
+          (run.fmt?.reflection !== undefined && run.fmt.reflection !== null) ||
+          (run.fmt?.innerShadow !== undefined && run.fmt.innerShadow !== null) ||
+          hasPaintedTextFill(run),
+      ),
+    );
   let reflectionOverlay = '';
   let fillOverlay = '';
   let innerShadowOverlay = '';
+  let bevelOverlay = '';
   if (hasCharacterEffect) {
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     const { x: rX, y: rY, w: rW, h: rH } = svgTextRect(svgVert);
@@ -3715,6 +3728,7 @@ const renderTextBody = (
       columns: null,
       effectsOnly: true,
       resolveFamily: browserFontFamily,
+      bevel,
     };
     const hasCharacterReflection = paraData.some((para) =>
       para.runs.some((run) => run.fmt?.reflection !== undefined && run.fmt.reflection !== null),
@@ -3727,6 +3741,9 @@ const renderTextBody = (
     }
     if (paraData.some((para) => para.runs.some(hasPaintedTextFill))) {
       fillOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'fill' });
+    }
+    if (bevel) {
+      bevelOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'bevel' });
     }
     if (hasCharacterInnerShadow) {
       innerShadowOverlay = buildAndLayoutSvgText({ ...effectArgs, effectKind: 'innerShadow' });
@@ -3742,13 +3759,13 @@ const renderTextBody = (
     const pivotY = innerY + innerH / 2;
     const content =
       output === 'effects'
-        ? `${reflectionOverlay}${fillOverlay}${innerShadowOverlay}`
-        : `${reflectionOverlay}${foreign}${fillOverlay}${innerShadowOverlay}`;
+        ? `${reflectionOverlay}${fillOverlay}${bevelOverlay}${innerShadowOverlay}`
+        : `${reflectionOverlay}${foreign}${fillOverlay}${bevelOverlay}${innerShadowOverlay}`;
     return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${content}</g>`;
   }
   return output === 'effects'
-    ? reflectionOverlay + fillOverlay + innerShadowOverlay
-    : reflectionOverlay + foreign + fillOverlay + innerShadowOverlay;
+    ? reflectionOverlay + fillOverlay + bevelOverlay + innerShadowOverlay
+    : reflectionOverlay + foreign + fillOverlay + bevelOverlay + innerShadowOverlay;
 };
 
 /**
@@ -6535,11 +6552,17 @@ const renderTableCellText = (
     vert: verticalLayoutOf(getTableCellTextDirection(cell)),
     columns: null,
     ...(effectsOnly ? { effectsOnly: true } : {}),
+    bevel: textBevelOf(getTableCellText3D(cell)),
   };
   // Gradient and pattern runs are painted by an SVG glyph layer over the HTML.
   const fillOverlay = (): string =>
     paraData.some((para) => para.runs.some(hasPaintedTextFill))
       ? buildAndLayoutSvgText({ ...svgArgs, effectsOnly: true, effectKind: 'fill' })
+      : '';
+  // The bevel shades whatever painted the glyphs, so it sits above the fill.
+  const bevelOverlay = (): string =>
+    svgArgs.bevel
+      ? buildAndLayoutSvgText({ ...svgArgs, effectsOnly: true, effectKind: 'bevel' })
       : '';
   if (ctx.mode === 'svg' || customTabs || effectsOnly) {
     if (effectsOnly) {
@@ -6553,7 +6576,7 @@ const renderTableCellText = (
       )
         ? buildAndLayoutSvgText({ ...svgArgs, effectKind: 'innerShadow' })
         : '';
-      return reflection + fillOverlay() + innerShadow;
+      return reflection + fillOverlay() + bevelOverlay() + innerShadow;
     }
     return buildAndLayoutSvgText(svgArgs);
   }
@@ -6568,7 +6591,7 @@ const renderTableCellText = (
   const body = renderHtmlParagraphs(paraData, numberLabels, theme, 1, DEFAULT_BODY_PT, color).join(
     '',
   );
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>${fillOverlay()}`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>${fillOverlay()}${bevelOverlay()}`;
 };
 
 const renderTable = (
