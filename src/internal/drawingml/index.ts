@@ -1,3 +1,4 @@
+export type { ColorTransform } from './color-transforms.ts';
 // internal/drawingml — a: namespace: shapes, text, geometry, color, effects.
 // Allowed imports: internal/xml.
 
@@ -22,13 +23,35 @@ export {
   setTextBodyParagraphs,
   updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
-export type { ReadTextFormat, TextFormat } from './text-format.ts';
+export type {
+  ReadTextFill,
+  ReadTextFormat,
+  ReadTextOutline,
+  TextFill,
+  TextFormat,
+  TextOutline,
+} from './text-format.ts';
+export { toWritableTextFormat } from './text-format.ts';
 export {
   applyFormatToAllRuns,
   applyRunFormat,
   applyValidatedFormatToAllRuns,
   validateFormatEnums,
 } from './text-format.ts';
+export type {
+  Bevel,
+  BevelPreset,
+  CameraPreset,
+  LightRig,
+  LightRigDirection,
+  LightRigType,
+  PresetMaterial,
+  ReadText3D,
+  Rotation3D,
+  Scene3D,
+  Text3D,
+} from './text-3d.ts';
+export { applyText3D, bodyPrChildRank, readText3D } from './text-3d.ts';
 export type { Color, HexColor, ParsedColor, SchemeColorToken } from './color.ts';
 export { asColor, buildColorElement, parseColor, parseSrgbHex } from './color.ts';
 export type {
@@ -39,9 +62,21 @@ export type {
   PatternFillOptions,
   PatternPreset,
 } from './fill.ts';
-export { clearFill, setGradientFill, setNoFill, setPatternFill, setSolidFill } from './fill.ts';
-export type { GlowOptions, ShadowOptions } from './effects.ts';
-export { clearEffects, setGlow, setShadow } from './effects.ts';
+export {
+  clearFill,
+  PATTERN_PRESETS,
+  setGradientFill,
+  setNoFill,
+  setPatternFill,
+  setSolidFill,
+} from './fill.ts';
+export type {
+  GlowOptions,
+  InnerShadowOptions,
+  ReflectionOptions,
+  ShadowOptions,
+} from './effects.ts';
+export { clearEffects, setGlow, setInnerShadow, setReflection, setShadow } from './effects.ts';
 export type {
   ArrowOptions,
   LineCap,

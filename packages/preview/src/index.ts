@@ -5,12 +5,14 @@
 // browser. For Node rasterization to PNG/RGBA, import `@office-kit/pptx-preview/node`.
 //
 // `renderSlideToSvg` is the canonical preview entry. By default it lays text
-// out with `<foreignObject>` (the browser measures + wraps), which is correct
-// in a browser but invisible to headless rasterizers. Pass
+// out with `<foreignObject>` (the browser measures + wraps), except custom-tab
+// bodies, which use SVG positioning with browser font metrics. HTML text is
+// invisible to headless rasterizers. Pass
 // `{ textLayout: 'svg', measureText }` to get pure `<text>` output that resvg
 // (or any SVG rasterizer) can paint — this is what the `/node` entry does.
 
 export { renderSlideSvg as renderSlideToSvg } from './render-slide.ts';
+export { renderTextEffectsSvg } from './render-slide.ts';
 
 // Text-layout audit — overflow (はみ出し) and soft-wrap (段落ち) detection,
 // measured with the same layout engine the preview renders with.
@@ -38,3 +40,13 @@ export {
   TIMES,
   MONO,
 } from './text-layout.ts';
+
+export { paragraphNumberLabels } from './paragraph-number-labels.ts';
+
+export { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
+export { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
+export type { VerticalTextStyle } from './text-body-style.ts';
+export { shapeAutoFitScale, shapeTextAnchorOffset } from './autofit.ts';
+export type { ShapeAutoFitScaleOptions } from './autofit.ts';
+
+export { textUnderlineStyle } from './text-underline-style.ts';

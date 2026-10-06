@@ -2,17 +2,34 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { compile, type Node } from '@office-kit/pptx-dsl';
 import {
+  getSlideAnimations,
+  getCustomShows,
+  getSlideShowProperties,
   getSlideSize,
+  getSlides,
+  getSlideNotes,
+  isSlideHidden,
+  getSlideTransition,
   loadPresentation,
   savePresentation,
   validatePresentation,
 } from '@office-kit/pptx';
 import { renderPreview, type PreviewCache } from './preview-cache.ts';
+import { getPreviewMedia, type PreviewMedia } from './media-manifest.ts';
 
 export interface BuildResult {
   bytes: Uint8Array;
   slides: string[];
   slideTexts: string[];
+  notes: (string | null)[];
+  hiddenSlides: boolean[];
+  transitions: ReturnType<typeof getSlideTransition>[];
+  /** What each slide animates, in click order — the preview's player reads this. */
+  animations: ReturnType<typeof getSlideAnimations>[];
+  showProperties: ReturnType<typeof getSlideShowProperties>;
+  customShows: { id: number; name: string; slideIndices: number[] }[];
+  /** Media clips keyed by slide and shape id for HTML playback in preview mode. */
+  media: PreviewMedia[];
   aspectRatio: number;
   dependencies: string[];
   diagnostics: ReturnType<typeof validatePresentation>;
@@ -32,9 +49,22 @@ export async function buildDeck(
   if (errors.length) throw new Error(`Invalid presentation: ${JSON.stringify(errors)}`);
   const bytes = await savePresentation(presentation);
   // Preview serialized output too, so persistence defects are visible during authoring.
+  return renderDeck(bytes, dependencies, previous);
+}
+
+export async function renderDeck(
+  bytes: Uint8Array,
+  dependencies: string[],
+  previous?: PreviewCache,
+): Promise<{ result: BuildResult; cache: PreviewCache }> {
   const saved = await loadPresentation(bytes);
+  const diagnostics = validatePresentation(saved);
+  const errors = diagnostics.filter((issue) => issue.severity === 'error');
+  if (errors.length) throw new Error(`Invalid presentation: ${JSON.stringify(errors)}`);
   const size = getSlideSize(saved);
   const { slides, slideTexts, cache } = renderPreview(saved, bytes, previous);
+  const deckSlides = getSlides(saved);
+  const slideIndices = new Map(deckSlides.map((slide, index) => [slide, index]));
   return {
     cache,
     result: {
@@ -43,6 +73,17 @@ export async function buildDeck(
       slides,
       dependencies,
       slideTexts,
+      notes: getSlides(saved).map(getSlideNotes),
+      hiddenSlides: getSlides(saved).map(isSlideHidden),
+      transitions: getSlides(saved).map(getSlideTransition),
+      animations: getSlides(saved).map(getSlideAnimations),
+      showProperties: getSlideShowProperties(saved),
+      customShows: getCustomShows(saved).map((show) => ({
+        id: show.id,
+        name: show.name,
+        slideIndices: show.slides.map((slide) => slideIndices.get(slide)!),
+      })),
+      media: getPreviewMedia(saved),
       diagnostics,
     },
   };

@@ -11,6 +11,7 @@
 // Package-level
 export * from './fn/package-io.ts';
 export * from './fn/sections.ts';
+export * from './fn/layout-edit.ts';
 export * from './fn/layouts.ts';
 export * from './fn/theme.ts';
 export * from './fn/properties.ts';
@@ -18,15 +19,21 @@ export * from './fn/thumbnail.ts';
 
 // Slide-level
 export * from './fn/slide-query.ts';
+export * from './fn/custom-shows.ts';
 export * from './fn/slide-deck.ts';
+export * from './fn/slide-placeholder-geometry.ts';
 
 // Shape
 export * from './fn/shape-slide-read.ts';
 export * from './fn/shape-read-base.ts';
+export * from './fn/shape-locks.ts';
 export * from './fn/shape-read-paint.ts';
 export * from './fn/shape-gradient-read.ts';
 export * from './fn/shape-fill-stroke.ts';
+export * from './fn/shape-custom-geometry.ts';
+export * from './fn/shape-text-language.ts';
 export * from './fn/shape-effects.ts';
+export * from './fn/shape-style.ts';
 export * from './fn/shape-text.ts';
 export * from './fn/shape-runs.ts';
 export * from './fn/shape-color.ts';
@@ -38,14 +45,18 @@ export * from './fn/shape-image.ts';
 export * from './fn/media.ts';
 export * from './fn/shape-click-action.ts';
 export * from './fn/shape-image-effects.ts';
+export * from './fn/shape-video.ts';
 export * from './fn/shape-animation.ts';
+export * from './fn/slide-animation-edit.ts';
 
 // Slide features
 export * from './fn/slide-background.ts';
+export * from './fn/master-background-style.ts';
 export * from './fn/color-map.ts';
 export * from './fn/slide-transition.ts';
 export * from './fn/slide-notes.ts';
 export * from './fn/slide-size.ts';
+export * from './fn/guides.ts';
 export * from './fn/slide-title.ts';
 
 // Tables / charts / comments / validation / package introspection
@@ -54,3 +65,5 @@ export * from './fn/charts.ts';
 export * from './fn/tables.ts';
 export * from './fn/validation.ts';
 export * from './fn/package-introspection.ts';
+
+export * from './fn/shape-image-fill-layout.ts';

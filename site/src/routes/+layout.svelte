@@ -16,6 +16,7 @@
     { path: '/api', label: 'API' },
     { path: '/playground', label: 'Playground' },
     { path: '/repl', label: 'REPL' },
+    { path: '/editor', label: 'Editor' },
   ];
 </script>
 

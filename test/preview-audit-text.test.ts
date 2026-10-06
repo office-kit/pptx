@@ -211,6 +211,12 @@ describe('buildFontkitMeasurer — registered fonts and glyph fallback', () => {
     expect(r.widthPx).toBeGreaterThan(0);
   });
 
+  it('honors the OpenType kerning switch when measuring a run', () => {
+    const withKerning = measureText('AV', { ...spec, kerning: true });
+    const withoutKerning = measureText('AV', { ...spec, kerning: false });
+    expect(withKerning.widthPx).toBeLessThan(withoutKerning.widthPx);
+  });
+
   it('resolves a registered font by its authored family name', () => {
     const m = buildFontkitMeasurer({
       fonts: [{ family: 'My Brand Serif', source: `${FONT_DIR}Caladea-Regular.ttf` }],

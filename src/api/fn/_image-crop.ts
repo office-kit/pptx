@@ -1,0 +1,24 @@
+import {
+  firstChildElement,
+  getAttrValue,
+  qname,
+  NS,
+  type XmlElement,
+} from '../../internal/xml/index.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
+import type { ImageCrop } from './shape-image-effects.ts';
+
+export function readImageCrop(blipFill: XmlElement): ImageCrop | null {
+  const srcRect = firstChildElement(blipFill, qname('a', 'srcRect', NS.dml));
+  if (!srcRect) return null;
+  const parseSide = (local: string): number => {
+    const v = getAttrValue(srcRect, qname('', local, ''));
+    return readDrawingmlPercentage(v, 0);
+  };
+  return {
+    left: parseSide('l'),
+    top: parseSide('t'),
+    right: parseSide('r'),
+    bottom: parseSide('b'),
+  };
+}

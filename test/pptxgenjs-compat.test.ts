@@ -18,12 +18,11 @@ import {
   type SlideData,
   type SlideShapeData,
   type TableCellParagraph,
-  type TextFormat,
   addSlide,
   addSlideChart,
   addSlideTable,
   addSlideTextBox,
-  asColor,
+  toWritableTextFormat,
   createPresentation,
   findSlideLayoutByType,
   getParagraphAlignment,
@@ -233,17 +232,7 @@ const shapeParagraphs = (shape: SlideShapeData): ParagraphDto[] =>
     endFormat: getParagraphEndFormat(shape, i),
   }));
 
-// A format read back from the deck carries colors as plain strings, since a
-// deck can hold a scheme token outside the theme. Re-applying it has to go
-// through the same check the writer would run.
-const writableFormat = (format: ReadTextFormat): TextFormat => {
-  const { color, highlight, ...rest } = format;
-  return {
-    ...rest,
-    ...(color == null ? {} : { color: asColor(color) }),
-    ...(highlight == null ? {} : { highlight: asColor(highlight) }),
-  };
-};
+const writableFormat = toWritableTextFormat;
 
 const toSpecs = (paragraphs: ReadonlyArray<ParagraphDto>): ParagraphSpec[] =>
   paragraphs.map((p) => ({

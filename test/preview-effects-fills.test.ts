@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 // type identity with `renderSlideToSvg` (both import from the package).
 import {
   addSlide,
+  addSlideImage,
   addSlideShape,
   addSlideTextBox,
   findSlideLayout,
@@ -22,10 +23,17 @@ import {
   loadPresentation,
   savePresentation,
   setShapeFill,
+  getSlideSize,
+  setShapeImageFill,
+  setShapeImageFillLayout,
+  setShapeImageContrast,
+  setShapeImageBrightness,
   setShapeStroke,
 } from '@office-kit/pptx';
 import { type ZipEntry, readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
+import { renderSlideToRgba } from '../packages/preview/src/node.ts';
+import { buildPng } from './lib/build-png.ts';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
 
@@ -282,5 +290,253 @@ describe('renderSlideToSvg: translucent solid fills and outlines', () => {
     const reloaded = await loadPresentation(writeZip(modified));
     const svg = renderSlideToSvg(reloaded, getSlides(reloaded).at(-1)!, { textLayout: 'svg' });
     expect(svg).toContain('fill="#3366CC" fill-opacity="0.270"');
+  });
+});
+
+describe('renderSlideToSvg: picture contrast', () => {
+  it.each([-1, -0.5, 0, 0.5, 1])(
+    'scales colors around mid-gray for contrast %s',
+    async (contrast) => {
+      const pres = await loadPresentation(await readFile(fixturePath));
+      const layout = findSlideLayout(pres, 'Blank');
+      if (!layout) throw new Error('Blank layout missing');
+      const slide = addSlide(pres, { layout });
+      const picture = addSlideImage(slide, PNG, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+      });
+      setShapeImageContrast(picture, contrast);
+      let svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+      if (contrast === 0) expect(svg).not.toContain('<feComponentTransfer>');
+      // Brightness also exercises neutral contrast in the emitted filter.
+      setShapeImageBrightness(picture, 0.1);
+      svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+      for (const channel of ['R', 'G', 'B']) {
+        const transfer = svg.match(
+          new RegExp(`<feFunc${channel} type="linear" slope="([^"]+)" intercept="([^"]+)"`),
+        );
+        expect(transfer).not.toBeNull();
+        const slope = Number(transfer![1]);
+        const intercept = Number(transfer![2]);
+        const transform = (value: number) => slope * value + intercept;
+        const expectedSlope = new Map([
+          [-1, 0.0078125],
+          [-0.5, 0.50390625],
+          [0, 1],
+          [0.5, 1.9844961240310077],
+          [1, 128],
+        ]).get(contrast)!;
+        const expectedIntercept = new Map([
+          [-1, 0.5484298406862745],
+          [-0.5, 0.3242149203431372],
+          [0, 0.1],
+          [0.5, -0.344953640370877],
+          [1, -57.29901960784314],
+        ]).get(contrast)!;
+        expect(slope).toBeCloseTo(expectedSlope);
+        expect(intercept).toBeCloseTo(expectedIntercept);
+        expect(transform(0.5)).toBeCloseTo(expectedSlope * 0.5 + expectedIntercept);
+        expect(transform(0.75) - transform(0.25)).toBeCloseTo(0.5 * expectedSlope);
+        expect(transform(0.75)).toBeGreaterThanOrEqual(transform(0.25));
+      }
+    },
+  );
+});
+
+it.each(['stretch', 'tile'] as const)(
+  'keeps %s picture and ordinary image-fill corrections pixel-consistent after reload',
+  async (mode) => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    const source = buildPng(4, 4, () => [80, 100, 120]);
+    const picture = addSlideImage(slide, source, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(4),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    setShapeImageFill(shape, source);
+    const control = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(7),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    setShapeImageFill(control, source);
+    for (const image of [picture, shape, control]) {
+      setShapeImageFillLayout(image, { mode });
+    }
+    for (const image of [picture, shape]) {
+      setShapeImageBrightness(image, 0.2);
+      setShapeImageContrast(image, -0.3);
+    }
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const size = getSlideSize(reloaded)!;
+    const { image } = renderSlideToRgba(reloaded, getSlides(reloaded).at(-1)!, { width: 1280 });
+    const sampleCenter = (leftInches: number) => {
+      const x = Math.round((inches(leftInches + 1) / size.width) * image.width);
+      const y = Math.round((inches(1.5) / size.height) * image.height);
+      const offset = (y * image.width + x) * 4;
+      return Array.from(image.data.slice(offset, offset + 3));
+    };
+    const picturePixel = sampleCenter(1);
+    const shapePixel = sampleCenter(4);
+    const controlPixel = sampleCenter(7);
+    expect(shapePixel).toEqual(picturePixel);
+    expect(controlPixel).not.toEqual(picturePixel);
+  },
+);
+
+describe('renderSlideToRgba: MSO picture brightness and contrast', () => {
+  it('renders Washout as a light watermark while preserving white', async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    const darkPicture = addSlideImage(
+      slide,
+      buildPng(4, 4, (_x, _y) => [38, 38, 38]),
+      { x: inches(1), y: inches(1), w: inches(2), h: inches(1) },
+    );
+    const whitePicture = addSlideImage(
+      slide,
+      buildPng(4, 4, (_x, _y) => [255, 255, 255]),
+      { x: inches(4), y: inches(1), w: inches(2), h: inches(1) },
+    );
+    for (const picture of [darkPicture, whitePicture]) {
+      setShapeImageBrightness(picture, 0.7);
+      setShapeImageContrast(picture, -0.7);
+    }
+    const { image } = renderSlideToRgba(pres, slide, { width: 960 });
+    const x = Math.round(image.width * 0.2);
+    const y = Math.round(image.height * 0.15);
+    const pixel = Array.from(
+      image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3),
+    );
+    expect(pixel.every((channel) => Math.abs(channel - 217) <= 1)).toBe(true);
+    const whiteX = Math.round(image.width * 0.5);
+    const whitePixel = Array.from(
+      image.data.slice((y * image.width + whiteX) * 4, (y * image.width + whiteX) * 4 + 3),
+    );
+    expect(whitePixel).toEqual([255, 255, 255]);
+  });
+});
+
+describe('renderSlideToRgba: picture biLevel effect', () => {
+  it.each([
+    { threshold: 0, expected: [255, 255, 255] },
+    { threshold: 0.5, expected: [0, 0, 0] },
+    { threshold: 1, expected: [0, 0, 0] },
+  ])('thresholds luminance exactly at $threshold', async ({ threshold, expected }) => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    const redPng = buildPng(4, 4, () => [255, 0, 0]);
+    addSlideImage(slide, redPng, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    const { entries } = readZip(await savePresentation(pres));
+    const name = slideEntryName(entries);
+    const modified = editEntry(entries, name, (xml) =>
+      xml.replace(
+        /<a:blip\b([^>]*)\/>/,
+        `<a:blip$1><a:biLevel thresh="${threshold * 100000}"/></a:blip>`,
+      ),
+    );
+    const reloaded = await loadPresentation(writeZip(modified));
+    const target = getSlides(reloaded).at(-1)!;
+    const { image } = renderSlideToRgba(reloaded, target, { width: 960 });
+    const x = Math.round(image.width * 0.2);
+    const y = Math.round(image.height * 0.15);
+    const pixel = Array.from(
+      image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3),
+    );
+    expect(pixel).toEqual(expected);
+    const svg = renderSlideToSvg(reloaded, target, { textLayout: 'svg' });
+    expect(svg).toContain('0.2126 0.7152 0.0722 0 0');
+    expect(svg).toContain(`intercept="${0.5 - threshold}"`);
+  });
+
+  it('preserves the exact transition around an intermediate threshold', async () => {
+    const renderRed = async (threshold: number): Promise<number[]> => {
+      const pres = await loadPresentation(await readFile(fixturePath));
+      const layout = findSlideLayout(pres, 'Blank');
+      if (!layout) throw new Error('Blank layout missing');
+      const slide = addSlide(pres, { layout });
+      addSlideImage(
+        slide,
+        buildPng(4, 4, () => [255, 0, 0]),
+        {
+          x: inches(1),
+          y: inches(1),
+          w: inches(2),
+          h: inches(1),
+        },
+      );
+      const { entries } = readZip(await savePresentation(pres));
+      const name = slideEntryName(entries);
+      const modified = editEntry(entries, name, (xml) =>
+        xml.replace(
+          /<a:blip\b([^>]*)\/>/,
+          `<a:blip$1><a:biLevel thresh="${threshold * 100000}"/></a:blip>`,
+        ),
+      );
+      const restored = await loadPresentation(writeZip(modified));
+      const { image } = renderSlideToRgba(restored, getSlides(restored).at(-1)!, { width: 960 });
+      const x = Math.round(image.width * 0.2);
+      const y = Math.round(image.height * 0.15);
+      return Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3));
+    };
+
+    expect(await renderRed(0.2)).toEqual([255, 255, 255]);
+    expect(await renderRed(0.22)).toEqual([0, 0, 0]);
+  });
+
+  it('recomputes luminance when duotone follows grayscale', async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    addSlideImage(
+      slide,
+      buildPng(4, 4, () => [255, 255, 255]),
+      {
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+      },
+    );
+    const { entries } = readZip(await savePresentation(pres));
+    const name = slideEntryName(entries);
+    const modified = editEntry(entries, name, (xml) =>
+      xml.replace(
+        /<a:blip\b([^>]*)\/>/,
+        '<a:blip$1><a:grayscl/><a:duotone><a:srgbClr val="000000"/><a:srgbClr val="FF0000"/></a:duotone><a:biLevel thresh="50000"/></a:blip>',
+      ),
+    );
+    const reloaded = await loadPresentation(writeZip(modified));
+    const { image } = renderSlideToRgba(reloaded, getSlides(reloaded).at(-1)!, { width: 960 });
+    const x = Math.round(image.width * 0.2);
+    const y = Math.round(image.height * 0.15);
+    expect(
+      Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3)),
+    ).toEqual([0, 0, 0]);
   });
 });

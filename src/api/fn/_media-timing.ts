@@ -89,23 +89,57 @@ export const addMediaTimingNode = (slide: SlideData, kind: MediaFileKind, spid: 
   timing.children = [...fresh.children, ...rest];
 };
 
-/**
- * Removes the media nodes targeting any of `spids`, and the whole `<p:timing>`
- * when that leaves the root without children (an empty `<p:childTnLst>` is
- * schema-invalid and an empty root animates nothing). The caller commits.
- */
+/** Removes targeted media without changing the enclosing playback conditions. */
 export const removeMediaTimingNodes = (slide: SlideData, spids: ReadonlySet<number>): void => {
   const timing = findSlideTiming(slide);
-  const childTnLst = timing ? rootChildTnLst(timing) : null;
-  if (timing === null || childTnLst === null) return;
-  childTnLst.children = childTnLst.children.filter((c) => {
-    if (c.kind !== 'element' || !isMediaTimingNode(c)) return true;
-    const target = mediaTimingNodeTarget(c);
-    return target === null || !spids.has(target);
-  });
-  if (!childTnLst.children.some((c) => c.kind === 'element')) {
+  if (timing === null) return;
+  const rootList = rootChildTnLst(timing);
+  let emptiedRootList = false;
+
+  const removeFrom = (parent: XmlElement): boolean => {
+    let changed = false;
+    parent.children = parent.children.filter((child) => {
+      if (child.kind !== 'element') return true;
+      if (isMediaTimingNode(child)) {
+        const target = mediaTimingNodeTarget(child);
+        if (target !== null && spids.has(target)) {
+          changed = true;
+          return false;
+        }
+      }
+      const childChanged = removeFrom(child);
+      changed ||= childChanged;
+      // CT_TimeNodeList must have at least one child when present. Only prune
+      // lists emptied by this operation; preserve all enclosing conditions.
+      if (
+        childChanged &&
+        child.name.namespaceURI === NS.pml &&
+        ['childTnLst', 'subTnLst', 'tnLst'].includes(child.name.localName) &&
+        !child.children.some((node) => node.kind === 'element')
+      ) {
+        if (child === rootList) emptiedRootList = true;
+        return false;
+      }
+      return true;
+    });
+    return changed;
+  };
+  if (!removeFrom(timing)) return;
+
+  // Keep the established cleanup for a sole, now-empty timing root. Other
+  // root nodes and subordinate timing lists can still carry playback logic.
+  const tnLst = firstChildElement(timing, NAME_TN_LST);
+  const roots = tnLst?.children.filter((node) => node.kind === 'element') ?? [];
+  const cTn = roots.length === 1 ? firstChildElement(roots[0]!, NAME_C_TN) : null;
+  if (
+    emptiedRootList &&
+    roots.length === 1 &&
+    roots[0]!.name.localName === 'par' &&
+    cTn !== null &&
+    !cTn.children.some((node) => node.kind === 'element')
+  ) {
     const root = slide[SLIDE_DOCUMENT].root;
-    root.children = root.children.filter((c) => c !== timing);
+    root.children = root.children.filter((node) => node !== timing);
   }
 };
 
@@ -116,4 +150,55 @@ export const mediaTimingNodes = (timing: XmlElement): XmlElement[] => {
   return childTnLst.children.filter(
     (c): c is XmlElement => c.kind === 'element' && isMediaTimingNode(c),
   );
+};
+
+/** A media node together with every enclosing time-node `<p:cTn>`. */
+export interface MediaTimingPath {
+  readonly node: XmlElement;
+  /** cTns enclosing the media node, excluding its own cTn. */
+  readonly ancestors: ReadonlyArray<XmlElement>;
+  readonly hasDependentTimingAncestor: boolean;
+  readonly duplicateTarget: boolean;
+}
+
+/** Finds media anywhere in the timing tree without changing root-only callers. */
+export const findMediaTimingNodeWithAncestors = (
+  slide: SlideData,
+  spid: number,
+): MediaTimingPath | null => {
+  const timing = findSlideTiming(slide);
+  if (timing === null) return null;
+  const result: { first: MediaTimingPath | null } = { first: null };
+  let matchCount = 0;
+  const walk = (
+    element: XmlElement,
+    cTns: ReadonlyArray<XmlElement>,
+    hasDependentTimingAncestor: boolean,
+  ): void => {
+    const nextCtns =
+      element.name.namespaceURI === NS.pml && element.name.localName === 'cTn'
+        ? [...cTns, element]
+        : cTns;
+    const dependent =
+      hasDependentTimingAncestor ||
+      (element.name.namespaceURI === NS.pml &&
+        ['seq', 'excl', 'subTnLst'].includes(element.name.localName));
+    if (isMediaTimingNode(element) && mediaTimingNodeTarget(element) === spid) {
+      matchCount++;
+      if (result.first === null) {
+        result.first = {
+          node: element,
+          ancestors: nextCtns,
+          hasDependentTimingAncestor: dependent,
+          duplicateTarget: false,
+        };
+      }
+    }
+    for (const child of element.children) {
+      if (child.kind !== 'element') continue;
+      walk(child, nextCtns, dependent);
+    }
+  };
+  walk(timing, [], false);
+  return result.first === null ? null : { ...result.first, duplicateTarget: matchCount > 1 };
 };

@@ -336,6 +336,72 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(comments?.data ?? new Uint8Array()), 'pml');
   });
 
+  // `<p:pos>` is required by `CT_Comment`, and nothing in the API makes a
+  // caller pass one — the editor's own comment dialog does not.
+  skipIfNoXmllint('a comment added without a pin still validates', async () => {
+    const { addSlideComment, getSlides, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const first = addSlideComment(slide, {
+      author: { name: 'Reviewer', initials: 'R' },
+      text: 'No pin was given for this one.',
+      date: new Date('2026-05-15T12:00:00.000Z'),
+    });
+    addSlideComment(slide, {
+      author: { name: 'Second', initials: 'S' },
+      text: 'Nor this reply.',
+      replyTo: first,
+      date: new Date('2026-05-15T12:01:00.000Z'),
+    });
+    const pkg = _internalPackageOf(await loadPresentation(await savePresentation(pres)));
+    const comments = pkg.parts.find((p) => p.name === '/ppt/comments/comment1.xml');
+    expect(comments).not.toBeUndefined();
+    expectSchemaValid(decode(comments!.data), 'pml');
+  });
+
+  // `CT_TextField` requires `id` (ST_Guid) and orders rPr before t; a field
+  // written with either wrong makes PowerPoint offer to repair the file.
+  skipIfNoXmllint('a slide-number field validates', async () => {
+    const { getSlides, getSlideShapes, setShapeTextField, setShapeTextFormat } =
+      await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const shape = getSlideShapes(slide)[0];
+    if (!shape) throw new Error('expected shape');
+    setShapeTextFormat(shape, { bold: true, size: 12 });
+    setShapeTextField(shape, 'slidenum', { text: '1' });
+    const pkg = _internalPackageOf(await loadPresentation(await savePresentation(pres)));
+    const sld = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(sld).not.toBeUndefined();
+    expectSchemaValid(decode(sld!.data), 'pml');
+  });
+
+  // `<a:rPr>` is a sequence: `<a:ln>` first, the fill, then `<a:effectLst>`,
+  // and the fonts after them. A run that carries all of them is where a wrong
+  // order shows up.
+  skipIfNoXmllint('character-level outline, shadow and glow validate', async () => {
+    const { getSlides, getSlideShapes, setShapeTextFormat } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const shape = getSlideShapes(slide)[0];
+    if (!shape) throw new Error('expected shape');
+    setShapeTextFormat(shape, {
+      font: 'Arial',
+      color: '#000080',
+      outline: { color: '#FFFFFF', widthEmu: 9525 },
+      shadow: { color: '#000000', opacity: 0.5 },
+      glow: { color: '#FFFF00', radiusEmu: 63500, opacity: 0.4 },
+    });
+    const pkg = _internalPackageOf(await loadPresentation(await savePresentation(pres)));
+    const sld = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(sld).not.toBeUndefined();
+    expectSchemaValid(decode(sld!.data), 'pml');
+  });
+
   skipIfNoXmllint(
     'every emitted slide / presentation in the end-to-end deck validates',
     async () => {

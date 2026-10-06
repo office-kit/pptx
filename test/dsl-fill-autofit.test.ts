@@ -38,6 +38,15 @@ describe('Fill autoFit', () => {
   it('keeps the template bodyPr when autoFit is omitted', async () => {
     const pres = await titleSlide();
     expect(api.getShapeTextAutoFit(titleOf(pres))).toBeNull();
+    expect(api.getShapeBodyPrEffective(pres, titleOf(pres)).autoFit).toBe('normal');
+    expect(auditTextLayout(pres, { measureText }).map((issue) => issue.kind)).toEqual([
+      'overflow-y',
+    ]);
+  });
+
+  it('reports overflow when an explicit no-autofit overrides the template', async () => {
+    const pres = await titleSlide('none');
+    expect(api.getShapeTextAutoFit(titleOf(pres))).toBe('none');
     expect(auditTextLayout(pres, { measureText }).map((issue) => issue.kind)).toEqual([
       'overflow-y',
     ]);

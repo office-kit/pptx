@@ -75,12 +75,16 @@ jobs:
       - name: Build authoring tools
         run: pnpm --filter @office-kit/pptx-dev build
 
+      - name: Type check shared editor
+        run: pnpm --filter @office-kit/pptx-site check
+
   # Multi-version test matrix. Adapt the matrix to the runtimes the project
   # supports. Drop versions that are past their EOL date.
   test:
     name: Test (Node ${{ matrix.node-version }})
     needs: static
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -90,6 +94,9 @@ jobs:
 
       - name: Fetch ECMA-376 schemas for enum domain tests
         run: git submodule update --init --depth 1 references/ecma-376-5th
+
+      - name: Install XML schema validator
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
 
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
@@ -103,14 +110,42 @@ jobs:
         run: pnpm --filter @office-kit/pptx-dev... build
       - name: Test TSX authoring and live preview
         run: pnpm --filter @office-kit/pptx-dev test
+      - name: Test shared editor history
+        run: pnpm --filter @office-kit/pptx-site test
+
+  # The browser suite takes ~46 min on one runner, so it is split by file
+  # across parallel jobs. Files stay serial within a shard (as in
+  # `test:browser`) because they share the runner's CPU with Chromium.
+  browser:
+    name: Browser tests (${{ matrix.shard }}/8)
+    needs: static
+    runs-on: ubuntu-latest
+    # An upper bound: a stuck browser test otherwise runs until the 6 h
+    # default before anyone sees its output.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build authoring packages
+        run: pnpm --filter @office-kit/pptx-dev... build
       - name: Install preview test browser
-        if: matrix.node-version == '24'
         run: pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium
+      # `node --test` only honours --test-shard before the file list, so this
+      # repeats `test:browser`'s flags instead of appending to the script.
       - name: Test live preview in Chromium
+        working-directory: packages/dev
         env:
           PLAYWRIGHT_CHANNEL: chromium
-        if: matrix.node-version == '24'
-        run: pnpm --filter @office-kit/pptx-dev test:browser
+        run: pnpm exec node --test --test-concurrency=1 --test-timeout=180000 --test-shard=${{ matrix.shard }}/8 test/browser/*.test.mjs
 
   # Measures how closely @office-kit/pptx-preview's SVG renderer matches LibreOffice's
   # output for each generated sample slide, and gates on a committed baseline.
@@ -172,8 +207,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Secondary OOXML oracle. The test job compares enum domains against XSDs;
-  # full XSD validation also requires xmllint, which this workflow doesn't install.
+  # Secondary OOXML oracle. The test job validates XML against XSDs.
   # Even full XSD validation can't express the semantic
   # OOXML rules PowerPoint enforces before it calls a file corrupt. This job
   # runs Microsoft's own OpenXmlValidator over the generated decks as an

@@ -9,6 +9,7 @@ import {
   getParagraphAlignment,
   getParagraphLevel,
   getShapeName,
+  getShapeBodyPrEffective,
   getShapeTextAnchor,
   getShapeTextMargins,
   getSlidePartName,
@@ -129,5 +130,41 @@ describe('fn API: getShapeTextAnchor / getShapeTextMargins', () => {
     // Top/bottom weren't set → null.
     expect(m!.top).toBeNull();
     expect(m!.bottom).toBeNull();
+  });
+});
+
+describe('centered text anchor', () => {
+  it('preserves paragraph alignment and other body properties across save/load', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const box = addSlideTextBox(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'Long line\nShort',
+      name: 'centered',
+    });
+    setParagraphAlignment(box, 0, 'left');
+    setParagraphAlignment(box, 1, 'right');
+    setShapeTextMargins(box, { left: 1000 });
+    setShapeTextAnchor(box, 'top', { centered: true });
+    setShapeTextAnchor(box, 'bottom');
+    expect(getShapeBodyPrEffective(pres, box)).toMatchObject({
+      anchor: 'bottom',
+      anchorCentered: true,
+      margins: { left: 1000 },
+    });
+    const restored = await loadPresentation(await savePresentation(pres));
+    const copy = getSlideShapes(getSlides(restored)[0]!).find(
+      (s) => getShapeName(s) === 'centered',
+    )!;
+    expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(true);
+    expect(getParagraphAlignment(copy, 0)).toBe('l');
+    expect(getParagraphAlignment(copy, 1)).toBe('r');
+    setShapeTextAnchor(copy, 'top', { centered: false });
+    expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(false);
+    setShapeTextAnchor(copy, 'top', { centered: null });
+    expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBeNull();
   });
 });

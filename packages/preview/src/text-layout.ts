@@ -23,6 +23,8 @@ export interface FontSpec {
   readonly bold: boolean;
   readonly italic: boolean;
   readonly letterSpacingPx: number;
+  /** Whether the font's OpenType kerning pairs are active for this run. */
+  readonly kerning?: boolean;
 }
 
 /** Advance width of `text` in px, plus optional vertical metrics. A real
@@ -33,6 +35,11 @@ export interface MeasureResult {
   readonly ascentPx?: number;
   readonly descentPx?: number;
   readonly lineGapPx?: number;
+  /** Ink bounds of the measured glyphs, relative to the baseline. These are
+   * signed distances, separate from font line metrics, and optional because heuristic
+   * measurers cannot determine them. */
+  readonly inkAscentPx?: number;
+  readonly inkDescentPx?: number;
   /** True when the width is an estimate rather than a glyph measurement —
    *  the heuristic measurer always, the fontkit measurer when the resolved
    *  font lacks a glyph and per-character ratios filled the gap. The audit
@@ -45,11 +52,12 @@ export type TextMeasurer = (text: string, spec: FontSpec) => MeasureResult;
 export type TextLayoutMode = 'foreignObject' | 'svg';
 
 export interface RenderSlideOptions {
-  /** Measurer used by the pure-SVG text path. Required when `textLayout` is
-   *  'svg'; ignored otherwise. */
+  /** Measurer used by the pure-SVG text path. Custom tabs in browser mode
+   *  use canvas font metrics, falling back to this measurer outside a browser. */
   readonly measureText?: TextMeasurer;
-  /** Which text path to use. Defaults to 'foreignObject' (the browser path)
-   *  so existing callers are unaffected; the harness opts into 'svg'. */
+  /** Which text path to use. Defaults to 'foreignObject' (the browser path).
+   *  Bodies with custom tab stops use SVG positioning in either mode, since
+   *  CSS cannot represent their alignment. The harness opts into 'svg'. */
   readonly textLayout?: TextLayoutMode;
 }
 
@@ -129,10 +137,32 @@ const BASELINE_LEADING_DROP = 0.036;
 // optimum sits at dx=−1, independent of font or anchor). Nudging emitted x
 // coordinates compensates; sub-pixel so it is invisible at any zoom.
 const GRID_NUDGE_X = -0.75;
+const EMU_PER_PX = 9525;
+let reflectionNamespace = 0;
 
 // ---------------------------------------------------------------------------
 // Engine input model. render-slide.ts resolves the OOXML cascade and hands the
 // engine this already-normalized, px-native structure.
+
+export type UnderlineStyle =
+  | 'none'
+  | 'words'
+  | 'sng'
+  | 'dbl'
+  | 'heavy'
+  | 'dotted'
+  | 'dottedHeavy'
+  | 'dash'
+  | 'dashHeavy'
+  | 'dashLong'
+  | 'dashLongHeavy'
+  | 'dotDash'
+  | 'dotDashHeavy'
+  | 'dotDotDash'
+  | 'dotDotDashHeavy'
+  | 'wavy'
+  | 'wavyHeavy'
+  | 'wavyDbl';
 
 export interface PieceInput {
   readonly text: string;
@@ -141,15 +171,100 @@ export interface PieceInput {
   readonly bold: boolean;
   readonly italic: boolean;
   readonly letterSpacingPx: number;
+  readonly kerning?: boolean;
   readonly fillHex: string;
-  /** `'wavy'` covers every `ST_TextUnderlineType` wavy variant (`wavy`,
-   *  `wavyDbl`, `wavyHeavy`) — SVG/resvg has no `text-decoration-style`
-   *  support, so the engine draws it as an explicit path (see `wavyPath`). */
-  readonly underline: 'none' | 'single' | 'wavy';
-  readonly strike: boolean;
-  readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
+  /** Non-solid glyph fill; `fillHex` stays the solid fallback. */
+  readonly fillPaint?: TextFillPaint;
+  readonly highlightHex?: string;
+  /** Character outline (`<a:rPr><a:ln>`), painted behind the glyph fill. */
+  readonly outlineHex?: string;
+  readonly outlineWidthPx?: number;
+  /** DrawingML `ST_TextUnderlineType`; wavy variants use explicit SVG paths. */
+  readonly underline: UnderlineStyle;
+  /** Resolved DrawingML underline color; omitted means the glyph color. */
+  readonly underlineHex?: string;
+  readonly strike: boolean | 'double';
+  readonly baseline: number; // Offset as a fraction of the authored font size.
+  /** Lowercase source letters rendered as reduced-size capitals for small caps. */
+  readonly smallCaps?: boolean;
   readonly href: string | null;
+  readonly hrefTip?: string;
   readonly isBreak: boolean; // <a:br>
+  /** Character-level DrawingML outer shadow, rendered as a glyph-only SVG layer. */
+  readonly shadow?: TextShadowInput;
+  /** Character-level DrawingML glow, rendered as a glyph-only SVG layer. */
+  readonly glow?: TextGlowInput;
+  readonly innerShadow?: TextInnerShadowInput;
+  /** Character-level DrawingML reflection. The duplicate glyph is emitted
+   * from the same laid-out group so mixed runs and wrapping keep their exact
+   * positions. */
+  readonly reflection?: TextReflectionInput;
+}
+
+/** User-space bounds of a laid-out text block, in px. */
+export interface TextBlockBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * Builds the SVG paint server for a run's `<a:gradFill>` / `<a:pattFill>`
+ * once the block is laid out. The engine passes the bounds of all laid-out
+ * lines, so a gradient spans the whole text block rather than restarting on
+ * every line or run.
+ */
+export type TextFillPaint = (bounds: TextBlockBounds) => {
+  readonly defs: string;
+  readonly fill: string;
+};
+
+/**
+ * Which glyph layer an effects-only pass emits. `fill` draws the glyphs of
+ * gradient- and pattern-filled runs (with their outline, shadow, glow and
+ * decorations), for a foreignObject body whose HTML cannot paint those fills.
+ */
+export type TextEffectKind = 'reflection' | 'outer' | 'innerShadow' | 'fill' | 'all';
+
+export interface TextShadowInput {
+  readonly color?: string;
+  readonly blurEmu?: number;
+  readonly offsetEmu?: number;
+  readonly angleDeg?: number;
+  readonly opacity?: number;
+}
+
+export interface TextGlowInput {
+  readonly color?: string;
+  readonly radiusEmu?: number;
+  readonly opacity?: number;
+}
+
+export interface TextInnerShadowInput {
+  readonly color?: string;
+  readonly blurEmu?: number;
+  readonly offsetEmu?: number;
+  readonly angleDeg?: number;
+  readonly opacity?: number;
+}
+
+export interface TextReflectionInput {
+  readonly blurEmu?: number;
+  readonly offsetEmu?: number;
+  readonly angleDeg?: number;
+  readonly opacity?: number;
+  readonly startOpacity?: number;
+  readonly startPosition?: number;
+  readonly endPosition?: number;
+  readonly fadeDirection?: number;
+  readonly scaleX?: number;
+  readonly scaleY?: number;
+  readonly skewX?: number;
+  readonly skewY?: number;
+  readonly alignment?: string;
+  /** Preserved from OOXML; fixed-axis rendering requires shape rotation context. */
+  readonly rotateWithShape?: boolean;
 }
 
 export interface BulletInput {
@@ -163,6 +278,13 @@ export interface BulletInput {
 }
 
 export interface ParaInput {
+  /** OOXML `latinLnBrk`; Office's omitted/default value is false. */
+  readonly latinLineBreak?: boolean | undefined;
+  readonly tabStops?: readonly {
+    positionPx: number;
+    alignment: 'left' | 'center' | 'right' | 'decimal';
+  }[];
+  readonly defaultTabSizePx?: number;
   readonly align: 'left' | 'center' | 'right' | 'justify';
   readonly marLpx: number;
   readonly marRpx: number;
@@ -196,23 +318,34 @@ export interface TextBodyInput {
   readonly boxWpx: number;
   readonly boxHpx: number;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorCentered?: boolean;
   readonly wrap: boolean;
   readonly paragraphs: readonly ParaInput[];
   /** Vertical text direction; omitted / 'none' is the default horizontal flow. */
   readonly vert?: VerticalLayout;
   /** Multi-column body (`numCol`/`spcCol`); null / omitted is single column. */
   readonly columns?: ColumnLayout | null;
+  /** Emit only non-interactive character effects for a foreignObject sibling. */
+  readonly effectsOnly?: boolean;
+  /** Restrict an effects-only pass to one character-effect family. */
+  readonly effectKind?: TextEffectKind;
 }
 
 // ---------------------------------------------------------------------------
 // Layout internals.
 
 export interface Token {
+  /** Another formatted fragment of the same unbreakable segment. */
+  readonly continuesSegment?: boolean;
+  readonly isTab?: boolean;
+  tabFieldWidth?: number;
+  tabDecimalWidth?: number;
   readonly text: string;
   readonly piece: PieceInput;
   readonly isSpace: boolean;
   readonly isBreak: boolean;
   width: number;
+  highlightMetrics?: { a: number; d: number };
 }
 
 export interface Line {
@@ -297,6 +430,7 @@ const specOf = (piece: PieceInput): FontSpec => ({
   bold: piece.bold,
   italic: piece.italic,
   letterSpacingPx: piece.letterSpacingPx,
+  kerning: piece.kerning ?? true,
 });
 
 const bulletSpec = (b: BulletInput): FontSpec => ({
@@ -305,6 +439,7 @@ const bulletSpec = (b: BulletInput): FontSpec => ({
   bold: false,
   italic: false,
   letterSpacingPx: 0,
+  kerning: true,
 });
 
 const escapeXml = (s: string): string =>
@@ -319,6 +454,7 @@ const fmt = (n: number): string => {
 
 export interface LayoutCore {
   readonly placements: Placement[];
+  readonly anchorShift: number;
   readonly requiredH: number; // laid-out content height in px (top-anchored space)
   readonly vert: VerticalLayout;
   readonly cx: number;
@@ -331,7 +467,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
   const widthCache = new Map<string, number>();
   const metricCache = new Map<string, { a: number; d: number; g: number }>();
   const key = (text: string, s: FontSpec): string =>
-    `${s.family}|${s.sizePx}|${s.bold}|${s.italic}|${s.letterSpacingPx}|${text}`;
+    `${s.family}|${s.sizePx}|${s.bold}|${s.italic}|${s.letterSpacingPx}|${s.kerning ?? true}|${text}`;
   const mWidth = (text: string, s: FontSpec): number => {
     const k = key(text, s);
     let w = widthCache.get(k);
@@ -384,37 +520,118 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           : mWidth(`${bullet.text} `, bulletSpec(bullet))
         : 0;
 
-      // Tokenize: word / whitespace runs per piece, plus break markers. Pre-split
-      // any single token wider than a full line into per-character tokens.
+      // Find break opportunities across formatting boundaries, then map each
+      // segment back to its original runs so punctuation keeps its neighbor.
       const avail = Math.max(1, wrapRight - wrapLeft);
       const tokens: Token[] = [];
+      let wordParts: { text: string; piece: PieceInput }[] = [];
+      const makeToken = (text: string, piece: PieceInput, continuesSegment = false): Token => ({
+        text,
+        piece,
+        isSpace: false,
+        isBreak: false,
+        continuesSegment,
+        width: mWidth(text, { ...specOf(piece), sizePx: renderedSizePxOf(piece) }),
+      });
+      const flushWord = (): void => {
+        if (wordParts.length === 0) return;
+        const word = wordParts.map((part) => part.text).join('');
+        let partIndex = 0;
+        let partOffset = 0;
+        for (const segment of splitEastAsianBreakables(word)) {
+          const fragments: Token[] = [];
+          let remaining = segment.length;
+          let width = 0;
+          while (remaining > 0) {
+            const part = wordParts[partIndex]!;
+            const length = Math.min(remaining, part.text.length - partOffset);
+            const token = makeToken(
+              part.text.slice(partOffset, partOffset + length),
+              part.piece,
+              fragments.length > 0,
+            );
+            fragments.push(token);
+            width += token.width;
+            remaining -= length;
+            partOffset += length;
+            if (partOffset === part.text.length) {
+              partIndex++;
+              partOffset = 0;
+            }
+          }
+          // PowerPoint still breaks an overlong Latin word when the OOXML
+          // flag is omitted/false; the flag controls breaking a word merely
+          // because only part of the current line remains. Keep CJK clauses
+          // on their existing kinsoku path.
+          const canBreak = EAST_ASIAN_CHAR.test(segment)
+            ? width > avail - bulletLead
+            : para.latinLineBreak === true || width > avail - bulletLead;
+          if (input.wrap && canBreak && [...segment].length > 1) {
+            for (const fragment of fragments) {
+              for (const ch of fragment.text) tokens.push(makeToken(ch, fragment.piece));
+            }
+          } else {
+            for (const fragment of fragments) tokens.push(fragment);
+          }
+        }
+        wordParts = [];
+      };
       for (const piece of para.pieces) {
         if (piece.isBreak) {
+          flushWord();
           tokens.push({ text: '', piece, isSpace: false, isBreak: true, width: 0 });
           continue;
         }
-        for (const word of piece.text.match(/\s+|\S+/g) ?? []) {
-          const isSpace = /^\s+$/.test(word);
-          for (const seg of isSpace ? [word] : splitEastAsianBreakables(word)) {
-            const w = mWidth(seg, specOf(piece));
-            if (input.wrap && !isSpace && w > avail - bulletLead && [...seg].length > 1) {
-              for (const ch of seg) {
-                tokens.push({
-                  text: ch,
-                  piece,
-                  isSpace: false,
-                  isBreak: false,
-                  width: mWidth(ch, specOf(piece)),
-                });
-              }
-            } else {
-              tokens.push({ text: seg, piece, isSpace, isBreak: false, width: w });
-            }
+        for (const word of piece.text.match(/\t|[^\S\t]+|\S+/g) ?? []) {
+          if (!/^\s+$/.test(word)) {
+            wordParts.push({ text: word, piece });
+            continue;
+          }
+          flushWord();
+          if (word === '\t') {
+            tokens.push({ text: '', piece, isSpace: true, isBreak: false, isTab: true, width: 0 });
+          } else {
+            tokens.push({ ...makeToken(word, piece), isSpace: true });
           }
         }
       }
+      flushWord();
 
-      const wrapped = wrapTokens(tokens, input.wrap, wrapRight - firstLeft - bulletLead, avail);
+      // Resolve each tab's following field once, across run boundaries.
+      // Decimal tabs align the first decimal point, or the field end if absent.
+      let fieldWidth = 0;
+      let decimalWidth = 0;
+      for (let ti = tokens.length - 1; ti >= 0; ti--) {
+        const token = tokens[ti]!;
+        if (token.isTab || token.isBreak) {
+          if (token.isTab) {
+            token.tabFieldWidth = fieldWidth;
+            token.tabDecimalWidth = decimalWidth;
+          }
+          fieldWidth = decimalWidth = 0;
+        } else {
+          fieldWidth += token.width;
+          const decimal = token.text.indexOf('.');
+          decimalWidth =
+            decimal < 0
+              ? decimalWidth + token.width
+              : mWidth(token.text.slice(0, decimal), {
+                  ...specOf(token.piece),
+                  sizePx: renderedSizePxOf(token.piece),
+                });
+        }
+      }
+      for (const token of tokens) {
+        if (token.piece.highlightHex) token.highlightMetrics = mMetrics(token.piece);
+      }
+      const wrapped = wrapTokens(
+        tokens,
+        input.wrap,
+        wrapRight - firstLeft - bulletLead,
+        avail,
+        para,
+        firstLeft + bulletLead - wrapLeft,
+      );
       const paraLines: Token[][] = wrapped.length > 0 ? wrapped : [[]];
 
       for (let li = 0; li < paraLines.length; li++) {
@@ -428,6 +645,15 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           if (m.a > ascent) ascent = m.a;
           if (m.d > descent) descent = m.d;
           if (m.g > lineGap) lineGap = m.g;
+        }
+        // PowerPoint uses a break's font metrics for an otherwise empty line,
+        // but a formatted break does not enlarge a line that already has text.
+        const emptyLineBreak = toks.find((token) => token.isBreak && token.piece.sizePx > 0);
+        if (ascent === 0 && emptyLineBreak) {
+          const metrics = mMetrics(emptyLineBreak.piece);
+          ascent = metrics.a;
+          descent = metrics.d;
+          lineGap = metrics.g;
         }
         if (ascent === 0) {
           ascent = para.fallbackSizePx * FALLBACK_ASCENT;
@@ -513,15 +739,124 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
       ? placeColumns(frame, columns, input.anchor, buildLines)
       : placeSingle(frame, input.anchor, buildLines);
 
-  return { placements, requiredH, vert, cx, cy };
+  // anchorCtr centers the entire text bounds, keeping paragraph alignment and
+  // indentation intact. Include bullets and column offsets in those bounds.
+  let anchorShift = 0;
+  if (input.anchorCentered && placements.length) {
+    let left = Infinity;
+    let right = -Infinity;
+    for (const { line, dx } of placements) {
+      let end = line.tokens.length;
+      while (end > 0 && (line.tokens[end - 1]!.isSpace || line.tokens[end - 1]!.isBreak)) end--;
+      let width = 0;
+      for (let i = 0; i < end; i++) if (!line.tokens[i]!.isBreak) width += line.tokens[i]!.width;
+      if (end) {
+        const x =
+          line.anchorX +
+          dx -
+          (line.textAnchor === 'end' ? width : line.textAnchor === 'middle' ? width / 2 : 0);
+        left = Math.min(left, x);
+        right = Math.max(right, x + width);
+      }
+      if (line.bullet) {
+        const { x, b } = line.bullet;
+        left = Math.min(left, x + dx);
+        right = Math.max(right, x + dx + (b.imageHref ? b.sizePx : mWidth(b.text, bulletSpec(b))));
+      }
+    }
+    if (left !== Infinity) {
+      const shift = frame.x + frame.w / 2 - (left + right) / 2;
+      anchorShift = shift;
+      for (let i = 0; i < placements.length; i++) {
+        const placement = placements[i]!;
+        placements[i] = { ...placement, dx: placement.dx + shift };
+      }
+    }
+  }
+
+  return { placements, requiredH, vert, cx, cy, anchorShift };
 };
 
 export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
-  const { placements, vert, cx, cy } = layoutCore(input, measure);
-  const body = emitPlacements(placements);
+  const core = layoutCore(input, measure);
+  const { vert, cx, cy } = core;
+  const { defs, placements } = resolveFillPaints(core.placements);
+  const body =
+    defs + emitPlacements(placements, input.effectsOnly === true, input.effectKind ?? 'all');
   if (vert === 'none' || vert === 'upright') return body;
   const deg = vert === 'cw90' ? 90 : 270;
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
+};
+
+// The left edge and width of a line's drawn content, as emitLine places it.
+const lineContentExtent = (line: Line, dx: number): { left: number; width: number } | null => {
+  const toks = [...line.tokens];
+  while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
+    toks.pop();
+  }
+  const content = toks.filter((t) => !t.isBreak);
+  if (content.length === 0) return null;
+  const width = content.reduce((sum, t) => sum + t.width, 0);
+  const x0 = line.anchorX + dx + GRID_NUDGE_X;
+  const left =
+    x0 - (line.textAnchor === 'middle' ? width / 2 : line.textAnchor === 'end' ? width : 0);
+  return { left, width };
+};
+
+// Resolves every distinct `fillPaint` against the laid-out block and swaps the
+// paint reference into `fillHex`, so the glyph, reflection and decoration
+// emitters all paint the same gradient or pattern without knowing about it.
+//
+// ECMA-376 §20.1.8.33 does not say what box a text gradient fills. PowerPoint
+// spreads it once across the text block — every line of the body, not each
+// line or run separately — so the bounds are the union of the laid-out lines'
+// ink boxes (ascent to descent, drawn content width).
+const resolveFillPaints = (placements: Placement[]): { defs: string; placements: Placement[] } => {
+  const hasPaint = placements.some(({ line }) => line.tokens.some((t) => t.piece.fillPaint));
+  if (!hasPaint) return { defs: '', placements };
+  let left = Number.POSITIVE_INFINITY;
+  let top = Number.POSITIVE_INFINITY;
+  let right = Number.NEGATIVE_INFINITY;
+  let bottom = Number.NEGATIVE_INFINITY;
+  for (const { line, baselineY, dx } of placements) {
+    const extent = lineContentExtent(line, dx);
+    if (extent === null) continue;
+    left = Math.min(left, extent.left);
+    right = Math.max(right, extent.left + extent.width);
+    top = Math.min(top, baselineY - line.ascent);
+    bottom = Math.max(bottom, baselineY + line.descent);
+  }
+  if (!(right > left && bottom > top)) return { defs: '', placements };
+  const bounds: TextBlockBounds = { x: left, y: top, w: right - left, h: bottom - top };
+  const painted = new Map<TextFillPaint, string>();
+  let defs = '';
+  const pieces = new Map<PieceInput, PieceInput>();
+  const repaint = (piece: PieceInput): PieceInput => {
+    const paint = piece.fillPaint;
+    if (paint === undefined) return piece;
+    let next = pieces.get(piece);
+    if (next) return next;
+    let fill = painted.get(paint);
+    if (fill === undefined) {
+      const built = paint(bounds);
+      defs += built.defs;
+      fill = built.fill;
+      painted.set(paint, fill);
+    }
+    next = { ...piece, fillHex: fill };
+    pieces.set(piece, next);
+    return next;
+  };
+  const repainted = placements.map((placement) => ({
+    ...placement,
+    line: {
+      ...placement.line,
+      tokens: placement.line.tokens.map((token) =>
+        token.piece.fillPaint ? { ...token, piece: repaint(token.piece) } : token,
+      ),
+    },
+  }));
+  return { defs, placements: repainted };
 };
 
 /** Content height (px) the body would occupy at the given input's font sizes —
@@ -624,10 +959,39 @@ const placeColumns = (
   };
 };
 
-const emitPlacements = (placements: Placement[]): string => {
-  const parts: string[] = [];
+/**
+ * Draws the placed lines, with each paragraph's own lines — its bullet
+ * included — inside a `<g data-pptx-paragraph>`.
+ *
+ * The index is the one `<p:bldP build="p">` counts in, so a player revealing a
+ * text body one paragraph at a time has a single element to show or hide. A
+ * paragraph that wraps into the next column appears as a second group under
+ * the same index, because its lines are drawn where that column is.
+ */
+const emitPlacements = (
+  placements: Placement[],
+  effectsOnly = false,
+  effectKind: TextEffectKind = 'all',
+): string => {
+  const paragraphs: string[] = [];
+  let parts: string[] = [];
+  let paraIndex: number | null = null;
+  const close = (): void => {
+    if (paraIndex !== null && parts.length > 0) {
+      paragraphs.push(`<g data-pptx-paragraph="${paraIndex}">${parts.join('')}</g>`);
+    }
+    parts = [];
+  };
+  let effectIndex = 0;
+  const namespace = reflectionNamespace++;
+  const nextEffectId = (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow'): string =>
+    `text-${kind}-${namespace}-${effectIndex++}`;
   for (const { line, baselineY, dx } of placements) {
-    if (line.bullet) {
+    if (line.paraIndex !== paraIndex) {
+      close();
+      paraIndex = line.paraIndex;
+    }
+    if (line.bullet && !effectsOnly) {
       const b = line.bullet.b;
       if (b.imageHref) {
         // Sit the square bullet on the text baseline (bottom edge at the
@@ -637,13 +1001,24 @@ const emitPlacements = (placements: Placement[]): string => {
         );
       } else {
         parts.push(
-          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve" data-pptx-paragraph="${line.paraIndex}">${escapeXml(b.text)}</text>`,
+          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
         );
       }
     }
-    parts.push(emitLine(line, baselineY, dx));
+    parts.push(
+      emitLine(
+        line,
+        baselineY,
+        dx,
+        line.descent,
+        (kind) => nextEffectId(kind),
+        effectsOnly,
+        effectKind,
+      ),
+    );
   }
-  return parts.join('');
+  close();
+  return paragraphs.join('');
 };
 
 const topPad = (line: Line): number => {
@@ -667,7 +1042,15 @@ const lineAdvance = (line: Line, para: ParaInput): number => {
   return adv * para.lineAdvanceScale;
 };
 
-const emitLine = (line: Line, baselineY: number, dx: number): string => {
+const emitLine = (
+  line: Line,
+  baselineY: number,
+  dx: number,
+  descent: number,
+  nextEffectId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+  effectsOnly: boolean,
+  effectKind: TextEffectKind,
+): string => {
   const toks = [...line.tokens];
   while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
     toks.pop();
@@ -675,14 +1058,68 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   const content = toks.filter((t) => !t.isBreak);
   if (content.length === 0) return '';
   const groups = groupTokens(content);
-  const tspans = groups.map((g) => tspan(g)).join('');
+  const tspans = groups
+    .map((g) => {
+      const span = tspan(g);
+      if (!g.piece.href) return span;
+      const target = g.piece.href.startsWith('#')
+        ? ''
+        : ' target="_blank" rel="noopener noreferrer"';
+      const title = g.piece.hrefTip ? `<title>${escapeXml(g.piece.hrefTip)}</title>` : '';
+      return `<a href="${escapeXml(g.piece.href)}"${target}>${title}${span}</a>`;
+    })
+    .join('');
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
-  const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve" data-pptx-paragraph="${line.paraIndex}">${tspans}</text>`;
-  return text + emitWavyUnderlines(groups, line.textAnchor, x0, baselineY);
+  const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  if (effectsOnly && effectKind === 'fill') {
+    // Only the paint-filled groups draw; the rest stay in the <text> as
+    // unpainted placeholders so every glyph keeps its laid-out position.
+    const painted = groups.map((g) =>
+      g.piece.fillPaint ? g : { ...g, piece: unpaintedPiece(g.piece) },
+    );
+    if (!painted.some((g) => g.piece.fillPaint)) return '';
+    const glyphs = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve" aria-hidden="true" pointer-events="none">${painted.map(tspan).join('')}</text>`;
+    return (
+      emitTextOuterEffects(painted, line.textAnchor, x0, baselineY, nextEffectId) +
+      glyphs +
+      emitTextDecorations(painted, line.textAnchor, x0, baselineY)
+    );
+  }
+  const reflections =
+    effectKind === 'reflection' || effectKind === 'all'
+      ? emitTextReflections(groups, line.textAnchor, x0, baselineY, descent, nextEffectId)
+      : '';
+  const outerEffects =
+    effectKind === 'outer' || effectKind === 'all'
+      ? emitTextOuterEffects(groups, line.textAnchor, x0, baselineY, nextEffectId)
+      : '';
+  const innerShadows =
+    effectKind === 'innerShadow' || effectKind === 'all'
+      ? emitTextInnerShadows(groups, line.textAnchor, x0, baselineY, nextEffectId)
+      : '';
+  if (effectsOnly) return outerEffects + reflections + innerShadows;
+  return (
+    emitHighlights(groups, line.textAnchor, x0, baselineY) +
+    outerEffects +
+    reflections +
+    text +
+    innerShadows +
+    emitTextDecorations(groups, line.textAnchor, x0, baselineY)
+  );
+};
+
+// A piece that keeps its metrics but draws nothing: no fill, outline,
+// decoration or outer effect.
+const unpaintedPiece = (piece: PieceInput): PieceInput => {
+  const { outlineHex: _outline, shadow: _shadow, glow: _glow, ...rest } = piece;
+  return { ...rest, fillHex: 'none', underline: 'none', strike: false };
 };
 
 interface Group {
+  isTab?: boolean;
+  highlightMetrics?: { a: number; d: number };
+  parts: Array<{ text: string; width: number }>;
   text: string;
   piece: PieceInput;
   width: number;
@@ -693,68 +1130,375 @@ const groupTokens = (toks: Token[]): Group[] => {
   for (const t of toks) {
     if (t.isBreak) continue;
     const last = groups[groups.length - 1];
-    if (last && samePiece(last.piece, t.piece)) {
+    if (last && !last.isTab && !t.isTab && samePiece(last.piece, t.piece)) {
       last.text += t.text;
       last.width += t.width;
+      last.parts.push({ text: t.text, width: t.width });
     } else {
-      groups.push({ text: t.text, piece: t.piece, width: t.width });
+      groups.push({
+        text: t.text,
+        parts: [{ text: t.text, width: t.width }],
+        isTab: t.isTab === true,
+        piece: t.piece,
+        width: t.width,
+        ...(t.highlightMetrics ? { highlightMetrics: t.highlightMetrics } : {}),
+      });
     }
   }
   return groups;
 };
 
+const emitTextReflections = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+  descent: number,
+  nextEffectId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+): string => {
+  const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
+  let cursor =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  const parts: string[] = [];
+  for (const group of groups) {
+    const reflection = group.piece.reflection;
+    if (!reflection || group.width <= 0 || group.isTab) {
+      cursor += group.width;
+      continue;
+    }
+    // CT_ReflectionEffect defaults sy to +100%; preserve positive authored
+    // scales too, since they still describe a translated reflected copy.
+    const scaleY = reflection.scaleY ?? 1;
+    const distPx = (reflection.offsetEmu ?? 0) / EMU_PER_PX;
+    const contactY = baselineY + descent;
+    const angleRad = ((reflection.angleDeg ?? 0) * Math.PI) / 180;
+    const offsetX = distPx * Math.cos(angleRad);
+    const offsetY = distPx * Math.sin(angleRad);
+    const startA = Math.max(0, Math.min(1, reflection.startOpacity ?? 1));
+    const endA = Math.max(0, Math.min(1, reflection.opacity ?? 0));
+    const endPosition = Math.max(0, Math.min(1, reflection.endPosition ?? 1));
+    const startPosition = Math.max(0, Math.min(endPosition, reflection.startPosition ?? 0));
+    const id = nextEffectId('reflection');
+    const gradientId = `${id}-gradient`;
+    const maskId = `${id}-mask`;
+    const filterId = `${id}-blur`;
+    const blurPx = Math.max(0, (reflection.blurEmu ?? 0) / EMU_PER_PX / 2);
+    // PowerPoint's default fade is the vertical near-to-far ramp used below.
+    // For authored directions, use the DrawingML clockwise angle in the
+    // objectBoundingBox coordinate system rather than silently dropping it.
+    const fadeDirection = reflection.fadeDirection;
+    const gradient =
+      fadeDirection === undefined || fadeDirection === 90
+        ? 'x1="0" y1="1" x2="0" y2="0"'
+        : (() => {
+            const radians = (fadeDirection * Math.PI) / 180;
+            const dx = Math.cos(radians) / 2;
+            const dy = Math.sin(radians) / 2;
+            return `x1="${(0.5 + dx).toFixed(3)}" y1="${(0.5 + dy).toFixed(3)}" x2="${(0.5 - dx).toFixed(3)}" y2="${(0.5 - dy).toFixed(3)}"`;
+          })();
+    const defs =
+      `<defs><linearGradient id="${gradientId}" ${gradient}>` +
+      `<stop offset="0" stop-color="#fff" stop-opacity="${startA.toFixed(3)}"/>` +
+      `<stop offset="${startPosition.toFixed(3)}" stop-color="#fff" stop-opacity="${startA.toFixed(3)}"/>` +
+      `<stop offset="${endPosition.toFixed(3)}" stop-color="#fff" stop-opacity="${endA.toFixed(3)}"/>` +
+      `<stop offset="1" stop-color="#fff" stop-opacity="${endA.toFixed(3)}"/>` +
+      `</linearGradient>` +
+      `<mask id="${maskId}" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#${gradientId})"/></mask>` +
+      (blurPx > 0
+        ? `<filter id="${filterId}" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="${fmt(blurPx)}"/></filter>`
+        : '') +
+      `</defs>`;
+    const filter = blurPx > 0 ? ` filter="url(#${filterId})"` : '';
+    const scaleX = reflection.scaleX ?? 1;
+    const alignment = reflection.alignment ?? 'b';
+    const anchorX =
+      alignment === 'l' || alignment === 'tl' || alignment === 'bl'
+        ? cursor
+        : alignment === 'r' || alignment === 'tr' || alignment === 'br'
+          ? cursor + group.width
+          : cursor + group.width / 2;
+    const anchorY =
+      alignment === 'tl' || alignment === 't' || alignment === 'tr'
+        ? baselineY - group.piece.sizePx
+        : alignment === 'l' || alignment === 'ctr' || alignment === 'r'
+          ? baselineY - group.piece.sizePx / 2
+          : contactY;
+    const skew =
+      (reflection.skewX ?? 0) !== 0 || (reflection.skewY ?? 0) !== 0
+        ? ` skewX(${fmt(reflection.skewX ?? 0)}) skewY(${fmt(reflection.skewY ?? 0)})`
+        : '';
+    const transform =
+      `translate(${fmt(anchorX + offsetX)} ${fmt(anchorY + offsetY)})` +
+      `${skew} scale(${fmt(scaleX)} ${fmt(scaleY)})` +
+      ` translate(${fmt(-anchorX)} ${fmt(-anchorY)})`;
+    const glyph = `<text x="${fmt(cursor)}" y="${fmt(baselineY)}" text-anchor="start" xml:space="preserve">${tspan(group)}</text>`;
+    parts.push(
+      `${defs}<g transform="${transform}" mask="url(#${maskId})"${filter} data-pptx-reflection="text" aria-hidden="true" pointer-events="none">${glyph}</g>`,
+    );
+    cursor += group.width;
+  }
+  return parts.join('');
+};
+
+const emitTextOuterEffects = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+  nextId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+): string => {
+  const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
+  let cursor =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  const parts: string[] = [];
+  for (const group of groups) {
+    const shadow = group.piece.shadow;
+    const glow = group.piece.glow;
+    if (group.width <= 0 || group.isTab || (!shadow && !glow)) {
+      cursor += group.width;
+      continue;
+    }
+    const glyph = `<text x="${fmt(cursor)}" y="${fmt(baselineY)}" text-anchor="start" xml:space="preserve">${tspan(group)}</text>`;
+    if (shadow) {
+      const id = nextId('outer-shadow');
+      const angle = ((shadow.angleDeg ?? 45) * Math.PI) / 180;
+      const distance = (shadow.offsetEmu ?? 38100) / EMU_PER_PX;
+      const blur = Math.max(0, (shadow.blurEmu ?? 50800) / EMU_PER_PX / 2);
+      const glyphSize = renderedSizePxOf(group.piece);
+      const pad = Math.max(1, distance + blur * 3);
+      const color = shadow.color ?? '#000000';
+      const opacity = Math.max(0, Math.min(1, shadow.opacity ?? 1));
+      const defs =
+        `<defs><filter id="${id}" filterUnits="userSpaceOnUse" x="${fmt(cursor - pad)}" y="${fmt(baselineY - glyphSize * 1.5 - pad)}" width="${fmt(group.width + pad * 2)}" height="${fmt(glyphSize * 2 + pad * 2)}">` +
+        `<feGaussianBlur in="SourceAlpha" stdDeviation="${fmt(blur)}" result="shadowBlur"/>` +
+        `<feOffset in="shadowBlur" dx="${fmt(Math.cos(angle) * distance)}" dy="${fmt(Math.sin(angle) * distance)}" result="shadowOffset"/>` +
+        `<feFlood flood-color="${escapeXml(color)}" flood-opacity="${opacity.toFixed(3)}" result="shadowColor"/>` +
+        `<feComposite in="shadowColor" in2="shadowOffset" operator="in"/>` +
+        `</filter></defs>`;
+      parts.push(
+        `${defs}${glyph.replace('<text ', `<text filter="url(#${id})" aria-hidden="true" pointer-events="none" `)}`,
+      );
+    }
+    if (glow) {
+      const id = nextId('glow');
+      const radius = Math.max(0, (glow.radiusEmu ?? 63500) / EMU_PER_PX);
+      const glyphSize = renderedSizePxOf(group.piece);
+      const pad = Math.max(1, radius * 2);
+      const color = glow.color ?? '#FFFF00';
+      const opacity = Math.max(0, Math.min(1, glow.opacity ?? 1));
+      const defs =
+        `<defs><filter id="${id}" filterUnits="userSpaceOnUse" x="${fmt(cursor - pad)}" y="${fmt(baselineY - glyphSize * 1.5 - pad)}" width="${fmt(group.width + pad * 2)}" height="${fmt(glyphSize * 2 + pad * 2)}">` +
+        `<feMorphology in="SourceAlpha" operator="dilate" radius="${fmt(radius / 2)}" result="glowExpanded"/>` +
+        `<feGaussianBlur in="glowExpanded" stdDeviation="${fmt(radius / 2)}" result="glowBlur"/>` +
+        `<feFlood flood-color="${escapeXml(color)}" flood-opacity="${opacity.toFixed(3)}" result="glowColor"/>` +
+        `<feComposite in="glowColor" in2="glowBlur" operator="in"/>` +
+        `</filter></defs>`;
+      parts.push(
+        `${defs}${glyph.replace('<text ', `<text filter="url(#${id})" aria-hidden="true" pointer-events="none" `)}`,
+      );
+    }
+    cursor += group.width;
+  }
+  return parts.join('');
+};
+
+const emitTextInnerShadows = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+  nextId: (kind: 'reflection' | 'outer-shadow' | 'glow' | 'inner-shadow') => string,
+): string => {
+  const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
+  let cursor =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  const parts: string[] = [];
+  for (const group of groups) {
+    const shadow = group.piece.innerShadow;
+    if (!shadow || group.width <= 0 || group.isTab) {
+      cursor += group.width;
+      continue;
+    }
+    const id = nextId('inner-shadow');
+    const angle = ((shadow.angleDeg ?? 45) * Math.PI) / 180;
+    const dx = ((shadow.offsetEmu ?? 38100) / EMU_PER_PX) * Math.cos(angle);
+    const dy = ((shadow.offsetEmu ?? 38100) / EMU_PER_PX) * Math.sin(angle);
+    const blurPx = Math.max(0, (shadow.blurEmu ?? 50800) / EMU_PER_PX / 2);
+    const color = shadow.color ?? '#000000';
+    const opacity = Math.max(0, Math.min(1, shadow.opacity ?? 1));
+    const defs =
+      `<defs><filter id="${id}" x="-25%" y="-25%" width="150%" height="150%">` +
+      `<feGaussianBlur in="SourceAlpha" stdDeviation="${fmt(blurPx)}" result="innerBlur"/>` +
+      `<feOffset in="innerBlur" dx="${fmt(dx)}" dy="${fmt(dy)}" result="innerOff"/>` +
+      `<feComposite in="innerOff" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="innerMask"/>` +
+      `<feFlood flood-color="${escapeXml(color)}" flood-opacity="${opacity.toFixed(3)}" result="innerColor"/>` +
+      `<feComposite in="innerColor" in2="innerMask" operator="in" result="innerOut"/>` +
+      `<feComposite in="innerOut" in2="SourceAlpha" operator="in"/>` +
+      `</filter></defs>`;
+    const glyph = `<text x="${fmt(cursor)}" y="${fmt(baselineY)}" text-anchor="start" xml:space="preserve" filter="url(#${id})" aria-hidden="true" pointer-events="none">${tspan(group)}</text>`;
+    parts.push(defs + glyph);
+    cursor += group.width;
+  }
+  return parts.join('');
+};
+
 // SVG baseline-shift sign convention: positive shifts the glyph UP (smaller
-// y), so superscript is positive and subscript is negative — tspan() below
-// applies this to the native text-decoration underline, and wavyPath reuses
-// it (as a y offset in the opposite direction) so a wavy-underlined
+// y), so superscript is positive and subscript is negative. Underline geometry
+// below reuses it (as a y offset in the opposite direction) so an underlined
 // super/subscript run draws under the shifted glyphs, not the line's plain
 // baseline.
-const SUPERSCRIPT_SHIFT_RATIO = 0.33;
-const SUBSCRIPT_SHIFT_RATIO = 0.16;
-const baselineShiftPxOf = (p: PieceInput): number =>
-  p.superSub === 1
-    ? p.sizePx * SUPERSCRIPT_SHIFT_RATIO
-    : p.superSub === -1
-      ? -p.sizePx * SUBSCRIPT_SHIFT_RATIO
-      : 0;
+const baselineShiftPxOf = (p: PieceInput): number => p.sizePx * p.baseline;
 
 // A super/subscript run's glyphs render at this fraction of its authored
 // size (see tspan()) — wavyPath reuses it so a wavy-underlined super/
 // subscript run's wave is sized to the glyphs actually drawn, not the
 // pre-shrink font size.
 const SUPER_SUB_SIZE_RATIO = 0.65;
+// Small caps keep authored uppercase glyphs at the run size and draw lowercase
+// source letters as smaller capitals. OOXML leaves the exact face-specific
+// scale to the renderer, so this is an explicit preview approximation rather
+// than a claim about PowerPoint's font metrics.
+const SMALL_CAPS_LOWERCASE_RATIO = 0.8;
 const renderedSizePxOf = (p: PieceInput): number =>
-  p.superSub !== 0 ? p.sizePx * SUPER_SUB_SIZE_RATIO : p.sizePx;
+  p.sizePx *
+  (p.baseline !== 0 ? SUPER_SUB_SIZE_RATIO : 1) *
+  (p.smallCaps === true ? SMALL_CAPS_LOWERCASE_RATIO : 1);
 
-// resvg has no `text-decoration-style: wavy` support (nor does core SVG
-// define one), so a wavy underline is drawn as an explicit path under its
-// run(s) instead of relying on `tspan`'s CSS decoration. `x0` is the same
-// anchor point the caller's `<text>` element uses; since SVG resolves
-// text-anchor by centering/right-aligning the whole flowed text around it,
-// each group's actual start is `x0` shifted by the anchor's fraction of the
-// total width, then offset by the widths of the groups before it.
-const emitWavyUnderlines = (
+// resvg does not support patterned text decorations. Draw the special styles
+// as SVG geometry; ordinary single underlines still use the font's metrics.
+const underlineStrokeWidth = (piece: PieceInput): number => {
+  const size = renderedSizePxOf(piece);
+  const heavy = piece.underline === 'heavy' || piece.underline.endsWith('Heavy');
+  return Math.max(heavy ? 1 : 0.6, size * (heavy ? 0.09 : 0.06));
+};
+
+const underlineDashArray = (piece: PieceInput): string | null => {
+  const underline = piece.underline;
+  const scale = renderedSizePxOf(piece) / 10;
+  const pattern = (values: number[]): string => values.map((value) => fmt(value * scale)).join(' ');
+  switch (underline) {
+    case 'dotted':
+    case 'dottedHeavy':
+      return pattern([1.5, 3]);
+    case 'dash':
+    case 'dashHeavy':
+      return pattern([5, 3]);
+    case 'dashLong':
+    case 'dashLongHeavy':
+      return pattern([9, 3]);
+    case 'dotDash':
+    case 'dotDashHeavy':
+      return pattern([1.5, 3, 6, 3]);
+    case 'dotDotDash':
+    case 'dotDotDashHeavy':
+      return pattern([1.5, 3, 1.5, 3, 6, 3]);
+    default:
+      return null;
+  }
+};
+
+const underlineSegments = (group: Group, x: number): Array<{ x: number; width: number }> => {
+  if (group.piece.underline !== 'words' || !/\s/.test(group.text)) {
+    return [{ x, width: group.width }];
+  }
+  const segments: Array<{ x: number; width: number }> = [];
+  let offset = 0;
+  for (const part of group.parts) {
+    if (!/^\s+$/u.test(part.text) && part.text.length > 0) {
+      segments.push({ x: x + offset, width: part.width });
+    }
+    offset += part.width;
+  }
+  return segments;
+};
+
+const STRIKE_CENTER_EM = 0.3;
+const STRIKE_THICKNESS_EM = 0.05;
+const MIN_STRIKE_THICKNESS_PX = 0.6;
+
+// Account for text-anchor before advancing by each measured group's width.
+const emitTextDecorations = (
   groups: readonly Group[],
   textAnchor: 'start' | 'middle' | 'end',
   x0: number,
   baselineY: number,
 ): string => {
-  if (!groups.some((g) => g.piece.underline === 'wavy')) return '';
   const totalWidth = groups.reduce((sum, g) => sum + g.width, 0);
   const lineStartX =
     textAnchor === 'middle' ? x0 - totalWidth / 2 : textAnchor === 'end' ? x0 - totalWidth : x0;
   let cursor = lineStartX;
   const parts: string[] = [];
   for (const g of groups) {
-    if (g.piece.underline === 'wavy' && g.width > 0) {
-      // Subtract the baseline-shift (positive = up = smaller y) so a wavy
-      // super/subscript run's wave tracks its raised/lowered glyphs.
-      const y = baselineY - baselineShiftPxOf(g.piece);
-      parts.push(wavyPath(cursor, cursor + g.width, y, g.piece));
+    if (g.piece.strike === 'double' && !g.isTab && g.width > 0) {
+      // SVG renderers do not reliably support text-decoration-style:double.
+      // Use explicit strokes, with the same baseline shift as the glyphs.
+      const size = renderedSizePxOf(g.piece);
+      const center = baselineY - baselineShiftPxOf(g.piece) - size * STRIKE_CENTER_EM;
+      const stroke = Math.max(MIN_STRIKE_THICKNESS_PX, size * STRIKE_THICKNESS_EM);
+      for (const offset of [-stroke, stroke]) {
+        parts.push(
+          `<line x1="${fmt(cursor)}" x2="${fmt(cursor + g.width)}" y1="${fmt(center + offset)}" y2="${fmt(center + offset)}" stroke="${g.piece.fillHex}" stroke-width="${fmt(stroke)}"/>`,
+        );
+      }
+    }
+    if (
+      g.piece.underline !== 'none' &&
+      g.width > 0 &&
+      (g.piece.underline !== 'sng' || g.piece.underlineHex !== undefined)
+    ) {
+      const size = renderedSizePxOf(g.piece);
+      const baseline = baselineY - baselineShiftPxOf(g.piece);
+      const y = baseline + size * WAVY_BASELINE_OFFSET_RATIO;
+      const dash = underlineDashArray(g.piece);
+      for (const segment of underlineSegments(g, cursor)) {
+        if (g.piece.underline.startsWith('wavy')) {
+          if (g.piece.underline === 'wavyDbl') {
+            const offset = size * 0.08;
+            parts.push(wavyPath(segment.x, segment.x + segment.width, baseline, g.piece, -offset));
+            parts.push(wavyPath(segment.x, segment.x + segment.width, baseline, g.piece, offset));
+          } else {
+            parts.push(wavyPath(segment.x, segment.x + segment.width, baseline, g.piece));
+          }
+        } else {
+          const stroke = underlineStrokeWidth(g.piece);
+          const offsets = g.piece.underline === 'dbl' ? [-size * 0.08, size * 0.08] : [0];
+          for (const offset of offsets) {
+            const dashAttr = dash === null ? '' : ` stroke-dasharray="${dash}"`;
+            parts.push(
+              `<line x1="${fmt(segment.x)}" x2="${fmt(segment.x + segment.width)}" y1="${fmt(y + offset)}" y2="${fmt(y + offset)}" stroke="${g.piece.underlineHex ?? g.piece.fillHex}" stroke-width="${fmt(stroke)}"${dashAttr}/>`,
+            );
+          }
+        }
+      }
     }
     cursor += g.width;
   }
   return parts.join('');
+};
+
+const emitHighlights = (
+  groups: readonly Group[],
+  anchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+): string => {
+  const width = groups.reduce((sum, group) => sum + group.width, 0);
+  let x = x0 - (anchor === 'middle' ? width / 2 : anchor === 'end' ? width : 0);
+  const backgrounds: string[] = [];
+  for (const group of groups) {
+    const metrics = group.highlightMetrics;
+    if (group.piece.highlightHex && metrics && group.width > 0) {
+      const scale =
+        (group.piece.baseline === 0 ? 1 : SUPER_SUB_SIZE_RATIO) *
+        (group.piece.smallCaps === true ? SMALL_CAPS_LOWERCASE_RATIO : 1);
+      const y = baselineY - baselineShiftPxOf(group.piece) - metrics.a * scale;
+      backgrounds.push(
+        `<rect x="${fmt(x)}" y="${fmt(y)}" width="${fmt(group.width)}" height="${fmt((metrics.a + metrics.d) * scale)}" fill="${escapeXml(group.piece.highlightHex)}"/>`,
+      );
+    }
+    x += group.width;
+  }
+  return backgrounds.join('');
 };
 
 // Calibrated purely for legibility at typical body-text sizes (no ground-truth
@@ -768,14 +1512,18 @@ const WAVY_AMPLITUDE_MIN_PX = 0.6;
 const WAVY_PERIOD_RATIO = 0.18;
 const WAVY_PERIOD_MIN_PX = 2;
 const WAVY_BASELINE_OFFSET_RATIO = 0.12;
-const WAVY_STROKE_WIDTH_RATIO = 0.06;
-const WAVY_STROKE_WIDTH_MIN_PX = 0.6;
 
-const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput): string => {
+const wavyPath = (
+  x1: number,
+  x2: number,
+  baselineY: number,
+  piece: PieceInput,
+  yOffset = 0,
+): string => {
   const size = renderedSizePxOf(piece);
   const amp = Math.max(WAVY_AMPLITUDE_MIN_PX, size * WAVY_AMPLITUDE_RATIO);
   const period = Math.max(WAVY_PERIOD_MIN_PX, size * WAVY_PERIOD_RATIO);
-  const y = baselineY + size * WAVY_BASELINE_OFFSET_RATIO;
+  const y = baselineY + size * WAVY_BASELINE_OFFSET_RATIO + yOffset;
   let d = `M${fmt(x1)} ${fmt(y)}`;
   let cx = x1;
   let up = true;
@@ -786,8 +1534,58 @@ const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput):
     cx = midX;
     up = !up;
   }
-  const strokeWidth = Math.max(WAVY_STROKE_WIDTH_MIN_PX, size * WAVY_STROKE_WIDTH_RATIO);
-  return `<path d="${d}" stroke="${piece.fillHex}" stroke-width="${fmt(strokeWidth)}" fill="none"/>`;
+  const strokeWidth = underlineStrokeWidth(piece);
+  return `<path d="${d}" stroke="${piece.underlineHex ?? piece.fillHex}" stroke-width="${fmt(strokeWidth)}" fill="none"/>`;
+};
+
+const sameReflection = (
+  a: TextReflectionInput | undefined,
+  b: TextReflectionInput | undefined,
+): boolean =>
+  (a === undefined) === (b === undefined) &&
+  a?.blurEmu === b?.blurEmu &&
+  a?.offsetEmu === b?.offsetEmu &&
+  a?.angleDeg === b?.angleDeg &&
+  a?.opacity === b?.opacity &&
+  a?.startOpacity === b?.startOpacity &&
+  a?.startPosition === b?.startPosition &&
+  a?.endPosition === b?.endPosition &&
+  a?.fadeDirection === b?.fadeDirection &&
+  a?.scaleX === b?.scaleX &&
+  a?.scaleY === b?.scaleY &&
+  a?.skewX === b?.skewX &&
+  a?.skewY === b?.skewY &&
+  a?.alignment === b?.alignment &&
+  a?.rotateWithShape === b?.rotateWithShape;
+
+const sameInnerShadow = (
+  a: TextInnerShadowInput | undefined,
+  b: TextInnerShadowInput | undefined,
+): boolean => {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.color === b.color &&
+    a.blurEmu === b.blurEmu &&
+    a.offsetEmu === b.offsetEmu &&
+    a.angleDeg === b.angleDeg &&
+    a.opacity === b.opacity
+  );
+};
+
+const sameShadow = (a: TextShadowInput | undefined, b: TextShadowInput | undefined): boolean => {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.color === b.color &&
+    a.blurEmu === b.blurEmu &&
+    a.offsetEmu === b.offsetEmu &&
+    a.angleDeg === b.angleDeg &&
+    a.opacity === b.opacity
+  );
+};
+
+const sameGlow = (a: TextGlowInput | undefined, b: TextGlowInput | undefined): boolean => {
+  if (a === undefined || b === undefined) return a === b;
+  return a.color === b.color && a.radiusEmu === b.radiusEmu && a.opacity === b.opacity;
 };
 
 const samePiece = (a: PieceInput, b: PieceInput): boolean =>
@@ -796,13 +1594,25 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.bold === b.bold &&
   a.italic === b.italic &&
   a.letterSpacingPx === b.letterSpacingPx &&
+  a.kerning === b.kerning &&
   a.fillHex === b.fillHex &&
+  a.outlineHex === b.outlineHex &&
+  a.outlineWidthPx === b.outlineWidthPx &&
+  a.underlineHex === b.underlineHex &&
+  a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&
   a.strike === b.strike &&
-  a.superSub === b.superSub &&
-  a.href === b.href;
+  a.baseline === b.baseline &&
+  a.smallCaps === b.smallCaps &&
+  sameShadow(a.shadow, b.shadow) &&
+  sameGlow(a.glow, b.glow) &&
+  sameInnerShadow(a.innerShadow, b.innerShadow) &&
+  sameReflection(a.reflection, b.reflection) &&
+  a.href === b.href &&
+  a.hrefTip === b.hrefTip;
 
 const tspan = (g: Group): string => {
+  if (g.isTab) return `<tspan dx="${fmt(g.width)}">&#8203;</tspan>`;
   const p = g.piece;
   const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
@@ -812,26 +1622,37 @@ const tspan = (g: Group): string => {
   ];
   if (p.bold) attrs.push('font-weight="700"');
   if (p.italic) attrs.push('font-style="italic"');
-  const deco: string[] = [];
-  // 'wavy' is drawn as an explicit path by emitWavyUnderlines — resvg has no
-  // text-decoration-style support to lean on here.
-  if (p.underline === 'single') deco.push('underline');
-  if (p.strike) deco.push('line-through');
-  if (deco.length) attrs.push(`text-decoration="${deco.join(' ')}"`);
+  if (p.kerning !== undefined) attrs.push(`font-kerning="${p.kerning ? 'normal' : 'none'}"`);
+  if (p.outlineHex !== undefined && (p.outlineWidthPx ?? 0) > 0) {
+    // PowerPoint centres a text outline on the glyph edge but draws the fill
+    // over it, which `paint-order` reproduces; without it the stroke would eat
+    // half the letterform.
+    attrs.push(`stroke="${p.outlineHex}"`);
+    attrs.push(`stroke-width="${fmt(p.outlineWidthPx!)}"`);
+    attrs.push('paint-order="stroke fill"');
+  }
+  const decorations: string[] = [];
+  // resvg ignores text-decoration-color. Explicit colors use the measured
+  // underline line emitted separately, keeping glyphs and strike unchanged.
+  if (p.underline === 'sng' && p.underlineHex === undefined) decorations.push('underline');
+  if (p.strike === true) decorations.push('line-through');
+  if (decorations.length) attrs.push(`text-decoration="${decorations.join(' ')}"`);
   if (p.letterSpacingPx !== 0) attrs.push(`letter-spacing="${fmt(p.letterSpacingPx)}"`);
-  if (p.superSub !== 0) attrs.push(`baseline-shift="${fmt(baselineShiftPxOf(p))}"`);
+  if (p.baseline !== 0) attrs.push(`baseline-shift="${fmt(baselineShiftPxOf(p))}"`);
   return `<tspan ${attrs.join(' ')}>${escapeXml(g.text)}</tspan>`;
 };
 
 // ---------------------------------------------------------------------------
-// Greedy first-fit line breaking. Over-long tokens are pre-split into chars by
-// the caller, so here a token always fits on an empty line.
+// Greedy first-fit line breaking. Latin words may overflow an empty line when
+// paragraph typography disables breaks inside them.
 
 const wrapTokens = (
   tokens: Token[],
   wrap: boolean,
   firstAvail: number,
   avail: number,
+  para: ParaInput,
+  firstOffset: number,
 ): Token[][] => {
   const lines: Token[][] = [];
   let cur: Token[] = [];
@@ -845,7 +1666,9 @@ const wrapTokens = (
     }
   };
   const close = (): void => {
+    const endingBreak = cur[cur.length - 1];
     trimTrailing();
+    if (cur.length === 0 && endingBreak?.isBreak) cur.push(endingBreak);
     lines.push(cur);
     cur = [];
     lineW = 0;
@@ -853,11 +1676,46 @@ const wrapTokens = (
     first = false;
   };
 
-  for (const tok of tokens) {
+  // Suffix widths let the first fragment reserve the complete segment without
+  // rescanning its remaining runs at every formatting boundary.
+  const wordWidths = tokens.map((token) => token.width);
+  for (let index = tokens.length - 2; index >= 0; index--) {
+    if (tokens[index + 1]!.continuesSegment) wordWidths[index]! += wordWidths[index + 1]!;
+  }
+
+  for (let index = 0; index < tokens.length; index++) {
+    const tok = tokens[index]!;
     if (tok.isBreak) {
       cur.push(tok);
       close();
       continue;
+    }
+    if (tok.isTab) {
+      const position = lineW + (first ? firstOffset : 0);
+      const stops = para.tabStops ?? [];
+      let lo = 0;
+      let hi = stops.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (stops[mid]!.positionPx <= position + 0.01) lo = mid + 1;
+        else hi = mid;
+      }
+      const stop = stops[lo];
+      // Mac PowerPoint defaults to one-inch intervals. Zero disables that grid.
+      const interval = para.defaultTabSizePx ?? 96;
+      const next =
+        stop?.positionPx ??
+        (interval > 0 ? (Math.floor(position / interval) + 1) * interval : position);
+      const alignment = stop?.alignment ?? 'left';
+      const offset =
+        alignment === 'center'
+          ? (tok.tabFieldWidth ?? 0) / 2
+          : alignment === 'right'
+            ? (tok.tabFieldWidth ?? 0)
+            : alignment === 'decimal'
+              ? (tok.tabDecimalWidth ?? 0)
+              : 0;
+      tok.width = Math.max(0, next - offset - position);
     }
     if (tok.isSpace) {
       cur.push(tok);
@@ -876,7 +1734,7 @@ const wrapTokens = (
     // LibreOffice's space-inclusive line measurement.
     const contentW = lineW - trailingSpaceW;
     const hasContent = contentW > 0;
-    if (wrap && hasContent && lineW + tok.width > limit + 0.5) {
+    if (wrap && hasContent && !tok.continuesSegment && lineW + wordWidths[index]! > limit + 0.5) {
       close();
       cur.push(tok);
       lineW = tok.width;

@@ -1,7 +1,14 @@
 // Color transforms and rPr-like element parsing.
 
 import { NAME_A_RPR, requireRun } from './shape-runs.ts';
-import { type ReadTextFormat, type TextFormat } from '../../internal/drawingml/index.ts';
+import {
+  PATTERN_PRESETS,
+  type ReadGradientStop,
+  type ReadTextFormat,
+  type TextFormat,
+} from '../../internal/drawingml/index.ts';
+// Type-only: erased at compile time, so this does not make the modules cyclic.
+import type { ShapeEffectAny } from './shape-effects.ts';
 import {
   NS,
   type XmlElement,
@@ -11,6 +18,13 @@ import {
 } from '../../internal/xml/index.ts';
 import { type SlideShapeData } from '../_internal-symbols.ts';
 import { type PresentationTheme } from './theme.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
+import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
+import {
+  type ColorTransform,
+  colorTransformBrightness,
+  readColorTransforms,
+} from '../../internal/drawingml/color-transforms.ts';
 // -- Color transforms (ECMA-376 §20.1.2.3.x) --------------------------------
 //
 // DrawingML color elements (`<a:srgbClr>`, `<a:schemeClr>`, `<a:sysClr>`,
@@ -59,6 +73,27 @@ const COLOR_TRANSFORM_LOCALS: ReadonlySet<string> = new Set([
   'comp',
 ]);
 
+const readColorPercentage = (raw: string): number => {
+  // DrawingML's canonical lexical forms are fixed-point integers and a
+  // percent-suffixed value. Preserve the historical bare-float tolerance for
+  // third-party files while delegating canonical forms to the shared reader.
+  const value = raw.trim();
+  if (!value.endsWith('%') && /[.eE]/.test(value)) {
+    const number = Number(value);
+    // Keep the historical compatibility form for bare fractions while
+    // retaining fixed-point semantics for decimal spellings of large values.
+    if (Number.isFinite(number) && Math.abs(number) <= 1) return number;
+  }
+  return readDrawingmlPercentage(value, Number.NaN);
+};
+
+const readColorAngleDegrees = (raw: string): number => {
+  const trimmed = raw.trim();
+  if (!trimmed) return Number.NaN;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value / 60000 : Number.NaN;
+};
+
 const parseColorTransforms = (colorEl: XmlElement): readonly ColorTransformOp[] => {
   const out: ColorTransformOp[] = [];
   for (const child of colorEl.children) {
@@ -71,11 +106,8 @@ const parseColorTransforms = (colorEl: XmlElement): readonly ColorTransformOp[] 
     }
     const raw = getAttrValue(child, qname('', 'val', ''));
     if (raw === null) continue;
-    let n = Number.parseFloat(raw);
+    const n = local === 'hueOff' ? readColorAngleDegrees(raw) : readColorPercentage(raw);
     if (!Number.isFinite(n)) continue;
-    // PowerPoint emits ST_Percentage (`100000` = 100%); tolerate the
-    // bare-float form some third-party tools emit.
-    if (Math.abs(n) > 1) n = n / 100000;
     out.push({ kind: local as Exclude<ColorTransformOp['kind'], 'gray' | 'inv' | 'comp'>, val: n });
   }
   return out;
@@ -263,6 +295,25 @@ export const resolveDrawingColor = (
   if (local === 'srgbClr') {
     const v = getAttrValue(colorEl, qname('', 'val', ''));
     if (v) baseHex = `#${v.toUpperCase()}`;
+  } else if (local === 'scrgbClr') {
+    // ECMA-376 §20.1.2.3.30 defines these channels as linear-light
+    // percentages; convert them to the sRGB encoding used by this API.
+    const r = readColorPercentage(getAttrValue(colorEl, qname('', 'r', '')) ?? '');
+    const g = readColorPercentage(getAttrValue(colorEl, qname('', 'g', '')) ?? '');
+    const b = readColorPercentage(getAttrValue(colorEl, qname('', 'b', '')) ?? '');
+    if ([r, g, b].every(Number.isFinite)) {
+      baseHex = rgb01ToHex(linearToSrgb(r), linearToSrgb(g), linearToSrgb(b));
+    }
+  } else if (local === 'hslClr') {
+    // ECMA-376 §20.1.2.3.13 uses a positive fixed angle (1/60000 degree)
+    // plus percentage saturation and luminance attributes.
+    const hue = readColorAngleDegrees(getAttrValue(colorEl, qname('', 'hue', '')) ?? '');
+    const sat = readColorPercentage(getAttrValue(colorEl, qname('', 'sat', '')) ?? '');
+    const lum = readColorPercentage(getAttrValue(colorEl, qname('', 'lum', '')) ?? '');
+    if ([hue, sat, lum].every(Number.isFinite)) {
+      const [r, g, b] = hslToRgb((((hue / 360) % 1) + 1) % 1, sat, lum);
+      baseHex = rgb01ToHex(r, g, b);
+    }
   } else if (local === 'schemeClr') {
     const v = getAttrValue(colorEl, qname('', 'val', ''));
     if (v) baseHex = resolveSchemeToken(v, theme, clrMap);
@@ -270,11 +321,8 @@ export const resolveDrawingColor = (
     const last = getAttrValue(colorEl, qname('', 'lastClr', ''));
     if (last) baseHex = `#${last.toUpperCase()}`;
   } else if (local === 'prstClr') {
-    // Preset colors aren't worth a full lookup table in this pass —
-    // black / white cover most cases anyone reaches for in PresentationML.
     const v = getAttrValue(colorEl, qname('', 'val', ''));
-    if (v === 'black') baseHex = '#000000';
-    else if (v === 'white') baseHex = '#FFFFFF';
+    if (v) baseHex = resolveDrawingMLPresetColor(v);
   }
   if (!baseHex) return null;
   return applyColorTransforms(baseHex, parseColorTransforms(colorEl));
@@ -303,6 +351,330 @@ export const resolveDrawingColorOpacity = (colorEl: XmlElement): number | null =
   return opacity === null ? null : Math.max(0, Math.min(1, opacity));
 };
 
+/**
+ * Parses an `<a:effectLst>` into the typed effect union. It lives here rather
+ * than beside the shape effect API because a run's `<a:rPr>` carries the same
+ * element, and this module is the one both sides can depend on.
+ */
+export const parseEffectList = (
+  effectLst: XmlElement,
+  theme: PresentationTheme | null,
+  colorMap?: Readonly<Record<string, string>> | null,
+): ShapeEffectAny[] => {
+  const readEffectColor = (host: XmlElement): { color: string; opacity?: number } => {
+    let inner: XmlElement | null = null;
+    for (const c of host.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        c.name.localName === 'srgbClr' ||
+        c.name.localName === 'scrgbClr' ||
+        c.name.localName === 'hslClr' ||
+        c.name.localName === 'schemeClr' ||
+        c.name.localName === 'sysClr' ||
+        c.name.localName === 'prstClr'
+      ) {
+        inner = c;
+        break;
+      }
+    }
+    if (!inner) return { color: '' };
+    const opacity = resolveDrawingColorOpacity(inner);
+    const hex = resolveDrawingColor(inner, theme, colorMap);
+    return { color: hex ?? '', ...(opacity !== null ? { opacity } : {}) };
+  };
+
+  const out: ShapeEffectAny[] = [];
+  for (const child of effectLst.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    const local = child.name.localName;
+    if (local === 'outerShdw' || local === 'innerShdw') {
+      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
+      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
+      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
+      const c = readEffectColor(child);
+      const alignmentRaw = getAttrValue(child, qname('', 'algn', '')) ?? 'b';
+      const alignment = ['tl', 't', 'tr', 'l', 'ctr', 'r', 'bl', 'b', 'br'].includes(alignmentRaw)
+        ? (alignmentRaw as 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br')
+        : undefined;
+      const rotationRaw = getAttrValue(child, qname('', 'rotWithShape', '')) ?? 'true';
+      const shadow = {
+        color: c.color,
+        blurEmu: blur,
+        distEmu: dist,
+        angleDeg: dir / 60000,
+        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
+      };
+      out.push(
+        local === 'outerShdw'
+          ? {
+              kind: 'outerShdw',
+              ...shadow,
+              ...(alignment !== undefined ? { alignment } : {}),
+              rotateWithShape: rotationRaw !== '0' && rotationRaw !== 'false',
+            }
+          : { kind: 'innerShdw', ...shadow },
+      );
+    } else if (local === 'glow') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      const c = readEffectColor(child);
+      out.push({
+        kind: 'glow',
+        color: c.color,
+        radiusEmu: rad,
+        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
+      });
+    } else if (local === 'reflection') {
+      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
+      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
+      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
+      // `stA`/`endA` are ST_PositiveFixedPercentage (0..100000); `sy` is
+      // ST_Percentage and may be negative to encode the mirror flip.
+      const pctFraction = (name: string): number | undefined => {
+        const raw = getAttrValue(child, qname('', name, ''));
+        if (raw === null) return undefined;
+        const n = readColorPercentage(raw);
+        if (!Number.isFinite(n)) return undefined;
+        return n;
+      };
+      const opacity = pctFraction('endA');
+      const startOpacity = pctFraction('stA');
+      const startPosition = pctFraction('stPos');
+      const endPosition = pctFraction('endPos');
+      const fadeDirectionRaw = getAttrValue(child, qname('', 'fadeDir', ''));
+      const fadeDirection =
+        fadeDirectionRaw === null ? undefined : readColorAngleDegrees(fadeDirectionRaw);
+      const scaleX = pctFraction('sx');
+      const scaleY = pctFraction('sy');
+      const skewXRaw = getAttrValue(child, qname('', 'kx', ''));
+      const skewYRaw = getAttrValue(child, qname('', 'ky', ''));
+      const skewX = skewXRaw === null ? undefined : readColorAngleDegrees(skewXRaw);
+      const skewY = skewYRaw === null ? undefined : readColorAngleDegrees(skewYRaw);
+      const alignmentRaw = getAttrValue(child, qname('', 'algn', ''));
+      const alignment =
+        alignmentRaw !== null &&
+        ['tl', 't', 'tr', 'l', 'ctr', 'r', 'bl', 'b', 'br'].includes(alignmentRaw)
+          ? (alignmentRaw as 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br')
+          : undefined;
+      const rotateWithShape = getAttrValue(child, qname('', 'rotWithShape', ''));
+      out.push({
+        kind: 'reflection',
+        blurEmu: blur,
+        distEmu: dist,
+        angleDeg: dir / 60000,
+        ...(opacity !== undefined ? { opacity } : {}),
+        ...(startOpacity !== undefined ? { startOpacity } : {}),
+        ...(startPosition !== undefined ? { startPosition } : {}),
+        ...(endPosition !== undefined ? { endPosition } : {}),
+        ...(fadeDirection !== undefined ? { fadeDirection } : {}),
+        ...(scaleX !== undefined ? { scaleX } : {}),
+        ...(scaleY !== undefined ? { scaleY } : {}),
+        ...(skewX !== undefined ? { skewX } : {}),
+        ...(skewY !== undefined ? { skewY } : {}),
+        ...(alignment !== undefined ? { alignment } : {}),
+        ...(rotateWithShape !== null
+          ? { rotateWithShape: rotateWithShape !== '0' && rotateWithShape !== 'false' }
+          : {}),
+      });
+    } else if (local === 'softEdge') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      out.push({ kind: 'softEdge', radiusEmu: rad });
+    } else if (local === 'blur') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      out.push({ kind: 'blur', radiusEmu: rad });
+    }
+  }
+  return out;
+};
+
+// The color of an `<a:solidFill>`, as a run reports it. With a theme, scheme
+// tokens resolve to `#RRGGBB` and `<a:lumMod>` and friends are applied; without
+// one, tokens pass through verbatim, which is the legacy `getShapeRunFormat`
+// behavior callers round-trip against.
+const colorOfFill = (
+  solidFill: XmlElement,
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
+): string | null => {
+  // CT_SolidColorFillProperties holds exactly one EG_ColorChoice child
+  // (srgbClr / schemeClr / sysClr / prstClr).
+  let colorChild: XmlElement | null = null;
+  for (const c of solidFill.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    colorChild = c;
+    break;
+  }
+  if (colorChild === null) return null;
+  const token = getAttrValue(colorChild, qname('', 'val', ''));
+  if (ctx) {
+    const hex = resolveDrawingColor(colorChild, ctx.theme, ctx.colorMap);
+    if (hex !== null) return hex;
+    // Theme not provided / token not in scheme — surface the raw token.
+    return colorChild.name.localName === 'schemeClr' ? token : null;
+  }
+  if (colorChild.name.localName === 'srgbClr')
+    return token === null ? null : `#${token.toUpperCase()}`;
+  if (colorChild.name.localName === 'schemeClr') return token;
+  return null;
+};
+
+type ReadColorContext = {
+  readonly theme: PresentationTheme | null;
+  readonly colorMap?: Readonly<Record<string, string>> | null;
+};
+
+const firstColorChild = (holder: XmlElement): XmlElement | null => {
+  for (const c of holder.children)
+    if (c.kind === 'element' && c.name.namespaceURI === NS.dml) return c;
+  return null;
+};
+
+// The transforms a run color read from `holder` still carries. A color the
+// theme resolved has them applied already; a literal one (no theme, or a token
+// the theme lacks) does not, so they are reported for a writer to re-apply.
+const pendingTransforms = (
+  holder: XmlElement,
+  ctx: ReadColorContext | undefined,
+): ColorTransform[] | undefined => {
+  const color = firstColorChild(holder);
+  if (color === null) return undefined;
+  if (ctx && resolveDrawingColor(color, ctx.theme, ctx.colorMap) !== null) return undefined;
+  const transforms = readColorTransforms(color);
+  return transforms.length ? transforms : undefined;
+};
+
+// An effect reports its alpha as `opacity`, so its transforms surface only
+// when something besides alpha adjusts the color — the gradient-stop rule.
+const pendingEffectTransforms = (
+  effect: XmlElement,
+  ctx: ReadColorContext | undefined,
+): { colorTransforms?: ColorTransform[] } => {
+  const transforms = pendingTransforms(effect, ctx);
+  return transforms?.some((t) => !['alpha', 'alphaMod', 'alphaOff'].includes(t.kind))
+    ? { colorTransforms: transforms }
+    : {};
+};
+
+const readTextGradientFill = (
+  gradFill: XmlElement,
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
+): ReadTextFormat['textFill'] => {
+  const gsList = firstChildElement(gradFill, qname('a', 'gsLst', NS.dml));
+  if (gsList === null) return undefined;
+  const stops: ReadGradientStop[] = [];
+  for (const gs of gsList.children) {
+    if (gs.kind !== 'element' || gs.name.localName !== 'gs') continue;
+    const pos = readDrawingmlPercentage(getAttrValue(gs, qname('', 'pos', '')) ?? '', Number.NaN);
+    const colorEl = gs.children.find(
+      (child) => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+    );
+    if (!Number.isFinite(pos) || colorEl?.kind !== 'element') continue;
+    const base = colorOfFill({ ...gs, children: [colorEl] }, ctx);
+    if (base === null) continue;
+    const transforms = readColorTransforms(colorEl);
+    // A stop without alpha states no opacity; reporting 1 would write one back.
+    const opacity = resolveDrawingColorOpacity(colorEl) ?? undefined;
+    const brightness = colorTransformBrightness(transforms);
+    const resolvedColor = ctx ? resolveDrawingColor(colorEl, ctx.theme, ctx.colorMap) : null;
+    stops.push({
+      offset: pos,
+      color: base,
+      ...(transforms.length ? { colorTransforms: transforms } : {}),
+      ...(opacity === undefined ? {} : { opacity }),
+      ...(brightness === undefined ? {} : { brightness }),
+      ...(resolvedColor === null ? {} : { resolvedColor }),
+    });
+  }
+  if (stops.length === 0) return undefined;
+  const lin = firstChildElement(gradFill, qname('a', 'lin', NS.dml));
+  const path = firstChildElement(gradFill, qname('a', 'path', NS.dml));
+  const rect = (el: XmlElement | null) => {
+    if (el === null) return undefined;
+    const read = (name: string) => {
+      const raw = getAttrValue(el, qname('', name, ''));
+      return raw === null ? 0 : Number.parseFloat(raw) / (raw.endsWith('%') ? 100 : 100000);
+    };
+    return { left: read('l'), top: read('t'), right: read('r'), bottom: read('b') };
+  };
+  const angle =
+    lin === null ? undefined : Number.parseInt(getAttrValue(lin, qname('', 'ang', '')) ?? '', 10);
+  const pathValue = getAttrValue(path ?? gradFill, qname('', 'path', ''));
+  const kind =
+    pathValue === 'circle' || pathValue === 'rect' || pathValue === 'shape' ? pathValue : undefined;
+  const tile = firstChildElement(gradFill, qname('a', 'tileRect', NS.dml));
+  return {
+    kind: 'gradient',
+    stops,
+    ...(angle !== undefined && Number.isFinite(angle) ? { angleDeg: angle / 60000 } : {}),
+    ...(lin !== null
+      ? {
+          scaled: ['1', 'true'].includes(getAttrValue(lin, qname('', 'scaled', '')) ?? ''),
+        }
+      : {}),
+    ...(getAttrValue(gradFill, qname('', 'rotWithShape', '')) !== null
+      ? {
+          rotateWithShape: !['0', 'false'].includes(
+            getAttrValue(gradFill, qname('', 'rotWithShape', '')) ?? '',
+          ),
+        }
+      : {}),
+    ...(kind ? { path: kind } : {}),
+    ...(path
+      ? (() => {
+          const f = rect(firstChildElement(path, qname('a', 'fillToRect', NS.dml)));
+          return f ? { focus: f } : {};
+        })()
+      : {}),
+    ...(tile
+      ? (() => {
+          const t = rect(tile);
+          return t ? { tileRect: t } : {};
+        })()
+      : {}),
+  };
+};
+
+const readTextPatternFill = (
+  pattFill: XmlElement,
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
+): ReadTextFormat['textFill'] => {
+  const preset = getAttrValue(pattFill, qname('', 'prst', ''));
+  if (preset === null) return undefined;
+  const read = (local: 'fgClr' | 'bgClr') => {
+    const holder = firstChildElement(pattFill, qname('a', local, NS.dml));
+    return holder === null ? null : colorOfFill(holder, ctx);
+  };
+  const foreground = read('fgClr');
+  const background = read('bgClr');
+  if (foreground === null || background === null) return undefined;
+  if (!PATTERN_PRESETS.includes(preset as (typeof PATTERN_PRESETS)[number])) return undefined;
+  const transforms = (local: 'fgClr' | 'bgClr') => {
+    const holder = firstChildElement(pattFill, qname('a', local, NS.dml));
+    const color = holder?.children.find(
+      (child) => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+    );
+    return color?.kind === 'element' ? readColorTransforms(color) : [];
+  };
+  const foregroundTransforms = transforms('fgClr');
+  const backgroundTransforms = transforms('bgClr');
+  const validatedPreset = preset as (typeof PATTERN_PRESETS)[number];
+  return {
+    kind: 'pattern',
+    preset: validatedPreset,
+    foreground,
+    background,
+    ...(foregroundTransforms.length ? { foregroundTransforms } : {}),
+    ...(backgroundTransforms.length ? { backgroundTransforms } : {}),
+  };
+};
+
 // Reads any element shaped like `CT_TextCharacterProperties` (the schema
 // shared by `<a:rPr>`, `<a:defRPr>`, and `<a:endParaRPr>`) into a partial
 // TextFormat. Used by both the literal-only `getShapeRunFormat` and the
@@ -314,7 +686,10 @@ export const resolveDrawingColorOpacity = (colorEl: XmlElement): number | null =
 // verbatim — this preserves the legacy `getShapeRunFormat` behavior.
 export const parseRPrLikeElement = (
   rPr: XmlElement,
-  ctx?: { readonly theme: PresentationTheme | null },
+  ctx?: {
+    readonly theme: PresentationTheme | null;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
 ): Partial<ReadTextFormat> => {
   const out: Partial<ReadTextFormat> = {};
   const sz = getAttrValue(rPr, qname('', 'sz', ''));
@@ -323,9 +698,9 @@ export const parseRPrLikeElement = (
     if (Number.isFinite(n)) out.size = n / 100;
   }
   const b = getAttrValue(rPr, qname('', 'b', ''));
-  if (b !== null) out.bold = b !== '0';
+  if (b !== null) out.bold = b === '1' || b === 'true';
   const i = getAttrValue(rPr, qname('', 'i', ''));
-  if (i !== null) out.italic = i !== '0';
+  if (i !== null) out.italic = i === '1' || i === 'true';
   const u = getAttrValue(rPr, qname('', 'u', ''));
   if (u !== null) {
     if (u === 'none') out.underline = false;
@@ -349,13 +724,12 @@ export const parseRPrLikeElement = (
     if (Number.isFinite(n)) out.kern = n;
   }
   const baselineAttr = getAttrValue(rPr, qname('', 'baseline', ''));
+  const normalizeHeight = getAttrValue(rPr, qname('', 'normalizeH', ''));
+  if (normalizeHeight !== null)
+    out.normalizeHeight = normalizeHeight === '1' || normalizeHeight === 'true';
   if (baselineAttr !== null) {
-    // ST_Percentage: 100000 = 100%; tolerate bare floats.
-    let n = Number.parseFloat(baselineAttr);
-    if (Number.isFinite(n)) {
-      if (Math.abs(n) > 1) n = n / 100000;
-      out.baseline = n;
-    }
+    const baseline = readDrawingmlPercentage(baselineAttr, Number.NaN);
+    if (Number.isFinite(baseline)) out.baseline = baseline;
   }
   const cap = getAttrValue(rPr, qname('', 'cap', ''));
   if (cap === 'none' || cap === 'small' || cap === 'all') {
@@ -372,7 +746,7 @@ export const parseRPrLikeElement = (
     }
     if (hlChild) {
       if (ctx) {
-        const hex = resolveDrawingColor(hlChild, ctx.theme);
+        const hex = resolveDrawingColor(hlChild, ctx.theme, ctx.colorMap);
         if (hex !== null) out.highlight = hex;
       } else if (hlChild.name.localName === 'srgbClr') {
         const v = getAttrValue(hlChild, qname('', 'val', ''));
@@ -385,35 +759,38 @@ export const parseRPrLikeElement = (
   }
   const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
   if (solidFill !== null) {
-    // Find the inner color element (srgbClr / schemeClr / sysClr / prstClr).
-    // CT_SolidColorFillProperties holds exactly one EG_ColorChoice child.
-    let colorChild: XmlElement | null = null;
-    for (const c of solidFill.children) {
-      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-      colorChild = c;
-      break;
+    const color = colorOfFill(solidFill, ctx);
+    if (color !== null) {
+      out.color = color;
+      const colorTransforms = pendingTransforms(solidFill, ctx);
+      if (colorTransforms) out.colorTransforms = colorTransforms;
     }
-    if (colorChild) {
-      if (ctx) {
-        // Apply transforms + resolve scheme tokens to hex.
-        const hex = resolveDrawingColor(colorChild, ctx.theme);
-        if (hex !== null) out.color = hex;
-        else if (colorChild.name.localName === 'schemeClr') {
-          // Theme not provided / token not in scheme — surface the raw token.
-          const v = getAttrValue(colorChild, qname('', 'val', ''));
-          if (v !== null) out.color = v;
-        }
-      } else {
-        // Legacy `getShapeRunFormat` path: no transforms, scheme tokens
-        // emitted as bare strings to match prior public behavior.
-        if (colorChild.name.localName === 'srgbClr') {
-          const v = getAttrValue(colorChild, qname('', 'val', ''));
-          if (v !== null) out.color = `#${v.toUpperCase()}`;
-        } else if (colorChild.name.localName === 'schemeClr') {
-          const v = getAttrValue(colorChild, qname('', 'val', ''));
-          if (v !== null) out.color = v;
-        }
-      }
+  }
+  const gradientFill = firstChildElement(rPr, qname('a', 'gradFill', NS.dml));
+  if (gradientFill !== null) {
+    const fill = readTextGradientFill(gradientFill, ctx);
+    if (fill) out.textFill = fill;
+  }
+  const patternFill = firstChildElement(rPr, qname('a', 'pattFill', NS.dml));
+  if (patternFill !== null) {
+    const fill = readTextPatternFill(patternFill, ctx);
+    if (fill) out.textFill = fill;
+  }
+  // Underline fill is a separate DrawingML choice from the run's text fill.
+  // `uFillTx` is meaningful even without a color child: it explicitly follows
+  // the text color and must therefore remain distinct from an omitted value.
+  const underlineFillText = firstChildElement(rPr, qname('a', 'uFillTx', NS.dml));
+  if (underlineFillText !== null) {
+    out.underlineColor = null;
+  } else {
+    const underlineFill = firstChildElement(rPr, qname('a', 'uFill', NS.dml));
+    const underlineSolidFill =
+      underlineFill === null
+        ? null
+        : firstChildElement(underlineFill, qname('a', 'solidFill', NS.dml));
+    if (underlineSolidFill !== null) {
+      const color = colorOfFill(underlineSolidFill, ctx);
+      if (color !== null) out.underlineColor = color;
     }
   }
   const latin = firstChildElement(rPr, qname('a', 'latin', NS.dml));
@@ -430,6 +807,86 @@ export const parseRPrLikeElement = (
   if (cs !== null) {
     const t = getAttrValue(cs, qname('', 'typeface', ''));
     if (t !== null) out.fontComplexScript = t;
+  }
+  const ln = firstChildElement(rPr, qname('a', 'ln', NS.dml));
+  if (ln !== null) {
+    const outline: { color?: string; colorTransforms?: ColorTransform[]; widthEmu?: number } = {};
+    const w = getAttrValue(ln, qname('', 'w', ''));
+    if (w !== null) {
+      const n = Number.parseInt(w, 10);
+      if (Number.isFinite(n)) outline.widthEmu = n;
+    }
+    const lnFill = firstChildElement(ln, qname('a', 'solidFill', NS.dml));
+    const color = lnFill === null ? null : colorOfFill(lnFill, ctx);
+    if (color !== null) {
+      outline.color = color;
+      const colorTransforms = pendingTransforms(lnFill!, ctx);
+      if (colorTransforms) outline.colorTransforms = colorTransforms;
+    }
+    out.outline = outline;
+  }
+  // `<a:effectLst>` on a run holds the same effects as on a shape; a run that
+  // states one states it for its own glyphs. Only effects the library writes
+  // are surfaced here — the rest stay readable through `getShapeEffects`'
+  // union, which is not what a character format is.
+  const effects = firstChildElement(rPr, qname('a', 'effectLst', NS.dml));
+  if (effects !== null) {
+    // Without a theme the shared effect parser cannot name a scheme color, so
+    // the run reads each effect's color the way it reads its fill.
+    const effectColor = (local: string, resolved: string) => {
+      const element = firstChildElement(effects, qname('a', local, NS.dml));
+      const color = element === null ? null : colorOfFill(element, ctx);
+      if (color === null) return { color: resolved };
+      return { color, ...pendingEffectTransforms(element!, ctx) };
+    };
+    for (const effect of parseEffectList(effects, ctx?.theme ?? null, ctx?.colorMap)) {
+      if (effect.kind === 'outerShdw') {
+        out.shadow = {
+          ...effectColor('outerShdw', effect.color),
+          ...(effect.alignment !== undefined ? { alignment: effect.alignment } : {}),
+          ...(effect.rotateWithShape !== undefined
+            ? { rotateWithShape: effect.rotateWithShape }
+            : {}),
+          blurEmu: effect.blurEmu,
+          offsetEmu: effect.distEmu,
+          angleDeg: effect.angleDeg,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+        };
+      } else if (effect.kind === 'innerShdw') {
+        out.innerShadow = {
+          ...effectColor('innerShdw', effect.color),
+          blurEmu: effect.blurEmu,
+          offsetEmu: effect.distEmu,
+          angleDeg: effect.angleDeg,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+        };
+      } else if (effect.kind === 'glow') {
+        out.glow = {
+          ...effectColor('glow', effect.color),
+          radiusEmu: effect.radiusEmu,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+        };
+      } else if (effect.kind === 'reflection') {
+        out.reflection = {
+          blurEmu: effect.blurEmu,
+          offsetEmu: effect.distEmu,
+          angleDeg: effect.angleDeg,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+          ...(effect.startOpacity !== undefined ? { startOpacity: effect.startOpacity } : {}),
+          ...(effect.startPosition !== undefined ? { startPosition: effect.startPosition } : {}),
+          ...(effect.endPosition !== undefined ? { endPosition: effect.endPosition } : {}),
+          ...(effect.fadeDirection !== undefined ? { fadeDirection: effect.fadeDirection } : {}),
+          ...(effect.scaleX !== undefined ? { scaleX: effect.scaleX } : {}),
+          ...(effect.scaleY !== undefined ? { scaleY: effect.scaleY } : {}),
+          ...(effect.skewX !== undefined ? { skewX: effect.skewX } : {}),
+          ...(effect.skewY !== undefined ? { skewY: effect.skewY } : {}),
+          ...(effect.alignment !== undefined ? { alignment: effect.alignment } : {}),
+          ...(effect.rotateWithShape !== undefined
+            ? { rotateWithShape: effect.rotateWithShape }
+            : {}),
+        };
+      }
+    }
   }
   return out;
 };

@@ -162,7 +162,7 @@ describe('imported artwork', () => {
     expect(pixel(2, 2)).toEqual([255, 255, 255, 255]);
   });
 
-  it('放射状グラデーションも位置順に並べてから反転する', async () => {
+  it('放射状グラデーションを中心から外側への位置順に並べる', async () => {
     const { pres, slide } = await blankSlide();
     const shape = addSlideShape(slide, {
       preset: 'rect',
@@ -181,7 +181,7 @@ describe('imported artwork', () => {
     });
     const svg = renderSlideToSvg(pres, slide);
     expect([...svg.matchAll(/<stop offset="([^"]+)"/g)].map((match) => Number(match[1]))).toEqual([
-      0, 0.48, 1,
+      0, 0.52, 1,
     ]);
   });
 

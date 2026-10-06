@@ -5,7 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   getSlideMasterCount,
+  getSlideMasterPartName,
   getSlideMasterPartNames,
+  getSlideLayoutName,
+  getSlideLayouts,
+  getSlides,
   loadPresentation,
 } from '../src/api/index.ts';
 
@@ -25,5 +29,16 @@ describe('fn API: getSlideMasterPartNames', () => {
   it('returns at least one master on a real fixture', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     expect(getSlideMasterPartNames(pres).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('resolves the owning master from a layout handle', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const layout = getSlideLayouts(pres).find(
+      (item) => getSlideLayoutName(item) === 'Title and Content',
+    );
+    const slide = getSlides(pres)[0];
+    expect(layout).toBeDefined();
+    expect(slide).toBeDefined();
+    expect(getSlideMasterPartName(layout!)).toBe(getSlideMasterPartName(slide!));
   });
 });

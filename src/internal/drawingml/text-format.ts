@@ -28,14 +28,41 @@ import {
 } from '../xml/index.ts';
 import { UNDERLINES, STRIKES } from '../enum-values.ts';
 import { oneOf, fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
-import { parseColor } from './color.ts';
+import { asColor, parseColor } from './color.ts';
+import { type ColorTransform, buildColorTransforms } from './color-transforms.ts';
+import {
+  type EffectPlacement,
+  type GlowOptions,
+  type InnerShadowOptions,
+  type ReflectionOptions,
+  type ShadowOptions,
+  removeEffect,
+  setGlow,
+  setInnerShadow,
+  setReflection,
+  setShadow,
+} from './effects.ts';
+import { applySolidStroke } from './stroke.ts';
+import {
+  type GradientFillOptions,
+  type PatternFillOptions,
+  type ReadGradientFill,
+  setGradientFill,
+  setPatternFill,
+  validateGradientFillOptions,
+  validatePatternFillOptions,
+  removeAnyFill,
+} from './fill.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
+const NAME_LN = qname('a', 'ln', NS.dml);
 const NAME_LATIN = qname('a', 'latin', NS.dml);
 const NAME_EA = qname('a', 'ea', NS.dml);
 const NAME_CS = qname('a', 'cs', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
+const NAME_U_FILL_TX = qname('a', 'uFillTx', NS.dml);
+const NAME_U_FILL = qname('a', 'uFill', NS.dml);
 const NAME_SRGB_CLR = qname('a', 'srgbClr', NS.dml);
 const NAME_SCHEME_CLR = qname('a', 'schemeClr', NS.dml);
 const ATTR_SZ = qname('', 'sz', '');
@@ -45,6 +72,7 @@ const ATTR_U = qname('', 'u', '');
 const ATTR_STRIKE = qname('', 'strike', '');
 const ATTR_SPC = qname('', 'spc', '');
 const ATTR_KERN = qname('', 'kern', '');
+const ATTR_NORMALIZE_H = qname('', 'normalizeH', '');
 const ATTR_BASELINE = qname('', 'baseline', '');
 const ATTR_CAP = qname('', 'cap', '');
 const ATTR_TYPEFACE = qname('', 'typeface', '');
@@ -104,6 +132,18 @@ export interface TextFormat {
    * (`tx1`, `accent1`, ...), or `null` to clear.
    */
   color?: Color | null;
+  /**
+   * Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,
+   * ...), written as children of its color element — PowerPoint's theme
+   * tints, such as Accent 2 Lighter 60%. Same field as on gradient stops;
+   * requires `color`, and replaces any transforms the run's color had.
+   */
+  colorTransforms?: readonly ColorTransform[];
+  /**
+   * Non-solid glyph fill. The `color` field remains the shorthand for a solid
+   * fill. Both are the same OOXML fill choice, so supplying both is rejected.
+   */
+  textFill?: TextFill;
   bold?: boolean;
   italic?: boolean;
   /**
@@ -112,6 +152,12 @@ export interface TextFormat {
    * `'dash'`, ...).
    */
   underline?: boolean | string;
+  /**
+   * Underline color. `null` explicitly follows the run's text color via
+   * `<a:uFillTx>`; omit the property to leave an existing underline fill
+   * untouched.
+   */
+  underlineColor?: Color | null;
   /**
    * Strikethrough style. `true` is shorthand for `'sngStrike'` (single
    * line). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,
@@ -126,9 +172,12 @@ export interface TextFormat {
   /**
    * Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same
    * unit as `spc`): `0` disables kerning, `1200` = apply kerning for runs
-   * ≥12pt. Mirrors `<a:rPr kern="…"/>`.
+   * ≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to
+   * save the value as `kern="0"` when its Use kerning checkbox is cleared.
    */
   kern?: number;
+  /** Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height). */
+  normalizeHeight?: boolean;
   /**
    * Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,
    * `-0.25` = subscript). PowerPoint emits ST_Percentage; this getter
@@ -145,6 +194,51 @@ export interface TextFormat {
    * format as `color`. Mirrors `<a:rPr><a:highlight>…</a:highlight></a:rPr>`.
    */
   highlight?: Color | null;
+  /**
+   * Outline drawn around the glyphs — `<a:rPr><a:ln>`, the character-level
+   * twin of `setShapeStroke`. `null` removes it, which is not the same as
+   * an outline of width 0: removing restores what the run inherits.
+   */
+  outline?: TextOutline | null;
+  /**
+   * Drop shadow behind the glyphs — `<a:outerShdw>` in the run's own
+   * `<a:effectLst>`. `null` removes it.
+   */
+  shadow?: ShadowOptions | null;
+  /** Inner shadow inside the glyphs — `<a:innerShdw>` in the run's effect list. */
+  innerShadow?: InnerShadowOptions | null;
+  /**
+   * Glow around the glyphs — `<a:glow>` in the run's own `<a:effectLst>`.
+   * `null` removes it.
+   */
+  glow?: GlowOptions | null;
+  /** Reflection below the glyphs — `<a:reflection>` in the run's effect list. */
+  reflection?: ReflectionOptions | null;
+}
+
+export type TextFill =
+  | ({ readonly kind: 'gradient' } & GradientFillOptions)
+  | ({ readonly kind: 'pattern' } & PatternFillOptions);
+
+export type ReadTextFill =
+  | ({ readonly kind: 'gradient' } & ReadGradientFill)
+  | {
+      readonly kind: 'pattern';
+      readonly preset: PatternFillOptions['preset'];
+      readonly foreground: string;
+      readonly background: string;
+      readonly foregroundTransforms?: PatternFillOptions['foregroundTransforms'];
+      readonly backgroundTransforms?: PatternFillOptions['backgroundTransforms'];
+    };
+
+/** A run's outline: `CT_LineProperties` as far as text uses it. */
+export interface TextOutline {
+  /** Same accepted forms as `TextFormat.color`. */
+  readonly color?: Color;
+  /** Ordered adjustments to `color`, as on `TextFormat.colorTransforms`. Requires `color`. */
+  readonly colorTransforms?: readonly ColorTransform[];
+  /** Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt). */
+  readonly widthEmu?: number;
 }
 
 /**
@@ -152,9 +246,173 @@ export interface TextFormat {
  * `string`: when no theme is supplied, or a token is not in the scheme, the
  * readers surface the raw `<a:schemeClr val>` token as-is.
  */
-export type ReadTextFormat = Omit<TextFormat, 'color' | 'highlight'> & {
+export type ReadTextFormat = Omit<
+  TextFormat,
+  | 'color'
+  | 'textFill'
+  | 'underlineColor'
+  | 'highlight'
+  | 'outline'
+  | 'shadow'
+  | 'innerShadow'
+  | 'glow'
+  | 'reflection'
+> & {
   color?: string | null;
+  underlineColor?: string | null;
   highlight?: string | null;
+  outline?: ReadTextOutline | null;
+  shadow?: (Omit<ShadowOptions, 'color'> & { readonly color?: string }) | null;
+  innerShadow?: (Omit<InnerShadowOptions, 'color'> & { readonly color?: string }) | null;
+  glow?: (Omit<GlowOptions, 'color'> & { readonly color: string }) | null;
+  reflection?: ReflectionOptions | null;
+  textFill?: ReadTextFill;
+};
+
+/** A run outline read back from a deck. `color` widens for the same reason. */
+export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: string };
+
+/**
+ * Converts a format read back from a deck into one a writer accepts. The
+ * readers widen every color to `string`, because a deck can hold a scheme
+ * token that is not in its theme; this checks each one and drops the property
+ * (or, for a glow, the whole effect) when the writer would reject it, so the
+ * round trip never writes a color the schema has no room for.
+ */
+export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
+  const {
+    color,
+    colorTransforms,
+    textFill,
+    underlineColor,
+    highlight,
+    outline,
+    shadow,
+    innerShadow,
+    glow,
+    reflection,
+    ...rest
+  } = format;
+  const writableColor = color == null ? null : asColor(color);
+  const outlineColor = outline?.color === undefined ? null : asColor(outline.color);
+  const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
+  const innerShadowColor = innerShadow?.color === undefined ? null : asColor(innerShadow.color);
+  const glowColor = glow == null ? null : asColor(glow.color);
+  const writableFill = textFill === undefined ? undefined : toWritableTextFill(textFill);
+  return {
+    ...rest,
+    ...(color == null ? {} : { color: writableColor }),
+    ...(writableColor === null || colorTransforms === undefined ? {} : { colorTransforms }),
+    ...(writableFill === undefined ? {} : { textFill: writableFill }),
+    ...(underlineColor === undefined
+      ? {}
+      : { underlineColor: underlineColor === null ? null : asColor(underlineColor) }),
+    ...(highlight == null ? {} : { highlight: asColor(highlight) }),
+    ...(outline == null
+      ? {}
+      : {
+          outline: {
+            ...(outline.widthEmu === undefined ? {} : { widthEmu: outline.widthEmu }),
+            ...(outlineColor === null ? {} : { color: outlineColor }),
+            ...(outlineColor === null || outline.colorTransforms === undefined
+              ? {}
+              : { colorTransforms: outline.colorTransforms }),
+          },
+        }),
+    ...(shadow == null
+      ? {}
+      : {
+          shadow: {
+            ...(shadow.alignment === undefined ? {} : { alignment: shadow.alignment }),
+            ...(shadow.rotateWithShape === undefined
+              ? {}
+              : { rotateWithShape: shadow.rotateWithShape }),
+            ...(shadow.blurEmu === undefined ? {} : { blurEmu: shadow.blurEmu }),
+            ...(shadow.offsetEmu === undefined ? {} : { offsetEmu: shadow.offsetEmu }),
+            ...(shadow.angleDeg === undefined ? {} : { angleDeg: shadow.angleDeg }),
+            ...(shadow.opacity === undefined ? {} : { opacity: shadow.opacity }),
+            ...(shadowColor === null ? {} : { color: shadowColor }),
+            ...(shadowColor === null || shadow.colorTransforms === undefined
+              ? {}
+              : { colorTransforms: shadow.colorTransforms }),
+          },
+        }),
+    ...(innerShadow === undefined
+      ? {}
+      : innerShadow === null
+        ? { innerShadow: null }
+        : {
+            innerShadow: {
+              ...(innerShadow.blurEmu === undefined ? {} : { blurEmu: innerShadow.blurEmu }),
+              ...(innerShadow.offsetEmu === undefined ? {} : { offsetEmu: innerShadow.offsetEmu }),
+              ...(innerShadow.angleDeg === undefined ? {} : { angleDeg: innerShadow.angleDeg }),
+              ...(innerShadow.opacity === undefined ? {} : { opacity: innerShadow.opacity }),
+              ...(innerShadowColor === null ? {} : { color: innerShadowColor }),
+              ...(innerShadowColor === null || innerShadow.colorTransforms === undefined
+                ? {}
+                : { colorTransforms: innerShadow.colorTransforms }),
+            },
+          }),
+    ...(glow == null || glowColor === null
+      ? {}
+      : {
+          glow: {
+            color: glowColor,
+            ...(glow.colorTransforms === undefined
+              ? {}
+              : { colorTransforms: glow.colorTransforms }),
+            ...(glow.radiusEmu === undefined ? {} : { radiusEmu: glow.radiusEmu }),
+            ...(glow.opacity === undefined ? {} : { opacity: glow.opacity }),
+          },
+        }),
+    ...(reflection === undefined ? {} : { reflection }),
+  };
+};
+
+// A read fill can carry a color token this library cannot write back (for
+// example `phClr`). Omitting the fill leaves the run's paint untouched instead
+// of failing the whole format copy.
+const toWritableTextFill = (fill: ReadTextFill): TextFill | undefined => {
+  if (fill.kind === 'pattern') {
+    const foreground = asColor(fill.foreground);
+    const background = asColor(fill.background);
+    if (foreground === null || background === null) return undefined;
+    return {
+      kind: 'pattern',
+      preset: fill.preset,
+      foreground,
+      background,
+      ...(fill.foregroundTransforms === undefined
+        ? {}
+        : { foregroundTransforms: fill.foregroundTransforms }),
+      ...(fill.backgroundTransforms === undefined
+        ? {}
+        : { backgroundTransforms: fill.backgroundTransforms }),
+    };
+  }
+  const stops: Array<GradientFillOptions['stops'][number]> = [];
+  for (const stop of fill.stops) {
+    const color = asColor(stop.color);
+    // Dropping one stop would silently redraw the gradient; drop the fill.
+    if (color === null) return undefined;
+    stops.push({
+      offset: stop.offset,
+      color,
+      ...(stop.colorTransforms === undefined ? {} : { colorTransforms: stop.colorTransforms }),
+      ...(stop.opacity === undefined ? {} : { opacity: stop.opacity }),
+      ...(stop.brightness === undefined ? {} : { brightness: stop.brightness }),
+    });
+  }
+  return {
+    kind: 'gradient',
+    stops,
+    ...(fill.angleDeg === undefined ? {} : { angleDeg: fill.angleDeg }),
+    ...(fill.rotateWithShape === undefined ? {} : { rotateWithShape: fill.rotateWithShape }),
+    ...(fill.scaled === undefined ? {} : { scaled: fill.scaled }),
+    ...(fill.path === undefined ? {} : { path: fill.path }),
+    ...(fill.focus === undefined ? {} : { focus: fill.focus }),
+    ...(fill.tileRect === undefined ? {} : { tileRect: fill.tileRect }),
+  };
 };
 
 const setOrRemoveAttr = (
@@ -167,20 +425,74 @@ const setOrRemoveAttr = (
   return filtered;
 };
 
-const setSolidFill = (rPr: XmlElement, value: string | null): void => {
-  // Remove any existing solidFill first.
-  rPr.children = rPr.children.filter(
-    (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'solidFill'),
-  );
-  if (value === null) return;
+const setSolidFill = (
+  rPr: XmlElement,
+  value: string | null,
+  transforms: readonly ColorTransform[] | undefined,
+): void => {
+  if (value === null) {
+    removeAnyFill(rPr);
+    return;
+  }
   const parsed = parseColor(value);
   if (parsed === null) throw new Error(`unrecognized color: ${value}`);
+  // Character fills are a choice, just like shape fills. Keeping a WordArt
+  // gradient or pattern beside the new solid fill would produce invalid OOXML.
+  removeAnyFill(rPr);
   const inner =
     parsed.kind === 'srgb'
       ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
       : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
+  if (transforms !== undefined) inner.children = buildColorTransforms(transforms);
   const fill = elem(NAME_SOLID_FILL, { children: [inner] });
+  insertChildByRank(rPr, fill, rprChildRank);
+};
+
+const setTextFill = (rPr: XmlElement, fill: TextFill): void => {
+  if (fill.kind === 'gradient') {
+    setGradientFill(rPr, fill);
+  } else {
+    setPatternFill(rPr, fill);
+  }
+  // The shape fill helpers place fills before `<a:ln>`. Character properties
+  // have the opposite order: `<a:ln>` precedes the fill choice.
+  const chosen = rPr.children.find(
+    (child) =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      ['noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill'].includes(
+        child.name.localName,
+      ),
+  );
+  if (chosen?.kind === 'element') {
+    rPr.children = rPr.children.filter((child) => child !== chosen);
+    insertChildByRank(rPr, chosen, rprChildRank);
+  }
+};
+
+const setUnderlineFill = (rPr: XmlElement, value: string | null): void => {
+  rPr.children = rPr.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        (c.name.localName === 'uFillTx' || c.name.localName === 'uFill')
+      ),
+  );
+  const fill =
+    value === null
+      ? elem(NAME_U_FILL_TX)
+      : (() => {
+          const parsed = parseColor(value);
+          if (parsed === null) throw new Error(`unrecognized underline color: ${value}`);
+          const inner =
+            parsed.kind === 'srgb'
+              ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
+              : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
+          return elem(NAME_U_FILL, {
+            children: [elem(NAME_SOLID_FILL, { children: [inner] })],
+          });
+        })();
   insertChildByRank(rPr, fill, rprChildRank);
 };
 
@@ -230,6 +542,35 @@ export const validateFormatEnums = (format: TextFormat, caller: string): void =>
   if (format.strike != null && typeof format.strike !== 'boolean')
     oneOf(format.strike, STRIKES, `${caller}: strike`);
   if (format.cap != null) oneOf(format.cap, ['none', 'small', 'all'], `${caller}: cap`);
+  if (format.colorTransforms !== undefined) {
+    if (format.color == null) throw new Error(`${caller}: colorTransforms requires color`);
+    buildColorTransforms(format.colorTransforms);
+  }
+  const effectColors = [
+    ['outline', format.outline],
+    ['shadow', format.shadow],
+    ['innerShadow', format.innerShadow],
+    ['glow', format.glow],
+  ] as const;
+  for (const [field, value] of effectColors) {
+    if (value?.colorTransforms === undefined) continue;
+    if (value.color === undefined)
+      throw new Error(`${caller}: ${field}.colorTransforms requires ${field}.color`);
+    buildColorTransforms(value.colorTransforms);
+  }
+  if (format.textFill !== undefined) {
+    if (format.color !== undefined)
+      throw new Error(`${caller}: color and textFill are mutually exclusive; pass one`);
+    validateTextFill(format.textFill, `${caller}: textFill`);
+  }
+};
+
+const validateTextFill = (fill: TextFill, caller: string): void => {
+  if (fill.kind === 'pattern') {
+    validatePatternFillOptions(fill, caller);
+    return;
+  }
+  validateGradientFillOptions(fill, caller);
 };
 
 /** Mutates `rPr` in place per `format`. */
@@ -272,6 +613,9 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.kern !== undefined) {
     attrs = setOrRemoveAttr(attrs, ATTR_KERN, String(Math.round(format.kern)));
   }
+  if (format.normalizeHeight !== undefined) {
+    attrs = setOrRemoveAttr(attrs, ATTR_NORMALIZE_H, format.normalizeHeight ? '1' : '0');
+  }
   if (format.baseline !== undefined) {
     // ST_Percentage; we accept the unit-fraction form on the public API
     // and serialize as the on-the-wire hundredths-of-percent integer.
@@ -286,8 +630,213 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.font !== undefined) setLatin(rPr, format.font);
   if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
   if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
-  if (format.color !== undefined) setSolidFill(rPr, format.color);
+  if (format.textFill !== undefined) setTextFill(rPr, format.textFill);
+  else if (format.color !== undefined) setSolidFill(rPr, format.color, format.colorTransforms);
+  if (format.underlineColor !== undefined) setUnderlineFill(rPr, format.underlineColor);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
+  if (format.outline !== undefined) setRunOutline(rPr, format.outline);
+  if (format.shadow !== undefined) {
+    if (format.shadow === null) removeEffect(rPr, 'outerShdw');
+    else setShadow(rPr, format.shadow, rPrEffectPlacement);
+  }
+  if (format.innerShadow !== undefined) {
+    if (format.innerShadow === null) removeEffect(rPr, 'innerShdw');
+    else setInnerShadow(rPr, format.innerShadow, rPrEffectPlacement);
+  }
+  if (format.glow !== undefined) {
+    if (format.glow === null) removeEffect(rPr, 'glow');
+    else setGlow(rPr, format.glow, rPrEffectPlacement);
+  }
+  if (format.reflection !== undefined) {
+    if (format.reflection === null) removeEffect(rPr, 'reflection');
+    else setReflection(rPr, format.reflection, rPrEffectPlacement);
+  }
+};
+
+// `<a:effectLst>` is the third slot of CT_TextCharacterProperties, so it goes
+// ahead of the first child that outranks it rather than at the end the way it
+// does on `<p:spPr>`.
+const rPrEffectPlacement: EffectPlacement = (rPr) => {
+  const own = RPR_CHILD_RANK.effectLst!;
+  for (let i = 0; i < rPr.children.length; i++) {
+    const c = rPr.children[i];
+    if (c?.kind === 'element' && rprChildRank(c) > own) return i;
+  }
+  return rPr.children.length;
+};
+
+const setRunOutline = (rPr: XmlElement, outline: TextOutline | null): void => {
+  const existing = firstChildElement(rPr, NAME_LN);
+  if (outline === null) {
+    if (existing) rPr.children = rPr.children.filter((c) => c !== existing);
+    return;
+  }
+  const ln = existing ?? elem(NAME_LN);
+  applySolidStroke(ln, outline);
+  if (outline.colorTransforms !== undefined) {
+    // applySolidStroke keeps a previous color's alpha; stated transforms replace them all.
+    const color = firstChildElement(ln, NAME_SOLID_FILL)?.children.find(
+      (child) => child.kind === 'element',
+    );
+    if (color?.kind === 'element') color.children = buildColorTransforms(outline.colorTransforms);
+  }
+  if (!existing) insertChildByRank(rPr, ln, rprChildRank);
+};
+
+const VISUAL_RUN_ATTRIBUTES = new Set([
+  'kumimoji',
+  'sz',
+  'b',
+  'i',
+  'u',
+  'strike',
+  'kern',
+  'cap',
+  'spc',
+  'normalizeH',
+  'baseline',
+]);
+const VISUAL_RUN_CHILDREN = new Set([
+  'ln',
+  'noFill',
+  'solidFill',
+  'gradFill',
+  'blipFill',
+  'pattFill',
+  'grpFill',
+  'effectLst',
+  'effectDag',
+  'highlight',
+  'uLnTx',
+  'uLn',
+  'uFillTx',
+  'uFill',
+  'latin',
+  'ea',
+  'cs',
+  'sym',
+]);
+
+/** Retain links, language, proofing and unknown extensions when clearing appearance. */
+export const resetRunFormat = (properties: XmlElement): void => {
+  properties.attrs = properties.attrs.filter(
+    (a) => a.name.namespaceURI !== '' || !VISUAL_RUN_ATTRIBUTES.has(a.name.localName),
+  );
+  properties.children = properties.children.filter(
+    (c) =>
+      c.kind !== 'element' ||
+      c.name.namespaceURI !== NS.dml ||
+      !VISUAL_RUN_CHILDREN.has(c.name.localName),
+  );
+};
+
+const resetTextBodyRunFormats = (node: XmlElement): void => {
+  if (
+    node.name.namespaceURI === NS.dml &&
+    ['rPr', 'defRPr', 'endParaRPr'].includes(node.name.localName)
+  ) {
+    resetRunFormat(node);
+    return;
+  }
+  for (const child of node.children) {
+    if (
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName !== 'extLst'
+    )
+      resetTextBodyRunFormats(child);
+  }
+};
+
+// ECMA-376 CT_TextBodyProperties / CT_TextParagraphProperties. Keep paragraph
+// level (the outline structure), language, hyperlinks and unknown extensions.
+const BODY_FORMAT_ATTRIBUTES = new Set([
+  'rot',
+  'spcFirstLastPara',
+  'vertOverflow',
+  'horzOverflow',
+  'vert',
+  'wrap',
+  'lIns',
+  'tIns',
+  'rIns',
+  'bIns',
+  'numCol',
+  'spcCol',
+  'rtlCol',
+  'fromWordArt',
+  'anchor',
+  'anchorCtr',
+  'forceAA',
+  'upright',
+  'compatLnSpc',
+]);
+const BODY_FORMAT_CHILDREN = new Set([
+  'prstTxWarp',
+  'noAutofit',
+  'normAutofit',
+  'spAutoFit',
+  'scene3d',
+  'sp3d',
+  'flatTx',
+]);
+const PARAGRAPH_FORMAT_ATTRIBUTES = new Set([
+  'marL',
+  'marR',
+  'indent',
+  'algn',
+  'defTabSz',
+  'rtl',
+  'eaLnBrk',
+  'fontAlgn',
+  'latinLnBrk',
+  'hangingPunct',
+]);
+const PARAGRAPH_FORMAT_CHILDREN = new Set([
+  'lnSpc',
+  'spcBef',
+  'spcAft',
+  'buClrTx',
+  'buClr',
+  'buSzTx',
+  'buSzPct',
+  'buSzPts',
+  'buFontTx',
+  'buFont',
+  'buNone',
+  'buAutoNum',
+  'buChar',
+  'buBlip',
+  'tabLst',
+]);
+
+/** Clear direct text appearance so a placeholder can inherit its layout again. */
+export const resetTextBodyFormatting = (body: XmlElement): void => {
+  resetTextBodyRunFormats(body);
+  const visit = (node: XmlElement): void => {
+    const local = node.name.localName;
+    const isBody = local === 'bodyPr';
+    if (isBody || local === 'pPr' || local === 'defPPr' || /^lvl[1-9]pPr$/.test(local)) {
+      const attributes = isBody ? BODY_FORMAT_ATTRIBUTES : PARAGRAPH_FORMAT_ATTRIBUTES;
+      const children = isBody ? BODY_FORMAT_CHILDREN : PARAGRAPH_FORMAT_CHILDREN;
+      node.attrs = node.attrs.filter(
+        (a) => a.name.namespaceURI !== '' || !attributes.has(a.name.localName),
+      );
+      node.children = node.children.filter(
+        (c) =>
+          c.kind !== 'element' || c.name.namespaceURI !== NS.dml || !children.has(c.name.localName),
+      );
+    }
+    for (const child of node.children) {
+      if (
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        child.name.localName !== 'extLst'
+      )
+        visit(child);
+    }
+  };
+  visit(body);
 };
 
 /**
@@ -299,17 +848,31 @@ export const applyFormatToAllRuns = (
   txBody: XmlElement,
   format: TextFormat,
   caller = 'setShapeTextFormat',
+  reset = false,
 ): void => {
   validateFormatEnums(format, caller);
-  applyValidatedFormatToAllRuns(txBody, format);
+  applyValidatedFormatToAllRuns(txBody, format, reset);
 };
 
-export const applyValidatedFormatToAllRuns = (txBody: XmlElement, format: TextFormat): void => {
+export const applyValidatedFormatToAllRuns = (
+  txBody: XmlElement,
+  format: TextFormat,
+  reset = false,
+): void => {
+  if (reset) {
+    applyValidatedRunFormat(elem(NAME_RPR), format);
+    resetTextBodyRunFormats(txBody);
+  }
   // Walk depth-first; runs live two levels deep (txBody > p > r).
   for (const p of txBody.children) {
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
       continue;
     }
+    // The paragraph end mark supplies the format for typing into an empty paragraph.
+    const existingEnd = firstChildElement(p, qname('a', 'endParaRPr', NS.dml));
+    const end = existingEnd ?? elem(qname('a', 'endParaRPr', NS.dml));
+    applyValidatedRunFormat(end, format);
+    if (!existingEnd && (end.attrs.length || end.children.length)) p.children.push(end);
     for (const r of p.children) {
       if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') {
         continue;

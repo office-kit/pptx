@@ -3,6 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import {
   addSlideTable,
   clearTableCellFill,
@@ -11,7 +12,10 @@ import {
   getTableCell,
   getTableCellPosition,
   getTableCellText,
+  getTableCellParagraphs,
+  setTableCellParagraphs,
   getTableCells,
+  getSlideTables,
   inches,
   loadPresentation,
   savePresentation,
@@ -121,4 +125,86 @@ describe('fn API: table cell access', () => {
     const table = addDemoTable(slide);
     expect(getTableDimensions(table)).toEqual({ rows: 2, cols: 2 });
   });
+});
+
+it('preserves mixed runs and paragraph properties when editing cell text', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const table = addDemoTable(getSlides(pres)[0]!);
+  const cell = getTableCell(table, 0, 0);
+  setTableCellParagraphs(cell, [
+    {
+      align: 'center',
+      runs: [
+        { text: 'Hello ', format: { bold: true } },
+        { text: '日本語🌎', format: { italic: true } },
+      ],
+    },
+  ]);
+  setTableCellText(cell, 'Hello 日本語🌎!', { preserveFormatting: true });
+  const paragraph = getTableCellParagraphs(cell)[0]!;
+  expect(paragraph.align).toBe('center');
+  expect(paragraph.elements[0]!.format?.bold).toBe(true);
+  expect(paragraph.elements[1]!.format?.italic).toBe(true);
+  expect(getTableCellText(cell)).toBe('Hello 日本語🌎!');
+  const xml = await slideXml(await savePresentation(pres), 0);
+  expect(xml).toContain('日本語🌎');
+});
+
+it('reads and preserves soft breaks and fields in table cell text', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  addDemoTable(getSlides(pres)[0]!);
+  const entries = unzipSync(await savePresentation(pres));
+  const path = 'ppt/slides/slide1.xml';
+  entries[path] = strToU8(
+    strFromU8(entries[path]!).replace(
+      '<a:t>A</a:t></a:r>',
+      '<a:t>A</a:t></a:r><a:br/><a:fld id="{00000000-0000-0000-0000-000000000001}" type="slidenum"><a:t>12</a:t></a:fld>',
+    ),
+  );
+  const loaded = await loadPresentation(zipSync(entries));
+  const cell = getTableCell(getSlideTables(getSlides(loaded)[0]!)[0]!, 0, 0);
+  expect(getTableCellText(cell)).toBe('A\n12');
+  setTableCellText(cell, 'A\n12!', { preserveFormatting: true });
+  expect(getTableCellText(cell)).toBe('A\n12!');
+  expect(getTableCellParagraphs(cell)[0]!.elements.map((e) => e.kind)).toEqual([
+    'r',
+    'br',
+    'fld',
+    'r',
+  ]);
+});
+
+it('formats a table text range without changing surrounding runs and survives reload', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const table = addDemoTable(getSlides(pres)[0]!);
+  const cell = getTableCell(table, 0, 0);
+  setTableCellParagraphs(cell, [
+    {
+      runs: [
+        { text: 'Hello ', format: { bold: true } },
+        { text: '日本語🌎', format: { italic: true } },
+      ],
+    },
+  ]);
+  setTableCellTextFormat(cell, { color: '#123456' }, { range: { start: 3, end: 9 } });
+  expect(
+    getTableCellParagraphs(cell)[0]!.elements.map((e) => [
+      e.kind === 'br' ? '\n' : e.text,
+      e.format?.color,
+    ]),
+  ).toEqual([
+    ['Hel', undefined],
+    ['lo ', '#123456'],
+    ['日本語', '#123456'],
+    ['🌎', undefined],
+  ]);
+  const before = getTableCellParagraphs(cell);
+  expect(() =>
+    setTableCellTextFormat(cell, { bold: false }, { range: { start: 10, end: 11 } }),
+  ).toThrow();
+  expect(getTableCellParagraphs(cell)).toEqual(before);
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const restored = getTableCell(getSlideTables(getSlides(loaded)[0]!)[0]!, 0, 0);
+  expect(getTableCellText(restored)).toBe('Hello 日本語🌎');
+  expect(getTableCellParagraphs(restored)).toEqual(before);
 });

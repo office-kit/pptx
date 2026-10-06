@@ -1,6 +1,18 @@
 // Table cell access.
 
 import type { Color, ReadTextFormat } from '../../internal/drawingml/index.ts';
+import { buildClickAction, readClickAction, type ShapeClickAction } from './shape-click-action.ts';
+import { replaceClickHyperlink } from '../../internal/drawingml/hyperlink.ts';
+import { textBodyText } from '../../internal/drawingml/text-body.ts';
+import {
+  editTextBody,
+  formatTextBodyParagraphEnd,
+  formatTextBodyRange,
+  mutateTextBodyRangeProperties,
+  transformTextBodyCase,
+  type TextCase,
+  validateTextRange,
+} from '../../internal/drawingml/text-body-edit.ts';
 import { oneOf } from '../../internal/bounds.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
@@ -22,9 +34,14 @@ import {
   parseAlignmentToken,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
-import { buildTableCell, buildTableRow } from '../../internal/presentationml/index.ts';
+import {
+  buildTableCell,
+  buildTableRow,
+  getBuiltinTableStyle,
+} from '../../internal/presentationml/index.ts';
 import {
   NS,
+  cloneElement,
   type XmlElement,
   allChildElements,
   attr,
@@ -34,6 +51,7 @@ import {
   insertChildByRank,
   qname,
   qnameEquals,
+  parseXml,
   text,
 } from '../../internal/xml/index.ts';
 import {
@@ -41,6 +59,7 @@ import {
   CELL_ELEMENT,
   CELL_ROW,
   CELL_TABLE,
+  INTERNAL_PACKAGE,
   type PresentationData,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
@@ -57,10 +76,16 @@ import {
   readParagraphElements,
   readParagraphEndFormat,
 } from './shape-runs.ts';
-import { ALIGN_TOKEN_MAP } from './shape-paragraph.ts';
+import { ALIGN_TOKEN_MAP, resolveTextBodyRunFormatEffective } from './shape-paragraph.ts';
 import { getPresentationTheme } from './package.ts';
+import { getEffectiveColorMap } from './color-map.ts';
+import { getPresentationFonts, themeRootFromPackage } from './theme.ts';
 import { resolveDrawingColor } from './shapes.ts';
+import type { ShapeFill } from './shape-read-paint.ts';
 import { getSlides } from './slide-query.ts';
+import { partName, resolveTarget } from '../../internal/opc/index.ts';
+import { REL_TYPES } from '../../internal/presentationml/index.ts';
+import { decode } from './_helpers.ts';
 
 // ---------------------------------------------------------------------------
 // Table cell access.
@@ -77,6 +102,62 @@ const NAME_A_GRAPHIC_DATA_TBL = qname('a', 'graphicData', NS.dml);
 const NAME_A_TBL = qname('a', 'tbl', NS.dml);
 const NAME_A_TC_PR = qname('a', 'tcPr', NS.dml);
 const NAME_A_TX_BODY_TBL = qname('a', 'txBody', NS.dml);
+const NAME_A_TBL_STYLE = qname('a', 'tblStyle', NS.dml);
+const NAME_A_TC_TX_STYLE = qname('a', 'tcTxStyle', NS.dml);
+const NAME_A_TC_STYLE = qname('a', 'tcStyle', NS.dml);
+const NAME_A_TC_BDR = qname('a', 'tcBdr', NS.dml);
+const NAME_A_FONT = qname('a', 'font', NS.dml);
+const NAME_A_FONT_REF = qname('a', 'fontRef', NS.dml);
+const NAME_A_LATIN = qname('a', 'latin', NS.dml);
+const NAME_A_EA = qname('a', 'ea', NS.dml);
+const NAME_A_CS = qname('a', 'cs', NS.dml);
+const NAME_A_PRES = partName('/ppt/presentation.xml');
+
+// Table styles are package-level and immutable during normal reads. Keeping
+// the parsed root per package avoids reparsing the style part for every run
+// while still allowing independent presentations to carry different styles.
+type TableStyleInfo = {
+  readonly data: Uint8Array;
+  readonly styles: ReadonlyMap<string, XmlElement>;
+  readonly defaultId: string | null;
+};
+
+const tableStyleInfoCache = new WeakMap<object, TableStyleInfo>();
+
+const tableStyleInfoFor = (pres: PresentationData): TableStyleInfo | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const rel = pkg
+    .getRels(NAME_A_PRES)
+    ?.items.find((item) => item.type === REL_TYPES.tableStyles && item.targetMode === 'Internal');
+  if (!rel) {
+    return null;
+  }
+  const name = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(NAME_A_PRES, rel.target);
+  const part = pkg.getPart(name);
+  if (!part) return null;
+  const cached = tableStyleInfoCache.get(pkg);
+  if (cached?.data === part.data) return cached;
+  const root = parseXml(decode(part.data)).root;
+  if (root.name.namespaceURI !== NS.dml || root.name.localName !== 'tblStyleLst') {
+    return null;
+  }
+  const styles = new Map<string, XmlElement>();
+  for (const style of allChildElements(root, NAME_A_TBL_STYLE)) {
+    const id = getAttrValue(style, qname('', 'styleId', ''))
+      ?.trim()
+      .toUpperCase();
+    if (id) styles.set(id, style);
+  }
+  const defaultId =
+    getAttrValue(root, qname('', 'def', ''))
+      ?.trim()
+      .toUpperCase() ?? null;
+  const info = { data: part.data, styles, defaultId };
+  tableStyleInfoCache.set(pkg, info);
+  return info;
+};
 
 const findTblElement = (shape: SlideShapeData): XmlElement | null => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'graphicFrame') return null;
@@ -139,6 +220,29 @@ const rowCells = (tr: XmlElement): XmlElement[] =>
     (c): c is XmlElement =>
       c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tc',
   );
+
+// Style resolution runs for every cell and text run. Dimensions change only
+// when a row or column is inserted/deleted, so those mutators invalidate this
+// cache rather than repeatedly traversing the table during rendering.
+const tableStyleDimensionsCache = new WeakMap<
+  XmlElement,
+  { readonly rows: number; readonly cols: number }
+>();
+const tableStyleDimensions = (
+  tbl: XmlElement,
+): { readonly rows: number; readonly cols: number } => {
+  const cached = tableStyleDimensionsCache.get(tbl);
+  if (cached) return cached;
+  const rows = tableRows(tbl);
+  const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  const gridColumns = grid ? allChildElements(grid, NAME_A_GRID_COL).length : 0;
+  const dimensions = {
+    rows: rows.length,
+    cols: gridColumns || (rows[0] ? rowCells(rows[0]).length : 0),
+  };
+  tableStyleDimensionsCache.set(tbl, dimensions);
+  return dimensions;
+};
 
 const buildCellHandle = (
   table: SlideShapeData,
@@ -290,6 +394,147 @@ const TABLE_STYLE_FLAG_KEYS = [
   'bandRow',
   'bandCol',
 ] as const;
+
+const tableStylePart = (style: XmlElement, localName: string): XmlElement | null =>
+  firstChildElement(style, qname('a', localName, NS.dml));
+
+const tableStyleColor = (
+  node: XmlElement,
+  theme: ReturnType<typeof getPresentationTheme>,
+  colorMap: Readonly<Record<string, string>> | null,
+): string | null => {
+  const child = node.children.find(
+    (candidate): candidate is XmlElement =>
+      candidate.kind === 'element' &&
+      candidate.name.namespaceURI === NS.dml &&
+      ['srgbClr', 'schemeClr', 'sysClr', 'prstClr'].includes(candidate.name.localName),
+  );
+  return child ? resolveDrawingColor(child, theme, colorMap) : null;
+};
+
+const tableStyleTextFormat = (
+  node: XmlElement,
+  theme: ReturnType<typeof getPresentationTheme>,
+  colorMap: Readonly<Record<string, string>> | null,
+): Partial<ReadTextFormat> => {
+  const out: Partial<ReadTextFormat> = {};
+  const onOff = (name: 'b' | 'i'): boolean | undefined => {
+    const value = getAttrValue(node, qname('', name, ''));
+    return value === 'on' ? true : value === 'off' ? false : undefined;
+  };
+  const bold = onOff('b');
+  const italic = onOff('i');
+  if (bold !== undefined) out.bold = bold;
+  if (italic !== undefined) out.italic = italic;
+
+  const font = firstChildElement(node, NAME_A_FONT);
+  if (font) {
+    const latin = firstChildElement(font, NAME_A_LATIN);
+    const eastAsian = firstChildElement(font, NAME_A_EA);
+    const complexScript = firstChildElement(font, NAME_A_CS);
+    const typeface = (element: XmlElement | null): string | undefined =>
+      element ? (getAttrValue(element, qname('', 'typeface', '')) ?? undefined) : undefined;
+    const latinTypeface = typeface(latin);
+    const eastAsianTypeface = typeface(eastAsian);
+    const complexScriptTypeface = typeface(complexScript);
+    if (latinTypeface !== undefined) out.font = latinTypeface;
+    if (eastAsianTypeface !== undefined) out.fontEastAsian = eastAsianTypeface;
+    if (complexScriptTypeface !== undefined) out.fontComplexScript = complexScriptTypeface;
+  } else {
+    const fontRef = firstChildElement(node, NAME_A_FONT_REF);
+    if (fontRef) {
+      const idx = getAttrValue(fontRef, qname('', 'idx', ''));
+      if (idx === 'major' || idx === 'minor') {
+        out.font = idx === 'major' ? '+mj-lt' : '+mn-lt';
+        out.fontEastAsian = idx === 'major' ? '+mj-ea' : '+mn-ea';
+        out.fontComplexScript = idx === 'major' ? '+mj-cs' : '+mn-cs';
+      }
+      const refColor = tableStyleColor(fontRef, theme, colorMap);
+      if (refColor !== null) out.color = refColor;
+    }
+  }
+  // CT_TableStyleTextStyle permits a direct color choice alongside its font
+  // choice. It wins over the fontRef color when both are present.
+  const directColor = tableStyleColor(node, theme, colorMap);
+  if (directColor !== null) out.color = directColor;
+  return out;
+};
+
+const tableStylePartsForCell = (pres: PresentationData, cell: TableCellData): XmlElement[] => {
+  const info = tableStyleInfoFor(pres);
+  const table = cell[CELL_TABLE];
+  const styleId = (getTableStyleId(table) ?? info?.defaultId)?.trim().toUpperCase();
+  if (!styleId) return [];
+  const style = info?.styles.get(styleId) ?? getBuiltinTableStyle(styleId);
+  const tbl = findTblElement(table);
+  if (!style || !tbl) return [];
+  const { rows: rowCount, cols: colCount } = tableStyleDimensions(tbl);
+  if (rowCount === 0 || colCount === 0) return [];
+  const flags = getTableStyleFlags(table);
+  const row = cell[CELL_ROW];
+  const col = cell[CELL_COL];
+  // Mac PowerPoint applies Total Row / Last Column to merged cells reaching
+  // those edges, even when their anchors are in earlier rows or columns.
+  const span = getTableCellSpan(cell);
+  const rowEnd = row + span.rowSpan - 1;
+  const colEnd = col + span.gridSpan - 1;
+  const layers: XmlElement[] = [];
+  const add = (name: string, enabled = true): void => {
+    if (!enabled) return;
+    const part = tableStylePart(style, name);
+    if (part) layers.push(part);
+  };
+
+  add('wholeTbl');
+  // MS-OI29500 §2.1.1265 applies these regions in this order; the later,
+  // more-specific region wins. This is the DrawingML table-style priority,
+  // rather than the similarly named Word table-style priority.
+  const bodyRow = row - (flags.firstRow ? 1 : 0);
+  const bodyCol = col - (flags.firstCol ? 1 : 0);
+  const bodyRows = rowCount - (flags.firstRow ? 1 : 0) - (flags.lastRow ? 1 : 0);
+  const bodyCols = colCount - (flags.firstCol ? 1 : 0) - (flags.lastCol ? 1 : 0);
+  add(
+    'band1H',
+    flags.bandRow && bodyRows > 0 && bodyRow >= 0 && bodyRow < bodyRows && bodyRow % 2 === 0,
+  );
+  add(
+    'band2H',
+    flags.bandRow && bodyRows > 0 && bodyRow >= 0 && bodyRow < bodyRows && bodyRow % 2 === 1,
+  );
+  add(
+    'band1V',
+    flags.bandCol && bodyCols > 0 && bodyCol >= 0 && bodyCol < bodyCols && bodyCol % 2 === 0,
+  );
+  add(
+    'band2V',
+    flags.bandCol && bodyCols > 0 && bodyCol >= 0 && bodyCol < bodyCols && bodyCol % 2 === 1,
+  );
+  add('lastCol', flags.lastCol && colEnd === colCount - 1);
+  add('firstCol', flags.firstCol && col === 0);
+  add('lastRow', flags.lastRow && rowEnd === rowCount - 1);
+  add(
+    'seCell',
+    flags.lastRow && flags.lastCol && rowEnd === rowCount - 1 && colEnd === colCount - 1,
+  );
+  add('swCell', flags.lastRow && flags.firstCol && rowEnd === rowCount - 1 && col === 0);
+  add('firstRow', flags.firstRow && row === 0);
+  add('neCell', flags.firstRow && flags.lastCol && row === 0 && colEnd === colCount - 1);
+  add('nwCell', flags.firstRow && flags.firstCol && row === 0 && col === 0);
+
+  return layers;
+};
+
+const tableStyleFormatForCell = (
+  pres: PresentationData,
+  cell: TableCellData,
+): Partial<ReadTextFormat> => {
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(cell[CELL_TABLE][SHAPE_SLIDE]);
+  return tableStylePartsForCell(pres, cell).reduce<Partial<ReadTextFormat>>((format, layer) => {
+    const textStyle = firstChildElement(layer, NAME_A_TC_TX_STYLE);
+    return textStyle ? { ...format, ...tableStyleTextFormat(textStyle, theme, colorMap) } : format;
+  }, {});
+};
 
 /**
  * Sets one or more boolean style flags on `<a:tblPr>`. Only the keys
@@ -480,12 +725,29 @@ const ensureCellTcPr = (cell: TableCellData): XmlElement => {
 };
 
 /**
- * Replaces a cell's text. `\n` starts a new paragraph. The paragraph-end
- * format (`<a:endParaRPr>`) is not kept; author it with `setTableCellParagraphs`.
+ * Replaces a cell's text. `\n` starts a new paragraph unless `newlines: 'break'`
+ * requests paragraph-internal `<a:br>` elements. The paragraph-end
+ * format (`<a:endParaRPr>`) is not kept unless `preserveFormatting` is enabled.
+ * That option preserves unaffected runs and paragraph properties during editing.
+ * With `range`, `text` replaces exactly that UTF-16 selection, always preserving
+ * the formatting of unaffected text. Pass `{ case: 'upper' | 'lower' | 'sentence' |
+ * 'title' | 'toggle' }` to change case in the whole cell or `options.range`
+ * without rebuilding its runs, fields, or paragraph properties.
  */
-export const setTableCellText = (cell: TableCellData, text: string): void => {
+export const setTableCellText = (
+  cell: TableCellData,
+  text: string | { case: TextCase },
+  options?: {
+    newlines?: 'paragraph' | 'break';
+    preserveFormatting?: boolean;
+    range?: { start: number; end: number };
+  },
+): void => {
   const txBody = ensureCellTxBody(cell);
-  setTextBody(txBody, text);
+  if (typeof text === 'object') transformTextBodyCase(txBody, text.case, options?.range);
+  else if (options?.preserveFormatting || options?.range)
+    editTextBody(txBody, text, options.range, options.newlines);
+  else setTextBody(txBody, text, undefined, options?.newlines);
   commitTableCell(cell);
 };
 
@@ -589,7 +851,8 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  * leaves each covered cell's `<a:txBody>` in the XML; `'drop'` removes it,
  * so the covered cells carry no `<a:txBody>` at all (CT_TableCell allows
  * that), which is how PptxGenJS writes a merge; `getTableCellParagraphs`
- * reads them as `[]`.
+ * reads them as `[]`. `'append'` moves covered paragraphs into the anchor in
+ * row-major order, preserving their formatting and leaving covered cells empty.
  */
 export const mergeTableCells = (
   table: SlideShapeData,
@@ -599,13 +862,13 @@ export const mergeTableCells = (
     readonly rowSpan: number;
     readonly colSpan: number;
   },
-  options?: { readonly coveredText?: 'keep' | 'drop' },
+  options?: { readonly coveredText?: 'keep' | 'drop' | 'append' },
 ): void => {
   const { row, col, rowSpan, colSpan } = block;
   const coveredText = options?.coveredText ?? 'keep';
-  if (coveredText !== 'keep' && coveredText !== 'drop') {
+  if (coveredText !== 'keep' && coveredText !== 'drop' && coveredText !== 'append') {
     throw new TypeError(
-      `mergeTableCells: coveredText must be 'keep' or 'drop' (got ${String(coveredText)})`,
+      `mergeTableCells: coveredText must be 'keep', 'drop' or 'append' (got ${String(coveredText)})`,
     );
   }
   if (!Number.isInteger(rowSpan) || !Number.isInteger(colSpan) || rowSpan < 1 || colSpan < 1) {
@@ -651,6 +914,28 @@ export const mergeTableCells = (
     }
   }
 
+  if (coveredText === 'append') {
+    const anchor = ensureCellTxBody(cells[row]![col]!);
+    let emptyAnchor = !textBodyText(anchor);
+    for (let r = row; r <= lastRow; r++) {
+      for (let c = col; c <= lastCol; c++) {
+        if (r === row && c === col) continue;
+        const source = cells[r]![c]!;
+        const body = firstChildElement(source[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+        if (!body || !textBodyText(body)) continue;
+        if (emptyAnchor) {
+          anchor.children = anchor.children.filter(
+            (child) =>
+              !(child.kind === 'element' && qnameEquals(child.name, qname('a', 'p', NS.dml))),
+          );
+          emptyAnchor = false;
+        }
+        anchor.children.push(...structuredClone(allChildElements(body, qname('a', 'p', NS.dml))));
+        setTextBody(body, '');
+      }
+    }
+  }
+
   for (let r = row; r <= lastRow; r++) {
     for (let c = col; c <= lastCol; c++) {
       const tc = cells[r]![c]![CELL_ELEMENT];
@@ -671,6 +956,57 @@ export const mergeTableCells = (
     }
   }
 
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/**
+ * Splits the merged region containing `cell`, including a covered cell.
+ * Retains each cell's text and properties; text removed during merging stays empty.
+ * An unmerged cell is unchanged. Malformed regions throw before any mutation.
+ */
+export const splitTableCell = (cell: TableCellData): void => {
+  const table = cell[CELL_TABLE];
+  const cells = getTableCells(table);
+  const row = cell[CELL_ROW];
+  const col = cell[CELL_COL];
+  let block: { row: number; col: number; rows: number; cols: number } | undefined;
+  for (let r = 0; r <= row; r++) {
+    for (let c = 0; c <= col; c++) {
+      const candidate = cells[r]?.[c];
+      if (!candidate) continue;
+      const span = getTableCellSpan(candidate);
+      if (span.hMerge || span.vMerge || (span.rowSpan === 1 && span.gridSpan === 1)) continue;
+      if (r + span.rowSpan > row && c + span.gridSpan > col) {
+        if (block) throw new Error('splitTableCell: overlapping merged regions');
+        block = { row: r, col: c, rows: span.rowSpan, cols: span.gridSpan };
+      }
+    }
+  }
+  if (!block) {
+    const span = getTableCellSpan(cell);
+    if (span.hMerge || span.vMerge) throw new Error('splitTableCell: covered cell has no anchor');
+    return;
+  }
+  const affected: XmlElement[] = [];
+  for (let r = block.row; r < block.row + block.rows; r++) {
+    for (let c = block.col; c < block.col + block.cols; c++) {
+      const covered = cells[r]?.[c];
+      if (!covered) throw new Error('splitTableCell: merged region exceeds the table');
+      const span = getTableCellSpan(covered);
+      if (span.hMerge !== c > block.col || span.vMerge !== r > block.row) {
+        throw new Error('splitTableCell: inconsistent merged region');
+      }
+      affected.push(covered[CELL_ELEMENT]);
+    }
+  }
+  for (const tc of affected) {
+    tc.attrs = tc.attrs.filter(
+      (a) =>
+        a.name.namespaceURI !== '' ||
+        !['gridSpan', 'rowSpan', 'hMerge', 'vMerge'].includes(a.name.localName),
+    );
+  }
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
 };
@@ -1018,24 +1354,7 @@ export const setTableCellMargins = (
 /** Reads the cell's plain text (paragraphs joined with `\n`). */
 export const getTableCellText = (cell: TableCellData): string => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
-  if (!txBody) return '';
-  const lines: string[] = [];
-  for (const p of txBody.children) {
-    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p')
-      continue;
-    let line = '';
-    for (const r of p.children) {
-      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r')
-        continue;
-      const tEl = firstChildElement(r, qname('a', 't', NS.dml));
-      if (!tEl) continue;
-      for (const child of tEl.children) {
-        if (child.kind === 'text' || child.kind === 'cdata') line += child.data;
-      }
-    }
-    lines.push(line);
-  }
-  return lines.join('\n');
+  return txBody ? textBodyText(txBody) : '';
 };
 
 /** One paragraph of a cell's text, with its alignment and inline elements. */
@@ -1046,7 +1365,12 @@ export interface TableCellParagraph {
    */
   readonly align: ParagraphAlignment | null;
   /** Runs / fields / breaks in document order, with their literal `<a:rPr>` format. */
-  readonly elements: ReadonlyArray<ShapeParagraphElement>;
+  readonly elements: ReadonlyArray<
+    ShapeParagraphElement & {
+      readonly clickAction?: ShapeClickAction;
+      readonly tooltip?: string;
+    }
+  >;
   /**
    * Literal format of the paragraph-end mark (`<a:endParaRPr>`), or `null`
    * when absent — the only format a paragraph with no `elements` carries.
@@ -1081,9 +1405,95 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
     // rest of the API uses, mirroring the shape-text alignment cascade. A
     // token outside the map is malformed input and reads as unset.
     const align: ParagraphAlignment | null = algn !== null ? (ALIGN_TOKEN_MAP[algn] ?? null) : null;
-    out.push({ align, elements: readParagraphElements(p), endFormat: readParagraphEndFormat(p) });
+    const inline = p.children.filter(
+      (child): child is XmlElement =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['r', 'fld', 'br'].includes(child.name.localName),
+    );
+    const elements = readParagraphElements(p).map((element, index) => {
+      const properties = firstChildElement(inline[index]!, qname('a', 'rPr', NS.dml));
+      const link = properties
+        ? firstChildElement(properties, qname('a', 'hlinkClick', NS.dml))
+        : null;
+      if (!link) return element;
+      const clickAction = readClickAction(cell[CELL_TABLE][SHAPE_SLIDE], link);
+      const tooltip = getAttrValue(link, qname('', 'tooltip', ''));
+      return {
+        ...element,
+        ...(clickAction ? { clickAction } : {}),
+        ...(tooltip !== null ? { tooltip } : {}),
+      };
+    });
+    out.push({ align, elements, endFormat: readParagraphEndFormat(p) });
   }
   return out;
+};
+
+/**
+ * Reads a table-cell run's effective character format. The literal
+ * `getTableCellParagraphs` format only contains properties authored on the
+ * run; this resolver also applies the cell text body's paragraph defaults and
+ * outline-level defaults (`a:pPr/defRPr` and `a:lstStyle`). Pass `null` as
+ * `runIndex` to resolve the paragraph end mark, including empty paragraphs.
+ * Pass `{ fieldIndex }` for a zero-based `a:fld` index; numeric indices count
+ * regular `a:r` runs only. Pass `{ breakIndex }` for a zero-based `a:br` index.
+ */
+export const getTableCellRunFormatEffective = (
+  pres: PresentationData,
+  cell: TableCellData,
+  paragraphIndex: number,
+  runIndex: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
+): ReadTextFormat => {
+  const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+  if (!txBody) throw new Error('table cell has no <a:txBody>');
+  const localFormat = resolveTextBodyRunFormatEffective(
+    {
+      theme: getPresentationTheme(pres),
+      colorMap: getEffectiveColorMap(cell[CELL_TABLE][SHAPE_SLIDE]),
+    },
+    txBody,
+    paragraphIndex,
+    runIndex,
+  );
+  // Table-style text is a default layer. The cell's paragraph/run cascade
+  // remains last so an authored false is not accidentally replaced by a
+  // style-level on/off value.
+  const format = { ...tableStyleFormatForCell(pres, cell), ...localFormat };
+  const fonts = getPresentationFonts(pres);
+  if (fonts) {
+    const resolveToken = (
+      value: string | undefined,
+      fallback: string | null,
+    ): string | undefined => {
+      if (value === undefined) return fallback ?? undefined;
+      switch (value) {
+        case '+mn-lt':
+          return fonts.minorLatin ?? fallback ?? undefined;
+        case '+mj-lt':
+          return fonts.majorLatin ?? fallback ?? undefined;
+        case '+mn-ea':
+          return fonts.minorEastAsian ?? fallback ?? undefined;
+        case '+mj-ea':
+          return fonts.majorEastAsian ?? fallback ?? undefined;
+        case '+mn-cs':
+          return fonts.minorComplexScript ?? fallback ?? undefined;
+        case '+mj-cs':
+          return fonts.majorComplexScript ?? fallback ?? undefined;
+        default:
+          return value;
+      }
+    };
+    const resolved: Partial<ReadTextFormat> = {};
+    const font = resolveToken(format.font, fonts.minorLatin);
+    const fontEastAsian = resolveToken(format.fontEastAsian, fonts.minorEastAsian);
+    const fontComplexScript = resolveToken(format.fontComplexScript, fonts.minorComplexScript);
+    if (font !== undefined) resolved.font = font;
+    if (fontEastAsian !== undefined) resolved.fontEastAsian = fontEastAsian;
+    if (fontComplexScript !== undefined) resolved.fontComplexScript = fontComplexScript;
+    return { ...format, ...resolved };
+  }
+  return format;
 };
 
 /** Sets a solid background color on a cell (`<a:tcPr><a:solidFill>`). */
@@ -1124,11 +1534,305 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
   return null;
 };
 
-/** Applies a TextFormat to every run in the cell's text. */
-export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat): void => {
+/** Effective cell appearance after table-style and cell-property inheritance. */
+export interface TableCellAppearanceEffective {
+  readonly fill: ShapeFill;
+  readonly borders: TableCellBorders;
+}
+
+const TABLE_STYLE_BORDER_LOCALS = {
+  left: 'left',
+  right: 'right',
+  top: 'top',
+  bottom: 'bottom',
+  tlToBr: 'tl2br',
+  blToTr: 'tr2bl',
+} as const;
+const STYLE_INSIDE_LOCALS = { insideH: 'insideH', insideV: 'insideV' } as const;
+const LOCAL_BORDER_LOCALS = {
+  left: 'lnL',
+  right: 'lnR',
+  top: 'lnT',
+  bottom: 'lnB',
+  tlToBr: 'lnTlToBr',
+  blToTr: 'lnBlToTr',
+} as const;
+
+const tableStyleMatrixEntry = (
+  pres: PresentationData,
+  reference: XmlElement,
+  listLocalName: 'fillStyleLst' | 'lnStyleLst',
+): XmlElement | null => {
+  const rawIndex = getAttrValue(reference, qname('', 'idx', ''));
+  const index = rawIndex === null ? NaN : Number.parseInt(rawIndex, 10);
+  if (!Number.isInteger(index) || index < 1) return null;
+  const themeRoot = themeRootFromPackage(pres[INTERNAL_PACKAGE]);
+  const themeElements = themeRoot
+    ? firstChildElement(themeRoot, qname('a', 'themeElements', NS.dml))
+    : null;
+  const formatScheme = themeElements
+    ? firstChildElement(themeElements, qname('a', 'fmtScheme', NS.dml))
+    : null;
+  const list = formatScheme
+    ? firstChildElement(
+        formatScheme,
+        qname(
+          'a',
+          index >= 1001 && listLocalName === 'fillStyleLst' ? 'bgFillStyleLst' : listLocalName,
+          NS.dml,
+        ),
+      )
+    : null;
+  const styleIndex = index >= 1001 && listLocalName === 'fillStyleLst' ? index - 1001 : index - 1;
+  const styles = list?.children.filter(
+    (child): child is XmlElement => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+  );
+  const selected = styles?.[styleIndex];
+  if (!selected) return null;
+
+  // Style-matrix entries use `phClr` as a placeholder for the color carried
+  // by the reference. Keep the entry's transforms after the reference's
+  // transforms, matching background-style resolution.
+  const placeholder = reference.children.find(
+    (child): child is XmlElement => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+  );
+  const replacePlaceholder = (parent: XmlElement): void => {
+    parent.children = parent.children.map((child) => {
+      if (child.kind !== 'element') return child;
+      if (
+        child.name.localName === 'schemeClr' &&
+        getAttrValue(child, qname('', 'val', '')) === 'phClr' &&
+        placeholder
+      ) {
+        const replacement = cloneElement(placeholder);
+        replacement.children.push(
+          ...child.children.map((item) =>
+            item.kind === 'element' ? cloneElement(item) : { ...item },
+          ),
+        );
+        return replacement;
+      }
+      replacePlaceholder(child);
+      return child;
+    });
+  };
+  const resolved = cloneElement(selected);
+  replacePlaceholder(resolved);
+  return resolved;
+};
+
+const readTableFill = (
+  container: XmlElement,
+  pres: PresentationData,
+  theme: ReturnType<typeof getPresentationTheme>,
+  colorMap: Readonly<Record<string, string>> | null,
+): ShapeFill | null => {
+  for (const child of container.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    switch (child.name.localName) {
+      case 'fill':
+        return readTableFill(child, pres, theme, colorMap);
+      case 'fillRef': {
+        const index = Number.parseInt(getAttrValue(child, qname('', 'idx', '')) ?? '', 10);
+        if (index === 0) return { kind: 'none' };
+        const resolved = tableStyleMatrixEntry(pres, child, 'fillStyleLst');
+        return resolved
+          ? readTableFill(
+              elem(qname('a', 'fill', NS.dml), { children: [resolved] }),
+              pres,
+              theme,
+              colorMap,
+            )
+          : null;
+      }
+      case 'noFill':
+        return { kind: 'none' };
+      case 'solidFill': {
+        const color = child.children.find(
+          (c): c is XmlElement => c.kind === 'element' && c.name.namespaceURI === NS.dml,
+        );
+        const resolved = color ? resolveDrawingColor(color, theme, colorMap) : null;
+        return resolved === null ? null : { kind: 'solid', color: resolved };
+      }
+      case 'gradFill':
+        return { kind: 'gradient' };
+      case 'pattFill':
+        return { kind: 'pattern' };
+      case 'blipFill':
+        return { kind: 'image' };
+    }
+  }
+  return null;
+};
+
+const readTableStyleBorder = (
+  line: XmlElement,
+  pres: PresentationData,
+  theme: ReturnType<typeof getPresentationTheme>,
+  colorMap: Readonly<Record<string, string>> | null,
+): TableCellBorder | null => {
+  const reference = firstChildElement(line, qname('a', 'lnRef', NS.dml));
+  const actual = reference
+    ? tableStyleMatrixEntry(pres, reference, 'lnStyleLst')
+    : (firstChildElement(line, qname('a', 'ln', NS.dml)) ?? line);
+  if (!actual) return null;
+  line = actual;
+  if (firstChildElement(line, qname('a', 'noFill', NS.dml))) return null;
+  const solid = firstChildElement(line, qname('a', 'solidFill', NS.dml));
+  const colorChild = solid?.children.find(
+    (c): c is XmlElement => c.kind === 'element' && c.name.namespaceURI === NS.dml,
+  );
+  return {
+    color: colorChild ? resolveDrawingColor(colorChild, theme, colorMap) : null,
+    widthEmu: getAttrValue(line, qname('', 'w', ''))
+      ? Number.parseInt(getAttrValue(line, qname('', 'w', ''))!, 10)
+      : null,
+    dash: getAttrValue(
+      firstChildElement(line, qname('a', 'prstDash', NS.dml)) ?? line,
+      qname('', 'val', ''),
+    ),
+  };
+};
+
+/** Resolves table-style `tcStyle` fills and borders, then overlays local `tcPr`. */
+export const getTableCellAppearanceEffective = (
+  pres: PresentationData,
+  cell: TableCellData,
+): TableCellAppearanceEffective => {
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(cell[CELL_TABLE][SHAPE_SLIDE]);
+  let fill: ShapeFill = { kind: 'inherit' };
+  const borders: { -readonly [K in keyof TableCellBorders]: TableCellBorders[K] } = {
+    left: null,
+    right: null,
+    top: null,
+    bottom: null,
+    tlToBr: null,
+    blToTr: null,
+  };
+  const tbl = findTblElement(cell[CELL_TABLE]);
+  const { rows: rowCount, cols: colCount } = tbl ? tableStyleDimensions(tbl) : { rows: 0, cols: 0 };
+  const span = getTableCellSpan(cell);
+  const rowStart = cell[CELL_ROW];
+  const colStart = cell[CELL_COL];
+  const rowEnd = rowStart + span.rowSpan - 1;
+  const colEnd = colStart + span.gridSpan - 1;
+  const boundary = (region: string, side: keyof TableCellBorders): string | null => {
+    if (region === 'wholeTbl') {
+      if (side === 'left') return colStart === 0 ? 'left' : 'insideV';
+      if (side === 'right') return colEnd === colCount - 1 ? 'right' : 'insideV';
+      if (side === 'top') return rowStart === 0 ? 'top' : 'insideH';
+      if (side === 'bottom') return rowEnd === rowCount - 1 ? 'bottom' : 'insideH';
+    }
+    if (region === 'firstRow' && rowStart === 0) {
+      if (side === 'left' || side === 'right')
+        return boundary('wholeTbl', side) === side ? side : 'insideV';
+      return side;
+    }
+    if (region === 'lastRow' && rowEnd === rowCount - 1) {
+      if (side === 'left' || side === 'right')
+        return boundary('wholeTbl', side) === side ? side : 'insideV';
+      return side;
+    }
+    if (region === 'firstCol' && colStart === 0) {
+      if (side === 'top' || side === 'bottom')
+        return boundary('wholeTbl', side) === side ? side : 'insideH';
+      return side;
+    }
+    if (region === 'lastCol' && colEnd === colCount - 1) {
+      if (side === 'top' || side === 'bottom')
+        return boundary('wholeTbl', side) === side ? side : 'insideH';
+      return side;
+    }
+    if (region === 'nwCell' && rowStart === 0 && colStart === 0) return side;
+    if (region === 'neCell' && rowStart === 0 && colEnd === colCount - 1) return side;
+    if (region === 'swCell' && rowEnd === rowCount - 1 && colStart === 0) return side;
+    if (region === 'seCell' && rowEnd === rowCount - 1 && colEnd === colCount - 1) return side;
+    if (region.startsWith('band')) return side;
+    if (side === 'tlToBr' || side === 'blToTr') return side;
+    return null;
+  };
+  for (const part of tableStylePartsForCell(pres, cell)) {
+    const style = firstChildElement(part, NAME_A_TC_STYLE);
+    if (!style) continue;
+    const styledFill = readTableFill(style, pres, theme, colorMap);
+    if (styledFill) fill = styledFill;
+    const bdr = firstChildElement(style, NAME_A_TC_BDR);
+    if (bdr) {
+      for (const side of ['left', 'right', 'top', 'bottom', 'tlToBr', 'blToTr'] as const) {
+        const local = boundary(part.name.localName, side);
+        if (!local) continue;
+        const styleLocal =
+          local in STYLE_INSIDE_LOCALS
+            ? local
+            : TABLE_STYLE_BORDER_LOCALS[local as keyof typeof TABLE_STYLE_BORDER_LOCALS];
+        let line = firstChildElement(bdr, qname('a', styleLocal, NS.dml));
+        // A band can specify a cell side even within the table. Interior
+        // borders remain the fallback when that side has no explicit entry.
+        if (!line && part.name.localName.startsWith('band')) {
+          const interior = boundary('wholeTbl', side);
+          if (interior === 'insideH' || interior === 'insideV')
+            line = firstChildElement(bdr, qname('a', interior, NS.dml));
+        }
+        if (line) borders[side] = readTableStyleBorder(line, pres, theme, colorMap);
+      }
+    }
+  }
+  const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
+  if (tcPr) {
+    const localFill = readTableFill(tcPr, pres, theme, colorMap);
+    if (localFill) fill = localFill;
+    for (const side of ['left', 'right', 'top', 'bottom', 'tlToBr', 'blToTr'] as const) {
+      const line = firstChildElement(tcPr, qname('a', LOCAL_BORDER_LOCALS[side], NS.dml));
+      if (line) borders[side] = readTableStyleBorder(line, pres, theme, colorMap);
+    }
+  }
+  return { fill, borders };
+};
+
+/** Applies a TextFormat to the cell's text, optionally within UTF-16 offsets
+ * in getTableCellText (exclusive end). Breaks count as one character; invalid
+ * ranges and split-surrogate boundaries throw without changing the text.
+ * `reset` restores inherited run appearance before applying `format`, retaining
+ * links and language. Without either target, run-format defaults are also cleared.
+ * Pass a zero-based `paragraphEnd` instead of `range` to update a paragraph's end mark. */
+export const setTableCellTextFormat = (
+  cell: TableCellData,
+  format: TextFormat,
+  options?:
+    | { range?: { start: number; end: number }; reset?: boolean; paragraphEnd?: never }
+    | { paragraphEnd: number; reset?: boolean; range?: never },
+): void => {
   validateFormatEnums(format, 'setTableCellTextFormat');
   const txBody = ensureCellTxBody(cell);
-  applyValidatedFormatToAllRuns(txBody, format);
+  if (options?.paragraphEnd !== undefined)
+    formatTextBodyParagraphEnd(txBody, options.paragraphEnd, format, options.reset);
+  else if (options?.range) formatTextBodyRange(txBody, format, options.range, options.reset);
+  else applyValidatedFormatToAllRuns(txBody, format, options?.reset);
+  commitTableCell(cell);
+};
+
+/**
+ * Sets or removes a click link on cell text. Omitting range covers the whole
+ * cell; otherwise offsets are UTF-16 positions in getTableCellText, with an
+ * exclusive end. Formatting and links outside the range are preserved.
+ * Omitting tooltip clears the selected link's previous description.
+ */
+export const setTableCellClickAction = (
+  cell: TableCellData,
+  action: ShapeClickAction | null,
+  options?: { range?: { start: number; end: number }; tooltip?: string },
+): void => {
+  const value = getTableCellText(cell);
+  const range = options?.range ?? { start: 0, end: value.length };
+  validateTextRange(value, range, 'setTableCellClickAction');
+  if (range.start === range.end) return;
+  const link = action ? buildClickAction(cell[CELL_TABLE][SHAPE_SLIDE], action) : null;
+  if (link && options?.tooltip !== undefined)
+    link.attrs.push(attr(qname('', 'tooltip', ''), options.tooltip));
+  mutateTextBodyRangeProperties(ensureCellTxBody(cell), range, (properties) => {
+    replaceClickHyperlink(properties, link ? structuredClone(link) : null);
+  });
   commitTableCell(cell);
 };
 
@@ -1211,6 +1915,7 @@ export const insertTableRow = (
   cells: ReadonlyArray<string> = [],
 ): void => {
   const tbl = requireTbl(table);
+  tableStyleDimensionsCache.delete(tbl);
   const colCount = tableColumnCount(tbl);
   const padded: string[] = [];
   for (let i = 0; i < colCount; i++) padded.push(cells[i] ?? '');
@@ -1233,6 +1938,7 @@ export const insertTableRow = (
 /** Removes the row at `atIndex` from the table. Throws on out-of-range. */
 export const removeTableRow = (table: SlideShapeData, atIndex: number): void => {
   const tbl = requireTbl(table);
+  tableStyleDimensionsCache.delete(tbl);
   const rows = tableRows(tbl);
   if (atIndex < 0 || atIndex >= rows.length) {
     throw new RangeError(`removeTableRow: index ${atIndex} out of range (have ${rows.length})`);
@@ -1255,6 +1961,7 @@ export const insertTableColumn = (
   widthEmu?: number,
 ): void => {
   const tbl = requireTbl(table);
+  tableStyleDimensionsCache.delete(tbl);
   const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
   if (!grid) throw new Error('table is missing <a:tblGrid>');
   const cols = allChildElements(grid, NAME_A_GRID_COL);
@@ -1307,6 +2014,7 @@ export const insertTableColumn = (
 /** Removes the column at `atIndex` (and the corresponding cell in every row). */
 export const removeTableColumn = (table: SlideShapeData, atIndex: number): void => {
   const tbl = requireTbl(table);
+  tableStyleDimensionsCache.delete(tbl);
   const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
   if (!grid) throw new Error('table is missing <a:tblGrid>');
   const cols = allChildElements(grid, NAME_A_GRID_COL);

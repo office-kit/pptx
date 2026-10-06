@@ -1,3 +1,10 @@
+import {
+  mutateTextBodyRangeProperties,
+  validateTextRange,
+} from '../../internal/drawingml/text-body-edit.ts';
+import { textBodyText } from '../../internal/drawingml/text-body.ts';
+import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 // rPr and pPr cascade resolution.
 
 import {
@@ -6,10 +13,11 @@ import {
   NAME_A_RPR,
   ensureRPr,
   requireParagraph,
+  requireParagraphTextBody,
   requireRun,
   runsOf,
 } from './shape-runs.ts';
-import { parseRPrLikeElement } from './shape-color.ts';
+import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
 import {
   getShapePlaceholderIdx,
   getShapePlaceholderType,
@@ -35,6 +43,9 @@ import {
   qname,
 } from '../../internal/xml/index.ts';
 import {
+  CELL_ELEMENT,
+  CELL_TABLE,
+  type TableCellData,
   INTERNAL_PACKAGE,
   LAYOUT_PART,
   LAYOUT_PART_NAME,
@@ -46,7 +57,11 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, decode, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
-import { getPresentationFonts, getPresentationTheme } from './theme.ts';
+import { fontsFromThemeRoot, getPresentationFonts, getPresentationTheme } from './theme.ts';
+import { getEffectiveColorMap } from './color-map.ts';
+import { readBulletStyleLayer, type BulletStyleLayer } from './bullet-style.ts';
+import { readShapeStyleFontFormat } from './shape-style-font-read.ts';
+import { getShapeStyleTheme } from './shape-style-read.ts';
 // -- Effective rPr cascade (ECMA-376 §21.1.2.4.7) ---------------------------
 //
 // A run's effective character properties are resolved by walking the
@@ -54,13 +69,13 @@ import { getPresentationFonts, getPresentationTheme } from './theme.ts';
 // supplied. First-wins per property:
 //
 //   1. The run's own `<a:rPr>`
-//   2. The paragraph's `<a:endParaRPr>` (last run only)
+//   2. For the insertion position only, the paragraph's `<a:endParaRPr>`
 //   3. The paragraph's `<a:pPr><a:defRPr>` (paragraph-level run defaults)
 //   4. The text body's `<a:lstStyle><a:lvl{N+1}pPr><a:defRPr>` (N = paragraph level)
 //   5. The same path on the matching placeholder in the slide's layout
 //   6. The same path on the matching placeholder on the slide master,
 //      then the master's `<p:txStyles>` (`titleStyle` / `bodyStyle` / `otherStyle`)
-//   7. The theme's `<a:fontScheme>` — font typeface fallback only
+//   7. The owning slide master's `<a:fontScheme>` — font typeface fallback only
 //
 // Placeholder matching: by `<p:ph/@idx>` first, then by `<p:ph/@type>`.
 
@@ -82,20 +97,41 @@ const mergeRPrLayer = (base: Partial<ReadTextFormat>, layer: Partial<ReadTextFor
     base.fontComplexScript = layer.fontComplexScript;
   }
   if (base.size === undefined && layer.size !== undefined) base.size = layer.size;
-  if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
+  // Text color and the explicit gradient/pattern fill are one OOXML choice.
+  // A more-specific layer must mask the other representation from inherited
+  // layers so callers never receive both competing paints.
+  if (base.color === undefined && base.textFill === undefined && layer.color !== undefined) {
+    base.color = layer.color;
+  }
+  if (base.color === undefined && base.textFill === undefined && layer.textFill !== undefined) {
+    base.textFill = layer.textFill;
+  }
   if (base.bold === undefined && layer.bold !== undefined) base.bold = layer.bold;
   if (base.italic === undefined && layer.italic !== undefined) base.italic = layer.italic;
   if (base.underline === undefined && layer.underline !== undefined) {
     base.underline = layer.underline;
   }
+  if (base.underlineColor === undefined && layer.underlineColor !== undefined) {
+    base.underlineColor = layer.underlineColor;
+  }
   if (base.strike === undefined && layer.strike !== undefined) base.strike = layer.strike;
   if (base.spc === undefined && layer.spc !== undefined) base.spc = layer.spc;
   if (base.kern === undefined && layer.kern !== undefined) base.kern = layer.kern;
+  if (base.normalizeHeight === undefined && layer.normalizeHeight !== undefined) {
+    base.normalizeHeight = layer.normalizeHeight;
+  }
   if (base.baseline === undefined && layer.baseline !== undefined) base.baseline = layer.baseline;
   if (base.cap === undefined && layer.cap !== undefined) base.cap = layer.cap;
   if (base.highlight === undefined && layer.highlight !== undefined) {
     base.highlight = layer.highlight;
   }
+  if (base.outline === undefined && layer.outline !== undefined) base.outline = layer.outline;
+  if (base.shadow === undefined && layer.shadow !== undefined) base.shadow = layer.shadow;
+  if (base.innerShadow === undefined && layer.innerShadow !== undefined)
+    base.innerShadow = layer.innerShadow;
+  if (base.glow === undefined && layer.glow !== undefined) base.glow = layer.glow;
+  if (base.reflection === undefined && layer.reflection !== undefined)
+    base.reflection = layer.reflection;
 };
 
 // `<a:lstStyle>` carries one `<a:lvl{N}pPr>` per outline level (1..9, plus
@@ -114,6 +150,88 @@ const lstStyleLevelDefRPr = (lstStyle: XmlElement | null, level: number): XmlEle
     return firstChildElement(defPPr, NAME_A_DEF_RPR);
   }
   return firstChildElement(lvlPPr, NAME_A_DEF_RPR);
+};
+
+/**
+ * Resolves the local DrawingML character-property cascade shared by shapes
+ * and table cells. Placeholder/master inheritance is intentionally handled by
+ * `getShapeRunFormatEffective`; cells have no placeholder chain, but their
+ * `pPr` and `lstStyle` defaults follow the same OOXML rules.
+ *
+ * @internal
+ */
+export const resolveTextBodyRunFormatEffective = (
+  context: {
+    readonly theme: ReturnType<typeof getPresentationTheme>;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
+  textBody: XmlElement,
+  paragraphIndex: number,
+  runIndex: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
+): ReadTextFormat => {
+  const paragraphs = textBody.children.filter(
+    (child): child is XmlElement =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName === 'p',
+  );
+  const paragraph = paragraphs[paragraphIndex];
+  if (!paragraph) {
+    throw new RangeError(
+      `paragraph index ${paragraphIndex} out of range (have ${paragraphs.length})`,
+    );
+  }
+  const inline = typeof runIndex === 'object' && runIndex !== null;
+  const inlineName = inline && 'breakIndex' in runIndex ? 'br' : 'fld';
+  const runs = inline
+    ? paragraph.children.filter(
+        (child): child is XmlElement =>
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.dml &&
+          child.name.localName === inlineName,
+      )
+    : runsOf(paragraph);
+  const index = inline
+    ? 'fieldIndex' in runIndex
+      ? runIndex.fieldIndex
+      : runIndex.breakIndex
+    : runIndex;
+  const run = index === null ? null : runs[index];
+  if (runIndex !== null && !run) {
+    throw new RangeError(
+      `run index ${index} out of range in paragraph ${paragraphIndex} (have ${runs.length})`,
+    );
+  }
+
+  const result: Partial<ReadTextFormat> = {};
+  const ctx = context;
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  let level = 0;
+  if (pPr) {
+    const lvl = getAttrValue(pPr, ATTR_LVL);
+    if (lvl !== null) {
+      const parsed = Number.parseInt(lvl, 10);
+      if (Number.isFinite(parsed)) level = parsed;
+    }
+  }
+
+  const runRPr = run ? firstChildElement(run, NAME_A_RPR) : null;
+  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
+  // ECMA-376 §21.1.2.2.3: endParaRPr formats newly inserted text,
+  // not the existing final run (or the final field).
+  if (runIndex === null) {
+    const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
+    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
+  }
+  if (pPr) {
+    const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
+    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr, ctx));
+  }
+  const lstStyle = firstChildElement(textBody, NAME_A_LST_STYLE);
+  const lstDefRPr = lstStyleLevelDefRPr(lstStyle, level);
+  if (lstDefRPr) mergeRPrLayer(result, parseRPrLikeElement(lstDefRPr, ctx));
+
+  return result as ReadTextFormat;
 };
 
 // Companion to `lstStyleLevelDefRPr` but returns the `<a:lvlNpPr>` (or
@@ -182,11 +300,14 @@ const masterTxStyleFor = (masterRoot: XmlElement, phType: string | null): XmlEle
   return firstChildElement(txStyles, NAME_P_OTHER_STYLE);
 };
 
+const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
+
 /**
  * Resolves a run's effective character properties by walking the
- * ECMA-376 §21.1.2.4.7 inheritance chain — run rPr → endParaRPr →
- * pPr defRPr → text-body lstStyle → layout placeholder lstStyle →
- * master placeholder lstStyle + master txStyles → theme fontScheme.
+ * ECMA-376 §21.1.2.4.7 inheritance chain — run rPr →
+ * pPr defRPr → text-body lstStyle → shape Quick Style → layout placeholder
+ * lstStyle → master placeholder lstStyle + master txStyles → owning theme
+ * fontScheme.
  *
  * Each property (font, size, color, bold, italic, underline) is
  * resolved independently: the innermost layer that supplies a value
@@ -197,26 +318,40 @@ const masterTxStyleFor = (masterRoot: XmlElement, phType: string | null): XmlEle
  * defaults).
  *
  * Use `getShapeRunFormat` if you only want the literal `<a:rPr>` on
- * the run without inheritance.
+ * the run without inheritance. Numeric indices count only regular runs;
+ * `{ fieldIndex }` and `{ breakIndex }` count fields and line breaks separately;
+ * null resolves the paragraph end mark.
+ * `inheritanceSource` supplies the original
+ * placeholder and slide context when reading a detached editing preview;
+ * paragraph and run properties are still read from `shape`.
  */
-const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
-
 export const getShapeRunFormatEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
   paragraphIndex: number,
-  runIndex: number,
+  runIndex: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
+  options: { inheritanceSource?: SlideShapeData } = {},
 ): ReadTextFormat => {
   const paragraph = requireParagraph(shape, paragraphIndex);
-  const run = requireRun(shape, paragraphIndex, runIndex);
-  const result: Partial<ReadTextFormat> = {};
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  if (!txBody) throw new Error('shape has no <p:txBody>');
+  const inheritanceSource = options.inheritanceSource ?? shape;
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(inheritanceSource[SHAPE_SLIDE]);
+  const result: Partial<ReadTextFormat> = {
+    ...resolveTextBodyRunFormatEffective({ theme, colorMap }, txBody, paragraphIndex, runIndex),
+  };
+
+  // Mac PowerPoint's Colored Fill Quick Style changes a title placeholder
+  // to the minor font and light text even when its master specifies major/dark.
+  // Direct run and paragraph formatting above still takes precedence.
+  mergeRPrLayer(result, readShapeStyleFontFormat(pres, shape));
 
   // Theme is consulted (a) at each layer to resolve scheme tokens and
   // color transforms eagerly, so the cascade can pick the innermost layer
   // that produces a concrete color, and (b) for typeface fallback at
   // layer 7. Reading once up-front keeps the per-layer cost flat.
-  const theme = getPresentationTheme(pres);
-  const ctx = { theme } as const;
+  const ctx = { theme, colorMap } as const;
 
   // Paragraph level (0..8). `<a:pPr lvl="..">`; absent = 0.
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
@@ -229,33 +364,11 @@ export const getShapeRunFormatEffective = (
     }
   }
 
-  // 1. Run's own rPr.
-  const runRPr = firstChildElement(run, NAME_A_RPR);
-  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
+  const phIdx = getShapePlaceholderIdx(inheritanceSource);
+  const phType = getShapePlaceholderType(inheritanceSource);
+  const isPlaceholder = shapeIsPlaceholder(inheritanceSource);
 
-  // 2. endParaRPr — applies to the last run in the paragraph per the spec.
-  const runs = runsOf(paragraph);
-  if (runs.length > 0 && runs[runs.length - 1] === run) {
-    const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
-    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
-  }
-
-  // 3. Paragraph-level defaults (pPr/defRPr).
-  if (pPr) {
-    const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
-    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr, ctx));
-  }
-
-  // 4. Text-body lstStyle at the paragraph's level.
-  const shapeLstStyle = findShapeLstStyleElement(shape);
-  const shapeLvlDef = lstStyleLevelDefRPr(shapeLstStyle, level);
-  if (shapeLvlDef) mergeRPrLayer(result, parseRPrLikeElement(shapeLvlDef, ctx));
-
-  const phIdx = getShapePlaceholderIdx(shape);
-  const phType = getShapePlaceholderType(shape);
-  const isPlaceholder = shapeIsPlaceholder(shape);
-
-  const slide = shape[SHAPE_SLIDE];
+  const slide = inheritanceSource[SHAPE_SLIDE];
   const layout = getSlideLayout(slide);
 
   // Steps 5-6 are placeholder inheritance: skip them entirely for non-
@@ -310,7 +423,8 @@ export const getShapeRunFormatEffective = (
   // When no layer in the cascade supplied a font at all, pick the
   // major font for title-class placeholders and the minor font for
   // everything else, matching PowerPoint's defaults.
-  const fonts = getPresentationFonts(pres);
+  const fonts =
+    fontsFromThemeRoot(getShapeStyleTheme(pres, shape).root) ?? getPresentationFonts(pres);
   if (fonts) {
     const resolveThemeToken = (token: string): string | undefined => {
       switch (token) {
@@ -376,10 +490,40 @@ export const getShapeRunFormatEffective = (
 // Each property merges independently — innermost layer that supplies a
 // value wins for that one property.
 
+/** A custom paragraph tab stop. */
+export interface ParagraphTabStop {
+  /** Position relative to the left margin, in EMU. */
+  positionEmu: number;
+  alignment: 'left' | 'center' | 'right' | 'decimal';
+}
+
+/** Effective bullet detail returned by `getParagraphPropertiesEffective`. */
+export interface ParagraphBulletDetail {
+  color: string | null;
+  colorFollowText: boolean;
+  sizePct: number | null;
+  sizePts: number | null;
+  sizeFollowText: boolean;
+  font: string | null;
+  fontFollowText: boolean;
+}
+
 /** Effective paragraph properties returned by `getParagraphPropertiesEffective`. */
 export interface ParagraphProperties {
+  /** Custom tab stops; an empty list explicitly clears inherited stops. */
+  tabStops?: ParagraphTabStop[];
+  /** Distance between automatic tab stops, in EMU. */
+  defaultTabSizeEmu?: number;
   /** Horizontal alignment per `ParagraphAlignment`. */
   align: ParagraphAlignment | null;
+  /** East Asian line-breaking rules; absent when not authored or inherited. */
+  asianLineBreak?: boolean;
+  /** Allow a Latin word to break across lines. */
+  latinLineBreak?: boolean;
+  /** Allow punctuation to extend beyond the text margin. */
+  hangingPunctuation?: boolean;
+  /** Vertical alignment of differently sized characters within a line. */
+  fontAlignment?: 'auto' | 'top' | 'center' | 'baseline' | 'bottom';
   /** Outline level (0..8). 0 = top-level paragraph. */
   level: number;
   /** Left indent in EMU. */
@@ -406,6 +550,8 @@ export interface ParagraphProperties {
    * slide-level `<a:pPr>` carries one.
    */
   bullet: BulletStyle | null;
+  /** Bullet color, size, and font after paragraph/layout/master inheritance. */
+  bulletDetail?: ParagraphBulletDetail;
 }
 
 /**
@@ -427,6 +573,35 @@ export const ALIGN_TOKEN_MAP: Record<string, ParagraphProperties['align']> = {
 
 const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
   const out: Partial<ParagraphProperties> = {};
+  const defaultTabSize = getAttrValue(pPr, qname('', 'defTabSz', ''));
+  if (defaultTabSize !== null && Number.isFinite(Number(defaultTabSize)))
+    out.defaultTabSizeEmu = Number(defaultTabSize);
+  const tabList = firstChildElement(pPr, qname('a', 'tabLst', NS.dml));
+  if (tabList) {
+    out.tabStops = [];
+    for (const tab of tabList.children) {
+      if (
+        tab.kind !== 'element' ||
+        tab.name.namespaceURI !== NS.dml ||
+        tab.name.localName !== 'tab'
+      )
+        continue;
+      const pos = getAttrValue(tab, qname('', 'pos', ''));
+      if (pos === null || !Number.isFinite(Number(pos))) continue;
+      const alignment = getAttrValue(tab, qname('', 'algn', ''));
+      out.tabStops.push({
+        positionEmu: Number(pos),
+        alignment:
+          alignment === 'ctr'
+            ? 'center'
+            : alignment === 'r'
+              ? 'right'
+              : alignment === 'dec'
+                ? 'decimal'
+                : 'left',
+      });
+    }
+  }
   const algn = getAttrValue(pPr, qname('', 'algn', ''));
   if (algn !== null && ALIGN_TOKEN_MAP[algn] !== undefined) out.align = ALIGN_TOKEN_MAP[algn];
   const marL = getAttrValue(pPr, qname('', 'marL', ''));
@@ -444,6 +619,21 @@ const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
     const n = Number.parseInt(indent, 10);
     if (Number.isFinite(n)) out.indent = n;
   }
+  for (const [field, attribute] of [
+    ['asianLineBreak', 'eaLnBrk'],
+    ['latinLineBreak', 'latinLnBrk'],
+    ['hangingPunctuation', 'hangingPunct'],
+  ] as const) {
+    const value = getAttrValue(pPr, qname('', attribute, ''));
+    if (value === '1' || value === 'true') out[field] = true;
+    if (value === '0' || value === 'false') out[field] = false;
+  }
+  const fontAlignment = getAttrValue(pPr, qname('', 'fontAlgn', ''));
+  if (fontAlignment === 'auto') out.fontAlignment = 'auto';
+  if (fontAlignment === 't') out.fontAlignment = 'top';
+  if (fontAlignment === 'ctr') out.fontAlignment = 'center';
+  if (fontAlignment === 'base') out.fontAlignment = 'baseline';
+  if (fontAlignment === 'b') out.fontAlignment = 'bottom';
   const rtl = getAttrValue(pPr, qname('', 'rtl', ''));
   if (rtl !== null) out.rtl = rtl === '1' || rtl === 'true';
   const lnSpc = firstChildElement(pPr, qname('a', 'lnSpc', NS.dml));
@@ -452,9 +642,8 @@ const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
     if (pct) {
       const v = getAttrValue(pct, qname('', 'val', ''));
       if (v !== null) {
-        let n = Number.parseFloat(v);
+        const n = readDrawingmlPercentage(v, Number.NaN);
         if (Number.isFinite(n)) {
-          if (Math.abs(n) > 1) n = n / 100000;
           out.lineSpacing = { kind: 'pct', value: n };
         }
       }
@@ -507,6 +696,14 @@ const mergePPrLayer = (
   base: Partial<ParagraphProperties>,
   layer: Partial<ParagraphProperties>,
 ): void => {
+  if (base.tabStops === undefined && layer.tabStops !== undefined) base.tabStops = layer.tabStops;
+  if (base.defaultTabSizeEmu === undefined && layer.defaultTabSizeEmu !== undefined)
+    base.defaultTabSizeEmu = layer.defaultTabSizeEmu;
+  for (const field of ['asianLineBreak', 'latinLineBreak', 'hangingPunctuation'] as const) {
+    if (base[field] === undefined && layer[field] !== undefined) base[field] = layer[field];
+  }
+  if (base.fontAlignment === undefined && layer.fontAlignment !== undefined)
+    base.fontAlignment = layer.fontAlignment;
   if (base.align === undefined && layer.align !== undefined) base.align = layer.align;
   if (base.marL === undefined && layer.marL !== undefined) base.marL = layer.marL;
   if (base.marR === undefined && layer.marR !== undefined) base.marR = layer.marR;
@@ -524,6 +721,25 @@ const mergePPrLayer = (
   if (base.bullet === undefined && layer.bullet !== undefined) base.bullet = layer.bullet;
 };
 
+const mergeBulletDetailLayer = (
+  base: Partial<ParagraphBulletDetail>,
+  layer: BulletStyleLayer,
+): void => {
+  if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
+  if (base.colorFollowText === undefined && layer.colorFollowText !== undefined) {
+    base.colorFollowText = layer.colorFollowText;
+  }
+  if (base.sizePct === undefined && layer.sizePct !== undefined) base.sizePct = layer.sizePct;
+  if (base.sizePts === undefined && layer.sizePts !== undefined) base.sizePts = layer.sizePts;
+  if (base.sizeFollowText === undefined && layer.sizeFollowText !== undefined) {
+    base.sizeFollowText = layer.sizeFollowText;
+  }
+  if (base.font === undefined && layer.font !== undefined) base.font = layer.font;
+  if (base.fontFollowText === undefined && layer.fontFollowText !== undefined) {
+    base.fontFollowText = layer.fontFollowText;
+  }
+};
+
 /**
  * Resolves a paragraph's effective properties by walking the same
  * inheritance chain `getShapeRunFormatEffective` uses, but for the
@@ -539,11 +755,14 @@ const mergePPrLayer = (
  * Companion to `getParagraphAlignment` / `getParagraphLineSpacing` /
  * `getParagraphIndent` / `getParagraphSpacing`, which only surface the
  * literal `<a:pPr>` and skip the layout / master cascade.
+ * `inheritanceSource` preserves the original placeholder and slide context
+ * when resolving a detached shape preview. Table cells use their own text body.
  */
 export const getParagraphPropertiesEffective = (
   pres: PresentationData,
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
+  options: { inheritanceSource?: SlideShapeData } = {},
 ): ParagraphProperties => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
@@ -558,52 +777,71 @@ export const getParagraphPropertiesEffective = (
   }
 
   const result: Partial<ParagraphProperties> = {};
+  const bulletDetail: Partial<ParagraphBulletDetail> = {};
+  const colorSource = CELL_ELEMENT in shape ? shape[CELL_TABLE] : shape;
+  const inheritanceSource = options.inheritanceSource ?? colorSource;
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(inheritanceSource[SHAPE_SLIDE]);
+  const mergeParagraphLayer = (element: XmlElement | null): void => {
+    if (!element) return;
+    mergePPrLayer(result, parsePPrLikeElement(element));
+    mergeBulletDetailLayer(
+      bulletDetail,
+      readBulletStyleLayer(element, (color) => resolveDrawingColor(color, theme, colorMap)),
+    );
+  };
 
   // 1. Paragraph's own pPr.
-  if (pPr) mergePPrLayer(result, parsePPrLikeElement(pPr));
+  mergeParagraphLayer(pPr);
 
   // 2. Text-body lstStyle at the paragraph's level.
-  const shapeLstStyle = findShapeLstStyleElement(shape);
+  const shapeLstStyle =
+    CELL_ELEMENT in shape
+      ? firstChildElement(requireParagraphTextBody(shape), NAME_A_LST_STYLE)
+      : findShapeLstStyleElement(shape);
   const shapeLvlPPr = lstStyleLevelPPr(shapeLstStyle, level);
-  if (shapeLvlPPr) mergePPrLayer(result, parsePPrLikeElement(shapeLvlPPr));
+  mergeParagraphLayer(shapeLvlPPr);
 
-  const phIdx = getShapePlaceholderIdx(shape);
-  const phType = getShapePlaceholderType(shape);
-  const isPlaceholder = shapeIsPlaceholder(shape);
-  const slide = shape[SHAPE_SLIDE];
-  const layout = getSlideLayout(slide);
+  if (!(CELL_ELEMENT in shape)) {
+    const inheritanceSource = options.inheritanceSource ?? shape;
+    const phIdx = getShapePlaceholderIdx(inheritanceSource);
+    const phType = getShapePlaceholderType(inheritanceSource);
+    const isPlaceholder = shapeIsPlaceholder(inheritanceSource);
+    const slide = inheritanceSource[SHAPE_SLIDE];
+    const layout = getSlideLayout(slide);
 
-  // Placeholder inheritance only: a plain text box does not read the master's
-  // txStyles for paragraph defaults (align / indent / spacing) either.
-  if (layout && isPlaceholder) {
-    // 3. Layout placeholder lstStyle.
-    const layoutPh = findPlaceholderShapeIn(layout[LAYOUT_PART].shapes, phIdx, phType);
-    if (layoutPh) {
-      const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
-      const layoutLvlPPr = lstStyleLevelPPr(layoutLst, level);
-      if (layoutLvlPPr) mergePPrLayer(result, parsePPrLikeElement(layoutLvlPPr));
-    }
+    // Placeholder inheritance only: a plain text box does not read the master's
+    // txStyles for paragraph defaults (align / indent / spacing) either.
+    if (layout && isPlaceholder) {
+      // 3. Layout placeholder lstStyle.
+      const layoutPh = findPlaceholderShapeIn(layout[LAYOUT_PART].shapes, phIdx, phType);
+      if (layoutPh) {
+        const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
+        const layoutLvlPPr = lstStyleLevelPPr(layoutLst, level);
+        mergeParagraphLayer(layoutLvlPPr);
+      }
 
-    // 4. Master placeholder lstStyle + master txStyles.
-    const pkg = pres[INTERNAL_PACKAGE];
-    const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
-    const layoutRels = pkg.getRels(layoutPartName);
-    if (layoutRels) {
-      const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
-      if (masterRel) {
-        const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
-        if (masterPart) {
-          const masterRoot = parseXml(decode(masterPart.data)).root;
-          const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
-          const masterPh = findPlaceholderShapeIn(masterShapes, phIdx, phType);
-          if (masterPh) {
-            const masterLst = extractPlaceholderLstStyle(masterPh.element);
-            const masterLvlPPr = lstStyleLevelPPr(masterLst, level);
-            if (masterLvlPPr) mergePPrLayer(result, parsePPrLikeElement(masterLvlPPr));
+      // 4. Master placeholder lstStyle + master txStyles.
+      const pkg = pres[INTERNAL_PACKAGE];
+      const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+      const layoutRels = pkg.getRels(layoutPartName);
+      if (layoutRels) {
+        const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+        if (masterRel) {
+          const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+          if (masterPart) {
+            const masterRoot = parseXml(decode(masterPart.data)).root;
+            const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+            const masterPh = findPlaceholderShapeIn(masterShapes, phIdx, phType);
+            if (masterPh) {
+              const masterLst = extractPlaceholderLstStyle(masterPh.element);
+              const masterLvlPPr = lstStyleLevelPPr(masterLst, level);
+              mergeParagraphLayer(masterLvlPPr);
+            }
+            const txStyle = masterTxStyleFor(masterRoot, phType);
+            const txLvlPPr = lstStyleLevelPPr(txStyle, level);
+            mergeParagraphLayer(txLvlPPr);
           }
-          const txStyle = masterTxStyleFor(masterRoot, phType);
-          const txLvlPPr = lstStyleLevelPPr(txStyle, level);
-          if (txLvlPPr) mergePPrLayer(result, parsePPrLikeElement(txLvlPPr));
         }
       }
     }
@@ -620,6 +858,25 @@ export const getParagraphPropertiesEffective = (
     spcAftPts: result.spcAftPts ?? null,
     rtl: result.rtl ?? null,
     bullet: result.bullet ?? null,
+    bulletDetail: {
+      color: bulletDetail.color ?? null,
+      colorFollowText: bulletDetail.colorFollowText ?? false,
+      sizePct: bulletDetail.sizePct ?? null,
+      sizePts: bulletDetail.sizePts ?? null,
+      sizeFollowText: bulletDetail.sizeFollowText ?? false,
+      font: bulletDetail.font ?? null,
+      fontFollowText: bulletDetail.fontFollowText ?? false,
+    },
+    ...(result.tabStops === undefined ? {} : { tabStops: result.tabStops }),
+    ...(result.defaultTabSizeEmu === undefined
+      ? {}
+      : { defaultTabSizeEmu: result.defaultTabSizeEmu }),
+    ...(result.asianLineBreak === undefined ? {} : { asianLineBreak: result.asianLineBreak }),
+    ...(result.latinLineBreak === undefined ? {} : { latinLineBreak: result.latinLineBreak }),
+    ...(result.hangingPunctuation === undefined
+      ? {}
+      : { hangingPunctuation: result.hangingPunctuation }),
+    ...(result.fontAlignment === undefined ? {} : { fontAlignment: result.fontAlignment }),
   };
 };
 
@@ -680,17 +937,31 @@ export const getShapeHyperlink = (shape: SlideShapeData): string | null => {
 /**
  * Sets an external hyperlink on every run in the shape's text. Allocates
  * (or reuses) a `hyperlink` relationship on the slide's `.rels`. Pass
- * `null` to clear.
+ * `null` to clear. Optional `range` limits the change to UTF-16 offsets in
+ * getShapeText, preserving text and formatting outside the selection.
  */
 export const setShapeHyperlink = (
   shape: SlideShapeData,
   url: string | null,
   tooltip?: string,
+  options?: { range?: { start: number; end: number } },
 ): void => {
   const slide = shape[SHAPE_SLIDE];
   const txBody = requireTxBody(shape);
+  const range = options?.range;
+  if (range) {
+    validateTextRange(textBodyText(txBody), range, 'setShapeHyperlink');
+    if (range.start === range.end) return;
+  }
+  const apply = (rId: string | null) => {
+    if (range)
+      mutateTextBodyRangeProperties(txBody, range, (properties) =>
+        applyHyperlinkToProperties(properties, rId, tooltip),
+      );
+    else applyHyperlinkToAllRuns(txBody, rId, tooltip);
+  };
   if (url === null) {
-    applyHyperlinkToAllRuns(txBody, null);
+    apply(null);
   } else {
     const pkg = slide[INTERNAL_PACKAGE];
     const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
@@ -710,7 +981,7 @@ export const setShapeHyperlink = (
         pkg.setRels(slide[SLIDE_PART_NAME], rels);
         return nextId;
       })();
-    applyHyperlinkToAllRuns(txBody, rId, tooltip);
+    apply(rId);
   }
   commitAndRefresh(shape);
   releaseUnusedLinkRels(slide);
