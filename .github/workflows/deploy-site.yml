@@ -41,7 +41,9 @@ jobs:
           node-version: 24.16.0
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      # Only the site's dependency graph: packages/dev's node-pty has no
+      # linux-x64 prebuild and this runner has no node-gyp to compile it.
+      - run: pnpm install --frozen-lockfile --filter @office-kit/pptx-site...
 
       - name: Build site
         # If you publish to https://<user>.github.io/<repo>/ keep BASE_PATH
