@@ -80,14 +80,6 @@ const TILE = {
   flip: 'none',
   rotateWithShape: true,
 };
-const PIXEL = {
-  name: 'pixel.png',
-  mimeType: 'image/png',
-  buffer: Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==',
-    'base64',
-  ),
-};
 
 async function withEditor(locale, run) {
   const dir = await mkdtemp(join(tmpdir(), 'office-texture-gallery-'));
@@ -155,15 +147,21 @@ test(
       const gallery = editor.getByRole('menu', { name: 'Texture', exact: true });
       const tiled = editor.getByRole('checkbox', { name: 'Tile picture as texture', exact: true });
       const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
-      const insertPixel = () =>
-        commit(async () => {
-          const chooser = page.waitForEvent('filechooser');
-          await picture.click();
-          await (await chooser).setFiles(PIXEL);
-        });
+      const texture = editor.getByRole('button', { name: 'Texture', exact: true });
+      const checkedSwatches = async () => {
+        await texture.click();
+        const names = await gallery
+          .locator('[aria-checked="true"]')
+          .evaluateAll((items) => items.map((item) => item.getAttribute('aria-label')));
+        await page.keyboard.press('Escape');
+        return names;
+      };
+      // PowerPoint never opens a file chooser here: a fill with no picture to
+      // restore gets the default texture, Papyrus, tiled.
+      page.on('filechooser', () => assert.fail('Picture or texture fill opened a file chooser'));
       await saved();
 
-      // Both shapes: Format Shape ▸ Picture or texture fill ▸ Texture ▾ ▸ Canvas.
+      // Both shapes: Format Shape ▸ Picture or texture fill, then Texture ▾ ▸ Canvas.
       await editor
         .locator('.hit')
         .first()
@@ -177,19 +175,26 @@ test(
         .first()
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
-      await insertPixel();
+      const original = await shapes();
+      const paneTitle = () => editor.locator('.panel-head strong').textContent();
+      assert.equal(await paneTitle(), 'Format Shape');
+      await commit(() => picture.click());
       const before = await shapes();
-      assert.deepEqual(
-        before.map((shape) => [shape.fill, shape.texture]),
-        [
-          ['image', null],
-          ['image', null],
-        ],
-      );
-      const texture = editor.getByRole('button', { name: 'Texture', exact: true });
+      for (const shape of before) {
+        assert.deepEqual(shape, { fill: 'image', texture: 'papyrus', layout: TILE });
+      }
+      assert.equal(await picture.isChecked(), true);
+      assert.equal(await tiled.isChecked(), true);
+      assert.equal(await paneTitle(), 'Format Picture');
+      assert.deepEqual(await checkedSwatches(), ['Papyrus']);
+      // Choosing the fill is one undo step for both shapes.
+      await undo();
+      assert.deepEqual(await shapes(), original);
+      assert.equal(await paneTitle(), 'Format Shape');
+      await commit(() => editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click());
+      assert.deepEqual(await shapes(), before);
       await texture.click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
-      assert.equal(await gallery.locator('[aria-checked="true"]').count(), 0);
       await gallery.getByRole('menuitem', { name: 'More Textures...', exact: true }).waitFor();
       // Keyboard: focus starts on Papyrus; Right then Enter picks Canvas.
       await commit(async () => {
@@ -246,8 +251,20 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor.getByRole('button', { name: 'Background Styles', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
-      await insertPixel();
-      assert.equal((await backgrounds())[0].texture, null);
+      const plain = await backgrounds();
+      assert.deepEqual(
+        plain.map((background) => background.texture),
+        [null, null],
+      );
+      await commit(() => picture.click());
+      assert.deepEqual(await backgrounds(), [{ texture: 'papyrus', layout: TILE }, plain[1]]);
+      assert.equal(await picture.isChecked(), true);
+      assert.deepEqual(await checkedSwatches(), ['Papyrus']);
+      await undo();
+      assert.deepEqual(await backgrounds(), plain);
+      assert.equal(await picture.isChecked(), false);
+      await commit(() => editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click());
+      assert.equal((await backgrounds())[0].texture, 'papyrus');
       await texture.click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
       await commit(() =>
@@ -274,14 +291,45 @@ test(
       await undo();
       assert.equal((await backgrounds())[1].texture, null);
       await undo();
-      assert.equal((await backgrounds())[0].texture, null);
+      assert.equal((await backgrounds())[0].texture, 'papyrus');
     });
   },
 );
 
 test('Texture gallery shows Japanese names', { timeout: 120000 }, async () => {
-  await withEditor('ja', async ({ editor }) => {
-    await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+  await withEditor('ja', async ({ page, editor, deck }) => {
+    const saved = () => editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+    await saved();
+    // 図形の書式設定 ▸ 塗りつぶし（図またはテクスチャ） inserts パピルス.
+    await editor
+      .locator('.hit')
+      .first()
+      .click({ button: 'right', position: { x: 2, y: 2 } });
+    await editor.getByRole('menuitem', { name: '図形の書式設定...', exact: true }).click();
+    const persisted = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/editor/document') &&
+        response.request().method() === 'PUT' &&
+        response.ok(),
+    );
+    await editor
+      .getByRole('radio', { name: '塗りつぶし（図またはテクスチャ）', exact: true })
+      .click();
+    await persisted;
+    await saved();
+    assert.equal(await editor.locator('.panel-head strong').textContent(), '図の書式設定');
+    const shape = getSlideShapes(getSlides(await deck())[0])[0];
+    assert.equal(textureIdOf(getShapeImageFillBytes(shape)), 'papyrus');
+    assert.deepEqual(getShapeImageFillLayout(shape), TILE);
+    await editor.getByRole('button', { name: 'テクスチャ', exact: true }).click();
+    const paneGallery = editor.getByRole('menu', { name: 'テクスチャ', exact: true });
+    assert.equal(
+      await paneGallery
+        .getByRole('menuitemradio', { name: 'パピルス', exact: true })
+        .getAttribute('aria-checked'),
+      'true',
+    );
+    await page.keyboard.press('Escape');
     await editor
       .locator('.hit')
       .first()

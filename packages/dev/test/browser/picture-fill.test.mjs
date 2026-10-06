@@ -13,6 +13,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { textureIdOf } from '../../../../site/src/lib/editor/core/textures.ts';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -85,9 +86,24 @@ test(
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       const original = (await read()).fill;
       const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
-      await upload(picture);
+      // With no picture to restore, PowerPoint inserts its default texture; Insert... chooses a file.
+      const persisted = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/editor/document') &&
+          response.request().method() === 'PUT' &&
+          response.ok(),
+      );
+      await picture.click();
+      await persisted;
+      await saved();
       assert.equal(await picture.isChecked(), true);
-      assert.equal((await read()).fill.kind, 'image');
+      const texture = await read();
+      assert.equal(texture.fill.kind, 'image');
+      assert.equal(textureIdOf(texture.bytes), 'papyrus');
+      assert.equal(texture.layout.mode, 'tile');
+      await upload(editor.getByRole('button', { name: 'Insert...', exact: true }));
+      assert.equal(await picture.isChecked(), true);
+      assert.deepEqual((await read()).bytes, new Uint8Array(image.buffer));
       await picture.click();
       assert.equal(await picture.isChecked(), true);
       await number('Picture transparency', 35);

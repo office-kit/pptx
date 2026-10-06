@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getShapeChartSpec, getShapeKind, getShapeMedia } from '@office-kit/pptx';
+  import { getShapeChartSpec, getShapeFillEffective, getShapeKind, getShapeMedia } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import {
     capabilities,
@@ -109,9 +109,13 @@
     if (backgroundPane) return t('Format Background');
     const sel = doc.selection;
     if (selectedVideo) return t('Format Video');
+    doc.version;
     const shape = sel.kind === 'shape' && sel.shapeIds.length === 1 ? doc.shapeById(sel.slideIndex, sel.shapeIds[0]!) : null;
     if (shape && getShapeChartSpec(shape)) return t('Format Chart Area');
     if (shape && getShapeKind(shape) === 'picture') return t('Format Picture');
+    // PowerPoint retitles Format Shape once the shape is filled with a picture or texture.
+    const shapes = editor.selectedShapes();
+    if (shapes.length > 0 && shapes.every(target => getShapeKind(target) === 'shape' && getShapeFillEffective(doc.pres, target).kind === 'image')) return t('Format Picture');
     return t('Format Shape');
   });
 

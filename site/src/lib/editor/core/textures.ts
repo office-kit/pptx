@@ -41,6 +41,13 @@ export const TEXTURES = [
 ] as const;
 
 export type TextureId = (typeof TEXTURES)[number]['id'];
+
+/**
+ * What PowerPoint inserts when Picture or texture fill is chosen for a shape or
+ * background with no picture to restore: Papyrus, the gallery's first texture
+ * (see test/fixtures/native/texture-capture.md).
+ */
+export const DEFAULT_TEXTURE: TextureId = 'papyrus';
 type Rgb = readonly [number, number, number];
 type Field = (x: number, y: number) => Rgb;
 type Random = () => number;

@@ -77,7 +77,7 @@
       return current;
     });
   }
-  export function chooseImage() { if (!locked) input?.click(); }
+  function chooseImage() { if (!locked) input?.click(); }
   async function upload(event: Event) {
     const element = event.currentTarget;
     if (!(element instanceof HTMLInputElement)) return;
