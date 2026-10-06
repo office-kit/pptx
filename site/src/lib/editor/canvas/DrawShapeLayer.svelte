@@ -77,9 +77,9 @@
   {#if box}
     <svg viewBox="0 0 {widthEmu} {heightEmu}" preserveAspectRatio="none" aria-hidden="true">
       {#if editor.drawShape === 'line'}
-        <line x1={box.x1} y1={box.y1} x2={box.x2} y2={box.y2} stroke="#0078d4" vector-effect="non-scaling-stroke" />
+        <line x1={box.x1} y1={box.y1} x2={box.x2} y2={box.y2} style="stroke: var(--ok-accent)" vector-effect="non-scaling-stroke" />
       {:else}
-        <rect x={Math.min(box.x1, box.x2)} y={Math.min(box.y1, box.y2)} width={Math.abs(box.x2 - box.x1)} height={Math.abs(box.y2 - box.y1)} fill="rgba(0,120,212,0.08)" stroke="#0078d4" vector-effect="non-scaling-stroke" />
+        <rect x={Math.min(box.x1, box.x2)} y={Math.min(box.y1, box.y2)} width={Math.abs(box.x2 - box.x1)} height={Math.abs(box.y2 - box.y1)} fill="rgba(214,51,108,0.08)" style="stroke: var(--ok-accent)" vector-effect="non-scaling-stroke" />
       {/if}
     </svg>
   {/if}

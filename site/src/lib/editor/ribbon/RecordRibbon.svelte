@@ -18,17 +18,17 @@
 </div>
 <div class="group">
   <button disabled={!editor.canPresent} onclick={() => editor.present('start')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="14" height="11" rx="1" /><path d="M10 14v5M6 19h8M8 6l4 2.5-4 2.5z" /><circle cx="19" cy="15" r="3" fill="#d13438" stroke="none" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="14" height="11" rx="1" /><path d="M10 14v5M6 19h8M8 6l4 2.5-4 2.5z" /><circle cx="19" cy="15" r="3" fill="#c92a2a" stroke="none" /></svg>
     {t('From Beginning')}
   </button>
   <button disabled={!editor.canPresent} onclick={() => editor.present('current')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="14" height="11" rx="1" /><path d="M10 14v5M6 19h8M6 6h5v5H6z" /><circle cx="19" cy="15" r="3" fill="#d13438" stroke="none" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="14" height="11" rx="1" /><path d="M10 14v5M6 19h8M6 6h5v5H6z" /><circle cx="19" cy="15" r="3" fill="#c92a2a" stroke="none" /></svg>
     {t('From Current Slide')}
   </button>
 </div>
 <div class="group">
   <button disabled title={t(UNAVAILABLE)}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="16" height="12" stroke-dasharray="2 2" /><path d="m14 13 7 7M21 13l-7 7" stroke="#d13438" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="16" height="12" stroke-dasharray="2 2" /><path d="m14 13 7 7M21 13l-7 7" stroke="#c92a2a" /></svg>
     {t('Clear Recording')}
   </button>
   <button disabled title={t(UNAVAILABLE)}>
@@ -38,7 +38,7 @@
 </div>
 <div class="group">
   <a class="button" href="https://support.microsoft.com/office/record-a-slide-show-with-narration-and-slide-timings-0b9502c6-5f6c-40ae-b1e7-e47d8741161c" target="_blank" rel="noreferrer">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" /><path d="M11 12a2 2 0 1 1 3 2c-1 .5-1 1-1 2M13 18.5v.5" stroke="#0078d4" /></svg>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" /><path d="M11 12a2 2 0 1 1 3 2c-1 .5-1 1-1 2M13 18.5v.5" style="stroke: var(--ok-accent)" /></svg>
     {t('Learn More')}
   </a>
 </div>

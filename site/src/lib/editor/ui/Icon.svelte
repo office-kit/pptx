@@ -207,7 +207,7 @@
   {:else if name === 'rename'}
     <rect x="3" y="7" width="18" height="10" rx="1" /><path d="M7 10v4M14 5v14M12 5h4M12 19h4" />
   {:else if name === 'close-master'}
-    <rect x="3" y="4" width="18" height="16" rx="1" /><path d="m9 9 6 6M15 9l-6 6" stroke="#d13438" />
+    <rect x="3" y="4" width="18" height="16" rx="1" /><path d="m9 9 6 6M15 9l-6 6" stroke="#c92a2a" />
   {:else}
     <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
   {/if}

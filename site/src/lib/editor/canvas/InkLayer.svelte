@@ -109,7 +109,7 @@
       {#if ink.tool === 'pen'}
         <path d={pathData} fill="none" stroke={ink.pen.color} stroke-opacity={ink.pen.opacity} stroke-width={ink.pen.widthEmu} stroke-linecap="round" stroke-linejoin="round" />
       {:else}
-        <path d="{pathData} Z" fill="rgba(0,120,212,0.08)" stroke="#0078d4" stroke-dasharray="4 3" vector-effect="non-scaling-stroke" />
+        <path d="{pathData} Z" fill="rgba(214,51,108,0.08)" style="stroke: var(--ok-accent)" stroke-dasharray="4 3" vector-effect="non-scaling-stroke" />
       {/if}
     </svg>
   {/if}
