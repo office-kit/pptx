@@ -3,6 +3,7 @@ import {
   elem,
   firstChildElement,
   qname,
+  serializeFragment,
   text,
   textContent,
   type XmlElement,
@@ -300,6 +301,38 @@ function propertiesAt(paragraph: XmlElement, at: number, insertion: boolean): Xm
   return result;
 }
 
+// The properties of a run that holds only text, or `null` for anything else
+// (fields, breaks, runs carrying extensions). Two such neighbours with equal
+// properties read as one run.
+const plainRunProperties = (node: XmlElement): string | null => {
+  if (!is(node, 'r') || node.attrs.length > 0) return null;
+  let properties = '';
+  for (const child of node.children) {
+    if (child.kind !== 'element') continue;
+    if (is(child, 'rPr')) properties = serializeFragment(child);
+    else if (!is(child, 't')) return null;
+  }
+  return properties;
+};
+
+// PowerPoint extends the run the caret is in, so typing never leaves one
+// `<a:r>` per keystroke, and deleting the text between two halves of a run
+// leaves one run again. Only the seam between `before` and `after` is
+// joined; runs elsewhere keep their own structure.
+const joinAtSeam = (before: XmlElement[], after: XmlElement[]): XmlElement[] => {
+  const left = before.at(-1);
+  const right = after[0];
+  if (!left || !right) return [...before, ...after];
+  const properties = plainRunProperties(left);
+  if (properties === null || properties !== plainRunProperties(right)) return [...before, ...after];
+  const joined = textFragment(
+    left,
+    textContent(firstChildElement(left, name('t')) ?? elem(name('t'))) +
+      textContent(firstChildElement(right, name('t')) ?? elem(name('t'))),
+  );
+  return [...before.slice(0, -1), joined, ...after.slice(1)];
+};
+
 /** Preserve the unchanged prefix/suffix, including their original paragraph XML. */
 export function editTextBody(
   txBody: XmlElement,
@@ -373,10 +406,8 @@ export function editTextBody(
       index === lines.length - 1 ? lastParagraph : firstParagraph,
       name('endParaRPr'),
     );
-    p.children = [
-      ...(pPr ? [pPr] : []),
-      ...(index === 0 ? left : []),
-      ...(line ||
+    const content =
+      line ||
       ((index !== 0 || left.length === 0) && (index !== lines.length - 1 || right.length === 0))
         ? line
             .split('\n')
@@ -386,8 +417,13 @@ export function editTextBody(
                 : []),
               ...(part || !line ? [run(part, properties)] : []),
             ])
-        : []),
-      ...(index === lines.length - 1 ? right : []),
+        : [];
+    p.children = [
+      ...(pPr ? [pPr] : []),
+      ...joinAtSeam(
+        joinAtSeam(index === 0 ? left : [], content),
+        index === lines.length - 1 ? right : [],
+      ),
       ...(endPr ? [copy(endPr)] : []),
     ];
     return p;
