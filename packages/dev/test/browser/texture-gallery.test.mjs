@@ -192,6 +192,17 @@ test(
       assert.deepEqual(await shapes(), before);
       await texture.click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
+      // As in PowerPoint, the swatch button sits at the right of the Texture row,
+      // flush with the other value controls, and the gallery hangs from its right edge.
+      const box = async (locator) => (await locator.boundingBox()) ?? assert.fail('not visible');
+      const [button, alignment, menu] = await Promise.all([
+        box(texture),
+        box(editor.locator('#format-panel select').filter({ visible: true }).first()),
+        box(gallery),
+      ]);
+      assert.ok(Math.abs(button.x + button.width - (alignment.x + alignment.width)) <= 1);
+      assert.ok(Math.abs(button.x + button.width - (menu.x + menu.width)) <= 1);
+      assert.ok(menu.y >= button.y + button.height);
       // Five to a row, with Insert... beside it instead of More Textures...
       const rows = await gallery
         .locator('.grid [role="menuitem"]')

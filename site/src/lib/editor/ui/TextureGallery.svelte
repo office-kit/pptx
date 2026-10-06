@@ -24,7 +24,7 @@
     label: string;
     /** The control the gallery opens from. */
     anchor: HTMLElement;
-    /** Below a button, or beside a menu item as a submenu. */
+    /** Below a button, right edges aligned as in PowerPoint, or beside a menu item as a submenu. */
     side?: 'below' | 'right';
     choose: (id: TextureId) => void;
     more?: () => void;
@@ -54,7 +54,7 @@
   function place(node: HTMLElement) {
     const bounds = anchor.getBoundingClientRect();
     // A submenu that does not fit on the right opens to the left, clear of its item.
-    const left = side === 'below' ? bounds.left : bounds.right + 2 + node.offsetWidth <= innerWidth - 8 ? bounds.right + 2 : bounds.left - 2 - node.offsetWidth;
+    const left = side === 'below' ? bounds.right - node.offsetWidth : bounds.right + 2 + node.offsetWidth <= innerWidth - 8 ? bounds.right + 2 : bounds.left - 2 - node.offsetWidth;
     const top = side === 'right' ? bounds.top : bounds.bottom + 2;
     node.style.left = `${Math.max(8, Math.min(left, innerWidth - node.offsetWidth - 8))}px`;
     node.style.top = `${Math.max(8, Math.min(top, innerHeight - node.offsetHeight - 8))}px`;
