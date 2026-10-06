@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { placeBelowTrigger } from './place-menu.ts';
   import {
     clearAllSlideComments,
     clearSlideComments,
@@ -89,7 +90,7 @@
       {t('Language')}
     </button>
     {#if menu === 'language'}
-      <div class="menu" role="menu" aria-label={t('Language')}>
+      <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Language')}>
         {#each LANGUAGES as tag (tag)}
           <button role="menuitemradio" aria-checked={textShapes.length > 0 && getShapeTextLanguage(textShapes[0]!) === tag} onclick={() => setLanguage(tag)}>{languageName(tag)}</button>
         {/each}
@@ -118,7 +119,7 @@
       {t('Delete')}
     </button>
     {#if menu === 'delete'}
-      <div class="menu" role="menu" aria-label={t('Delete')}>
+      <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Delete')}>
         <button role="menuitem" disabled={!withComments.includes(doc.selection.slideIndex)} onclick={() => deleteComments(false)}>{t('Delete All Comments on This Slide')}</button>
         <button role="menuitem" onclick={() => deleteComments(true)}>{t('Delete All Comments in This Presentation')}</button>
       </div>
@@ -163,7 +164,7 @@
   button:disabled { opacity: 0.45; cursor: default; }
   svg { width: 32px; height: 32px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.1; }
   .menu-anchor { position: relative; }
-  .menu { position: absolute; top: 100%; left: 0; z-index: 300; display: flex; flex-direction: column; min-width: 240px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .menu { position: fixed; z-index: 300; display: flex; flex-direction: column; min-width: 240px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { padding: 5px 10px; font: inherit; font-size: 12px; text-align: left; color: var(--ok-text); background: transparent; border: 0; border-radius: 4px; cursor: pointer; }
   .menu button:not(:disabled):hover, .menu button[aria-checked='true'] { background: var(--ok-hover); }
 </style>

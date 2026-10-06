@@ -1,6 +1,7 @@
 <script lang="ts">
   // Mac PowerPoint's Design tab: the Themes gallery, Variants, Colors, Fonts,
   // Background Styles, Layout, Slide Size and Design Suggestions.
+  import { placeBelowTrigger } from './place-menu.ts';
   import {
     getPresentationFonts,
     getPresentationTheme,
@@ -101,7 +102,7 @@
     <div class="anchor">
       {@render trigger('colors', 'theme', 'Colors', !!theme)}
       {#if open === 'colors'}
-        <div class="menu" role="menu" aria-label={t('Colors')}>
+        <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Colors')}>
           {#each COLOR_SETS as set (set.name)}
             <button role="menuitemradio" aria-checked={sameColors(set)} onclick={() => colors(set)}><span class="chips">{#each [set.dark2, set.light2, ...accentsOf(set)] as color, j (j)}<span style:background={color}></span>{/each}</span>{t(set.name)}</button>
           {/each}
@@ -113,7 +114,7 @@
     <div class="anchor">
       {@render trigger('fonts', 'font', 'Fonts', !!fonts)}
       {#if open === 'fonts'}
-        <div class="menu" role="menu" aria-label={t('Fonts')}>
+        <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Fonts')}>
           {#each FONT_PAIRS as pair (pair.name)}
             <button role="menuitemradio" aria-checked={sameFonts(pair)} onclick={() => fontPair(pair)}><span class="pair"><strong>{t(pair.name)}</strong><span style:font-family={pair.majorLatin}>{pair.majorLatin}</span><span style:font-family={pair.minorLatin}>{pair.minorLatin}</span></span></button>
           {/each}
@@ -129,7 +130,7 @@
     <div class="anchor">
       {@render trigger('layout', 'layout', 'Layout', !!doc.currentSlide)}
       {#if open === 'layout'}
-        <div class="menu" role="menu" aria-label={t('Layout')}>
+        <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Layout')}>
           <div class="layout-grid">
             {#each layouts as item (getSlideLayoutPartName(item))}
               <button class="layout-item" role="menuitemradio" aria-checked={getSlideLayoutPartName(item) === currentLayout} onclick={() => layout(item)}><LayoutThumbnail pres={doc.pres} layout={item} /><span>{t(getSlideLayoutName(item))}</span></button>
@@ -141,7 +142,7 @@
     <div class="anchor">
       {@render trigger('size', 'resize', 'Slide Size')}
       {#if open === 'size'}
-        <div class="menu" role="menu" aria-label={t('Slide Size')}>
+        <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Slide Size')}>
           <button role="menuitem" onclick={() => size(SLIDE_SIZE_4_3)}>{t('Standard (4:3)')}</button>
           <button role="menuitem" onclick={() => size(SLIDE_SIZE_16_9)}>{t('Widescreen (16:9)')}</button>
           <hr />
@@ -174,7 +175,7 @@
   .bar span { width: 10px; height: 5px; }
   .pager { display: flex; flex-direction: column; }
   .pager button { padding: 0 3px; font-size: 11px; line-height: 1.2; }
-  .menu { position: absolute; top: 100%; left: 0; z-index: 400; display: flex; flex-direction: column; min-width: 240px; max-height: 70vh; overflow-y: auto; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .menu { position: fixed; z-index: 400; display: flex; flex-direction: column; min-width: 240px; max-height: 70vh; overflow-y: auto; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { display: flex; align-items: center; gap: 8px; padding: 5px 8px; text-align: left; font-size: 12px; white-space: nowrap; }
   .menu button[aria-checked='true'] { background: var(--ok-selected); }
   .layout-grid { display: grid; grid-template-columns: repeat(3, 120px); gap: 6px; padding: 2px 4px; }

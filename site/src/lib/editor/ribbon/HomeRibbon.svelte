@@ -4,6 +4,7 @@
   // ribbon narrows, groups collapse into single buttons in PowerPoint's order
   // (Drawing first; then Slides, Paragraph and Insert; Font last). The
   // clipboard cluster never collapses.
+  import { placeBelowTrigger } from './place-menu.ts';
   import { tick, type Snippet } from 'svelte';
   import {
     getShapeKind,
@@ -178,18 +179,12 @@
     if (openMenu) openMenu = null;
     else openGroup = null;
   }
-  function place(node: HTMLElement) {
-    const trigger = node.previousElementSibling?.getBoundingClientRect();
-    if (!trigger) return;
-    node.style.left = `${Math.max(8, Math.min(trigger.left, innerWidth - node.offsetWidth - 8))}px`;
-    node.style.top = `${trigger.bottom + 2}px`;
-  }
 </script>
 
 <svelte:window onpointerdown={dismiss} onkeydown={keydown} />
 
 {#snippet layoutMenu(kind: 'newSlide' | 'layout')}
-  <div class="home-menu" role="menu" tabindex="-1" aria-label={t(kind === 'newSlide' ? 'New Slide' : 'Layout')} use:place>
+  <div class="home-menu" role="menu" tabindex="-1" aria-label={t(kind === 'newSlide' ? 'New Slide' : 'Layout')} use:placeBelowTrigger>
     <div class="heading">{t('Layouts')}</div>
     <!-- PowerPoint shows the layouts as a gallery of thumbnails. -->
     <div class="layout-grid">
@@ -265,7 +260,7 @@
       {#if openGroup === name}
         <!-- Choosing a command closes the popup, as PowerPoint's collapsed groups do. -->
         <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <div class="group-popup" role="dialog" tabindex="-1" aria-label={t(name)} bind:this={popup} use:place onclick={closeAfterCommand}>{@render body()}</div>
+        <div class="group-popup" role="dialog" tabindex="-1" aria-label={t(name)} bind:this={popup} use:placeBelowTrigger onclick={closeAfterCommand}>{@render body()}</div>
       {/if}
     {:else}
       {@render body()}
@@ -281,7 +276,7 @@
       <button class="big" aria-label={t('Paste')} onclick={() => editor.paste()}><Icon name="paste" size={32} /><span>{t('Paste')}</span></button>
       <button class="arrow menu-trigger" aria-label={t('Paste options')} aria-haspopup="menu" aria-expanded={openMenu === 'paste'} onclick={() => toggleMenu('paste')}>⌄</button>
       {#if openMenu === 'paste'}
-        <div class="home-menu" role="menu" tabindex="-1" aria-label={t('Paste options')} use:place>
+        <div class="home-menu" role="menu" tabindex="-1" aria-label={t('Paste options')} use:placeBelowTrigger>
           <button role="menuitem" onclick={() => { openMenu = null; void editor.paste(); }}>{t('Paste')}</button>
           <button role="menuitem" onclick={() => { openMenu = null; void pasteTextOnly(); }}>{t('Keep Text Only')}</button>
           <hr />
