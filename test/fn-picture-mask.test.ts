@@ -33,7 +33,8 @@ it('round-trips picture geometry without changing source bytes, crop or bounds',
   setShapeImageCrop(picture, { left: 0.2, right: 0.1 });
   setShapePreset(picture, 'roundRect');
   setShapeAdjustValues(picture, { adj: 25000 });
-  expect(renderSlideToSvg(pres, slide)).toMatch(/<clipPath[^>]*><rect[^>]*rx="/);
+  // Rounded corners are arcs, drawn as curves.
+  expect(renderSlideToSvg(pres, slide)).toMatch(/<clipPath[^>]*><path d="M[^"]* C/);
   setShapePreset(picture, 'ellipse');
   expect(getShapeAdjustValues(picture)).toEqual({});
   const saved = await loadPresentation(await savePresentation(pres));
@@ -46,12 +47,15 @@ it('round-trips picture geometry without changing source bytes, crop or bounds',
     /<a:xfrm>[\s\S]*?<\/a:xfrm><a:prstGeom prst="ellipse"/,
   );
   const svg = renderSlideToSvg(saved, getSlides(saved)[0]!);
-  expect(svg).toMatch(/<clipPath[^>]*><ellipse/);
+  expect(svg).toMatch(/<clipPath[^>]*><path d="M[^"]* C/);
   expect(svg).toMatch(/<g[^>]*clip-path="url\(#[^)]+\)"><image/);
   setShapePreset(restored, 'heart');
   expect(renderSlideToSvg(saved, getSlides(saved)[0]!)).toMatch(/<clipPath[^>]*><path/);
   setShapePreset(restored, 'hexagon');
-  expect(renderSlideToSvg(saved, getSlides(saved)[0]!)).toMatch(/<clipPath[^>]*><polygon/);
+  // Straight sides only.
+  expect(renderSlideToSvg(saved, getSlides(saved)[0]!)).toMatch(
+    /<clipPath[^>]*><path d="M[^"C]*Z" clip-rule/,
+  );
   setShapePreset(restored, 'rect');
   setShapeImageCrop(restored, null);
   expect(renderSlideToSvg(saved, getSlides(saved)[0]!)).not.toContain('<clipPath');
@@ -89,7 +93,7 @@ it('renders picture outlines outside the crop clip with mask shape and line styl
   setShapeStrokeDash(picture, 'dash');
   const svg = renderSlideToSvg(pres, slide);
   expect(svg).toMatch(
-    /<g transform="rotate\(25 [^"]+" fill="none" stroke="#FF2200" stroke-width="5.33" stroke-dasharray="[^"]+"><ellipse/,
+    /<g transform="rotate\(25 [^"]+" fill="none" stroke="#FF2200" stroke-width="5.33" stroke-dasharray="[^"]+"><path/,
   );
   expect(svg).toMatch(/<\/g><g transform="rotate\(25 [^"]+" fill="none"/);
   setShapeNoStroke(picture);

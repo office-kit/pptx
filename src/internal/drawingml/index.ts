@@ -105,6 +105,7 @@ export type {
   PathFillMode,
 } from './custom-geometry.ts';
 export { parseCustomGeometry } from './custom-geometry.ts';
+export { evaluatePresetGeometry } from './preset-geometry.ts';
 export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';

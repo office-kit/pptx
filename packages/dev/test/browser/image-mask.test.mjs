@@ -84,18 +84,29 @@ test(
       await editor.getByLabel('Offset X', { exact: true }).press('Tab');
       await saved();
       const crop = getShapeImageCrop(await picture());
-      for (const [preset, tag] of [
-        ['ellipse', 'ellipse'],
-        ['roundRect', 'rect'],
-        ['triangle', 'polygon'],
-        ['diamond', 'polygon'],
-        ['pentagon', 'polygon'],
-        ['hexagon', 'polygon'],
-        ['star5', 'polygon'],
-        ['heart', 'path'],
+      // Every mask is the preset's own outline, so a new preset changes it.
+      const clip = editor.locator('.paint clipPath path').first();
+      const nextOutline = async (previous) => {
+        for (let i = 0; i < 200; i += 1) {
+          const d = await clip.getAttribute('d').catch(() => null);
+          if (d && d !== previous) return d;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        throw new Error('The mask outline did not change');
+      };
+      let mask = null;
+      for (const preset of [
+        'ellipse',
+        'roundRect',
+        'triangle',
+        'diamond',
+        'pentagon',
+        'hexagon',
+        'star5',
+        'heart',
       ]) {
         await editor.getByLabel('Image shape', { exact: true }).selectOption(preset);
-        await editor.locator(`.paint clipPath ${tag}`).waitFor({ state: 'attached' });
+        mask = await nextOutline(mask);
         await saved();
         assert.equal(getShapePreset(await picture()), preset);
         assert.deepEqual(getShapeBounds(await picture()), originalBounds);
@@ -137,7 +148,7 @@ test(
       await outline.waitFor({ state: 'attached' });
       assert.equal(await outline.getAttribute('stroke-width'), '8.00');
       assert.equal(await outline.getAttribute('clip-path'), null);
-      assert.equal(await outline.locator('ellipse').count(), 1);
+      assert.equal(await outline.locator('path').count(), 1);
       assert.ok(await outline.getAttribute('stroke-dasharray'));
       await page.screenshot({ path: '/tmp/pptx-pr287-image-border-ja.png', fullPage: true });
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();

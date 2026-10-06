@@ -1,4 +1,4 @@
-import { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
+import { resolveTextBodyRect, shapeTextRect } from './text-body-rect.ts';
 import { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
 import { textUnderlineStyle } from './text-underline-style.ts';
 import { paragraphNumberLabels } from './paragraph-number-labels.ts';
@@ -85,6 +85,8 @@ import {
   getSlideBackgroundImageOpacity,
   getShapeImagePartName,
   getShapeImageFormat,
+  emu,
+  getPresetGeometry,
   getShapeAdjustValues,
   getShapeBounds,
   getShapeCustomGeometry,
@@ -158,6 +160,8 @@ import {
   type ReadChartSpec,
   type ChartTextStyle,
   type CustomGeometry,
+  type GeomPath,
+  type PathFillMode,
   type ReadGradientFill,
   type ShapeFill,
   type ShapeStroke,
@@ -578,8 +582,8 @@ const imageTilePattern = (
   return { defs: pattern, fill: `url(#${patternId})` };
 };
 
-// Share preset path generators with native shapes so image masks use the
-// same slide coordinates and are transformed together with the cropped image.
+// Picture masks use the same preset geometry as native shapes, in slide
+// coordinates, so they transform together with the cropped image.
 const pictureClipGeometry = (
   shape: SlideShapeData,
   preset: string,
@@ -588,23 +592,16 @@ const pictureClipGeometry = (
   w: number,
   h: number,
 ): string => {
-  if (preset === 'ellipse')
-    return `<ellipse cx="${E(x + w / 2)}" cy="${E(y + h / 2)}" rx="${E(w / 2)}" ry="${E(h / 2)}"/>`;
-  if (preset === 'roundRect') {
-    const radius = E(
-      Math.min(w, h) *
-        Math.max(0, Math.min(0.5, (getShapeAdjustValues(shape).adj ?? 16667) / 100000)),
-    );
-    return `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${radius}" ry="${radius}"/>`;
-  }
-  const path = PRESET_PATHS[preset];
-  if (path)
-    return `<path d="${path(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX)}" clip-rule="evenodd"/>`;
-  const points = PRESET_POINTS[preset];
-  if (points)
-    return `<polygon points="${points(w / EMU_PER_PX, h / EMU_PER_PX)
-      .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
-      .join(' ')}"/>`;
+  const geometry =
+    preset === 'rect'
+      ? null
+      : getPresetGeometry(preset, { w: emu(w), h: emu(h) }, getShapeAdjustValues(shape));
+  const d = (geometry?.paths ?? [])
+    .filter((path) => path.fill !== 'none')
+    .map((path) => geometryPathData(path, x, y, w, h))
+    .filter((data) => data !== '')
+    .join(' ');
+  if (d !== '') return `<path d="${d}" clip-rule="evenodd"/>`;
   return `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}"/>`;
 };
 
@@ -1233,1017 +1230,6 @@ const paint = (
     strokeAttrs: strokeAttrParts.join(' '),
     markerAttrs,
   };
-};
-
-// ---------------------------------------------------------------------------
-// Preset geometry → normalized [0,1] points.
-
-const polygon = (n: number, rotation = -Math.PI / 2): Array<[number, number]> => {
-  const out: Array<[number, number]> = [];
-  for (let i = 0; i < n; i++) {
-    const a = rotation + (i * 2 * Math.PI) / n;
-    out.push([0.5 + 0.5 * Math.cos(a), 0.5 + 0.5 * Math.sin(a)]);
-  }
-  return out;
-};
-
-const star = (points: number, innerRatio = 0.42): Array<[number, number]> => {
-  const out: Array<[number, number]> = [];
-  const rotation = -Math.PI / 2;
-  for (let i = 0; i < points * 2; i++) {
-    const a = rotation + (i * Math.PI) / points;
-    const r = i % 2 === 0 ? 0.5 : 0.5 * innerRatio;
-    out.push([0.5 + r * Math.cos(a), 0.5 + r * Math.sin(a)]);
-  }
-  return out;
-};
-
-// Preset polygons in normalized [0,1] space. Most ignore the shape size, but
-// the block-arrow presets need it: in OOXML their arrowhead length is a
-// fraction of `min(w,h)` (not of the side it points along), so a fixed-fraction
-// polygon is wrong for any non-square arrow. `w`/`h` are the shape's px size;
-// only their ratio is used, so the unit cancels.
-const PRESET_POINTS: Record<string, (w: number, h: number) => Array<[number, number]>> = {
-  triangle: () => [
-    [0.5, 0],
-    [1, 1],
-    [0, 1],
-  ],
-  rtTriangle: () => [
-    [0, 0],
-    [1, 1],
-    [0, 1],
-  ],
-  diamond: () => [
-    [0.5, 0],
-    [1, 0.5],
-    [0.5, 1],
-    [0, 0.5],
-  ],
-  parallelogram: () => [
-    [0.25, 0],
-    [1, 0],
-    [0.75, 1],
-    [0, 1],
-  ],
-  trapezoid: () => [
-    [0.25, 0],
-    [0.75, 0],
-    [1, 1],
-    [0, 1],
-  ],
-  pentagon: () => polygon(5),
-  hexagon: () => polygon(6),
-  heptagon: () => polygon(7),
-  octagon: () => polygon(8),
-  decagon: () => polygon(10),
-  dodecagon: () => polygon(12),
-  star4: () => star(4),
-  star5: () => star(5),
-  star6: () => star(6),
-  star7: () => star(7),
-  star8: () => star(8),
-  star10: () => star(10),
-  star12: () => star(12),
-  star16: () => star(16),
-  star24: () => star(24),
-  star32: () => star(32),
-  // Block arrows: default adj1=adj2=50000 → shaft is 0.5·(cross dimension),
-  // arrowhead length is 0.5·min(w,h) along the pointing axis (ECMA-376
-  // rightArrow et al.). Shaft spans 0.25..0.75 of the cross dimension.
-  rightArrow: (w, h) => {
-    const bx = 1 - Math.min(1, (0.5 * Math.min(w, h)) / w);
-    return [
-      [0, 0.25],
-      [bx, 0.25],
-      [bx, 0],
-      [1, 0.5],
-      [bx, 1],
-      [bx, 0.75],
-      [0, 0.75],
-    ];
-  },
-  leftArrow: (w, h) => {
-    const bx = Math.min(1, (0.5 * Math.min(w, h)) / w);
-    return [
-      [1, 0.25],
-      [bx, 0.25],
-      [bx, 0],
-      [0, 0.5],
-      [bx, 1],
-      [bx, 0.75],
-      [1, 0.75],
-    ];
-  },
-  upArrow: (w, h) => {
-    const by = Math.min(1, (0.5 * Math.min(w, h)) / h);
-    return [
-      [0.25, 1],
-      [0.25, by],
-      [0, by],
-      [0.5, 0],
-      [1, by],
-      [0.75, by],
-      [0.75, 1],
-    ];
-  },
-  downArrow: (w, h) => {
-    const by = 1 - Math.min(1, (0.5 * Math.min(w, h)) / h);
-    return [
-      [0.25, 0],
-      [0.25, by],
-      [0, by],
-      [0.5, 1],
-      [1, by],
-      [0.75, by],
-      [0.75, 0],
-    ];
-  },
-  leftRightArrow: () => [
-    [0, 0.5],
-    [0.18, 0.2],
-    [0.18, 0.35],
-    [0.82, 0.35],
-    [0.82, 0.2],
-    [1, 0.5],
-    [0.82, 0.8],
-    [0.82, 0.65],
-    [0.18, 0.65],
-    [0.18, 0.8],
-  ],
-  upDownArrow: () => [
-    [0.5, 0],
-    [0.2, 0.18],
-    [0.35, 0.18],
-    [0.35, 0.82],
-    [0.2, 0.82],
-    [0.5, 1],
-    [0.8, 0.82],
-    [0.65, 0.82],
-    [0.65, 0.18],
-    [0.8, 0.18],
-  ],
-  chevron: () => [
-    [0, 0],
-    [0.7, 0],
-    [1, 0.5],
-    [0.7, 1],
-    [0, 1],
-    [0.3, 0.5],
-  ],
-  // Additional block arrows beyond the cardinal four.
-  bentArrow: () => [
-    [0, 0.45],
-    [0.55, 0.45],
-    [0.55, 0.25],
-    [0.55, 0.05],
-    [0.95, 0.05],
-    [0.95, 0.55],
-    [0.8, 0.55],
-    [0.8, 0.85],
-    [0, 0.85],
-  ],
-  // Right-pointing pentagon (often used for flowcharts).
-  homePlate: () => [
-    [0, 0],
-    [0.75, 0],
-    [1, 0.5],
-    [0.75, 1],
-    [0, 1],
-  ],
-  // Hearts / smileyFace / cloud handled via path renderers below.
-};
-
-// Path-based shape renderers — for shapes that can't be expressed as a
-// closed polygon (curves, multiple sub-paths, etc.). Returns an SVG
-// `d` attribute already scaled to the shape's bounding box.
-const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) => string> = {
-  // Wedge callouts: rect / round-rect / ellipse body covering ~85% of
-  // the bounding box plus a triangular tail pointing down-left.
-  // Default adj1/adj2 values aren't read from the XML; the tail
-  // position is approximate.
-  wedgeRectCallout: (x, y, w, h) => {
-    const bodyH = h * 0.78;
-    const tailTipX = x + w * 0.12;
-    const tailTipY = y + h;
-    const tailBaseLeft = x + w * 0.18;
-    const tailBaseRight = x + w * 0.32;
-    const bodyB = y + bodyH;
-    return `M${x},${y} L${x + w},${y} L${x + w},${bodyB} L${tailBaseRight},${bodyB} L${tailTipX},${tailTipY} L${tailBaseLeft},${bodyB} L${x},${bodyB} Z`;
-  },
-  wedgeRoundRectCallout: (x, y, w, h) => {
-    const r = Math.min(w, h) * 0.08;
-    const bodyH = h * 0.78;
-    const tailTipX = x + w * 0.12;
-    const tailTipY = y + h;
-    const tailBaseLeft = x + w * 0.18;
-    const tailBaseRight = x + w * 0.32;
-    const bodyB = y + bodyH;
-    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${bodyB - r} A${r},${r} 0 0 1 ${x + w - r},${bodyB} L${tailBaseRight},${bodyB} L${tailTipX},${tailTipY} L${tailBaseLeft},${bodyB} L${x + r},${bodyB} A${r},${r} 0 0 1 ${x},${bodyB - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
-  },
-  wedgeEllipseCallout: (x, y, w, h) => {
-    const bodyCy = y + h * 0.39;
-    const bodyRy = h * 0.39;
-    const cx = x + w / 2;
-    const bodyRx = w / 2;
-    // Ellipse perimeter via two arcs, then a triangle to the tail.
-    const tailTipX = x + w * 0.12;
-    const tailTipY = y + h;
-    const tailBaseAngle = 1.5; // radians from positive x — bottom-ish
-    const tailBase1X = cx + bodyRx * Math.cos(tailBaseAngle - 0.18);
-    const tailBase1Y = bodyCy + bodyRy * Math.sin(tailBaseAngle - 0.18);
-    const tailBase2X = cx + bodyRx * Math.cos(tailBaseAngle + 0.18);
-    const tailBase2Y = bodyCy + bodyRy * Math.sin(tailBaseAngle + 0.18);
-    return `M${tailBase1X},${tailBase1Y} A${bodyRx},${bodyRy} 0 1 0 ${tailBase2X},${tailBase2Y} L${tailTipX},${tailTipY} Z`;
-  },
-  // Cloud callout — body is 8 lobes around an ellipse, plus a small
-  // dot trail towards the tail point.
-  cloudCallout: (x, y, w, h) => {
-    const bodyH = h * 0.78;
-    const cx = x + w / 2;
-    const cy = y + bodyH / 2;
-    const rx = (w / 2) * 0.92;
-    const ry = (bodyH / 2) * 0.85;
-    const lobes = 10;
-    const path: string[] = [];
-    for (let i = 0; i < lobes; i++) {
-      const a = (i / lobes) * 2 * Math.PI - Math.PI / 2;
-      const lobeRx = rx * 0.32;
-      const lobeRy = ry * 0.32;
-      const px0 = cx + rx * Math.cos(a);
-      const py0 = cy + ry * Math.sin(a);
-      if (i === 0) path.push(`M${px0 - lobeRx},${py0}`);
-      path.push(`A${lobeRx},${lobeRy} 0 1 1 ${px0 + lobeRx},${py0}`);
-      const nextA = ((i + 1) / lobes) * 2 * Math.PI - Math.PI / 2;
-      const nextX = cx + rx * Math.cos(nextA) - lobeRx;
-      const nextY = cy + ry * Math.sin(nextA);
-      path.push(`L${nextX},${nextY}`);
-    }
-    path.push('Z');
-    // Two small trailing circles for the tail.
-    const tailX = x + w * 0.18;
-    const tailY = y + h * 0.95;
-    return `${path.join(' ')} M${tailX - 6},${tailY - 14} a4,3 0 1 0 1,0 Z M${tailX},${tailY} a6,4 0 1 0 1,0 Z`;
-  },
-  // Hearts / sun / lightning / smiley — common decorative shapes.
-  heart: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const top = y + h * 0.27;
-    return `M${cx},${y + h} C${x},${y + h * 0.55} ${x},${top} ${cx},${y + h * 0.4} C${x + w},${top} ${x + w},${y + h * 0.55} ${cx},${y + h} Z`;
-  },
-  sun: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const innerR = Math.min(w, h) * 0.25;
-    const outerR = Math.min(w, h) * 0.5;
-    const rays = 12;
-    const path: string[] = [];
-    for (let i = 0; i < rays * 2; i++) {
-      const r = i % 2 === 0 ? outerR : innerR;
-      const a = (i / (rays * 2)) * 2 * Math.PI - Math.PI / 2;
-      const px0 = cx + r * Math.cos(a);
-      const py0 = cy + r * Math.sin(a);
-      path.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
-    }
-    path.push('Z');
-    return path.join(' ');
-  },
-  smileyFace: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2 - 1;
-    const eyeR = r * 0.07;
-    const eyeOff = r * 0.32;
-    const mouthW = r * 0.5;
-    const mouthY = cy + r * 0.18;
-    // Face circle, two eye holes (subpath, even-odd-filled), smiling arc.
-    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - eyeOff + eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx - eyeOff - eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx - eyeOff + eyeR},${cy - eyeOff} Z M${cx + eyeOff + eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx + eyeOff - eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx + eyeOff + eyeR},${cy - eyeOff} Z M${cx - mouthW},${mouthY} Q${cx},${mouthY + r * 0.32} ${cx + mouthW},${mouthY}`;
-  },
-  lightningBolt: (x, y, w, h) => {
-    return `M${x + w * 0.5},${y} L${x + w * 0.15},${y + h * 0.55} L${x + w * 0.45},${y + h * 0.55} L${x + w * 0.3},${y + h} L${x + w * 0.85},${y + h * 0.4} L${x + w * 0.55},${y + h * 0.4} L${x + w * 0.7},${y} Z`;
-  },
-
-  // -- Flowchart shapes ---------------------------------------------------
-  // Lightweight approximations of the ~28 ECMA-376 flowchart presets.
-  // They're laid out so the shape's bounding box matches the slide's,
-  // and the geometry is what most viewers expect at a glance.
-  flowChartProcess: (x, y, w, h) => `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`,
-  flowChartAlternateProcess: (x, y, w, h) => {
-    const r = Math.min(w, h) * 0.18;
-    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
-  },
-  flowChartDecision: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    return `M${cx},${y} L${x + w},${cy} L${cx},${y + h} L${x},${cy} Z`;
-  },
-  flowChartTerminator: (x, y, w, h) => {
-    const r = h / 2;
-    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x + r},${y} Z`;
-  },
-  flowChartConnector: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2;
-    return `M${cx + r},${cy} A${r},${r} 0 1 1 ${cx - r},${cy} A${r},${r} 0 1 1 ${cx + r},${cy} Z`;
-  },
-  flowChartDocument: (x, y, w, h) => {
-    // Bottom is a wave (cubic) instead of a flat line.
-    const wave = h * 0.18;
-    return `M${x},${y} L${x + w},${y} L${x + w},${y + h - wave} C${x + w * 0.75},${y + h + wave * 0.5} ${x + w * 0.25},${y + h - wave * 2} ${x},${y + h - wave * 0.5} Z`;
-  },
-  flowChartMultidocument: (x, y, w, h) => {
-    // Two stacked documents (back document offset by 6%).
-    const inset = w * 0.06;
-    const back = `M${x + inset},${y + inset * 0.6} L${x + w},${y + inset * 0.6} L${x + w},${y + h - inset * 0.6} L${x + w - inset},${y + h - inset * 0.6} L${x + w - inset},${y + inset * 0.6}`;
-    const front = `M${x},${y + inset * 1.2} L${x + w - inset},${y + inset * 1.2} L${x + w - inset},${y + h * 0.85} C${x + (w - inset) * 0.75},${y + h + 6} ${x + (w - inset) * 0.25},${y + h * 0.75} ${x},${y + h * 0.95} Z`;
-    return `${back} Z ${front}`;
-  },
-  flowChartPredefinedProcess: (x, y, w, h) => {
-    // Process box with two vertical bars carved on each side.
-    const inset = w * 0.1;
-    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + inset},${y} L${x + inset},${y + h} M${x + w - inset},${y} L${x + w - inset},${y + h}`;
-  },
-  flowChartInternalStorage: (x, y, w, h) => {
-    const inset = Math.min(w, h) * 0.1;
-    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + inset},${y} L${x + inset},${y + h} M${x},${y + inset} L${x + w},${y + inset}`;
-  },
-  flowChartManualInput: (x, y, w, h) => {
-    return `M${x},${y + h * 0.35} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`;
-  },
-  flowChartManualOperation: (x, y, w, h) => {
-    return `M${x},${y} L${x + w},${y} L${x + w * 0.8},${y + h} L${x + w * 0.2},${y + h} Z`;
-  },
-  flowChartInputOutput: (x, y, w, h) => {
-    const skew = w * 0.18;
-    return `M${x + skew},${y} L${x + w},${y} L${x + w - skew},${y + h} L${x},${y + h} Z`;
-  },
-  flowChartPunchedTape: (x, y, w, h) => {
-    const wave = h * 0.12;
-    return `M${x},${y + wave} C${x + w * 0.25},${y - wave} ${x + w * 0.75},${y + wave * 2} ${x + w},${y + wave} L${x + w},${y + h - wave} C${x + w * 0.75},${y + h + wave} ${x + w * 0.25},${y + h - wave * 2} ${x},${y + h - wave} Z`;
-  },
-  flowChartCard: (x, y, w, h) => {
-    const cut = h * 0.3;
-    return `M${x + cut},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} L${x},${y + cut} Z`;
-  },
-  flowChartPunchedCard: (x, y, w, h) => {
-    const cut = h * 0.2;
-    return `M${x + cut},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} L${x},${y + cut} Z`;
-  },
-  flowChartOnlineStorage: (x, y, w, h) => {
-    // Tape-like: ellipse-capped rectangle, left side open.
-    const cap = w * 0.12;
-    return `M${x + cap},${y} L${x + w},${y} L${x + w},${y + h} L${x + cap},${y + h} A${cap},${h / 2} 0 0 1 ${x + cap},${y} Z`;
-  },
-  flowChartMagneticDisk: (x, y, w, h) => {
-    // Cylinder: rectangle with ellipses top and bottom.
-    const er = h * 0.12;
-    return `M${x},${y + er} A${w / 2},${er} 0 0 1 ${x + w},${y + er} L${x + w},${y + h - er} A${w / 2},${er} 0 0 1 ${x},${y + h - er} Z M${x},${y + er} A${w / 2},${er} 0 0 0 ${x + w},${y + er}`;
-  },
-  flowChartMagneticDrum: (x, y, w, h) => {
-    // Horizontal cylinder.
-    const er = w * 0.12;
-    return `M${x + er},${y} L${x + w - er},${y} A${er},${h / 2} 0 0 1 ${x + w - er},${y + h} L${x + er},${y + h} A${er},${h / 2} 0 0 1 ${x + er},${y} Z M${x + w - er},${y} A${er},${h / 2} 0 0 0 ${x + w - er},${y + h}`;
-  },
-  flowChartMagneticTape: (x, y, w, h) => {
-    // Circle with a small "tail" notch at the bottom-right.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2;
-    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r * 0.7},${cy + r * 0.7} L${x + w},${y + h} L${cx + r},${cy} Z`;
-  },
-  flowChartSummingJunction: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2;
-    // Circle with an X inside (drawn as two crossing lines via subpaths).
-    const off = r * Math.SQRT1_2;
-    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - off},${cy - off} L${cx + off},${cy + off} M${cx - off},${cy + off} L${cx + off},${cy - off}`;
-  },
-  flowChartOr: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2;
-    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - r},${cy} L${cx + r},${cy} M${cx},${cy - r} L${cx},${cy + r}`;
-  },
-  flowChartCollate: (x, y, w, h) => {
-    // Hourglass.
-    return `M${x},${y} L${x + w},${y} L${x},${y + h} L${x + w},${y + h} Z`;
-  },
-  flowChartSort: (x, y, w, h) => {
-    // Diamond with a horizontal line.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    return `M${cx},${y} L${x + w},${cy} L${cx},${y + h} L${x},${cy} Z M${x},${cy} L${x + w},${cy}`;
-  },
-  flowChartExtract: (x, y, w, h) => {
-    return `M${x + w / 2},${y} L${x + w},${y + h} L${x},${y + h} Z`;
-  },
-  flowChartMerge: (x, y, w, h) => {
-    return `M${x},${y} L${x + w},${y} L${x + w / 2},${y + h} Z`;
-  },
-  flowChartOfflineStorage: (x, y, w, h) => {
-    // Triangle with a horizontal bar at the bottom (storage symbol).
-    return `M${x + w / 2},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + w * 0.25},${y + h * 0.75} L${x + w * 0.75},${y + h * 0.75}`;
-  },
-  flowChartDelay: (x, y, w, h) => {
-    // Rectangle with the right side capped by a semicircle.
-    const r = h / 2;
-    return `M${x},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x},${y + h} Z`;
-  },
-  flowChartDisplay: (x, y, w, h) => {
-    // Trapezoid-ish display: pointed-left, rounded-right.
-    const r = h / 2;
-    return `M${x + r * 0.5},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r * 0.5},${y + h} L${x},${y + h / 2} Z`;
-  },
-  flowChartPreparation: (x, y, w, h) => {
-    // Elongated hexagon.
-    const cut = w * 0.18;
-    return `M${x + cut},${y} L${x + w - cut},${y} L${x + w},${y + h / 2} L${x + w - cut},${y + h} L${x + cut},${y + h} L${x},${y + h / 2} Z`;
-  },
-
-  // -- Block arrows -------------------------------------------------------
-  notchedRightArrow: (x, y, w, h) => {
-    return `M${x},${y + h * 0.3} L${x + w * 0.65},${y + h * 0.3} L${x + w * 0.65},${y} L${x + w},${y + h / 2} L${x + w * 0.65},${y + h} L${x + w * 0.65},${y + h * 0.7} L${x},${y + h * 0.7} L${x + w * 0.15},${y + h / 2} Z`;
-  },
-  stripedRightArrow: (x, y, w, h) => {
-    // Right arrow with two parallel "stripes" cut at the left (rendered as
-    // separate strokes via subpaths).
-    const stripe = w * 0.04;
-    return `M${x},${y + h * 0.3} L${x + stripe},${y + h * 0.3} L${x + stripe},${y + h * 0.7} L${x},${y + h * 0.7} Z M${x + stripe * 2.5},${y + h * 0.3} L${x + stripe * 3.5},${y + h * 0.3} L${x + stripe * 3.5},${y + h * 0.7} L${x + stripe * 2.5},${y + h * 0.7} Z M${x + stripe * 5},${y + h * 0.3} L${x + w * 0.65},${y + h * 0.3} L${x + w * 0.65},${y} L${x + w},${y + h / 2} L${x + w * 0.65},${y + h} L${x + w * 0.65},${y + h * 0.7} L${x + stripe * 5},${y + h * 0.7} Z`;
-  },
-  curvedRightArrow: (x, y, w, h) => {
-    // Quarter-arc with a triangular tip on the right.
-    return `M${x},${y + h * 0.6} Q${x + w * 0.5},${y} ${x + w * 0.85},${y + h * 0.25} L${x + w},${y + h * 0.45} L${x + w * 0.85},${y + h * 0.55} L${x + w * 0.7},${y + h * 0.35} Q${x + w * 0.45},${y + h * 0.18} ${x + w * 0.15},${y + h * 0.75} Z`;
-  },
-  uturnArrow: (x, y, w, h) => {
-    // Half-arc + tip pointing down on the right side.
-    return `M${x},${y + h} L${x},${y + h / 2} A${w * 0.4},${h * 0.4} 0 0 1 ${x + w * 0.8},${y + h / 2} L${x + w * 0.8},${y + h * 0.25} L${x + w},${y + h * 0.45} L${x + w * 0.8},${y + h * 0.65} L${x + w * 0.8},${y + h / 2} A${w * 0.2},${h * 0.25} 0 0 0 ${x + w * 0.2},${y + h / 2} L${x + w * 0.2},${y + h} Z`;
-  },
-
-  // -- Brackets / braces --------------------------------------------------
-  // Drawn as strokes (open paths); fill is none for these by convention.
-  leftBracket: (x, y, w, h) => {
-    return `M${x + w},${y} L${x},${y} L${x},${y + h} L${x + w},${y + h}`;
-  },
-  rightBracket: (x, y, w, h) => {
-    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h}`;
-  },
-  bracketPair: (x, y, w, h) => {
-    return `M${x + w * 0.1},${y} L${x},${y} L${x},${y + h} L${x + w * 0.1},${y + h} M${x + w * 0.9},${y} L${x + w},${y} L${x + w},${y + h} L${x + w * 0.9},${y + h}`;
-  },
-  leftBrace: (x, y, w, h) => {
-    const mid = y + h / 2;
-    return `M${x + w},${y} Q${x},${y} ${x},${mid - 8} Q${x},${mid} ${x - 4},${mid} Q${x},${mid} ${x},${mid + 8} Q${x},${y + h} ${x + w},${y + h}`;
-  },
-  rightBrace: (x, y, w, h) => {
-    const mid = y + h / 2;
-    return `M${x},${y} Q${x + w},${y} ${x + w},${mid - 8} Q${x + w},${mid} ${x + w + 4},${mid} Q${x + w},${mid} ${x + w},${mid + 8} Q${x + w},${y + h} ${x},${y + h}`;
-  },
-  bracePair: (x, y, w, h) => {
-    const mid = y + h / 2;
-    return `M${x + w * 0.12},${y} Q${x},${y} ${x},${mid - 8} Q${x},${mid} ${x - 4},${mid} Q${x},${mid} ${x},${mid + 8} Q${x},${y + h} ${x + w * 0.12},${y + h} M${x + w * 0.88},${y} Q${x + w},${y} ${x + w},${mid - 8} Q${x + w},${mid} ${x + w + 4},${mid} Q${x + w},${mid} ${x + w},${mid + 8} Q${x + w},${y + h} ${x + w * 0.88},${y + h}`;
-  },
-
-  // -- Snip / round corner rects -----------------------------------------
-  snip1Rect: (x, y, w, h) => {
-    const c = Math.min(w, h) * 0.18;
-    return `M${x},${y} L${x + w - c},${y} L${x + w},${y + c} L${x + w},${y + h} L${x},${y + h} Z`;
-  },
-  snip2SameRect: (x, y, w, h) => {
-    const c = Math.min(w, h) * 0.18;
-    return `M${x + c},${y} L${x + w - c},${y} L${x + w},${y + c} L${x + w},${y + h} L${x},${y + h} L${x},${y + c} Z`;
-  },
-  snip2DiagRect: (x, y, w, h) => {
-    const c = Math.min(w, h) * 0.18;
-    return `M${x},${y} L${x + w - c},${y} L${x + w},${y + c} L${x + w},${y + h} L${x + c},${y + h} L${x},${y + h - c} Z`;
-  },
-  snipRoundRect: (x, y, w, h) => {
-    const c = Math.min(w, h) * 0.18;
-    return `M${x + c},${y} A${c},${c} 0 0 0 ${x},${y + c} L${x},${y + h} L${x + w},${y + h} L${x + w},${y + c} L${x + w - c},${y} Z`;
-  },
-  round1Rect: (x, y, w, h) => {
-    const r = Math.min(w, h) * 0.18;
-    return `M${x},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h} L${x},${y + h} Z`;
-  },
-  round2SameRect: (x, y, w, h) => {
-    const r = Math.min(w, h) * 0.18;
-    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h} L${x},${y + h} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
-  },
-  round2DiagRect: (x, y, w, h) => {
-    const r = Math.min(w, h) * 0.18;
-    return `M${x},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} Z`;
-  },
-
-  // -- Banners & ribbons --------------------------------------------------
-  ribbon: (x, y, w, h) => {
-    // Centre ribbon with two notched tails at the bottom corners.
-    const notch = w * 0.06;
-    const bodyTop = y + h * 0.2;
-    const bodyBot = y + h * 0.8;
-    return `M${x},${bodyTop} L${x + notch * 2},${y} L${x + w - notch * 2},${y} L${x + w},${bodyTop} L${x + w * 0.85},${bodyTop + (bodyBot - bodyTop) / 2} L${x + w},${bodyBot} L${x + w - notch * 2},${y + h} L${x + w - notch * 4},${bodyBot} L${x + notch * 4},${bodyBot} L${x + notch * 2},${y + h} L${x},${bodyBot} L${x + w * 0.15},${bodyTop + (bodyBot - bodyTop) / 2} Z`;
-  },
-  ribbon2: (x, y, w, h) => {
-    // Like ribbon but the band is at the bottom.
-    const notch = w * 0.06;
-    const bodyTop = y + h * 0.2;
-    const bodyBot = y + h * 0.8;
-    return `M${x},${bodyBot} L${x + notch * 2},${y + h} L${x + w - notch * 2},${y + h} L${x + w},${bodyBot} L${x + w * 0.85},${bodyTop + (bodyBot - bodyTop) / 2} L${x + w},${bodyTop} L${x + w - notch * 2},${y} L${x + w - notch * 4},${bodyTop} L${x + notch * 4},${bodyTop} L${x + notch * 2},${y} L${x},${bodyTop} L${x + w * 0.15},${bodyTop + (bodyBot - bodyTop) / 2} Z`;
-  },
-  verticalScroll: (x, y, w, h) => {
-    const r = w * 0.08;
-    return `M${x + r},${y + r} A${r},${r} 0 0 1 ${x + r * 2},${y} L${x + w},${y} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r * 2},${y + h} L${x},${y + h} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y + r} Z`;
-  },
-  horizontalScroll: (x, y, w, h) => {
-    const r = h * 0.08;
-    return `M${x + r},${y + r} A${r},${r} 0 0 1 ${x},${y + r * 2} L${x},${y + h} L${x + w - r},${y + h} A${r},${r} 0 0 1 ${x + w},${y + h - r * 2} L${x + w},${y} L${x + r},${y} A${r},${r} 0 0 1 ${x + r},${y + r} Z`;
-  },
-  wave: (x, y, w, h) => {
-    return `M${x},${y + h * 0.5} C${x + w * 0.25},${y - h * 0.1} ${x + w * 0.5},${y + h * 0.85} ${x + w * 0.75},${y + h * 0.3} C${x + w * 0.85},${y + h * 0.05} ${x + w * 0.95},${y + h * 0.4} ${x + w},${y + h * 0.5} L${x + w},${y + h} C${x + w * 0.75},${y + h * 0.4} ${x + w * 0.5},${y + h * 1.1} ${x + w * 0.25},${y + h * 0.55} C${x + w * 0.15},${y + h * 0.3} ${x + w * 0.05},${y + h * 0.6} ${x},${y + h * 0.55} Z`;
-  },
-  doubleWave: (x, y, w, h) => {
-    return `M${x},${y + h * 0.4} C${x + w * 0.15},${y - h * 0.05} ${x + w * 0.35},${y + h * 0.65} ${x + w * 0.5},${y + h * 0.3} C${x + w * 0.65},${y - h * 0.05} ${x + w * 0.85},${y + h * 0.65} ${x + w},${y + h * 0.4} L${x + w},${y + h} C${x + w * 0.85},${y + h * 0.4} ${x + w * 0.65},${y + h * 1.05} ${x + w * 0.5},${y + h * 0.7} C${x + w * 0.35},${y + h * 1.05} ${x + w * 0.15},${y + h * 0.4} ${x},${y + h} Z`;
-  },
-
-  // -- Math operators -----------------------------------------------------
-  mathPlus: (x, y, w, h) => {
-    const t = Math.min(w, h) * 0.2;
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    return `M${cx - t / 2},${y} L${cx + t / 2},${y} L${cx + t / 2},${cy - t / 2} L${x + w},${cy - t / 2} L${x + w},${cy + t / 2} L${cx + t / 2},${cy + t / 2} L${cx + t / 2},${y + h} L${cx - t / 2},${y + h} L${cx - t / 2},${cy + t / 2} L${x},${cy + t / 2} L${x},${cy - t / 2} L${cx - t / 2},${cy - t / 2} Z`;
-  },
-  mathMinus: (x, y, w, h) => {
-    const t = h * 0.3;
-    const cy = y + h / 2;
-    return `M${x},${cy - t / 2} L${x + w},${cy - t / 2} L${x + w},${cy + t / 2} L${x},${cy + t / 2} Z`;
-  },
-  mathMultiply: (x, y, w, h) => {
-    const t = Math.min(w, h) * 0.16;
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    // Two crossed rects (diagonals).
-    return `M${x},${y + t} L${x + t},${y} L${cx},${cy - t} L${x + w - t},${y} L${x + w},${y + t} L${cx + t},${cy} L${x + w},${y + h - t} L${x + w - t},${y + h} L${cx},${cy + t} L${x + t},${y + h} L${x},${y + h - t} L${cx - t},${cy} Z`;
-  },
-  mathDivide: (x, y, w, h) => {
-    const dot = Math.min(w, h) * 0.1;
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    return `M${x},${cy - dot * 0.4} L${x + w},${cy - dot * 0.4} L${x + w},${cy + dot * 0.4} L${x},${cy + dot * 0.4} Z M${cx - dot},${y + h * 0.18} A${dot},${dot} 0 1 0 ${cx + dot},${y + h * 0.18} A${dot},${dot} 0 1 0 ${cx - dot},${y + h * 0.18} Z M${cx - dot},${y + h * 0.82} A${dot},${dot} 0 1 0 ${cx + dot},${y + h * 0.82} A${dot},${dot} 0 1 0 ${cx - dot},${y + h * 0.82} Z`;
-  },
-  mathEqual: (x, y, w, h) => {
-    const t = h * 0.2;
-    return `M${x},${y + h * 0.3 - t / 2} L${x + w},${y + h * 0.3 - t / 2} L${x + w},${y + h * 0.3 + t / 2} L${x},${y + h * 0.3 + t / 2} Z M${x},${y + h * 0.7 - t / 2} L${x + w},${y + h * 0.7 - t / 2} L${x + w},${y + h * 0.7 + t / 2} L${x},${y + h * 0.7 + t / 2} Z`;
-  },
-  mathNotEqual: (x, y, w, h) => {
-    const t = h * 0.15;
-    const cy = y + h / 2;
-    // Equal sign + diagonal bar (use path subpaths).
-    return `M${x},${cy - h * 0.18 - t / 2} L${x + w},${cy - h * 0.18 - t / 2} L${x + w},${cy - h * 0.18 + t / 2} L${x},${cy - h * 0.18 + t / 2} Z M${x},${cy + h * 0.18 - t / 2} L${x + w},${cy + h * 0.18 - t / 2} L${x + w},${cy + h * 0.18 + t / 2} L${x},${cy + h * 0.18 + t / 2} Z M${x + w * 0.7},${y} L${x + w * 0.85},${y} L${x + w * 0.3},${y + h} L${x + w * 0.15},${y + h} Z`;
-  },
-
-  // -- Action button glyphs (the chrome is a roundRect; we just add the
-  // glyph). Real action buttons are nested shapes; we approximate.
-  actionButtonBlank: (x, y, w, h) => {
-    const r = Math.min(w, h) * 0.06;
-    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
-  },
-
-  // -- Explosion / starburst callouts (the "jagged" speech marks). ------
-  // `irregularSeal1` and `irregularSeal2` are PowerPoint's two
-  // explosion-style callouts. The geometry is a deterministic pseudo-
-  // random pattern of long + short rays; we mimic that without trying
-  // to match the spec point-for-point.
-  irregularSeal1: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = w / 2;
-    const ry = h / 2;
-    // 16 rays — outer radii drawn from a fixed offset table so the
-    // shape comes out spiky-but-balanced like PowerPoint's.
-    const offsets = [
-      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55, 1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
-    ];
-    const points: string[] = [];
-    for (let i = 0; i < offsets.length; i++) {
-      const a = (i / offsets.length) * 2 * Math.PI - Math.PI / 2;
-      const offset = offsets[i] ?? 1;
-      const r = offset;
-      const px0 = cx + rx * r * Math.cos(a);
-      const py0 = cy + ry * r * Math.sin(a);
-      points.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
-    }
-    points.push('Z');
-    return points.join(' ');
-  },
-  irregularSeal2: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = w / 2;
-    const ry = h / 2;
-    // 24 alternating rays for a denser, more "scribble"-like burst.
-    const offsets = [
-      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45, 1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45, 1.0,
-      0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
-    ];
-    const points: string[] = [];
-    for (let i = 0; i < offsets.length; i++) {
-      const a = (i / offsets.length) * 2 * Math.PI - Math.PI / 2;
-      const offset = offsets[i] ?? 1;
-      const r = offset;
-      const px0 = cx + rx * r * Math.cos(a);
-      const py0 = cy + ry * r * Math.sin(a);
-      points.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
-    }
-    points.push('Z');
-    return points.join(' ');
-  },
-  // `cloudCallout` lives above; "cloud" without callout is just the
-  // body without the tail dots.
-  cloud: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = (w / 2) * 0.92;
-    const ry = (h / 2) * 0.85;
-    const lobes = 10;
-    const path: string[] = [];
-    for (let i = 0; i < lobes; i++) {
-      const a = (i / lobes) * 2 * Math.PI - Math.PI / 2;
-      const lobeRx = rx * 0.32;
-      const lobeRy = ry * 0.32;
-      const px0 = cx + rx * Math.cos(a);
-      const py0 = cy + ry * Math.sin(a);
-      if (i === 0) path.push(`M${px0 - lobeRx},${py0}`);
-      path.push(`A${lobeRx},${lobeRy} 0 1 1 ${px0 + lobeRx},${py0}`);
-      const nextA = ((i + 1) / lobes) * 2 * Math.PI - Math.PI / 2;
-      const nextX = cx + rx * Math.cos(nextA) - lobeRx;
-      const nextY = cy + ry * Math.sin(nextA);
-      path.push(`L${nextX},${nextY}`);
-    }
-    path.push('Z');
-    return path.join(' ');
-  },
-
-  // -- Pies / chord / teardrop / arc / blockArc / moon ------------------
-  pie: (x, y, w, h) => {
-    // 270° pie (default), missing the top-right quadrant.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2;
-    return `M${cx},${cy} L${cx + r},${cy} A${r},${r} 0 1 1 ${cx},${cy - r} Z`;
-  },
-  chord: (x, y, w, h) => {
-    // Ellipse minus a triangular chord (default cut along the top).
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = w / 2;
-    const ry = h / 2;
-    return `M${cx + rx},${cy} A${rx},${ry} 0 1 1 ${cx - rx},${cy} L${cx + rx},${cy} Z`;
-  },
-  teardrop: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = w / 2;
-    const ry = h / 2;
-    // Three-quarter circle + a pointed tip at the top-right corner.
-    return `M${cx},${y} L${x + w},${y} L${x + w},${cy} A${rx},${ry} 0 1 1 ${cx - rx},${cy} A${rx},${ry} 0 0 1 ${cx},${y} Z`;
-  },
-  arc: (x, y, w, h) => {
-    // Open arc (stroke only). Drawn as a half-pie outline.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = w / 2;
-    const ry = h / 2;
-    return `M${cx + rx},${cy} A${rx},${ry} 0 1 1 ${cx},${cy + ry}`;
-  },
-  blockArc: (x, y, w, h) => {
-    // 270° annulus.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const outerR = Math.min(w, h) / 2;
-    const innerR = outerR * 0.6;
-    return `M${cx + outerR},${cy} A${outerR},${outerR} 0 1 1 ${cx},${cy - outerR} L${cx},${cy - innerR} A${innerR},${innerR} 0 1 0 ${cx + innerR},${cy} Z`;
-  },
-  moon: (x, y, w, h) => {
-    // Crescent: big ellipse minus a smaller offset ellipse.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const rx = w / 2;
-    const ry = h / 2;
-    const innerRx = rx * 0.78;
-    const offsetX = rx * 0.32;
-    return `M${cx + rx},${cy} A${rx},${ry} 0 1 1 ${cx - rx},${cy} A${rx},${ry} 0 1 1 ${cx + rx},${cy} M${cx - rx + offsetX + innerRx},${cy} A${innerRx},${ry * 0.95} 0 1 1 ${cx - rx + offsetX - innerRx},${cy} A${innerRx},${ry * 0.95} 0 1 1 ${cx - rx + offsetX + innerRx},${cy}`;
-  },
-
-  // -- Plates / plaques / frames / corners ------------------------------
-  plus: (x, y, w, h) => {
-    const t = Math.min(w, h) * 0.3;
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    return `M${cx - t / 2},${y} L${cx + t / 2},${y} L${cx + t / 2},${cy - t / 2} L${x + w},${cy - t / 2} L${x + w},${cy + t / 2} L${cx + t / 2},${cy + t / 2} L${cx + t / 2},${y + h} L${cx - t / 2},${y + h} L${cx - t / 2},${cy + t / 2} L${x},${cy + t / 2} L${x},${cy - t / 2} L${cx - t / 2},${cy - t / 2} Z`;
-  },
-  plaque: (x, y, w, h) => {
-    const r = Math.min(w, h) * 0.18;
-    // Rounded corners that arc INWARD.
-    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 0 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 0 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 0 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 0 ${x + r},${y} Z`;
-  },
-  can: (x, y, w, h) => {
-    // Cylinder rendered upright; same path as flowChartMagneticDisk.
-    const er = h * 0.12;
-    return `M${x},${y + er} A${w / 2},${er} 0 0 1 ${x + w},${y + er} L${x + w},${y + h - er} A${w / 2},${er} 0 0 1 ${x},${y + h - er} Z M${x},${y + er} A${w / 2},${er} 0 0 0 ${x + w},${y + er}`;
-  },
-  cube: (x, y, w, h) => {
-    const d = Math.min(w, h) * 0.2;
-    return `M${x},${y + d} L${x + d},${y} L${x + w},${y} L${x + w},${y + h - d} L${x + w - d},${y + h} L${x},${y + h} Z M${x},${y + d} L${x + w - d},${y + d} L${x + w},${y} M${x + w - d},${y + d} L${x + w - d},${y + h}`;
-  },
-  bevel: (x, y, w, h) => {
-    const d = Math.min(w, h) * 0.12;
-    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + d},${y + d} L${x + w - d},${y + d} L${x + w - d},${y + h - d} L${x + d},${y + h - d} Z M${x},${y} L${x + d},${y + d} M${x + w},${y} L${x + w - d},${y + d} M${x},${y + h} L${x + d},${y + h - d} M${x + w},${y + h} L${x + w - d},${y + h - d}`;
-  },
-  donut: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2;
-    const innerR = r * 0.65;
-    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx + innerR},${cy} A${innerR},${innerR} 0 1 1 ${cx - innerR},${cy} A${innerR},${innerR} 0 1 1 ${cx + innerR},${cy} Z`;
-  },
-  noSmoking: (x, y, w, h) => {
-    // Donut + diagonal bar.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const r = Math.min(w, h) / 2;
-    const innerR = r * 0.78;
-    const t = r * 0.12;
-    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx + innerR},${cy} A${innerR},${innerR} 0 1 1 ${cx - innerR},${cy} A${innerR},${innerR} 0 1 1 ${cx + innerR},${cy} Z M${cx - r * 0.71 - t},${cy - r * 0.71 + t} L${cx - r * 0.71 + t},${cy - r * 0.71 - t} L${cx + r * 0.71 + t},${cy + r * 0.71 - t} L${cx + r * 0.71 - t},${cy + r * 0.71 + t} Z`;
-  },
-  frame: (x, y, w, h) => {
-    // Picture-frame: outer rect minus inner rect.
-    const f = Math.min(w, h) * 0.1;
-    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + f},${y + f} L${x + f},${y + h - f} L${x + w - f},${y + h - f} L${x + w - f},${y + f} Z`;
-  },
-  halfFrame: (x, y, w, h) => {
-    const f = Math.min(w, h) * 0.15;
-    return `M${x},${y} L${x + w},${y} L${x + w - f},${y + f} L${x + f},${y + f} L${x + f},${y + h - f} L${x},${y + h} Z`;
-  },
-  corner: (x, y, w, h) => {
-    // L-shaped corner piece.
-    const tx = w * 0.4;
-    const ty = h * 0.4;
-    return `M${x},${y} L${x + tx},${y} L${x + tx},${y + h - ty} L${x + w},${y + h - ty} L${x + w},${y + h} L${x},${y + h} Z`;
-  },
-  diagStripe: (x, y, w, h) => {
-    // Diagonal stripe filling the upper-left half of the bounding box.
-    return `M${x},${y} L${x + w * 0.6},${y} L${x},${y + h * 0.6} Z`;
-  },
-
-  // -- Ellipse ribbons ---------------------------------------------------
-  ellipseRibbon: (x, y, w, h) => {
-    // Curved banner — top arc with two notched tails like `ribbon`.
-    const notch = w * 0.08;
-    const bodyTop = y + h * 0.2;
-    const bodyBot = y + h * 0.85;
-    const arcDip = h * 0.15;
-    return `M${x},${bodyTop} C${x + w * 0.3},${bodyTop - arcDip} ${x + w * 0.7},${bodyTop - arcDip} ${x + w},${bodyTop} L${x + w * 0.85},${bodyTop + (bodyBot - bodyTop) / 2} L${x + w},${bodyBot} L${x + w - notch * 2},${y + h} L${x + w - notch * 4},${bodyBot} C${x + w * 0.7},${bodyBot + arcDip * 0.4} ${x + w * 0.3},${bodyBot + arcDip * 0.4} L${x + notch * 4},${bodyBot} L${x + notch * 2},${y + h} L${x},${bodyBot} L${x + w * 0.15},${bodyTop + (bodyBot - bodyTop) / 2} Z`;
-  },
-  ellipseRibbon2: (x, y, w, h) => {
-    // Inverted version of ellipseRibbon (band at top, arc at bottom).
-    const notch = w * 0.08;
-    const bodyTop = y + h * 0.15;
-    const bodyBot = y + h * 0.8;
-    const arcRise = h * 0.15;
-    return `M${x},${bodyBot} C${x + w * 0.3},${bodyBot + arcRise} ${x + w * 0.7},${bodyBot + arcRise} ${x + w},${bodyBot} L${x + w * 0.85},${bodyTop + (bodyBot - bodyTop) / 2} L${x + w},${bodyTop} L${x + w - notch * 2},${y} L${x + w - notch * 4},${bodyTop} C${x + w * 0.7},${bodyTop - arcRise * 0.4} ${x + w * 0.3},${bodyTop - arcRise * 0.4} L${x + notch * 4},${bodyTop} L${x + notch * 2},${y} L${x},${bodyTop} L${x + w * 0.15},${bodyTop + (bodyBot - bodyTop) / 2} Z`;
-  },
-
-  // -- Block arrows: the rest of the cardinal & curved family -----------
-  quadArrow: (x, y, w, h) => {
-    // Plus-sign of four arrows pointing outward.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const tip = 0.2; // tip depth fraction
-    const stem = 0.15; // stem width fraction
-    const headW = 0.35; // head half-width fraction
-    return `M${cx},${y} L${cx + headW * w},${y + tip * h} L${cx + stem * w},${y + tip * h} L${cx + stem * w},${cy - stem * h} L${x + w - tip * w},${cy - stem * h} L${x + w - tip * w},${cy - headW * h} L${x + w},${cy} L${x + w - tip * w},${cy + headW * h} L${x + w - tip * w},${cy + stem * h} L${cx + stem * w},${cy + stem * h} L${cx + stem * w},${y + h - tip * h} L${cx + headW * w},${y + h - tip * h} L${cx},${y + h} L${cx - headW * w},${y + h - tip * h} L${cx - stem * w},${y + h - tip * h} L${cx - stem * w},${cy + stem * h} L${x + tip * w},${cy + stem * h} L${x + tip * w},${cy + headW * h} L${x},${cy} L${x + tip * w},${cy - headW * h} L${x + tip * w},${cy - stem * h} L${cx - stem * w},${cy - stem * h} L${cx - stem * w},${y + tip * h} L${cx - headW * w},${y + tip * h} Z`;
-  },
-  leftRightUpArrow: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const tip = 0.2;
-    const stem = 0.15;
-    const headW = 0.35;
-    return `M${cx},${y} L${cx + headW * w},${y + tip * h} L${cx + stem * w},${y + tip * h} L${cx + stem * w},${y + h - tip * h} L${x + w - tip * w},${y + h - tip * h} L${x + w - tip * w},${y + h - headW * h} L${x + w},${y + h} L${x + w - tip * w},${y + h + headW * h} L${x + w - tip * w},${y + h - tip * h} L${cx - stem * w},${y + h - tip * h} L${cx - stem * w},${y + tip * h} L${cx - headW * w},${y + tip * h} Z`;
-  },
-  bentUpArrow: (x, y, w, h) => {
-    const stem = 0.3;
-    const tip = 0.25;
-    return `M${x},${y + h * 0.55} L${x + w * 0.5},${y + h * 0.55} L${x + w * 0.5},${y + tip * h} L${x + w * (0.5 - stem * 0.5)},${y + tip * h} L${x + w * 0.75},${y} L${x + w},${y + tip * h} L${x + w * (0.5 + stem * 0.5)},${y + tip * h} L${x + w * (0.5 + stem * 0.5)},${y + h * 0.55 + h * 0.4} L${x},${y + h * 0.55 + h * 0.4} Z`;
-  },
-  curvedLeftArrow: (x, y, w, h) => {
-    return `M${x + w},${y + h * 0.6} Q${x + w * 0.5},${y} ${x + w * 0.15},${y + h * 0.25} L${x},${y + h * 0.45} L${x + w * 0.15},${y + h * 0.55} L${x + w * 0.3},${y + h * 0.35} Q${x + w * 0.55},${y + h * 0.18} ${x + w * 0.85},${y + h * 0.75} Z`;
-  },
-  curvedUpArrow: (x, y, w, h) => {
-    return `M${x + w * 0.4},${y + h} Q${x},${y + h * 0.5} ${x + w * 0.25},${y + h * 0.15} L${x + w * 0.45},${y} L${x + w * 0.55},${y + h * 0.15} L${x + w * 0.35},${y + h * 0.3} Q${x + w * 0.18},${y + h * 0.55} ${x + w * 0.75},${y + h * 0.85} Z`;
-  },
-  curvedDownArrow: (x, y, w, h) => {
-    return `M${x + w * 0.4},${y} Q${x},${y + h * 0.5} ${x + w * 0.25},${y + h * 0.85} L${x + w * 0.45},${y + h} L${x + w * 0.55},${y + h * 0.85} L${x + w * 0.35},${y + h * 0.7} Q${x + w * 0.18},${y + h * 0.45} ${x + w * 0.75},${y + h * 0.15} Z`;
-  },
-  swooshArrow: (x, y, w, h) => {
-    // Stylised curved arrow with a small tail to the upper-left.
-    return `M${x},${y + h * 0.75} C${x + w * 0.35},${y + h} ${x + w * 0.65},${y + h * 0.3} ${x + w * 0.75},${y + h * 0.2} L${x + w * 0.65},${y + h * 0.05} L${x + w},${y + h * 0.18} L${x + w * 0.78},${y + h * 0.45} L${x + w * 0.7},${y + h * 0.3} C${x + w * 0.55},${y + h * 0.6} ${x + w * 0.35},${y + h * 0.9} ${x},${y + h * 0.85} Z`;
-  },
-  circularArrow: (x, y, w, h) => {
-    // 270° annulus + small arrow tip at the open end.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const outerR = Math.min(w, h) / 2;
-    const innerR = outerR * 0.62;
-    const midR = (outerR + innerR) / 2;
-    // Arc goes from 12 o'clock (top) clockwise to 9 o'clock (left), with
-    // a triangular tip pointing further clockwise from there.
-    return `M${cx},${cy - outerR} A${outerR},${outerR} 0 1 1 ${cx - outerR},${cy} L${cx - midR - midR * 0.25},${cy + outerR * 0.15} L${cx - midR + midR * 0.25},${cy + outerR * 0.3} L${cx - innerR},${cy} A${innerR},${innerR} 0 1 0 ${cx},${cy - innerR} Z`;
-  },
-  leftCircularArrow: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const outerR = Math.min(w, h) / 2;
-    const innerR = outerR * 0.62;
-    return `M${cx},${cy - outerR} A${outerR},${outerR} 0 1 0 ${cx + outerR},${cy} L${cx + (outerR + innerR) / 2 + ((outerR + innerR) / 2) * 0.25},${cy + outerR * 0.15} L${cx + (outerR + innerR) / 2 - ((outerR + innerR) / 2) * 0.25},${cy + outerR * 0.3} L${cx + innerR},${cy} A${innerR},${innerR} 0 1 1 ${cx},${cy - innerR} Z`;
-  },
-  leftRightCircularArrow: (x, y, w, h) => {
-    // Two-headed circular arrow (left + right tips on a 270° annulus).
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const outerR = Math.min(w, h) / 2;
-    const innerR = outerR * 0.62;
-    return `M${cx - outerR * 0.15},${cy - outerR * 1.05} L${cx + outerR * 0.15},${cy - outerR * 1.05} L${cx + outerR * 0.1},${cy - outerR * 0.85} A${outerR},${outerR} 0 1 1 ${cx - outerR * 0.1},${cy - outerR * 0.85} Z M${cx},${cy - innerR} A${innerR},${innerR} 0 1 0 ${cx},${cy + innerR}`;
-  },
-
-  // -- Arrow callouts (block arrow body + flat rect for text) -----------
-  rightArrowCallout: (x, y, w, h) => {
-    const headW = w * 0.25;
-    return `M${x},${y + h * 0.3} L${x + w - headW},${y + h * 0.3} L${x + w - headW},${y} L${x + w},${y + h / 2} L${x + w - headW},${y + h} L${x + w - headW},${y + h * 0.7} L${x},${y + h * 0.7} Z`;
-  },
-  leftArrowCallout: (x, y, w, h) => {
-    const headW = w * 0.25;
-    return `M${x + headW},${y + h * 0.3} L${x + w},${y + h * 0.3} L${x + w},${y + h * 0.7} L${x + headW},${y + h * 0.7} L${x + headW},${y + h} L${x},${y + h / 2} L${x + headW},${y} Z`;
-  },
-  upArrowCallout: (x, y, w, h) => {
-    const headH = h * 0.25;
-    return `M${x + w * 0.3},${y + headH} L${x + w * 0.3},${y + h} L${x + w * 0.7},${y + h} L${x + w * 0.7},${y + headH} L${x + w},${y + headH} L${x + w / 2},${y} L${x},${y + headH} Z`;
-  },
-  downArrowCallout: (x, y, w, h) => {
-    const headH = h * 0.25;
-    return `M${x + w * 0.3},${y} L${x + w * 0.7},${y} L${x + w * 0.7},${y + h - headH} L${x + w},${y + h - headH} L${x + w / 2},${y + h} L${x},${y + h - headH} L${x + w * 0.3},${y + h - headH} Z`;
-  },
-  leftRightArrowCallout: (x, y, w, h) => {
-    const headW = w * 0.2;
-    return `M${x},${y + h / 2} L${x + headW},${y} L${x + headW},${y + h * 0.3} L${x + w - headW},${y + h * 0.3} L${x + w - headW},${y} L${x + w},${y + h / 2} L${x + w - headW},${y + h} L${x + w - headW},${y + h * 0.7} L${x + headW},${y + h * 0.7} L${x + headW},${y + h} Z`;
-  },
-  upDownArrowCallout: (x, y, w, h) => {
-    const headH = h * 0.2;
-    return `M${x + w / 2},${y} L${x},${y + headH} L${x + w * 0.3},${y + headH} L${x + w * 0.3},${y + h - headH} L${x},${y + h - headH} L${x + w / 2},${y + h} L${x + w},${y + h - headH} L${x + w * 0.7},${y + h - headH} L${x + w * 0.7},${y + headH} L${x + w},${y + headH} Z`;
-  },
-  quadArrowCallout: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const tip = 0.16;
-    const stem = 0.18;
-    const headW = 0.32;
-    const txt = 0.28; // text-area half-width fraction
-    return `M${cx - txt * w},${cy - txt * h} L${cx - txt * w},${cy - stem * h} L${cx - stem * w},${cy - stem * h} L${cx - stem * w},${y + tip * h} L${cx - headW * w},${y + tip * h} L${cx},${y} L${cx + headW * w},${y + tip * h} L${cx + stem * w},${y + tip * h} L${cx + stem * w},${cy - stem * h} L${cx + txt * w},${cy - stem * h} L${cx + txt * w},${cy - txt * h} L${x + w - tip * w},${cy - txt * h} L${x + w - tip * w},${cy - headW * h} L${x + w},${cy} L${x + w - tip * w},${cy + headW * h} L${x + w - tip * w},${cy + txt * h} L${cx + txt * w},${cy + txt * h} L${cx + txt * w},${cy + stem * h} L${cx + stem * w},${cy + stem * h} L${cx + stem * w},${y + h - tip * h} L${cx + headW * w},${y + h - tip * h} L${cx},${y + h} L${cx - headW * w},${y + h - tip * h} L${cx - stem * w},${y + h - tip * h} L${cx - stem * w},${cy + stem * h} L${cx - txt * w},${cy + stem * h} L${cx - txt * w},${cy + txt * h} L${x + tip * w},${cy + txt * h} L${x + tip * w},${cy + headW * h} L${x},${cy} L${x + tip * w},${cy - headW * h} L${x + tip * w},${cy - txt * h} Z`;
-  },
-
-  // -- Action button chrome (rounded rect) + glyph silhouettes ----------
-  // Each button is rounded-rect chrome + a glyph drawn as a subpath
-  // using the same path's `evenodd` fill rule so the glyph "punches"
-  // out of the chrome.
-  actionButtonHome: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx - s},${cy + s * 0.6} L${cx - s},${cy - s * 0.1} L${cx},${cy - s * 0.7} L${cx + s},${cy - s * 0.1} L${cx + s},${cy + s * 0.6} L${cx + s * 0.3},${cy + s * 0.6} L${cx + s * 0.3},${cy + s * 0.1} L${cx - s * 0.3},${cy + s * 0.1} L${cx - s * 0.3},${cy + s * 0.6} Z`;
-  },
-  actionButtonForwardNext: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx - s * 0.7},${cy - s} L${cx + s * 0.7},${cy} L${cx - s * 0.7},${cy + s} Z`;
-  },
-  actionButtonBackPrevious: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx + s * 0.7},${cy - s} L${cx - s * 0.7},${cy} L${cx + s * 0.7},${cy + s} Z`;
-  },
-  actionButtonEnd: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx - s},${cy - s} L${cx + s * 0.4},${cy} L${cx - s},${cy + s} Z M${cx + s * 0.5},${cy - s} L${cx + s},${cy - s} L${cx + s},${cy + s} L${cx + s * 0.5},${cy + s} Z`;
-  },
-  actionButtonBeginning: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx + s},${cy - s} L${cx - s * 0.4},${cy} L${cx + s},${cy + s} Z M${cx - s * 0.5},${cy - s} L${cx - s},${cy - s} L${cx - s},${cy + s} L${cx - s * 0.5},${cy + s} Z`;
-  },
-  actionButtonReturn: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.28;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx + s},${cy - s} L${cx + s * 0.4},${cy - s} L${cx + s * 0.4},${cy + s * 0.2} L${cx - s * 0.2},${cy + s * 0.2} L${cx - s * 0.2},${cy - s * 0.2} L${cx - s},${cy + s * 0.2} L${cx - s * 0.2},${cy + s} L${cx - s * 0.2},${cy + s * 0.5} L${cx + s},${cy + s * 0.5} Z`;
-  },
-  actionButtonHelp: (x, y, w, h) => {
-    // Approximated "?" as a curved path; readable at typical button sizes.
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx - s * 0.4},${cy - s * 0.4} Q${cx - s * 0.4},${cy - s} ${cx},${cy - s} Q${cx + s * 0.4},${cy - s} ${cx + s * 0.4},${cy - s * 0.4} Q${cx + s * 0.4},${cy} ${cx},${cy} L${cx},${cy + s * 0.4} M${cx - s * 0.18},${cy + s * 0.8} L${cx + s * 0.18},${cy + s * 0.8} L${cx + s * 0.18},${cy + s} L${cx - s * 0.18},${cy + s} Z`;
-  },
-  actionButtonInformation: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx - s * 0.2},${cy - s * 0.7} L${cx + s * 0.2},${cy - s * 0.7} L${cx + s * 0.2},${cy - s * 0.35} L${cx - s * 0.2},${cy - s * 0.35} Z M${cx - s * 0.2},${cy - s * 0.1} L${cx + s * 0.2},${cy - s * 0.1} L${cx + s * 0.2},${cy + s} L${cx - s * 0.2},${cy + s} Z`;
-  },
-  actionButtonDocument: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx - s * 0.6},${cy - s} L${cx + s * 0.3},${cy - s} L${cx + s * 0.6},${cy - s * 0.7} L${cx + s * 0.6},${cy + s} L${cx - s * 0.6},${cy + s} Z M${cx + s * 0.3},${cy - s} L${cx + s * 0.3},${cy - s * 0.7} L${cx + s * 0.6},${cy - s * 0.7}`;
-  },
-  actionButtonSound: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    // Speaker silhouette: trapezoid cone + small rectangle.
-    return `${PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''} M${cx - s},${cy - s * 0.4} L${cx - s * 0.3},${cy - s * 0.4} L${cx + s * 0.3},${cy - s} L${cx + s * 0.3},${cy + s} L${cx - s * 0.3},${cy + s * 0.4} L${cx - s},${cy + s * 0.4} Z M${cx + s * 0.55},${cy - s * 0.4} Q${cx + s * 0.95},${cy} ${cx + s * 0.55},${cy + s * 0.4}`;
-  },
-  actionButtonMovie: (x, y, w, h) => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    const s = Math.min(w, h) * 0.3;
-    // Filmstrip — outer rect + sprocket holes.
-    const out: string[] = [PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''];
-    out.push(
-      `M${cx - s},${cy - s * 0.6} L${cx + s},${cy - s * 0.6} L${cx + s},${cy + s * 0.6} L${cx - s},${cy + s * 0.6} Z`,
-    );
-    for (let i = 0; i < 4; i++) {
-      const px0 = cx - s + (i + 0.5) * ((s * 2) / 4);
-      out.push(
-        `M${px0 - s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.3} L${px0 - s * 0.08},${cy - s * 0.3} Z`,
-      );
-      out.push(
-        `M${px0 - s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.45} L${px0 - s * 0.08},${cy + s * 0.45} Z`,
-      );
-    }
-    return out.join(' ');
-  },
-
-  // -- Border/accent callouts (simplified — line callouts without
-  // adjustable elbows; rendered as a rect + a single connecting line).
-  borderCallout1: (x, y, w, h) => {
-    return `M${x},${y} L${x + w * 0.6},${y} L${x + w * 0.6},${y + h * 0.5} L${x},${y + h * 0.5} Z M${x + w * 0.6},${y + h * 0.5} L${x + w},${y + h}`;
-  },
-  borderCallout2: (x, y, w, h) => {
-    return `M${x},${y} L${x + w * 0.6},${y} L${x + w * 0.6},${y + h * 0.5} L${x},${y + h * 0.5} Z M${x + w * 0.6},${y + h * 0.5} L${x + w * 0.85},${y + h * 0.75} L${x + w},${y + h}`;
-  },
-  borderCallout3: (x, y, w, h) => {
-    return `M${x},${y} L${x + w * 0.6},${y} L${x + w * 0.6},${y + h * 0.5} L${x},${y + h * 0.5} Z M${x + w * 0.6},${y + h * 0.5} L${x + w * 0.75},${y + h * 0.65} L${x + w * 0.9},${y + h * 0.65} L${x + w},${y + h}`;
-  },
-  accentCallout1: (x, y, w, h) => {
-    // Frame + vertical accent bar on the right edge.
-    return `M${x},${y} L${x + w * 0.6},${y} L${x + w * 0.6},${y + h * 0.5} L${x},${y + h * 0.5} Z M${x + w * 0.58},${y} L${x + w * 0.58},${y + h * 0.5} M${x + w * 0.6},${y + h * 0.5} L${x + w},${y + h}`;
-  },
-  accentBorderCallout1: (x, y, w, h) => {
-    return PRESET_PATHS.accentCallout1?.(x, y, w, h) ?? '';
-  },
-  callout1: (x, y, w, h) => {
-    // Single-segment line callout (no body box).
-    return `M${x},${y + h * 0.5} L${x + w},${y + h}`;
-  },
-  callout2: (x, y, w, h) => {
-    return `M${x},${y + h * 0.5} L${x + w * 0.6},${y + h * 0.7} L${x + w},${y + h}`;
-  },
-  callout3: (x, y, w, h) => {
-    return `M${x},${y + h * 0.5} L${x + w * 0.4},${y + h * 0.55} L${x + w * 0.7},${y + h * 0.8} L${x + w},${y + h}`;
-  },
-
-  // -- Connectors / lines (rendered as straight diagonals; PowerPoint
-  // routes these dynamically but the static preview just shows where
-  // the endpoints are).
-  straightConnector1: (x, y, w, h) => `M${x},${y} L${x + w},${y + h}`,
-  bentConnector2: (x, y, w, h) => `M${x},${y} L${x + w},${y} L${x + w},${y + h}`,
-  bentConnector3: (x, y, w, h) =>
-    `M${x},${y} L${x + w / 2},${y} L${x + w / 2},${y + h} L${x + w},${y + h}`,
-  bentConnector4: (x, y, w, h) =>
-    `M${x},${y} L${x + w * 0.33},${y} L${x + w * 0.33},${y + h * 0.5} L${x + w * 0.66},${y + h * 0.5} L${x + w * 0.66},${y + h} L${x + w},${y + h}`,
-  bentConnector5: (x, y, w, h) =>
-    `M${x},${y} L${x + w * 0.25},${y} L${x + w * 0.25},${y + h * 0.5} L${x + w * 0.75},${y + h * 0.5} L${x + w * 0.75},${y + h} L${x + w},${y + h}`,
-  curvedConnector2: (x, y, w, h) => `M${x},${y} Q${x + w},${y} ${x + w},${y + h}`,
-  curvedConnector3: (x, y, w, h) =>
-    `M${x},${y} C${x + w * 0.5},${y} ${x + w * 0.5},${y + h} ${x + w},${y + h}`,
-  curvedConnector4: (x, y, w, h) =>
-    `M${x},${y} C${x + w * 0.33},${y} ${x + w * 0.33},${y + h * 0.5} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.66},${y + h * 0.5} ${x + w * 0.66},${y + h} ${x + w},${y + h}`,
-  curvedConnector5: (x, y, w, h) =>
-    `M${x},${y} C${x + w * 0.25},${y} ${x + w * 0.25},${y + h * 0.25} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.75},${y + h * 0.75} ${x + w * 0.75},${y + h} ${x + w},${y + h}`,
 };
 
 // ---------------------------------------------------------------------------
@@ -2991,14 +1977,9 @@ export const resolveTextBodyModel = (
     w: innerW,
     h: innerH,
   } = resolveTextBodyRect(
-    getShapePreset(shape),
     bounds,
     { left: lIns, top: tIns, right: rIns, bottom: bIns },
-    // A custom shape states where its text goes; only a preset has to be
-    // approximated from a table. The rect is in the same EMU space as the
-    // shape's own `<a:ext>`, which is what turns it into fractions here —
-    // `bounds` carries a group's scale and would divide it away twice.
-    shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)),
+    shapeTextRect(shape),
   );
   if (innerW <= 0 || innerH <= 0) return null;
 
@@ -6815,8 +5796,17 @@ const arcToCubicSegments = (
   swAng: number,
 ): ArcCubic[] => {
   const toRad = (a: number): number => (a / 60_000) * (Math.PI / 180);
-  const st = toRad(stAng);
-  const sw = toRad(swAng);
+  // `stAng` / `swAng` are visual angles: the direction of the ray from the
+  // ellipse's center, not the parametric angle of the point on it. They only
+  // coincide on a circle, so an elliptical arc (a cloud's puffs, a moon's
+  // crescent) has to be converted. The offset between the two is continuous
+  // and under a quarter turn, so the sweep keeps its direction and turns.
+  const parametric = (visual: number): number => {
+    const offset = Math.atan2(wR * Math.sin(visual), hR * Math.cos(visual)) - visual;
+    return visual + Math.atan2(Math.sin(offset), Math.cos(offset));
+  };
+  const st = parametric(toRad(stAng));
+  const sw = parametric(toRad(stAng + swAng)) - st;
   // Place the ellipse center so the current pen point lies on it at `st`.
   const cx = startX - wR * Math.cos(st);
   const cy = startY - hR * Math.sin(st);
@@ -6849,11 +5839,90 @@ const arcToCubicSegments = (
 };
 
 /**
- * Renders an evaluated {@link CustomGeometry} as one `<path>` per
- * `GeomPath`, scaling each path's coordinate space (its own `w`/`h`, or
- * the shape extents when those are absent) onto the shape's slide box
- * `(x, y, w, h)` in EMU. Returns `''` when nothing drawable remains, so
- * the caller can fall back to the labelled rect.
+ * The SVG path data of one evaluated {@link GeomPath}, scaling its coordinate
+ * space (its own `w`/`h`, or the shape extents when those are absent) onto
+ * the shape's slide box `(x, y, w, h)` in EMU. `''` when nothing is drawable.
+ */
+const geometryPathData = (path: GeomPath, x: number, y: number, w: number, h: number): string => {
+  const cw = path.w ?? w;
+  const ch = path.h ?? h;
+  // A zero-extent coordinate space can't be scaled (would divide by 0).
+  if (cw === 0 || ch === 0) return '';
+  const sx = w / cw;
+  const sy = h / ch;
+  const fx = (gx: number): string => ((x + gx * sx) / EMU_PER_PX).toFixed(2);
+  const fy = (gy: number): string => ((y + gy * sy) / EMU_PER_PX).toFixed(2);
+  const pt = (gx: number, gy: number): string => `${fx(gx)},${fy(gy)}`;
+
+  let curX = 0;
+  let curY = 0;
+  let startX = 0;
+  let startY = 0;
+  const d: string[] = [];
+  for (const cmd of path.commands) {
+    switch (cmd.kind) {
+      case 'moveTo':
+        curX = cmd.pt.x;
+        curY = cmd.pt.y;
+        startX = curX;
+        startY = curY;
+        d.push(`M${pt(curX, curY)}`);
+        break;
+      case 'lnTo':
+        curX = cmd.pt.x;
+        curY = cmd.pt.y;
+        d.push(`L${pt(curX, curY)}`);
+        break;
+      case 'quadBezTo':
+        d.push(`Q${pt(cmd.pts[0].x, cmd.pts[0].y)} ${pt(cmd.pts[1].x, cmd.pts[1].y)}`);
+        curX = cmd.pts[1].x;
+        curY = cmd.pts[1].y;
+        break;
+      case 'cubicBezTo':
+        d.push(
+          `C${pt(cmd.pts[0].x, cmd.pts[0].y)} ${pt(cmd.pts[1].x, cmd.pts[1].y)} ${pt(cmd.pts[2].x, cmd.pts[2].y)}`,
+        );
+        curX = cmd.pts[2].x;
+        curY = cmd.pts[2].y;
+        break;
+      case 'arcTo': {
+        const segs = arcToCubicSegments(curX, curY, cmd.wR, cmd.hR, cmd.stAng, cmd.swAng);
+        for (const s of segs) {
+          d.push(`C${pt(s.c1x, s.c1y)} ${pt(s.c2x, s.c2y)} ${pt(s.ex, s.ey)}`);
+        }
+        const last = segs[segs.length - 1];
+        if (last) {
+          curX = last.ex;
+          curY = last.ey;
+        }
+        break;
+      }
+      case 'close':
+        d.push('Z');
+        curX = startX;
+        curY = startY;
+        break;
+    }
+  }
+  return d.join(' ');
+};
+
+// `ST_PathFillMode` shades a path's fill without naming a color: a cube's
+// lit top and shaded side, a curved arrow's underside. A translucent black or
+// white wash over the fill does that for every fill kind (solid, gradient,
+// pattern, picture) alike; the strengths follow PowerPoint's rendering.
+const PATH_SHADE: Readonly<Record<Exclude<PathFillMode, 'none' | 'norm'>, string>> = {
+  darken: 'fill="#000" fill-opacity="0.4"',
+  darkenLess: 'fill="#000" fill-opacity="0.2"',
+  lighten: 'fill="#fff" fill-opacity="0.4"',
+  lightenLess: 'fill="#fff" fill-opacity="0.2"',
+};
+
+/**
+ * Renders an evaluated {@link CustomGeometry} (a `<a:custGeom>` or a preset
+ * from `getPresetGeometry`) as `<path>`s in the shape's slide box. Returns
+ * `''` when nothing drawable remains, so the caller can fall back to the
+ * labelled rect.
  *
  * Per-path `fill="none"` paints stroke-only; `stroke="0"` paints
  * fill-only — mirroring `ST_PathFillMode` / the path `stroke` flag.
@@ -6873,75 +5942,21 @@ const customGeometryToSvg = (
 ): string => {
   const out: string[] = [];
   for (const path of geom.paths) {
-    const cw = path.w ?? w;
-    const ch = path.h ?? h;
-    // A zero-extent coordinate space can't be scaled (would divide by 0).
-    if (cw === 0 || ch === 0) continue;
-    const sx = w / cw;
-    const sy = h / ch;
-    const fx = (gx: number): string => ((x + gx * sx) / EMU_PER_PX).toFixed(2);
-    const fy = (gy: number): string => ((y + gy * sy) / EMU_PER_PX).toFixed(2);
-    const pt = (gx: number, gy: number): string => `${fx(gx)},${fy(gy)}`;
-
-    let curX = 0;
-    let curY = 0;
-    let startX = 0;
-    let startY = 0;
-    const d: string[] = [];
-    for (const cmd of path.commands) {
-      switch (cmd.kind) {
-        case 'moveTo':
-          curX = cmd.pt.x;
-          curY = cmd.pt.y;
-          startX = curX;
-          startY = curY;
-          d.push(`M${pt(curX, curY)}`);
-          break;
-        case 'lnTo':
-          curX = cmd.pt.x;
-          curY = cmd.pt.y;
-          d.push(`L${pt(curX, curY)}`);
-          break;
-        case 'quadBezTo':
-          d.push(`Q${pt(cmd.pts[0].x, cmd.pts[0].y)} ${pt(cmd.pts[1].x, cmd.pts[1].y)}`);
-          curX = cmd.pts[1].x;
-          curY = cmd.pts[1].y;
-          break;
-        case 'cubicBezTo':
-          d.push(
-            `C${pt(cmd.pts[0].x, cmd.pts[0].y)} ${pt(cmd.pts[1].x, cmd.pts[1].y)} ${pt(cmd.pts[2].x, cmd.pts[2].y)}`,
-          );
-          curX = cmd.pts[2].x;
-          curY = cmd.pts[2].y;
-          break;
-        case 'arcTo': {
-          const segs = arcToCubicSegments(curX, curY, cmd.wR, cmd.hR, cmd.stAng, cmd.swAng);
-          for (const s of segs) {
-            d.push(`C${pt(s.c1x, s.c1y)} ${pt(s.c2x, s.c2y)} ${pt(s.ex, s.ey)}`);
-          }
-          const last = segs[segs.length - 1];
-          if (last) {
-            curX = last.ex;
-            curY = last.ey;
-          }
-          break;
-        }
-        case 'close':
-          d.push('Z');
-          curX = startX;
-          curY = startY;
-          break;
-      }
-    }
-    if (d.length === 0) continue;
-    const pathFill = path.fill === 'none' ? 'none' : fill;
-    const fillAttrs = path.fill === 'none' ? '' : fillExtra;
+    const d = geometryPathData(path, x, y, w, h);
+    if (d === '') continue;
+    const filled = path.fill !== 'none' && fill !== 'none';
     const strokeAttrs = path.stroke
       ? ` stroke="${stroke}" stroke-width="${E(strokeWidthEmu)}"${strokeExtra}${markerExtra}`
       : ' stroke="none"';
-    out.push(
-      `<path d="${d.join(' ')}" fill="${pathFill}"${fillAttrs}${strokeAttrs} fill-rule="evenodd"/>`,
-    );
+    if (filled && path.fill !== 'norm') {
+      // Fill, then the shade, then the outline on top of both.
+      out.push(`<path d="${d}" fill="${fill}"${fillExtra} stroke="none" fill-rule="evenodd"/>`);
+      out.push(`<path d="${d}" ${PATH_SHADE[path.fill]} stroke="none" fill-rule="evenodd"/>`);
+      if (path.stroke) out.push(`<path d="${d}" fill="none"${strokeAttrs}/>`);
+      continue;
+    }
+    const fillAttrs = filled ? `fill="${fill}"${fillExtra}` : 'fill="none"';
+    out.push(`<path d="${d}" ${fillAttrs}${strokeAttrs} fill-rule="evenodd"/>`);
   }
   return out.join('');
 };
@@ -7290,37 +6305,27 @@ const renderShapeContent = (
     // geomSvg already holds the rendered custom geometry.
   } else if (preset === 'rect') {
     geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
-  } else if (preset === 'roundRect') {
-    // A6 — adjust-handle aware corner radius. <a:gd name="adj"
-    // fmla="val N"/> in [0, 50000] = ratio of corner-radius to
-    // min(w,h)/2 × 100. Defaults to ~16.6% when no adj is authored.
-    const adjusts = getShapeAdjustValues(shape);
-    const adjVal = adjusts.adj ?? 16667;
-    const ratio = Math.max(0, Math.min(0.5, adjVal / 100_000));
-    const r = E(Math.min(w, h) * ratio);
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
-  } else if (preset === 'ellipse' || preset === 'oval') {
-    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else {
-    const pathFn = PRESET_PATHS[preset];
-    if (pathFn) {
-      // The path generators output CSS-px coords directly (post-E).
-      const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
-      geomSvg = `<path d="${d}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
-    } else {
-      const pointsFn = PRESET_POINTS[preset];
-      if (pointsFn) {
-        const points = pointsFn(w / EMU_PER_PX, h / EMU_PER_PX)
-          .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
-          .join(' ');
-        geomSvg = `<polygon points="${points}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
-      } else {
-        // Unrecognised preset — fall back to a rectangle, but tag it
-        // with the preset name so users (and future-us) can see which
-        // shape needs a renderer. The `<title>` shows on hover; the
-        // `data-pptx-preset` attribute is for DevTools inspection.
-        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
-      }
+    const geometry = getPresetGeometry(preset, bounds, getShapeAdjustValues(shape));
+    if (geometry !== null)
+      geomSvg = customGeometryToSvg(
+        geometry,
+        x,
+        y,
+        w,
+        h,
+        p.fill,
+        fa,
+        p.stroke,
+        p.strokeWidth,
+        sa,
+        ma,
+      );
+    if (geomSvg === '') {
+      // A preset name ECMA-376 does not define — fall back to a rectangle,
+      // tagged with the name. The `<title>` shows on hover; the
+      // `data-pptx-preset` attribute is for DevTools inspection.
+      geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
     }
   }
 

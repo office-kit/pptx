@@ -43,7 +43,8 @@ export {
 
 export { paragraphNumberLabels } from './paragraph-number-labels.ts';
 
-export { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
+export { resolveTextBodyRect, shapeTextRect } from './text-body-rect.ts';
+export type { TextRectFractions } from './text-body-rect.ts';
 export { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
 export type { VerticalTextStyle } from './text-body-style.ts';
 export { shapeAutoFitScale, shapeTextAnchorOffset } from './autofit.ts';
