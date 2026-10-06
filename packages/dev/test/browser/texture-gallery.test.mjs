@@ -286,7 +286,9 @@ test('Texture gallery shows Japanese names', { timeout: 120000 }, async () => {
       .locator('.hit')
       .first()
       .click({ position: { x: 2, y: 2 } });
-    await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
+    // Home's Drawing group collapses at this width with Japanese labels on
+    // Linux fonts; the contextual tab always shows Shape Fill.
+    await editor.getByRole('tab', { name: '図形の書式', exact: true }).click();
     await editor.getByRole('button', { name: '図形の塗りつぶし', exact: true }).click();
     await editor.getByRole('menuitem', { name: 'テクスチャ', exact: true }).click();
     const gallery = editor.getByRole('menu', { name: 'テクスチャ', exact: true });
