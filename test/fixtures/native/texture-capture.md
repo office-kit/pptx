@@ -35,7 +35,9 @@ Observations:
 - The Texture ▾ gallery marks no swatch as selected, either after the default
   insertion or after picking Papyrus explicitly (every swatch reports
   `AXValue 0` and none is drawn highlighted). It lays out the 24 textures five
-  per row.
+  per row as 49 × 49 pt radio buttons on a 47 pt pitch inside a 235 × 235 pt
+  group; each visible tile is about 36 pt with a thin grey border. The Format
+  pane's gallery has no More Textures... item.
 - Within one session PowerPoint can reuse a recently applied texture instead of
   Papyrus: after Canvas had been picked on a shape, Picture or texture fill on a
   background inserted Canvas, and a newly drawn oval also received Canvas even

@@ -13,8 +13,8 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
-import { textureIdOf } from '../../../../site/src/lib/editor/core/textures.ts';
 import { startPreview } from '../helpers/server.mjs';
+import { textureIdOf } from '../helpers/textures.mjs';
 
 test(
   'picture fill insertion, replacement and type switching preserve settings and saved history',

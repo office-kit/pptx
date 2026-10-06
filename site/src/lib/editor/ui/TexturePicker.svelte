@@ -4,11 +4,9 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import TextureGallery from './TextureGallery.svelte';
 
-  let { disabled = false, selected = null, choose, more }: {
+  let { disabled = false, choose }: {
     disabled?: boolean;
-    selected?: TextureId | null;
     choose: (id: TextureId) => void;
-    more: () => void;
   } = $props();
   let open = $state(false);
   let trigger = $state<HTMLButtonElement>();
@@ -17,8 +15,7 @@
 
 <button type="button" class="ok-btn" bind:this={trigger} aria-label={t('Texture')} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={() => { open = !open; }}>{t('Texture')} ▾</button>
 {#if open && trigger}
-  <TextureGallery label={t('Texture')} anchor={trigger} {selected}
+  <TextureGallery label={t('Texture')} anchor={trigger}
     choose={(id) => { open = false; trigger?.focus(); choose(id); }}
-    more={() => { open = false; more(); }}
     close={() => { open = false; }} />
 {/if}

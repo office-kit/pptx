@@ -13,9 +13,8 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
-import { readSlideBackgroundImageBytes } from '../../../../site/src/lib/editor/core/slide-background.ts';
-import { textureIdOf } from '../../../../site/src/lib/editor/core/textures.ts';
 import { startPreview } from '../helpers/server.mjs';
+import { slideBackgroundImageBytes, textureIdOf } from '../helpers/textures.mjs';
 
 const NAMES = [
   'Papyrus',
@@ -116,7 +115,7 @@ async function withEditor(locale, run) {
 
 const swatchNames = (gallery) =>
   gallery
-    .getByRole('menuitemradio')
+    .locator('.grid [role="menuitem"]')
     .evaluateAll((items) => items.map((item) => item.getAttribute('aria-label')));
 
 test(
@@ -148,13 +147,11 @@ test(
       const tiled = editor.getByRole('checkbox', { name: 'Tile picture as texture', exact: true });
       const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
       const texture = editor.getByRole('button', { name: 'Texture', exact: true });
-      const checkedSwatches = async () => {
+      // Like PowerPoint's, the gallery never marks the current texture.
+      const assertNothingMarked = async () => {
         await texture.click();
-        const names = await gallery
-          .locator('[aria-checked="true"]')
-          .evaluateAll((items) => items.map((item) => item.getAttribute('aria-label')));
+        assert.equal(await gallery.locator('[aria-checked], [aria-selected]').count(), 0);
         await page.keyboard.press('Escape');
-        return names;
       };
       // PowerPoint never opens a file chooser here: a fill with no picture to
       // restore gets the default texture, Papyrus, tiled.
@@ -186,7 +183,7 @@ test(
       assert.equal(await picture.isChecked(), true);
       assert.equal(await tiled.isChecked(), true);
       assert.equal(await paneTitle(), 'Format Picture');
-      assert.deepEqual(await checkedSwatches(), ['Papyrus']);
+      await assertNothingMarked();
       // Choosing the fill is one undo step for both shapes.
       await undo();
       assert.deepEqual(await shapes(), original);
@@ -195,8 +192,27 @@ test(
       assert.deepEqual(await shapes(), before);
       await texture.click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
-      await gallery.getByRole('menuitem', { name: 'More Textures...', exact: true }).waitFor();
-      // Keyboard: focus starts on Papyrus; Right then Enter picks Canvas.
+      // Five to a row, with Insert... beside it instead of More Textures...
+      const rows = await gallery
+        .locator('.grid [role="menuitem"]')
+        .evaluateAll((items) => items.map((item) => Math.round(item.getBoundingClientRect().top)));
+      assert.deepEqual(
+        rows.map((top) => [...new Set(rows)].indexOf(top)),
+        NAMES.map((_, index) => Math.floor(index / 5)),
+      );
+      assert.equal(
+        await gallery.getByRole('menuitem', { name: 'More Textures...', exact: true }).count(),
+        0,
+      );
+      const focused = () =>
+        gallery.locator(':focus').evaluate((item) => item.getAttribute('aria-label'));
+      // Keyboard: focus starts on Papyrus; Down reaches the next row of five,
+      // Up returns, then Right and Enter pick Canvas.
+      assert.equal(await focused(), 'Papyrus');
+      await page.keyboard.press('ArrowDown');
+      assert.equal(await focused(), 'Paper bag');
+      await page.keyboard.press('ArrowUp');
+      assert.equal(await focused(), 'Papyrus');
       await commit(async () => {
         await page.keyboard.press('ArrowRight');
         await page.keyboard.press('Enter');
@@ -206,14 +222,7 @@ test(
         assert.deepEqual(shape, { fill: 'image', texture: 'canvas', layout: TILE });
       }
       assert.equal(await tiled.isChecked(), true);
-      await texture.click();
-      assert.equal(
-        await gallery
-          .getByRole('menuitemradio', { name: 'Canvas', exact: true })
-          .getAttribute('aria-checked'),
-        'true',
-      );
-      await page.keyboard.press('Escape');
+      await assertNothingMarked();
       assert.equal(await gallery.count(), 0);
 
       // One undo step restores both shapes.
@@ -226,13 +235,9 @@ test(
       await editor.getByRole('button', { name: 'Shape Fill', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'Texture', exact: true }).click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
-      assert.equal(
-        await gallery
-          .getByRole('menuitemradio', { name: 'Canvas', exact: true })
-          .getAttribute('aria-checked'),
-        'true',
-      );
-      await commit(() => gallery.getByRole('menuitemradio', { name: 'Oak', exact: true }).click());
+      assert.equal(await gallery.locator('[aria-checked], [aria-selected]').count(), 0);
+      await gallery.getByRole('menuitem', { name: 'More Textures...', exact: true }).waitFor();
+      await commit(() => gallery.getByRole('menuitem', { name: 'Oak', exact: true }).click());
       for (const shape of await shapes()) {
         assert.deepEqual(shape, { fill: 'image', texture: 'oak', layout: TILE });
       }
@@ -244,7 +249,7 @@ test(
       const backgrounds = async () => {
         const pres = await deck();
         return getSlides(pres).map((slide) => ({
-          texture: textureIdOf(readSlideBackgroundImageBytes(pres, slide)),
+          texture: textureIdOf(slideBackgroundImageBytes(pres, slide)),
           layout: getSlideBackgroundImageFillLayout(slide),
         }));
       };
@@ -259,7 +264,7 @@ test(
       await commit(() => picture.click());
       assert.deepEqual(await backgrounds(), [{ texture: 'papyrus', layout: TILE }, plain[1]]);
       assert.equal(await picture.isChecked(), true);
-      assert.deepEqual(await checkedSwatches(), ['Papyrus']);
+      await assertNothingMarked();
       await undo();
       assert.deepEqual(await backgrounds(), plain);
       assert.equal(await picture.isChecked(), false);
@@ -267,21 +272,12 @@ test(
       assert.equal((await backgrounds())[0].texture, 'papyrus');
       await texture.click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
-      await commit(() =>
-        gallery.getByRole('menuitemradio', { name: 'Walnut', exact: true }).click(),
-      );
+      await commit(() => gallery.getByRole('menuitem', { name: 'Walnut', exact: true }).click());
       let state = await backgrounds();
       assert.deepEqual(state[0], { texture: 'walnut', layout: TILE });
       assert.equal(state[1].texture, null);
       assert.equal(await tiled.isChecked(), true);
-      await texture.click();
-      assert.equal(
-        await gallery
-          .getByRole('menuitemradio', { name: 'Walnut', exact: true })
-          .getAttribute('aria-checked'),
-        'true',
-      );
-      await page.keyboard.press('Escape');
+      await assertNothingMarked();
       await commit(() => editor.getByRole('button', { name: 'Apply to All', exact: true }).click());
       state = await backgrounds();
       assert.deepEqual(state, [
@@ -323,12 +319,8 @@ test('Texture gallery shows Japanese names', { timeout: 120000 }, async () => {
     assert.deepEqual(getShapeImageFillLayout(shape), TILE);
     await editor.getByRole('button', { name: 'テクスチャ', exact: true }).click();
     const paneGallery = editor.getByRole('menu', { name: 'テクスチャ', exact: true });
-    assert.equal(
-      await paneGallery
-        .getByRole('menuitemradio', { name: 'パピルス', exact: true })
-        .getAttribute('aria-checked'),
-      'true',
-    );
+    assert.deepEqual(await swatchNames(paneGallery), JA_NAMES);
+    assert.equal(await paneGallery.locator('[aria-checked], [aria-selected]').count(), 0);
     await page.keyboard.press('Escape');
     await editor
       .locator('.hit')

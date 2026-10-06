@@ -21,7 +21,7 @@
     showThemeShades?: boolean;
     selectedColorTransforms?: readonly ColorTransform[];
     /** Shape Fill's Texture ▸ submenu; `disabled` greys it out where textures do not apply. */
-    texture?: { selected?: TextureId | null; disabled?: boolean; choose: (id: TextureId) => void; more: () => void };
+    texture?: { disabled?: boolean; choose: (id: TextureId) => void; more: () => void };
     choose: (color: Color, colorTransforms?: readonly ColorTransform[]) => void;
   } = $props();
   const editor = getEditor();
@@ -161,7 +161,7 @@
   </div>
   {#if texture && textureOpen && textureItem}
     <div class="submenu" bind:this={submenu}>
-      <TextureGallery label={t('Texture')} anchor={textureItem} side="right" selected={texture.selected}
+      <TextureGallery label={t('Texture')} anchor={textureItem} side="right"
         choose={id => { close(); texture.choose(id); }}
         more={() => { close(); texture.more(); }}
         close={() => { textureOpen = false; }} />

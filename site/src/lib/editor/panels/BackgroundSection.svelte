@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getSlides, copySlideBackground, getSlidePartName, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, setSlideBackgroundImageFillLayout, clearSlideBackground } from '@office-kit/pptx';
   import { TEXTURE_TILE_LAYOUT } from '../core/remembered-fill.ts';
-  import { DEFAULT_TEXTURE, texturePng, textureIdOf } from '../core/textures.ts';
+  import { DEFAULT_TEXTURE, texturePng } from '../core/textures.ts';
   import TexturePicker from '../ui/TexturePicker.svelte';
-  import { readSlideBackground, readSlideBackgroundImageBytes } from '../core/slide-background.ts';
+  import { readSlideBackground } from '../core/slide-background.ts';
   import { rememberBackgroundFill } from '../core/remembered-background-fill.ts';
   import BackgroundPictureLayout from './BackgroundPictureLayout.svelte';
   import PatternFillSection from './PatternFillSection.svelte';
@@ -37,8 +37,6 @@
       setSlideBackground(target, color ?? (current.kind === 'solid' ? asColor(current.color) : null) ?? '#FFFFFF', opacity ?? (current.kind === 'solid' ? current.opacity : undefined));
     });
   }
-  const textures = $derived(slides.map(item => textureIdOf(readSlideBackgroundImageBytes(doc.pres, item))));
-  const texture = $derived(textures.every(id => id === textures[0]) ? textures[0] ?? null : null);
   const canReset = $derived(slides.some(item => getSlideBackground(item)?.kind !== 'inherit'));
   let fileInput = $state<HTMLInputElement>();
   let error = $state('');
@@ -141,7 +139,7 @@
           <span class="selection">{t('Picture source')}</span>
           <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Insert...')}</button>
           <button class="ok-btn" disabled={loading || !navigator.clipboard?.read} onclick={pasteImage}>{t('Clipboard')}</button>
-          <TexturePicker disabled={loading} selected={texture} choose={id => insertImage(() => texturePng(id), 'texture')} more={() => fileInput?.click()} />
+          <TexturePicker disabled={loading} choose={id => insertImage(() => texturePng(id), 'texture')} />
           <BackgroundPictureLayout />
         {:else if patternBackground}
           <PatternFillSection background />
