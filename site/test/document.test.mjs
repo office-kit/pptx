@@ -135,8 +135,9 @@ test('sorter zoom uses the native 20–200 percent range independently of normal
   assert.equal(editor.sorterZoom, 2);
   editor.setZoom(0.1);
   assert.equal(editor.sorterZoom, 0.2);
+  // Mac PowerPoint's sorter opens, and fits, at 80%.
   editor.zoomFit();
-  assert.equal(editor.sorterZoom, 1);
+  assert.equal(editor.sorterZoom, 0.8);
   editor.setViewMode('normal');
   assert.equal(editor.zoom, 4);
   assert.equal(editor.doc.canUndo, false);

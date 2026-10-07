@@ -103,7 +103,8 @@ for (const locale of ['en', 'ja']) {
           getSlides(pres).map((slide) => getSlideShapes(slide).map(getShapeText).filter(Boolean));
         const original = await read();
         const originalTexts = texts(original);
-        for (const enabled of [true, false]) {
+        // Show Formatting starts on, as in Mac PowerPoint.
+        for (const enabled of [false, true]) {
           const initialRevision = (await waitForState(preview.url, () => true)).revision;
           await body.click({ button: 'right' });
           const toggle = editor.getByRole('menuitemcheckbox', {

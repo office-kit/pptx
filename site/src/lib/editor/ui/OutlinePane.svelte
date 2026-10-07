@@ -121,7 +121,7 @@
   {#key doc.pres}
     {#each entries as entry, index (doc.slides[index])}
       <div class="outline-slide" role="group" aria-label={`${t('Slide')} ${index + 1}`} class:insert-before={insertion?.index === index && !insertion.after} class:insert-after={insertion?.index === index && insertion.after} data-outline-slide={index} ondragover={event => dragOver(event, index)} ondragleave={() => insertion = null} ondrop={event => { void drop(event, index); }}>
-        <button draggable="true" ondragstart={event => dragStart(event, index)} class:selected={selected.includes(index)} aria-label={`${t('Slide')} ${index + 1}`} aria-pressed={selected.includes(index)} aria-expanded={!entry.collapsed} ondblclick={() => toggleCollapse(index)} onclick={event => { selection.clear(); doc.selectSlide(index, { additive: event.metaKey || event.ctrlKey, range: event.shiftKey }); }} onkeydown={event => keys(event, index)} oncontextmenu={event => { event.preventDefault(); if (doc.selection.kind !== 'slide' || !selected.includes(index)) { selection.clear(); doc.selectSlide(index); } editor.openContextMenu(event.clientX, event.clientY, { source: 'outline' }); }}><span>{index + 1}</span><svg viewBox="0 0 20 16" aria-hidden="true"><rect x="1.5" y="1.5" width="17" height="13" /></svg></button>
+        <button draggable="true" ondragstart={event => dragStart(event, index)} class:selected={selected.includes(index)} aria-label={`${t('Slide')} ${index + 1}`} aria-pressed={selected.includes(index)} aria-expanded={!entry.collapsed} ondblclick={() => toggleCollapse(index)} onclick={event => { selection.clear(); doc.selectSlide(index, { additive: event.metaKey || event.ctrlKey, range: event.shiftKey }); }} onkeydown={event => keys(event, index)} oncontextmenu={event => { event.preventDefault(); if (doc.selection.kind !== 'slide' || !selected.includes(index)) { selection.clear(); doc.selectSlide(index); } editor.openContextMenu(event.clientX, event.clientY, { source: 'outline' }); }}><span>{index + 1}</span><svg viewBox="0 0 17 12" aria-hidden="true"><rect x="1" y="1" width="15" height="10" /></svg></button>
         <div class="text">
           {#each entry.shapes as shape (shape.id)}{#if shape.title || !entry.collapsed}<OutlineText slideIndex={index} shapeId={shape.id} title={shape.title} {selection} />{/if}{/each}
         </div>
@@ -131,15 +131,17 @@
 </nav>
 
 <style>
-  .outline-pane { overflow: auto; min-height: 0; padding: 12px 5px; background: var(--ok-panel); border-right: 1px solid var(--ok-border); }
-  .outline-slide { display: grid; grid-template-columns: 43px minmax(0, 1fr); gap: 2px; margin-bottom: 14px; min-height: 24px; }
+  /* Mac PowerPoint's outline: the slide number at x = 6, a 17 × 12 pt slide
+     icon, titles at x = 36 and a 27 pt pitch between slides without body text. */
+  .outline-pane { overflow: auto; min-height: 0; padding: 4px 0 12px; background: var(--ok-panel-2); border-right: 1px solid var(--ok-border); }
+  .outline-slide { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; min-height: 27px; }
   .outline-slide { position: relative; }
   .insert-before::before, .insert-after::after { content: ''; position: absolute; left: 0; right: 0; border-top: 2px solid var(--ok-accent); pointer-events: none; }
-  .insert-before::before { top: -7px; }
-  .insert-after::after { bottom: -7px; }
-  button { display: flex; align-items: center; gap: 3px; align-self: start; padding: 2px 0; background: transparent; color: var(--ok-text); border: 0; font: 12px Arial, sans-serif; cursor: pointer; }
-  button span { min-width: 17px; text-align: right; }
-  svg { width: 20px; height: 16px; fill: var(--ok-bg); stroke: var(--ok-text-2); stroke-width: 2; }
+  .insert-before::before { top: 0; }
+  .insert-after::after { bottom: 0; }
+  button { display: flex; align-items: center; gap: 3px; align-self: start; height: 20px; padding: 0 0 0 4px; background: transparent; color: var(--ok-text); border: 0; font: 12px Arial, sans-serif; cursor: pointer; }
+  button span { min-width: 8px; text-align: right; }
+  svg { width: 17px; height: 12px; fill: var(--ok-bg); stroke: var(--ok-text-2); stroke-width: 2; }
   button.selected svg { stroke: var(--ok-accent); stroke-width: 3; }
   button:focus-visible { outline: 2px solid var(--ok-accent); }
   .text { min-width: 0; }

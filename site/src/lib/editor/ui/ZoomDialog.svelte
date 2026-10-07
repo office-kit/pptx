@@ -3,10 +3,10 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
-  const initial = untrack(() => Math.round((editor.viewMode === 'sorter' ? editor.sorterZoom : editor.zoom) * 100));
+  const initial = untrack(() => Math.round(editor.viewZoom * 100));
   const presets = [400, 200, 100, 66, 50, 33];
   let value = $state(initial);
-  let selected = $state(untrack(() => editor.viewMode !== 'sorter' && editor.autoFitZoom) ? 'fit' : presets.includes(initial) ? String(initial) : '');
+  let selected = $state(untrack(() => editor.viewAutoFitZoom) ? 'fit' : presets.includes(initial) ? String(initial) : '');
   let dialog: HTMLDialogElement;
   onMount(() => dialog.showModal());
   function submit(event: SubmitEvent) {

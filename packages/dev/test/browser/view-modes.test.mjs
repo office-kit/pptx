@@ -59,11 +59,11 @@ test(
       await sorter.locator('[data-slide-index="1"]').press('Shift+ArrowRight');
       assert.equal(await sorter.locator('[aria-pressed="true"]').count(), 2);
       await editor.getByTitle('Zoom in (Ctrl+=)', { exact: true }).click();
-      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '110%');
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '90%');
       await editor.getByRole('button', { name: 'Normal', exact: true }).click();
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), normalZoom);
       await editor.getByRole('button', { name: 'Slide Sorter', exact: true }).click();
-      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '110%');
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '90%');
       assert.equal((await waitForState(preview.url, () => true)).revision, revision);
       await sorter.locator('[data-slide-index="1"]').focus();
       await page.keyboard.press('Delete');
@@ -164,7 +164,7 @@ test(
       await editor.getByTitle('Zoom out (Ctrl+-)', { exact: true }).click();
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '20%');
       await editor.getByTitle('Fit (Ctrl+0)', { exact: true }).click();
-      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '100%');
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '80%');
       await editor.getByRole('button', { name: 'Normal', exact: true }).click();
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '21%');
       assert.equal((await waitForState(preview.url, () => true)).revision, beforeZoomRevision);

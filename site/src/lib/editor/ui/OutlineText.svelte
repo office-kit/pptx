@@ -303,6 +303,15 @@
       hasTextSelection: range.start !== range.end || (() => { const selected = selection.current(); return !!selected && selected.start.key !== selected.end.key; })(),
       canPromote: !title,
       canDemote: !title || slideIndex > 0,
+      hyperlink: () => {
+        if (range.start === range.end) return;
+        const linked = { ...range };
+        commit();
+        doc.selectShape(slideIndex, shapeId);
+        editor.linkTextRange = linked;
+        editor.linkTableCell = null;
+        editor.runOrPrompt('setShapeHyperlink');
+      },
     } });
   }
   async function keys(event: KeyboardEvent) {
@@ -544,7 +553,7 @@
   onDestroy(() => untrack(commit));
 </script>
 
-<RichTextInput bind:this={input} {value} {html} layout="outline" label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style={editor.outlineShowFormatting ? "line-height: normal; min-height: 0" : ""} textZoom={1}
+<RichTextInput bind:this={input} {value} {html} layout="outline" formatted={editor.outlineShowFormatting} label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style={editor.outlineShowFormatting ? "line-height: normal; min-height: 0" : ""} textZoom={1}
   onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) { typingFormat = undefined; selection.clear(); } }} onbeforeinput={(next, event) => { if (titleBodyComposition) return; range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); void replaceOutlineRange(event.data, t('Edit text')); } }} onselect={next => { if (titleBodyComposition) return; const element = input.getElement(); if (!element || element.ownerDocument.activeElement !== element || doc.selection.kind !== 'shape' || doc.selection.slideIndex !== slideIndex || !doc.selection.shapeIds.includes(shapeId)) return; if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}

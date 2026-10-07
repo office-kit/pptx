@@ -42,6 +42,7 @@
   function outlineCollapseItems(): Item[] {
     return [true, false].map(collapsed => ({
       label: collapsed ? 'Collapse' : 'Expand',
+      sep: !collapsed,
       children: [
         { label: collapsed ? 'Collapse' : 'Expand', run: () => collapse(collapsed, false) },
         { label: collapsed ? 'Collapse All' : 'Expand All', run: () => collapse(collapsed, true) },
@@ -49,11 +50,22 @@
     }));
   }
 
+  // The outline's slide commands, with Mac PowerPoint's outline shortcuts.
   function slideItems(): Item[] {
     return [
-      { label: 'New Slide', run: () => editor.addNewSlide() },
-      { label: 'Duplicate Slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
-      { label: 'Delete Slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
+      { label: 'New Slide', accel: '⇧⌘N', run: () => editor.addNewSlide() },
+      { label: 'Duplicate Slide', accel: '⇧⌘D', run: () => editor.invoke('duplicateSlide') },
+      { label: 'Delete Slide', run: () => editor.invoke('removeSlide'), sep: true },
+    ];
+  }
+  // Mac PowerPoint's outline menu ends Thesaurus, Translate | Show Formatting
+  // (on by default) | Hyperlink.
+  function outlineTail(hyperlink: Item): Item[] {
+    return [
+      { label: 'Thesaurus...', accel: '⌃⌥⌘R', disabled: true, reason: 'The thesaurus needs the Microsoft reference service.', run: noop },
+      { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs the Microsoft translation service.', run: noop },
+      { label: 'Show Formatting', checked: editor.outlineShowFormatting, sep: true, run: () => editor.outlineShowFormatting = !editor.outlineShowFormatting },
+      hyperlink,
     ];
   }
 
@@ -352,8 +364,8 @@
         { label: 'Promote', run: actions.promote, disabled: !actions.canPromote },
         { label: 'Demote', run: actions.demote, disabled: !actions.canDemote },
         { label: 'Move Up', run: actions.moveUp, disabled: !actions.canMoveUp },
-        { label: 'Move Down', run: actions.moveDown, disabled: !actions.canMoveDown },
-        { label: 'Show Formatting', checked: editor.outlineShowFormatting, run: () => editor.outlineShowFormatting = !editor.outlineShowFormatting },
+        { label: 'Move Down', run: actions.moveDown, disabled: !actions.canMoveDown, sep: true },
+        ...outlineTail({ label: 'Hyperlink...', accel: '⌘K', disabled: !actions.hasTextSelection, reason: 'Select the text to link first.', run: actions.hyperlink }),
       ];
     }
     if (menu.text && !menu.text.cell) return textItems(menu.text);
@@ -373,8 +385,8 @@
           ...slideItems(),
           ...outlineCollapseItems(),
           { label: 'Move Up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
-          { label: 'Move Down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
-          { label: 'Show Formatting', checked: editor.outlineShowFormatting, run: () => editor.outlineShowFormatting = !editor.outlineShowFormatting },
+          { label: 'Move Down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length, sep: true },
+          ...outlineTail({ label: 'Hyperlink...', accel: '⌘K', disabled: true, reason: 'Select the text to link first.', run: noop }),
         ];
       }
       // Mac PowerPoint's thumbnail menu. It has no Layout or Reset Slide;

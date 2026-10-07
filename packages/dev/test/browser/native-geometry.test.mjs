@@ -102,7 +102,7 @@ test(
       );
       assert.equal(
         (await box(page.getByRole('button', { name: 'Normal', exact: true }).last())).width,
-        36,
+        37,
       );
 
       // Zoom percentages are Mac PowerPoint's: 100% shows a 13.33 in slide

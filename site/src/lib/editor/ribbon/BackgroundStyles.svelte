@@ -7,10 +7,12 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
   import { captionLines } from './caption.ts';
+  /** `small`: the Slide Master tab's 26 pt row, whose menu edits the selected layout's background. */
+  let { small = false, label }: { small?: boolean; label?: string } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   let open = $state(false);
-  let trigger: HTMLButtonElement;
+  let trigger = $state<HTMLButtonElement>()!;
   let menu = $state<HTMLDivElement>();
   let error = $state('');
   const styles = $derived.by(() => { doc.version; return open && doc.currentSlide ? getSlideMasterBackgroundStyles(doc.currentSlide) : []; });
@@ -50,7 +52,11 @@
   }
 </script>
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
-<button class="trigger" bind:this={trigger} disabled={!doc.currentSlide} aria-label={t('Background Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}><span class="icon-row"><Icon name="background" size={32} /><span class="arrow" aria-hidden="true">⌄</span></span><span class="caption">{captionLines(t('Background Styles'))}</span></button>
+{#if small}
+  <button class="trigger small" bind:this={trigger} disabled={!doc.currentSlide} aria-label={label ?? t('Background Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}><Icon name="background" size={16} />{label ?? t('Background Styles')}<span class="arrow" aria-hidden="true">⌄</span></button>
+{:else}
+  <button class="trigger" bind:this={trigger} disabled={!doc.currentSlide} aria-label={t('Background Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}><span class="icon-row"><Icon name="background" size={32} /><span class="arrow" aria-hidden="true">⌄</span></span><span class="caption">{captionLines(t('Background Styles'))}</span></button>
+{/if}
 {#if open}
   <div class="menu" role="menu" aria-label={t('Background Styles')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="gallery" role="group" aria-label={t('Background Styles')}>
@@ -59,14 +65,20 @@
       {/each}
     </div>
     <hr />
-    <button class="action" role="menuitem" onclick={() => { close(); editor.showBackgroundFormat(); }}>{t('Format Background...')}</button>
-    <button class="action" role="menuitem" disabled={!canReset} onclick={reset}>{t('Reset Slide Background')}</button>
+    {#if small}
+      <button class="action" role="menuitem" disabled={!editor.canRun('setSlideLayoutBackground')} onclick={() => { close(); editor.runOrPrompt('setSlideLayoutBackground'); }}>{t('Format Background...')}</button>
+      <button class="action" role="menuitem" disabled={!editor.canRun('clearSlideLayoutBackground')} onclick={() => { close(); editor.invoke('clearSlideLayoutBackground'); }}>{t('Reset Background')}</button>
+    {:else}
+      <button class="action" role="menuitem" onclick={() => { close(); editor.showBackgroundFormat(); }}>{t('Format Background...')}</button>
+      <button class="action" role="menuitem" disabled={!canReset} onclick={reset}>{t('Reset Slide Background')}</button>
+    {/if}
     {#if error}<p role="alert">{error}</p>{/if}
   </div>
 {/if}
 <style>
   /* A Design-tab ▾ button (see DesignRibbon.svelte). */
   .trigger { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; align-self: stretch; gap: 2px; min-width: 50px; padding: 4px 1px; background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); color: var(--ok-text); font: inherit; font-size: 11px; line-height: 1.15; cursor: pointer; }
+  .trigger.small { flex-direction: row; align-items: center; align-self: auto; gap: 5px; min-width: 0; height: 26px; padding: 0 6px; font-size: 12px; white-space: nowrap; }
   .icon-row { display: flex; align-items: center; gap: 1px; }
   .arrow { font-size: 10px; }
   .caption { white-space: pre-line; text-align: center; }

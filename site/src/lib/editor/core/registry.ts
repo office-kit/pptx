@@ -41,6 +41,12 @@ export interface CommandDoc {
   selectSlide(index: number): void;
   transact<T>(label: string, fn: () => T): T;
   setDocumentSetting(fn: () => void): void;
+  /**
+   * Slide Master view's selection: the layout part it shows, or `null` for the
+   * master itself. Absent outside that view, where layout edits follow the
+   * current slide.
+   */
+  readonly layoutTarget?: { readonly partName: string | null } | null;
 }
 
 export interface CommandContext {
@@ -479,9 +485,9 @@ class ChartCommand extends ManifestCommand {
   }
 }
 
-// Layout edits act on the layout behind the current slide — PowerPoint's slide
-// master view, and Google Slides' theme builder, reached without leaving the
-// deck. Every slide on that layout sees the result, which is the point.
+// Layout edits act on the layout selected in Slide Master view, and elsewhere on
+// the layout behind the current slide. Every slide on that layout sees the
+// result, which is the point.
 const layoutCommands = new Set([
   'setSlideLayoutName',
   'setSlideLayoutBackground',
@@ -495,6 +501,10 @@ class LayoutCommand extends ManifestCommand {
   }
 
   private layout(doc: CommandDoc): pptx.SlideLayoutData | null {
+    if (doc.layoutTarget) {
+      const { partName } = doc.layoutTarget;
+      return partName === null ? null : pptx.findSlideLayoutByPartName(doc.pres, partName);
+    }
     const slide = doc.slideAt(doc.selection.slideIndex);
     return slide ? pptx.getSlideLayout(slide) : null;
   }

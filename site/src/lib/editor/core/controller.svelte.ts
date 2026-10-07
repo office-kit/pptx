@@ -49,7 +49,12 @@ import {
   type TextCase,
   type ParagraphProperties,
   setParagraphAlignment,
+  getSlideLayout,
+  getSlideLayoutPartName,
+  getSlideMasterPartName,
+  getSlideMasterPartNames,
 } from '@office-kit/pptx';
+import { isMasterView, isPageView, type ViewMode } from './view-modes.ts';
 import type { TextFormatToggle } from './text-format-toggle.ts';
 import {
   copyTableCellValues,
@@ -119,6 +124,7 @@ export interface ContextMenuState {
     hasTextSelection: boolean;
     canPromote: boolean;
     canDemote: boolean;
+    hyperlink: () => void;
   };
   readonly x: number;
   readonly y: number;
@@ -193,11 +199,17 @@ export class EditorController {
   formatPaneSections = $state<Record<string, boolean>>({});
   thumbnailWidth = $state<number | null>(null);
   outlineWidth = $state<number | null>(null);
-  outlineShowFormatting = $state(false);
-  viewMode = $state<'normal' | 'outline' | 'sorter' | 'notesPage'>('normal');
-  /** View ▸ Slide Master: shows the Slide Master tab that edits the current slide's layout. */
-  masterView = $state(false);
-  sorterZoom = $state(1);
+  // Mac PowerPoint's outline shows formatting by default.
+  outlineShowFormatting = $state(true);
+  viewMode = $state<ViewMode>('normal');
+  // Mac PowerPoint opens Slide Sorter at 80%.
+  sorterZoom = $state(0.8);
+  /** Notes Page and the handout and notes masters show a page fitted to the window until zoomed. */
+  pageZoom = $state(1);
+  pageAutoFitZoom = $state(true);
+  pageFitZoom = $state(1);
+  /** View ▸ Reading View in an editor without a host viewer: the full-window reader. */
+  readingView = $state(false);
   // Normal view shows the notes pane by default, as PowerPoint does.
   notesVisible = $state(true);
   // One line tall, as Mac PowerPoint opens it (see NotesPane).
@@ -307,7 +319,7 @@ export class EditorController {
   }
 
   showNotes(): void {
-    if (this.viewMode === 'sorter' || this.viewMode === 'notesPage') this.setViewMode('normal');
+    if (this.viewMode !== 'normal' && this.viewMode !== 'outline') this.setViewMode('normal');
     this.notesVisible = true;
     this.notesFocusRequest++;
   }
@@ -343,10 +355,45 @@ export class EditorController {
     this.rotationFocusRequested = true;
   }
 
-  setViewMode(mode: 'normal' | 'outline' | 'sorter' | 'notesPage'): void {
+  setViewMode(mode: ViewMode): void {
     this.contextMenu = null;
     if (mode === 'outline') this.thumbnailsVisible = true;
+    // Slide Master view opens on the current slide's layout, as PowerPoint does.
+    if (mode === 'slideMaster' && this.viewMode !== 'slideMaster') {
+      const slide = this.doc.currentSlide;
+      const layout = slide ? getSlideLayout(slide) : null;
+      const first = getSlideMasterPartNames(this.doc.pres)[0] ?? null;
+      this.selectMasterCell(
+        layout ? (getSlideMasterPartName(layout) ?? first) : first,
+        layout ? getSlideLayoutPartName(layout) : null,
+      );
+    } else if (mode !== 'slideMaster') {
+      this.doc.layoutTarget = null;
+      this.selectedMaster = null;
+    }
     this.viewMode = mode;
+  }
+
+  /** Slide Master view: the master whose cell (or one of whose layouts) is selected. */
+  selectedMaster = $state<string | null>(null);
+  /** Selects a master (`layout` null) or one of its layouts in Slide Master view. */
+  selectMasterCell(master: string | null, layout: string | null): void {
+    this.selectedMaster = master;
+    this.doc.layoutTarget = { partName: layout };
+  }
+
+  /** True in Slide, Handout and Notes Master views. */
+  get masterView(): boolean {
+    return isMasterView(this.viewMode);
+  }
+
+  /** Reading View: the host's rendered viewer, or the editor's own reader without one. */
+  openReadingView(): void {
+    if (this.canPresent) this.present('reading');
+    else {
+      this.contextMenu = null;
+      this.readingView = true;
+    }
   }
 
   drawingGuides(): readonly DrawingGuide[] {
@@ -626,26 +673,42 @@ export class EditorController {
   get maxZoomPercent(): number {
     return this.viewMode === 'sorter' ? 200 : 400;
   }
+  /** The zoom the status bar shows: each kind of view keeps its own. */
+  get viewZoom(): number {
+    if (this.viewMode === 'sorter') return this.sorterZoom;
+    return isPageView(this.viewMode) ? this.pageZoom : this.zoom;
+  }
+  /** Whether Fit applies to the current view (Slide Sorter has no fit). */
+  get viewAutoFitZoom(): boolean {
+    if (this.viewMode === 'sorter') return false;
+    return isPageView(this.viewMode) ? this.pageAutoFitZoom : this.autoFitZoom;
+  }
 
   setZoom(z: number): void {
     const clamped = Math.max(this.minZoomPercent / 100, Math.min(z, this.maxZoomPercent / 100));
     if (this.viewMode === 'sorter') this.sorterZoom = clamped;
-    else {
+    else if (isPageView(this.viewMode)) {
+      this.pageAutoFitZoom = false;
+      this.pageZoom = clamped;
+    } else {
       this.autoFitZoom = false;
       this.zoom = clamped;
     }
   }
   zoomIn(): void {
-    const percent = Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 100);
+    const percent = Math.round(this.viewZoom * 100);
     this.setZoom((Math.floor(percent / 10) + 1) / 10);
   }
   zoomOut(): void {
-    const percent = Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 100);
+    const percent = Math.round(this.viewZoom * 100);
     this.setZoom((Math.ceil(percent / 10) - 1) / 10);
   }
   zoomFit(): void {
-    if (this.viewMode === 'sorter') this.sorterZoom = 1;
-    else {
+    if (this.viewMode === 'sorter') this.sorterZoom = 0.8;
+    else if (isPageView(this.viewMode)) {
+      this.pageAutoFitZoom = true;
+      this.pageZoom = this.pageFitZoom;
+    } else {
       this.autoFitZoom = true;
       this.zoom = this.fitZoom;
     }
