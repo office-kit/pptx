@@ -435,6 +435,7 @@ export function setShapeHidden(
   }
 }
 
+/** Renames the shape: the name the Selection Pane shows (`<p:cNvPr name>`). */
 export const renameShape = (shape: SlideShapeData, newName: string): void => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {

@@ -27,8 +27,8 @@ it is deliberately not repeated here.
 
 That set is the registry coverage target:
 
-1. **`manifest/generate.mjs`** reads the library source, enumerates the mutating
-   exports by verb prefix, parses each signature into an operand + parameter
+1. **`manifest/generate.mjs`** type-checks the library, enumerates the mutating
+   exports by verb prefix, turns each signature into an operand + parameter
    schema, and writes **`manifest/capabilities.generated.json`** — one entry per
    mutating export.
 2. **`core/registry.ts`** turns _every_ manifest entry into a runnable Command
@@ -123,7 +123,13 @@ node packages/editor/src/manifest/generate.mjs
 ```
 
 Run this whenever the library's authoring surface changes; the coverage test
-tells you when it is needed.
+tells you when it is needed (it runs the generator with `--check`). The
+generator type-checks the library with the TypeScript compiler and also writes
+`manifest/tools.generated.ts`, the model-facing tool schemas that
+`core/agent-tools.ts` serves through `tools()` and `run()`. A capability whose
+parameters have no JSON form, or that has no TSDoc, fails generation until it
+gets one or is listed in `NOT_TOOLS` with the reason. Never edit either file by
+hand.
 
 ## Development preview integration
 

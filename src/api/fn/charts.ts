@@ -295,6 +295,11 @@ const withChartDefaultTextColor = (spec: ChartSpec, color: string | null): Chart
   };
 };
 
+/**
+ * Adds a native chart to the slide at `x`/`y` with size `w`×`h` (EMU),
+ * built from `spec`, with an embedded workbook so PowerPoint's "Edit data"
+ * opens the chart's numbers. Returns the chart's graphic-frame shape.
+ */
 export const addSlideChart = (
   slide: SlideData,
   opts: {

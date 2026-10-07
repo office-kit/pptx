@@ -47,14 +47,7 @@
       "file": "api/fn/slide-deck.ts",
       "returns": "SlideData",
       "canvas": true,
-      "params": [
-        {
-          "name": "title",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "title", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "addSlide",
@@ -79,18 +72,13 @@
       "takesOperand": true,
       "category": "slide",
       "file": "api/fn/slide-deck.ts",
-      "returns": "SlideData",
+      "returns": "SlideData[]",
       "canvas": true,
       "params": [
-        {
-          "name": "atIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
+        { "name": "atIndex", "type": "number", "kind": "number", "optional": false },
         {
           "name": "options",
-          "type": "{ layout: SlideLayoutData }",
+          "type": "ReadonlyArray<{ layout: SlideLayoutData }>",
           "kind": "object",
           "optional": false
         }
@@ -122,12 +110,7 @@
       "returns": "SlideCommentData",
       "canvas": true,
       "params": [
-        {
-          "name": "opts",
-          "type": "AddCommentOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "opts", "type": "AddCommentOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -139,12 +122,7 @@
       "returns": "SlideShapeData",
       "canvas": true,
       "params": [
-        {
-          "name": "bytes",
-          "type": "Uint8Array",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "bytes", "type": "Uint8Array", "kind": "object", "optional": false },
         {
           "name": "opts",
           "type": "{ x: Emu; y: Emu; w: Emu; h: Emu; format?: ImageFormat; name?: string; fit?: ImageFit }",
@@ -162,17 +140,12 @@
       "returns": "SlideLayoutData",
       "canvas": true,
       "params": [
-        {
-          "name": "master",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        },
+        { "name": "master", "type": "string", "kind": "string", "optional": false },
         {
           "name": "options",
           "type": "{ index?: number }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -186,24 +159,26 @@
       "returns": "number",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false },
         {
           "name": "kind",
           "type": "LayoutPlaceholderKind",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "content",
+            "verticalContent",
+            "text",
+            "verticalText",
+            "picture",
+            "chart",
+            "table",
+            "smartArt",
+            "media",
+            "onlineImage"
+          ]
         },
-        {
-          "name": "bounds",
-          "type": "ShapeBounds",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "bounds", "type": "ShapeBounds", "kind": "object", "optional": false }
       ]
     },
     {
@@ -242,12 +217,7 @@
       "returns": "SlideShapeData",
       "canvas": true,
       "params": [
-        {
-          "name": "opts",
-          "type": "SlideMediaOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "opts", "type": "SlideMediaOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -262,8 +232,33 @@
         {
           "name": "type",
           "type": "PlaceholderType",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "title",
+            "hdr",
+            "dt",
+            "ftr",
+            "sldNum",
+            "chart",
+            "media",
+            "body",
+            "sldImg",
+            "ctrTitle",
+            "subTitle",
+            "obj",
+            "tbl",
+            "clipArt",
+            "dgm",
+            "pic"
+          ]
+        },
+        {
+          "name": "options",
+          "type": "{ source?: 'layout' | 'master' }",
           "kind": "object",
-          "optional": false
+          "optional": true,
+          "default": "{}"
         }
       ]
     },
@@ -326,14 +321,7 @@
       "file": "api/fn/slide-deck.ts",
       "returns": "SlideData",
       "canvas": true,
-      "params": [
-        {
-          "name": "title",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "title", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "appendShapeText",
@@ -343,14 +331,7 @@
       "file": "api/fn/shape-text.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "value",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "value", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "appendSlideNotes",
@@ -360,14 +341,7 @@
       "file": "api/fn/slide-notes.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "text",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "text", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "applySlideBackgroundToAll",
@@ -377,14 +351,7 @@
       "file": "api/fn/slide-background.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "slide",
-          "type": "SlideData",
-          "kind": "object",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "slide", "type": "SlideData", "kind": "object", "optional": false }]
     },
     {
       "id": "bringShapeForward",
@@ -445,223 +412,6 @@
       "returns": "void",
       "canvas": true,
       "params": []
-    },
-    {
-      "id": "removeSlideLayout",
-      "operand": "presentation",
-      "takesOperand": false,
-      "category": "slide",
-      "file": "api/fn/slide-masters.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "removeSlideMaster",
-      "operand": "presentation",
-      "takesOperand": true,
-      "category": "slide",
-      "file": "api/fn/slide-masters.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "master",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setHandoutMasterPlaceholderIncluded",
-      "operand": "presentation",
-      "takesOperand": true,
-      "category": "misc",
-      "file": "api/fn/page-masters.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "type",
-          "type": "HandoutMasterPlaceholderType",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "included",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setHandoutSlidesPerPage",
-      "operand": "presentation",
-      "takesOperand": true,
-      "category": "slide",
-      "file": "api/fn/page-masters.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "slidesPerPage",
-          "type": "HandoutSlidesPerPage",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setNotesMasterPlaceholderIncluded",
-      "operand": "presentation",
-      "takesOperand": true,
-      "category": "misc",
-      "file": "api/fn/page-masters.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "type",
-          "type": "NotesMasterPlaceholderType",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "included",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setNotesPageOrientation",
-      "operand": "presentation",
-      "takesOperand": true,
-      "category": "misc",
-      "file": "api/fn/page-masters.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "orientation",
-          "type": "'portrait' | 'landscape'",
-          "kind": "enum",
-          "optional": false,
-          "enumValues": ["portrait", "landscape"]
-        }
-      ]
-    },
-    {
-      "id": "setShapeImageCompressionState",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "image",
-      "file": "api/fn/shape-picture-style.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "state",
-          "type": "ImageCompressionState | null",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setShapePictureStyle",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "shape",
-      "file": "api/fn/shape-picture-style.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "style",
-          "type": "BuiltinPictureStyleName",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setShapeSoftEdge",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "shape",
-      "file": "api/fn/shape-effects.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "radiusEmu",
-          "type": "number | null",
-          "kind": "number",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setShapeReflection",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "effect",
-      "file": "api/fn/shape-effects.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "options",
-          "type": "ReflectionOptions | null",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setShapeInnerShadow",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "effect",
-      "file": "api/fn/shape-effects.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "options",
-          "type": "InnerShadowOptions | null",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setShape3D",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "shape",
-      "file": "api/fn/shape-effects.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "value",
-          "type": "Shape3D | null",
-          "kind": "object",
-          "optional": false
-        }
-      ]
     },
     {
       "id": "clearShapeFill",
@@ -732,12 +482,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false }
       ]
     },
     {
@@ -776,7 +521,7 @@
       "takesOperand": true,
       "category": "presentation",
       "file": "api/fn/package-introspection.ts",
-      "returns": "{ readonly removed: ReadonlyArray<string> }",
+      "returns": "{ readonly removed: readonly string[]; }",
       "canvas": false,
       "params": []
     },
@@ -789,17 +534,12 @@
       "returns": "SlideShapeData",
       "canvas": true,
       "params": [
-        {
-          "name": "sourceShape",
-          "type": "SlideShapeData",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "sourceShape", "type": "SlideShapeData", "kind": "object", "optional": false },
         {
           "name": "opts",
           "type": "{ readonly preserveGroupTransform?: boolean }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -813,12 +553,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "sourceSlide",
-          "type": "SlideData",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "sourceSlide", "type": "SlideData", "kind": "object", "optional": false }
       ]
     },
     {
@@ -834,7 +569,7 @@
           "name": "options",
           "type": "{ size?: PresentationSize }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -847,14 +582,7 @@
       "file": "api/fn/slide-deck.ts",
       "returns": "SlideData",
       "canvas": true,
-      "params": [
-        {
-          "name": "slide",
-          "type": "SlideData",
-          "kind": "object",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "slide", "type": "SlideData", "kind": "object", "optional": false }]
     },
     {
       "id": "duplicateSlideAt",
@@ -865,18 +593,8 @@
       "returns": "SlideData",
       "canvas": true,
       "params": [
-        {
-          "name": "atIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "slide",
-          "type": "SlideData",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "atIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "slide", "type": "SlideData", "kind": "object", "optional": false }
       ]
     },
     {
@@ -898,7 +616,7 @@
           "name": "opts",
           "type": "{ name?: string }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -912,18 +630,8 @@
       "returns": "SlideData",
       "canvas": false,
       "params": [
-        {
-          "name": "sourceSlide",
-          "type": "SlideData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "targetLayout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": true
-        }
+        { "name": "sourceSlide", "type": "SlideData", "kind": "object", "optional": false },
+        { "name": "targetLayout", "type": "SlideLayoutData", "kind": "object", "optional": true }
       ]
     },
     {
@@ -945,18 +653,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "atIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": true
-        },
-        {
-          "name": "widthEmu",
-          "type": "number",
-          "kind": "number",
-          "optional": true
-        }
+        { "name": "atIndex", "type": "number", "kind": "number", "optional": true },
+        { "name": "widthEmu", "type": "number", "kind": "number", "optional": true }
       ]
     },
     {
@@ -968,17 +666,12 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "atIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": true
-        },
+        { "name": "atIndex", "type": "number", "kind": "number", "optional": true },
         {
           "name": "cells",
           "type": "ReadonlyArray<string>",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "[]"
         }
       ]
@@ -989,18 +682,13 @@
       "takesOperand": true,
       "category": "slide",
       "file": "api/fn/slide-deck.ts",
-      "returns": "ReadonlyArray<SlideData>",
+      "returns": "readonly SlideData[]",
       "canvas": false,
       "params": [
-        {
-          "name": "sourcePres",
-          "type": "PresentationData",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "sourcePres", "type": "PresentationData", "kind": "object", "optional": false },
         {
           "name": "targetLayout",
-          "type": "SlideLayoutData | ((sourceSlide: SlideData, index: number) => SlideLayoutData),",
+          "type": "SlideLayoutData | ((sourceSlide: SlideData, index: number) => SlideLayoutData)",
           "kind": "object",
           "optional": false
         }
@@ -1038,18 +726,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "slide",
-          "type": "SlideData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "toIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
+        { "name": "slide", "type": "SlideData", "kind": "object", "optional": false },
+        { "name": "toIndex", "type": "number", "kind": "number", "optional": false }
       ]
     },
     {
@@ -1061,18 +739,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "id",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "index",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
+        { "name": "id", "type": "number", "kind": "number", "optional": false },
+        { "name": "index", "type": "number", "kind": "number", "optional": false }
       ]
     },
     {
@@ -1093,14 +761,7 @@
       "file": "api/fn/slide-deck.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "slide",
-          "type": "SlideData",
-          "kind": "object",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "slide", "type": "SlideData", "kind": "object", "optional": false }]
     },
     {
       "id": "removeSlideAnimation",
@@ -1110,14 +771,7 @@
       "file": "api/fn/slide-animation-edit.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "id",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "id", "type": "number", "kind": "number", "optional": false }]
     },
     {
       "id": "removeSlideComment",
@@ -1128,13 +782,30 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "comment",
-          "type": "SlideCommentData",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "comment", "type": "SlideCommentData", "kind": "object", "optional": false }
       ]
+    },
+    {
+      "id": "removeSlideLayout",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false }
+      ]
+    },
+    {
+      "id": "removeSlideMaster",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [{ "name": "master", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "removeSlideNotes",
@@ -1154,14 +825,7 @@
       "file": "api/fn/tables.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "atIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "atIndex", "type": "number", "kind": "number", "optional": false }]
     },
     {
       "id": "removeTableRow",
@@ -1171,14 +835,7 @@
       "file": "api/fn/tables.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "atIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "atIndex", "type": "number", "kind": "number", "optional": false }]
     },
     {
       "id": "removeThumbnail",
@@ -1198,14 +855,7 @@
       "file": "api/fn/shape-read-base.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "newName",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "newName", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "replaceHyperlink",
@@ -1216,18 +866,8 @@
       "returns": "number",
       "canvas": true,
       "params": [
-        {
-          "name": "from",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "to",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "from", "type": "string", "kind": "string", "optional": false },
+        { "name": "to", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -1239,18 +879,8 @@
       "returns": "number",
       "canvas": true,
       "params": [
-        {
-          "name": "from",
-          "type": "string | RegExp",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "to",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "from", "type": "string | RegExp", "kind": "string", "optional": false },
+        { "name": "to", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -1262,18 +892,8 @@
       "returns": "number",
       "canvas": true,
       "params": [
-        {
-          "name": "from",
-          "type": "string | RegExp",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "to",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "from", "type": "string | RegExp", "kind": "string", "optional": false },
+        { "name": "to", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -1285,18 +905,8 @@
       "returns": "number",
       "canvas": true,
       "params": [
-        {
-          "name": "from",
-          "type": "string | RegExp",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "to",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "from", "type": "string | RegExp", "kind": "string", "optional": false },
+        { "name": "to", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -1308,18 +918,8 @@
       "returns": "boolean",
       "canvas": true,
       "params": [
-        {
-          "name": "from",
-          "type": "string | RegExp",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "to",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "from", "type": "string | RegExp", "kind": "string", "optional": false },
+        { "name": "to", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -1331,12 +931,7 @@
       "returns": "number",
       "canvas": true,
       "params": [
-        {
-          "name": "tokens",
-          "type": "Record<string, string>",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "tokens", "type": "Record<string, string>", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1348,12 +943,7 @@
       "returns": "number",
       "canvas": true,
       "params": [
-        {
-          "name": "tokens",
-          "type": "Record<string, string>",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "tokens", "type": "Record<string, string>", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1445,18 +1035,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "chart",
-          "type": "SlideChartData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "spec",
-          "type": "ChartSpec",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "chart", "type": "SlideChartData", "kind": "object", "optional": false },
+        { "name": "spec", "type": "ChartSpec", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1468,17 +1048,13 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "comment",
-          "type": "SlideCommentData",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "comment", "type": "SlideCommentData", "kind": "object", "optional": false },
         {
           "name": "status",
           "type": "CommentStatus",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["active", "resolved", "closed"]
         }
       ]
     },
@@ -1491,18 +1067,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "comment",
-          "type": "SlideCommentData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "text",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "comment", "type": "SlideCommentData", "kind": "object", "optional": false },
+        { "name": "text", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -1514,29 +1080,19 @@
       "returns": "void",
       "canvas": false,
       "params": [
-        {
-          "name": "values",
-          "type": "Partial<CoreProperties>",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "values", "type": "Partial<CoreProperties>", "kind": "object", "optional": false }
       ]
     },
     {
       "id": "setCustomShows",
       "operand": "presentation",
       "takesOperand": true,
-      "category": "slide",
+      "category": "misc",
       "file": "api/fn/custom-shows.ts",
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "shows",
-          "type": "readonly CustomShow[]",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "shows", "type": "readonly CustomShow[]", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1548,12 +1104,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "guides",
-          "type": "readonly DrawingGuide[]",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "guides", "type": "readonly DrawingGuide[]", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1564,14 +1115,7 @@
       "file": "api/fn/guides.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "visible",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "visible", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setExtendedProperties",
@@ -1608,6 +1152,42 @@
       ]
     },
     {
+      "id": "setHandoutMasterPlaceholderIncluded",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "type",
+          "type": "HandoutMasterPlaceholderType",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["hdr", "dt", "ftr", "sldNum"]
+        },
+        { "name": "included", "type": "boolean", "kind": "boolean", "optional": false }
+      ]
+    },
+    {
+      "id": "setHandoutSlidesPerPage",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "slidesPerPage",
+          "type": "HandoutSlidesPerPage",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setMediaPartBytes",
       "operand": "presentation",
       "takesOperand": true,
@@ -1616,17 +1196,44 @@
       "returns": "boolean",
       "canvas": false,
       "params": [
+        { "name": "partName", "type": "string", "kind": "string", "optional": false },
+        { "name": "bytes", "type": "Uint8Array", "kind": "object", "optional": false }
+      ]
+    },
+    {
+      "id": "setNotesMasterPlaceholderIncluded",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
         {
-          "name": "partName",
-          "type": "string",
-          "kind": "string",
-          "optional": false
+          "name": "type",
+          "type": "NotesMasterPlaceholderType",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["hdr", "dt", "ftr", "sldNum", "body", "sldImg"]
         },
+        { "name": "included", "type": "boolean", "kind": "boolean", "optional": false }
+      ]
+    },
+    {
+      "id": "setNotesPageOrientation",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
         {
-          "name": "bytes",
-          "type": "Uint8Array",
-          "kind": "object",
-          "optional": false
+          "name": "orientation",
+          "type": "'portrait' | 'landscape'",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["portrait", "landscape"]
         }
       ]
     },
@@ -1639,17 +1246,26 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
         {
           "name": "align",
           "type": "ParagraphAlignment",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "ctr",
+            "l",
+            "r",
+            "right",
+            "left",
+            "center",
+            "justify",
+            "distribute",
+            "just",
+            "dist",
+            "justLow",
+            "thaiDist"
+          ]
         }
       ]
     },
@@ -1662,18 +1278,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "style",
-          "type": "BulletStyle",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "style", "type": "BulletStyle", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1685,12 +1291,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
         {
           "name": "opts",
           "type": "{ leftEmu?: number | null; rightEmu?: number | null; firstLineEmu?: number | null }",
@@ -1710,13 +1311,13 @@
       "params": [
         {
           "name": "paragraphIndex",
-          "type": "number",
+          "type": "number | { start: number; end: number }",
           "kind": "number",
           "optional": false
         },
         {
           "name": "level",
-          "type": "number",
+          "type": "number | { offset: number }",
           "kind": "number",
           "optional": false
         }
@@ -1731,12 +1332,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
         {
           "name": "spacing",
           "type": "| { readonly kind: 'pct'; readonly value: number } | { readonly kind: 'pts'; readonly value: number } | null",
@@ -1754,12 +1350,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
         {
           "name": "opts",
           "type": "{ beforePts?: number | null; afterPts?: number | null }",
@@ -1777,12 +1368,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
         {
           "name": "settings",
           "type": "{ tabStops?: readonly ParagraphTabStop[] | null; defaultTabSizeEmu?: number | null }",
@@ -1800,12 +1386,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
         {
           "name": "settings",
           "type": "{ asianLineBreak?: boolean | null; latinLineBreak?: boolean | null; hangingPunctuation?: boolean | null; fontAlignment?: 'auto' | 'top' | 'center' | 'baseline' | 'bottom' | null; }",
@@ -1823,12 +1404,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "fonts",
-          "type": "PresentationFontsInput",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "fonts", "type": "PresentationFontsInput", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1847,6 +1423,16 @@
           "optional": false
         }
       ]
+    },
+    {
+      "id": "setShape3D",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [{ "name": "value", "type": "Shape3D | null", "kind": "object", "optional": false }]
     },
     {
       "id": "setShapeAdjustValues",
@@ -1877,8 +1463,22 @@
         {
           "name": "align",
           "type": "ParagraphAlignment",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "ctr",
+            "l",
+            "r",
+            "right",
+            "left",
+            "center",
+            "justify",
+            "distribute",
+            "just",
+            "dist",
+            "justLow",
+            "thaiDist"
+          ]
         }
       ]
     },
@@ -1890,14 +1490,7 @@
       "file": "api/fn/shape-read-base.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "title",
-          "type": "string | null",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "title", "type": "string | null", "kind": "string", "optional": false }]
     },
     {
       "id": "setShapeAnimation",
@@ -1908,12 +1501,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "opts",
-          "type": "AnimationOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "opts", "type": "AnimationOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -1924,14 +1512,7 @@
       "file": "api/fn/shape-locks.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "locked",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "locked", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setShapeBounds",
@@ -1941,14 +1522,7 @@
       "file": "api/fn/shape-read-base.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "bounds",
-          "type": "ShapeBounds",
-          "kind": "object",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "bounds", "type": "ShapeBounds", "kind": "object", "optional": false }]
     },
     {
       "id": "setShapeBulletStyle",
@@ -1958,14 +1532,7 @@
       "file": "api/fn/shape-text.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "style",
-          "type": "BulletStyle",
-          "kind": "object",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "style", "type": "BulletStyle", "kind": "object", "optional": false }]
     },
     {
       "id": "setShapeClickAction",
@@ -1999,12 +1566,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "geometry",
-          "type": "CustomGeometryInput",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "geometry", "type": "CustomGeometryInput", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2016,12 +1578,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "description",
-          "type": "string | null",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "description", "type": "string | null", "kind": "string", "optional": false }
       ]
     },
     {
@@ -2067,12 +1624,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "options",
-          "type": "GlowOptions | null",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "options", "type": "GlowOptions | null", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2084,12 +1636,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "options",
-          "type": "GradientFillOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "options", "type": "GradientFillOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2100,14 +1647,7 @@
       "file": "api/fn/shape-read-base.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "hidden",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "hidden", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setShapeHyperlink",
@@ -2118,18 +1658,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "url",
-          "type": "string | null",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "tooltip",
-          "type": "string",
-          "kind": "string",
-          "optional": true
-        },
+        { "name": "url", "type": "string | null", "kind": "string", "optional": false },
+        { "name": "tooltip", "type": "string", "kind": "string", "optional": true },
         {
           "name": "options",
           "type": "{ range?: { start: number; end: number } }",
@@ -2147,17 +1677,12 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "bytes",
-          "type": "Uint8Array",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "bytes", "type": "Uint8Array", "kind": "object", "optional": false },
         {
           "name": "options",
           "type": "{ format?: ImageFormat; fit?: ImageFit }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -2170,12 +1695,23 @@
       "file": "api/fn/shape-image-effects.ts",
       "returns": "void",
       "canvas": true,
+      "params": [{ "name": "value", "type": "number | null", "kind": "number", "optional": false }]
+    },
+    {
+      "id": "setShapeImageCompressionState",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-picture-style.ts",
+      "returns": "void",
+      "canvas": true,
       "params": [
         {
-          "name": "value",
-          "type": "number | null",
-          "kind": "number",
-          "optional": false
+          "name": "state",
+          "type": "ImageCompressionState | null",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["none", "email", "screen", "print", "hqprint"]
         }
       ]
     },
@@ -2187,14 +1723,7 @@
       "file": "api/fn/shape-image-effects.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "value",
-          "type": "number | null",
-          "kind": "number",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "value", "type": "number | null", "kind": "number", "optional": false }]
     },
     {
       "id": "setShapeImageCrop",
@@ -2205,12 +1734,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "crop",
-          "type": "ImageCrop | null",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "crop", "type": "ImageCrop | null", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2222,17 +1746,12 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "bytes",
-          "type": "Uint8Array",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "bytes", "type": "Uint8Array", "kind": "object", "optional": false },
         {
           "name": "options",
           "type": "{ format?: ImageFormat }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -2246,12 +1765,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "ImageFillLayout",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "layout", "type": "ImageFillLayout", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2263,12 +1777,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "opacity",
-          "type": "number | null",
-          "kind": "number",
-          "optional": false
-        }
+        { "name": "opacity", "type": "number | null", "kind": "number", "optional": false }
       ]
     },
     {
@@ -2279,10 +1788,20 @@
       "file": "api/fn/shape-image-effects.ts",
       "returns": "void",
       "canvas": true,
+      "params": [{ "name": "recolor", "type": "ImageRecolor", "kind": "object", "optional": false }]
+    },
+    {
+      "id": "setShapeInnerShadow",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "effect",
+      "file": "api/fn/shape-effects.ts",
+      "returns": "void",
+      "canvas": true,
       "params": [
         {
-          "name": "recolor",
-          "type": "ImageRecolor",
+          "name": "options",
+          "type": "InnerShadowOptions | null",
           "kind": "object",
           "optional": false
         }
@@ -2296,14 +1815,7 @@
       "file": "api/fn/shape-locks.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "locked",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "locked", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setShapeMediaPlayback",
@@ -2314,12 +1826,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "options",
-          "type": "Partial<MediaPlayback>",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "options", "type": "Partial<MediaPlayback>", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2353,7 +1860,7 @@
       "params": [
         {
           "name": "paragraphs",
-          "type": "ReadonlyArray<ParagraphSpec>",
+          "type": "| ReadonlyArray<ParagraphSpec> | { source: SlideShapeData; range?: { start: number; end: number } } | { sources: ReadonlyArray<SlideShapeData> } | { source: SlideShapeData; ranges: ReadonlyArray<{ start: number; end: number }> }",
           "kind": "object",
           "optional": false
         }
@@ -2377,6 +1884,53 @@
       ]
     },
     {
+      "id": "setShapePictureStyle",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-picture-style.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "style",
+          "type": "BuiltinPictureStyleName",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "Simple Frame, White",
+            "Beveled Matte, White",
+            "Metal Frame",
+            "Drop Shadow Rectangle",
+            "Reflected Rounded Rectangle",
+            "Soft Edge Rectangle",
+            "Double Frame, Black",
+            "Thick Matte, Black",
+            "Simple Frame, Black",
+            "Beveled Oval, Black",
+            "Compound Frame, Black",
+            "Moderate Frame, Black",
+            "Center Shadow Rectangle",
+            "Rounded Diagonal Corner, White",
+            "Snip Diagonal Corner, White",
+            "Moderate Frame, White",
+            "Rotated, White",
+            "Perspective Shadow, White",
+            "Relaxed Perspective, White",
+            "Soft Edge Oval",
+            "Bevel Rectangle",
+            "Bevel Perspective",
+            "Reflected Perspective Right",
+            "Bevel Perspective Left, White",
+            "Reflected Bevel, Black",
+            "Reflected Bevel, White",
+            "Metal Rounded Rectangle",
+            "Metal Oval"
+          ]
+        }
+      ]
+    },
+    {
       "id": "setShapePosition",
       "operand": "shape",
       "takesOperand": true,
@@ -2385,18 +1939,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "x",
-          "type": "Emu",
-          "kind": "emu",
-          "optional": false
-        },
-        {
-          "name": "y",
-          "type": "Emu",
-          "kind": "emu",
-          "optional": false
-        }
+        { "name": "x", "type": "Emu", "kind": "emu", "optional": false },
+        { "name": "y", "type": "Emu", "kind": "emu", "optional": false }
       ]
     },
     {
@@ -2411,6 +1955,81 @@
         {
           "name": "preset",
           "type": "PresetShape",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "diamond",
+            "plus",
+            "triangle",
+            "rect",
+            "roundRect",
+            "ellipse",
+            "rtTriangle",
+            "parallelogram",
+            "trapezoid",
+            "pentagon",
+            "hexagon",
+            "heptagon",
+            "octagon",
+            "decagon",
+            "star4",
+            "star5",
+            "star6",
+            "star7",
+            "star8",
+            "star10",
+            "star12",
+            "star16",
+            "star24",
+            "star32",
+            "rightArrow",
+            "leftArrow",
+            "upArrow",
+            "downArrow",
+            "leftRightArrow",
+            "upDownArrow",
+            "bentArrow",
+            "curvedRightArrow",
+            "curvedLeftArrow",
+            "curvedUpArrow",
+            "curvedDownArrow",
+            "cloud",
+            "heart",
+            "lightningBolt",
+            "sun",
+            "moon",
+            "bracketPair",
+            "bracePair",
+            "leftBracket",
+            "rightBracket",
+            "leftBrace",
+            "rightBrace",
+            "cube",
+            "can",
+            "donut",
+            "noSmoking",
+            "mathPlus",
+            "mathMinus",
+            "mathMultiply",
+            "mathDivide",
+            "mathEqual",
+            "mathNotEqual"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "setShapeReflection",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "effect",
+      "file": "api/fn/shape-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "ReflectionOptions | null",
           "kind": "object",
           "optional": false
         }
@@ -2424,14 +2043,7 @@
       "file": "api/fn/shape-fill-stroke.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "degrees",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "degrees", "type": "number", "kind": "number", "optional": false }]
     },
     {
       "id": "setShapeRunFormat",
@@ -2442,24 +2054,9 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "runIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "format",
-          "type": "TextFormat",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "runIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "format", "type": "TextFormat", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2471,30 +2068,10 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "runIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "url",
-          "type": "string | null",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "tooltip",
-          "type": "string",
-          "kind": "string",
-          "optional": true
-        }
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "runIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "url", "type": "string | null", "kind": "string", "optional": false },
+        { "name": "tooltip", "type": "string", "kind": "string", "optional": true }
       ]
     },
     {
@@ -2506,24 +2083,9 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "paragraphIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "runIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "text",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "paragraphIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "runIndex", "type": "number", "kind": "number", "optional": false },
+        { "name": "text", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -2539,7 +2101,7 @@
           "name": "options",
           "type": "ShadowOptions | null",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -2553,18 +2115,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "w",
-          "type": "Emu",
-          "kind": "emu",
-          "optional": false
-        },
-        {
-          "name": "h",
-          "type": "Emu",
-          "kind": "emu",
-          "optional": false
-        }
+        { "name": "w", "type": "Emu", "kind": "emu", "optional": false },
+        { "name": "h", "type": "Emu", "kind": "emu", "optional": false }
       ]
     },
     {
@@ -2578,6 +2130,18 @@
       "params": []
     },
     {
+      "id": "setShapeSoftEdge",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        { "name": "radiusEmu", "type": "number | null", "kind": "number", "optional": false }
+      ]
+    },
+    {
       "id": "setShapeStroke",
       "operand": "shape",
       "takesOperand": true,
@@ -2588,7 +2152,7 @@
       "params": [
         {
           "name": "options",
-          "type": "{ color?: Color; widthEmu?: number; opacity?: number }",
+          "type": "{ color?: Color; widthEmu?: number; opacity?: number; fill?: LineFill }",
           "kind": "object",
           "optional": false
         }
@@ -2610,12 +2174,7 @@
           "optional": false,
           "enumValues": ["head", "tail"]
         },
-        {
-          "name": "options",
-          "type": "ArrowOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "options", "type": "ArrowOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2666,25 +2225,21 @@
         {
           "name": "dash",
           "type": "LineDash",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setShapeStrokeSketch",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "stroke",
-      "file": "api/fn/shape-fill-stroke.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "sketch",
-          "type": "LineSketch | null",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "solid",
+            "dot",
+            "dash",
+            "lgDash",
+            "dashDot",
+            "lgDashDot",
+            "lgDashDotDot",
+            "sysDash",
+            "sysDot",
+            "sysDashDot",
+            "sysDashDotDot"
+          ]
         }
       ]
     },
@@ -2707,6 +2262,24 @@
       ]
     },
     {
+      "id": "setShapeStrokeSketch",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "sketch",
+          "type": "LineSketch | null",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["curved", "freehand", "scribble"]
+        }
+      ]
+    },
+    {
       "id": "setShapeStyle",
       "operand": "shape",
       "takesOperand": true,
@@ -2715,12 +2288,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "options",
-          "type": "ShapeStyleOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "options", "type": "ShapeStyleOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -2734,15 +2302,15 @@
       "params": [
         {
           "name": "value",
-          "type": "string",
+          "type": "string | { case: TextCase }",
           "kind": "string",
           "optional": false
         },
         {
           "name": "options",
-          "type": "{ bullets?: BulletStyle; preserveFormatting?: boolean; range?: { start: number; end: number }; }",
+          "type": "{ newlines?: 'paragraph' | 'break'; bullets?: BulletStyle; preserveFormatting?: boolean; range?: { start: number; end: number }; }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -2755,31 +2323,7 @@
       "file": "api/fn/shape-text.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "value",
-          "type": "Text3D | null",
-          "kind": "object",
-          "optional": false
-        }
-      ]
-    },
-    {
-      "id": "setShapeTextFlat",
-      "operand": "shape",
-      "takesOperand": true,
-      "category": "text",
-      "file": "api/fn/shape-text.ts",
-      "returns": "void",
-      "canvas": true,
-      "params": [
-        {
-          "name": "flat",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "value", "type": "Text3D | null", "kind": "object", "optional": false }]
     },
     {
       "id": "setShapeTextAnchor",
@@ -2793,14 +2337,15 @@
         {
           "name": "anchor",
           "type": "TextAnchor",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["top", "bottom", "center"]
         },
         {
           "name": "options",
           "type": "{ centered?: boolean | null }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -2817,8 +2362,9 @@
         {
           "name": "mode",
           "type": "TextAutoFit",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["none", "normal", "shape"]
         }
       ]
     },
@@ -2831,12 +2377,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "rotationDeg",
-          "type": "number | null",
-          "kind": "number",
-          "optional": false
-        }
+        { "name": "rotationDeg", "type": "number | null", "kind": "number", "optional": false }
       ]
     },
     {
@@ -2868,8 +2409,17 @@
         {
           "name": "direction",
           "type": "| 'horz' | 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "horz",
+            "vert",
+            "vert270",
+            "wordArtVert",
+            "eaVert",
+            "mongolianVert",
+            "wordArtVertRtl"
+          ]
         }
       ]
     },
@@ -2882,20 +2432,25 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "type",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        },
+        { "name": "type", "type": "string", "kind": "string", "optional": false },
         {
           "name": "options",
           "type": "{ text?: string }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
+    },
+    {
+      "id": "setShapeTextFlat",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [{ "name": "flat", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setShapeTextFormat",
@@ -2906,15 +2461,10 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "format",
-          "type": "TextFormat",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "format", "type": "TextFormat", "kind": "object", "optional": false },
         {
           "name": "options",
-          "type": "{ range?: { start: number; end: number }; reset?: boolean }",
+          "type": "| { range?: { start: number; end: number }; reset?: boolean; paragraphEnd?: never } | { paragraphEnd: number; reset?: boolean; range?: never }",
           "kind": "object",
           "optional": true
         }
@@ -2928,14 +2478,7 @@
       "file": "api/fn/shape-text-language.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "lang",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "lang", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "setShapeTextMargins",
@@ -2966,8 +2509,9 @@
         {
           "name": "wrap",
           "type": "TextWrap",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["none", "square"]
         }
       ]
     },
@@ -2979,14 +2523,7 @@
       "file": "api/fn/shape-removal-zorder.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "toIndex",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "toIndex", "type": "number", "kind": "number", "optional": false }]
     },
     {
       "id": "setSlideBackground",
@@ -2997,18 +2534,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "color",
-          "type": "Color",
-          "kind": "color",
-          "optional": false
-        },
-        {
-          "name": "opacity",
-          "type": "number",
-          "kind": "number",
-          "optional": true
-        }
+        { "name": "color", "type": "Color", "kind": "color", "optional": false },
+        { "name": "opacity", "type": "number", "kind": "number", "optional": true }
       ]
     },
     {
@@ -3020,12 +2547,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "options",
-          "type": "GradientFillOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "options", "type": "GradientFillOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -3036,14 +2558,7 @@
       "file": "api/fn/slide-query.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "hidden",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "hidden", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setSlideBackgroundImage",
@@ -3054,17 +2569,12 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "bytes",
-          "type": "Uint8Array",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "bytes", "type": "Uint8Array", "kind": "object", "optional": false },
         {
           "name": "options",
           "type": "{ format?: ImageFormat }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -3078,12 +2588,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "ImageFillLayout",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "layout", "type": "ImageFillLayout", "kind": "object", "optional": false }
       ]
     },
     {
@@ -3095,12 +2600,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "opacity",
-          "type": "number | null",
-          "kind": "number",
-          "optional": false
-        }
+        { "name": "opacity", "type": "number | null", "kind": "number", "optional": false }
       ]
     },
     {
@@ -3128,14 +2628,7 @@
       "file": "api/fn/slide-title.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "text",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "text", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "setSlideHidden",
@@ -3145,14 +2638,7 @@
       "file": "api/fn/slide-query.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "hidden",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "hidden", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setSlideLayout",
@@ -3163,12 +2649,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false }
       ]
     },
     {
@@ -3180,18 +2661,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "color",
-          "type": "string",
-          "kind": "color",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false },
+        { "name": "color", "type": "string", "kind": "color", "optional": false }
       ]
     },
     {
@@ -3203,18 +2674,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "hidden",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false },
+        { "name": "hidden", "type": "boolean", "kind": "boolean", "optional": false }
       ]
     },
     {
@@ -3226,18 +2687,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "included",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false },
+        { "name": "included", "type": "boolean", "kind": "boolean", "optional": false }
       ]
     },
     {
@@ -3249,18 +2700,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false },
+        { "name": "name", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -3272,24 +2713,9 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "index",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "bounds",
-          "type": "ShapeBounds",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false },
+        { "name": "index", "type": "number", "kind": "number", "optional": false },
+        { "name": "bounds", "type": "ShapeBounds", "kind": "object", "optional": false }
       ]
     },
     {
@@ -3301,18 +2727,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "layout",
-          "type": "SlideLayoutData",
-          "kind": "object",
-          "optional": false
-        },
-        {
-          "name": "included",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
+        { "name": "layout", "type": "SlideLayoutData", "kind": "object", "optional": false },
+        { "name": "included", "type": "boolean", "kind": "boolean", "optional": false }
       ]
     },
     {
@@ -3323,14 +2739,7 @@
       "file": "api/fn/master-background-style.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "style",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "style", "type": "number", "kind": "number", "optional": false }]
     },
     {
       "id": "setSlideMasterName",
@@ -3341,18 +2750,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "master",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
+        { "name": "master", "type": "string", "kind": "string", "optional": false },
+        { "name": "name", "type": "string", "kind": "string", "optional": false }
       ]
     },
     {
@@ -3364,24 +2763,15 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "master",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        },
+        { "name": "master", "type": "string", "kind": "string", "optional": false },
         {
           "name": "type",
           "type": "MasterPlaceholderType",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["title", "dt", "ftr", "sldNum", "body"]
         },
-        {
-          "name": "included",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
+        { "name": "included", "type": "boolean", "kind": "boolean", "optional": false }
       ]
     },
     {
@@ -3393,18 +2783,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "master",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        },
-        {
-          "name": "preserved",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
+        { "name": "master", "type": "string", "kind": "string", "optional": false },
+        { "name": "preserved", "type": "boolean", "kind": "boolean", "optional": false }
       ]
     },
     {
@@ -3416,11 +2796,13 @@
       "returns": "void",
       "canvas": true,
       "params": [
+        { "name": "value", "type": "string", "kind": "string", "optional": false },
         {
-          "name": "value",
-          "type": "string",
-          "kind": "string",
-          "optional": false
+          "name": "options",
+          "type": "{ preserveFormatting?: boolean; range?: { start: number; end: number }; newlines?: 'paragraph' | 'break'; }",
+          "kind": "object",
+          "optional": true,
+          "default": "{}"
         }
       ]
     },
@@ -3432,21 +2814,12 @@
       "file": "api/fn/slide-notes.ts",
       "returns": "void",
       "canvas": true,
-      "params": []
-    },
-    {
-      "id": "transformSlideNotesCase",
-      "operand": "slide",
-      "takesOperand": true,
-      "category": "notes",
-      "file": "api/fn/slide-notes.ts",
-      "returns": "void",
-      "canvas": true,
       "params": [
+        { "name": "format", "type": "TextFormat", "kind": "object", "optional": false },
         {
-          "name": "value",
-          "type": "TextCase",
-          "kind": "enum",
+          "name": "options",
+          "type": "| { range: { start: number; end: number }; reset?: boolean; paragraphEnd?: never } | { paragraphEnd: number; reset?: boolean; range?: never }",
+          "kind": "object",
           "optional": false
         }
       ]
@@ -3459,14 +2832,7 @@
       "file": "api/fn/guides.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "collapsed",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "collapsed", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setSlidePlaceholders",
@@ -3511,12 +2877,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "settings",
-          "type": "SlideShowProperties",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "settings", "type": "SlideShowProperties", "kind": "object", "optional": false }
       ]
     },
     {
@@ -3528,17 +2889,12 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "opts",
-          "type": "SlideSize",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "opts", "type": "SlideSize", "kind": "object", "optional": false },
         {
           "name": "options",
           "type": "{ content?: 'keep' | 'fit' }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -3551,14 +2907,7 @@
       "file": "api/fn/slide-title.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "title",
-          "type": "string",
-          "kind": "string",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "title", "type": "string", "kind": "string", "optional": false }]
     },
     {
       "id": "setSlideTransition",
@@ -3569,12 +2918,7 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "options",
-          "type": "TransitionOptions",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "options", "type": "TransitionOptions", "kind": "object", "optional": false }
       ]
     },
     {
@@ -3602,14 +2946,7 @@
       "file": "api/fn/guides.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "enabled",
-          "type": "boolean",
-          "kind": "boolean",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "enabled", "type": "boolean", "kind": "boolean", "optional": false }]
     },
     {
       "id": "setTableCellAlignment",
@@ -3623,8 +2960,22 @@
         {
           "name": "align",
           "type": "ParagraphAlignment",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "ctr",
+            "l",
+            "r",
+            "right",
+            "left",
+            "center",
+            "justify",
+            "distribute",
+            "just",
+            "dist",
+            "justLow",
+            "thaiDist"
+          ]
         }
       ]
     },
@@ -3694,14 +3045,7 @@
       "file": "api/fn/tables.ts",
       "returns": "void",
       "canvas": true,
-      "params": [
-        {
-          "name": "color",
-          "type": "Color",
-          "kind": "color",
-          "optional": false
-        }
-      ]
+      "params": [{ "name": "color", "type": "Color", "kind": "color", "optional": false }]
     },
     {
       "id": "setTableCellMargins",
@@ -3748,13 +3092,13 @@
       "params": [
         {
           "name": "text",
-          "type": "string",
+          "type": "string | { case: TextCase }",
           "kind": "string",
           "optional": false
         },
         {
           "name": "options",
-          "type": "{ preserveFormatting?: boolean; range?: { start: number; end: number } }",
+          "type": "{ newlines?: 'paragraph' | 'break'; preserveFormatting?: boolean; range?: { start: number; end: number }; }",
           "kind": "object",
           "optional": true
         }
@@ -3772,8 +3116,17 @@
         {
           "name": "direction",
           "type": "| 'horz' | 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null",
-          "kind": "object",
-          "optional": false
+          "kind": "enum",
+          "optional": false,
+          "enumValues": [
+            "horz",
+            "vert",
+            "vert270",
+            "wordArtVert",
+            "eaVert",
+            "mongolianVert",
+            "wordArtVertRtl"
+          ]
         }
       ]
     },
@@ -3786,15 +3139,10 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "format",
-          "type": "TextFormat",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "format", "type": "TextFormat", "kind": "object", "optional": false },
         {
           "name": "options",
-          "type": "{ range?: { start: number; end: number }; reset?: boolean }",
+          "type": "| { range?: { start: number; end: number }; reset?: boolean; paragraphEnd?: never } | { paragraphEnd: number; reset?: boolean; range?: never }",
           "kind": "object",
           "optional": true
         }
@@ -3809,18 +3157,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "col",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "width",
-          "type": "Emu",
-          "kind": "emu",
-          "optional": false
-        }
+        { "name": "col", "type": "number", "kind": "number", "optional": false },
+        { "name": "width", "type": "Emu", "kind": "emu", "optional": false }
       ]
     },
     {
@@ -3832,18 +3170,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "row",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "height",
-          "type": "Emu",
-          "kind": "emu",
-          "optional": false
-        }
+        { "name": "row", "type": "number", "kind": "number", "optional": false },
+        { "name": "height", "type": "Emu", "kind": "emu", "optional": false }
       ]
     },
     {
@@ -3874,7 +3202,7 @@
       "params": [
         {
           "name": "styleId",
-          "type": "string | null",
+          "type": "BuiltinTableStyleName | (string & {}) | null",
           "kind": "string",
           "optional": false
         }
@@ -3889,17 +3217,12 @@
       "returns": "void",
       "canvas": false,
       "params": [
-        {
-          "name": "bytes",
-          "type": "Uint8Array",
-          "kind": "object",
-          "optional": false
-        },
+        { "name": "bytes", "type": "Uint8Array", "kind": "object", "optional": false },
         {
           "name": "options",
           "type": "{ format?: ImageFormat }",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "{}"
         }
       ]
@@ -3915,7 +3238,7 @@
       "params": [
         {
           "name": "compareFn",
-          "type": "(a: SlideData, b: SlideData) => number,",
+          "type": "(a: SlideData, b: SlideData) => number",
           "kind": "object",
           "optional": false
         }
@@ -3940,18 +3263,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "indexA",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "indexB",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
+        { "name": "indexA", "type": "number", "kind": "number", "optional": false },
+        { "name": "indexB", "type": "number", "kind": "number", "optional": false }
       ]
     },
     {
@@ -3967,8 +3280,33 @@
           "name": "at",
           "type": "Date",
           "kind": "object",
-          "optional": false,
+          "optional": true,
           "default": "new Date()"
+        }
+      ]
+    },
+    {
+      "id": "transformSlideNotesCase",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "TextCase",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["title", "sentence", "lower", "upper", "toggle"]
+        },
+        {
+          "name": "options",
+          "type": "{ range?: { start: number; end: number } }",
+          "kind": "object",
+          "optional": true,
+          "default": "{}"
         }
       ]
     },
@@ -3987,18 +3325,8 @@
           "kind": "object",
           "optional": false
         },
-        {
-          "name": "dxEmu",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "dyEmu",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        }
+        { "name": "dxEmu", "type": "number", "kind": "number", "optional": false },
+        { "name": "dyEmu", "type": "number", "kind": "number", "optional": false }
       ]
     },
     {
@@ -4007,7 +3335,7 @@
       "takesOperand": true,
       "category": "shape",
       "file": "api/fn/shape-grouping.ts",
-      "returns": "ReadonlyArray<SlideShapeData>",
+      "returns": "readonly SlideShapeData[]",
       "canvas": true,
       "params": []
     },
@@ -4020,18 +3348,8 @@
       "returns": "void",
       "canvas": true,
       "params": [
-        {
-          "name": "id",
-          "type": "number",
-          "kind": "number",
-          "optional": false
-        },
-        {
-          "name": "patch",
-          "type": "AnimationPatch",
-          "kind": "object",
-          "optional": false
-        }
+        { "name": "id", "type": "number", "kind": "number", "optional": false },
+        { "name": "patch", "type": "AnimationPatch", "kind": "object", "optional": false }
       ]
     }
   ]

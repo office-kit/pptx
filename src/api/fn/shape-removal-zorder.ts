@@ -295,13 +295,6 @@ export const sendShapeBackward = (shape: SlideShapeData | readonly SlideShapeDat
 };
 
 /**
- * Removes the shape from its slide's shape tree. Subsequent property
- * reads on this handle reflect the stale snapshot — discard it after.
- *
- * Removing a picture does NOT delete the underlying media part — it
- * may be referenced from other slides.
- */
-/**
  * Removes every shape (sp / pic / cxnSp / graphicFrame / grpSp) from
  * the slide's `<p:spTree>`. The required `<p:nvGrpSpPr>` and
  * `<p:grpSpPr>` preface stays in place, so the slide is still valid
@@ -326,6 +319,13 @@ export const clearSlideShapes = (slide: SlideData): void => {
   rebuildShapesFromDocument(slide);
 };
 
+/**
+ * Removes the shape from its slide's shape tree. Subsequent property
+ * reads on this handle reflect the stale snapshot — discard it after.
+ *
+ * Removing a picture does NOT delete the underlying media part — it
+ * may be referenced from other slides.
+ */
 export const removeShape = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
   const spTree = findShapeParent(shape);

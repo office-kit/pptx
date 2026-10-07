@@ -10,6 +10,7 @@ import {
   findSlideByPartName,
   getShapeId,
   getShapeName,
+  getShapeSlide,
   getSlidePartName,
   getSlideShapes,
   getSlides,
@@ -28,6 +29,17 @@ export interface ShapeRef {
   readonly shapeId: number;
   /** The shape's name when the ref was taken, as in the Selection Pane. */
   readonly name: string;
+}
+
+/** The ref for `shape`, which is on a slide of `presentation`. */
+export function shapeRef(presentation: PresentationData, shape: SlideShapeData): ShapeRef {
+  const slide = getShapeSlide(shape);
+  return {
+    slideIndex: getSlides(presentation).indexOf(slide),
+    slide: getSlidePartName(slide),
+    shapeId: getShapeId(shape),
+    name: getShapeName(shape),
+  };
 }
 
 /** Refs for the shapes `selection` names (the table, for a cell selection). */
