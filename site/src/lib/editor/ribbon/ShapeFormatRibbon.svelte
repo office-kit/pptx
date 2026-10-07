@@ -20,7 +20,7 @@
   import ShapeFillPicker from './ShapeFillPicker.svelte';
   import ShapeQuickStyles from './ShapeQuickStyles.svelte';
   import SizeSpinners from './SizeSpinners.svelte';
-  import { caption } from './caption.ts';
+  import { captionLines } from './caption.ts';
   import { PRESET } from './config.ts';
   import { RibbonCollapse } from './ribbon-collapse.svelte.ts';
 
@@ -177,7 +177,7 @@
 
   <section class="ctx-group ctx-shrink" aria-label={t('Shape Styles')}>
     <ShapeQuickStyles inline />
-    <span class="ctx-paint ctx-big" class:disabled={!paintable}><span class="ctx-icon-row"><Icon name="fill" size={32} /></span><span class="ctx-caption">{caption(t('Shape Fill'))}</span><ShapeFillPicker disabled={!paintable} /></span>
+    <span class="ctx-paint ctx-big" class:disabled={!paintable}><span class="ctx-icon-row"><Icon name="fill" size={32} /></span><span class="ctx-caption">{captionLines(t('Shape Fill'))}</span><ShapeFillPicker disabled={!paintable} /></span>
     <div class="ctx-rows tools">
       <span class="ctx-paint ctx-tool" class:disabled={!paintable}><Icon name="outline" size={18} /><ColorPicker compact label={t('Shape Outline')} disabled={!paintable} choose={outline} /></span>
       <MenuButton look="tool" icon="shadow" label={t('Shape Effects')} disabled={!paintable}>{@render shapeEffectItems()}</MenuButton>
@@ -197,7 +197,7 @@
         <WordArtGallery anchor={wordArtButton} label={t('WordArt Quick Styles')} choose={wordArt} close={() => (wordArtOpen = false)} clear={clearWordArt} />
       {/if}
     </div>
-    <span class="ctx-paint ctx-big" class:disabled={!texty}><span class="ctx-icon-row"><Icon name="font-color" size={32} /></span><span class="ctx-caption">{caption(t('Text Fill'))}</span><ColorPicker compact label={t('Text Fill')} disabled={!texty} choose={(color) => textFormat({ color })} /></span>
+    <span class="ctx-paint ctx-big" class:disabled={!texty}><span class="ctx-icon-row"><Icon name="font-color" size={32} /></span><span class="ctx-caption">{captionLines(t('Text Fill'))}</span><ColorPicker compact label={t('Text Fill')} disabled={!texty} choose={(color) => textFormat({ color })} /></span>
     <div class="ctx-rows tools">
       <span class="ctx-paint ctx-tool" class:disabled={!texty}><Icon name="outline" size={18} /><ColorPicker compact label={t('Text Outline')} disabled={!texty} choose={(color) => textFormat({ outline: { color, widthEmu: THIN_OUTLINE_EMU } })} /></span>
       <MenuButton look="tool" icon="glow" label={t('Text Effects')} disabled={!texty}>{@render textEffectItems()}</MenuButton>
@@ -205,7 +205,7 @@
   </section>
 
   <section class="ctx-group" aria-label={t('Accessibility')}>
-    <button class="ctx-big" aria-label={t('Alt Text')} title={t('Display the Alt Text Pane')} disabled={!editor.canRun('setShapeDescription')} onclick={() => editor.runOrPrompt('setShapeDescription')}><span class="ctx-icon-row"><Icon name="alt-text" size={32} /></span><span class="ctx-caption">{caption(t('Alt Text'))}</span></button>
+    <button class="ctx-big" aria-label={t('Alt Text')} title={t('Display the Alt Text Pane')} disabled={!editor.canRun('setShapeDescription')} onclick={() => editor.runOrPrompt('setShapeDescription')}><span class="ctx-icon-row"><Icon name="alt-text" size={32} /></span><span class="ctx-caption">{captionLines(t('Alt Text'))}</span></button>
   </section>
 
   <ArrangeGroup collapsed={compact} />
@@ -215,7 +215,7 @@
   </section>
 
   <section class="ctx-group" aria-label={t('Format Pane')}>
-    <button class="ctx-big" aria-label={t('Format Pane')} title={t('Display the Format Pane')} disabled={shapes.length === 0} onclick={() => editor.showShapeFormat()}><span class="ctx-icon-row"><Icon name="format-pane" size={32} /></span><span class="ctx-caption">{caption(t('Format Pane'))}</span></button>
+    <button class="ctx-big" aria-label={t('Format Pane')} title={t('Display the Format Pane')} disabled={shapes.length === 0} onclick={() => editor.showShapeFormat()}><span class="ctx-icon-row"><Icon name="format-pane" size={32} /></span><span class="ctx-caption">{captionLines(t('Format Pane'))}</span></button>
   </section>
 </div>
 

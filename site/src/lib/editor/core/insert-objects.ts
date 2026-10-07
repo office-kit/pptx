@@ -4,11 +4,14 @@
 import {
   addSlideImage,
   addSlideMedia,
+  addSlideTable,
   addSlideTextBox,
   emu,
   getShapeId,
   getSlideSize,
+  inches,
   setParagraphAlignment,
+  setShapeTextDirection,
   setShapeTextFormat,
   type SlideShapeData,
 } from '@office-kit/pptx';
@@ -114,6 +117,76 @@ export function insertWordArt(
     setShapeTextFormat(shape, { size: WORDART_PT });
     applyWordArtPreset(shape, preset);
     setParagraphAlignment(shape, 0, 'ctr');
+    return shape;
+  });
+}
+
+const TABLE_ROW_EMU = inches(0.4);
+
+/**
+ * Insert ▸ Table: an empty table 80% of the slide wide, centered, with the
+ * first cell selected for typing.
+ */
+export function insertTable(
+  editor: EditorController,
+  label: string,
+  rows: number,
+  columns: number,
+  options: { readonly header: boolean; readonly banded: boolean },
+) {
+  const doc = editor.doc;
+  const slide = doc.currentSlide;
+  if (!slide) return;
+  const size = getSlideSize(doc.pres);
+  const width = size?.width ?? 12192000;
+  const height = size?.height ?? 6858000;
+  const w = Math.round(width * 0.8);
+  const h = Math.round(Math.min(height * 0.7, rows * TABLE_ROW_EMU));
+  const cells = Array.from({ length: rows }, () => Array.from({ length: columns }, () => ''));
+  doc.transact(label, () => {
+    const table = addSlideTable(slide, {
+      x: emu(Math.round((width - w) / 2)),
+      y: emu(Math.round((height - h) / 2)),
+      w: emu(w),
+      h: emu(h),
+      rows: cells,
+      firstRow: options.header,
+      bandRow: options.banded,
+    });
+    doc.selectCell(doc.selection.slideIndex, getShapeId(table), 0, 0);
+  });
+}
+
+const TEXT_BOX_EMU = { w: inches(4), h: inches(1) };
+
+/**
+ * Insert ▸ Text Box ▸ Draw Horizontal / Vertical Text Box. PowerPoint draws
+ * the box with the mouse; the editor drops a 4 × 1 in box (1 × 4 in when
+ * vertical) in the middle of the slide. A vertical box rotates its text 90°
+ * (`vert="vert"`), as PowerPoint's Mac command writes.
+ */
+export function insertTextBox(
+  editor: EditorController,
+  label: string,
+  text: string,
+  vertical: boolean,
+) {
+  const slide = editor.doc.currentSlide;
+  if (!slide) return;
+  const size = getSlideSize(editor.doc.pres);
+  const width = size?.width ?? 12192000;
+  const height = size?.height ?? 6858000;
+  const w = vertical ? TEXT_BOX_EMU.h : TEXT_BOX_EMU.w;
+  const h = vertical ? TEXT_BOX_EMU.w : TEXT_BOX_EMU.h;
+  insert(editor, label, () => {
+    const shape = addSlideTextBox(slide, {
+      x: emu(Math.round((width - w) / 2)),
+      y: emu(Math.round((height - h) / 2)),
+      w: emu(w),
+      h: emu(h),
+      text,
+    });
+    if (vertical) setShapeTextDirection(shape, 'vert');
     return shape;
   });
 }

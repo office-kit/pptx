@@ -9,7 +9,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
-  import { caption } from './caption.ts';
+  import { captionLines } from './caption.ts';
   import MenuButton from './MenuButton.svelte';
   import { ALIGN_ITEMS, ROTATE_ITEMS, rotateSelection } from './arrange-actions.ts';
 
@@ -62,7 +62,7 @@
         <MenuButton look="row" icon="rotate" label={t('Rotate')} disabled={!editor.canRun('setShapeRotation')}>{@render rotate()}</MenuButton>
       </div>
     {:else}
-      <button class="ctx-big" aria-label={t('Selection Pane')} aria-pressed={editor.selectionPaneVisible} title={t('Display the Selection Pane')} onclick={() => { editor.setViewMode('normal'); editor.selectionPaneVisible = !editor.selectionPaneVisible; }}><span class="ctx-icon-row"><Icon name="selection-pane" size={32} /></span><span class="ctx-caption">{caption(t('Selection Pane'))}</span></button>
+      <button class="ctx-big" aria-label={t('Selection Pane')} aria-pressed={editor.selectionPaneVisible} title={t('Display the Selection Pane')} onclick={() => { editor.setViewMode('normal'); editor.selectionPaneVisible = !editor.selectionPaneVisible; }}><span class="ctx-icon-row"><Icon name="selection-pane" size={32} /></span><span class="ctx-caption">{captionLines(t('Selection Pane'))}</span></button>
       <MenuButton look="big" icon="arrange" label={t('Reorder Objects')}>
         <button role="menuitem" disabled={editor.reorderMembers().length < 2} onclick={() => (editor.activeDialog = 'reorderObjects')}>{t('Reorder Overlapping Objects')}</button>
       </MenuButton>

@@ -15,7 +15,7 @@
   import Icon from '../ui/Icon.svelte';
   import WordArtGallery from '../ui/WordArtGallery.svelte';
   import MenuButton from './MenuButton.svelte';
-  import { caption } from './caption.ts';
+  import { captionLines } from './caption.ts';
   import { RibbonCollapse } from './ribbon-collapse.svelte.ts';
 
   const editor = getEditor();
@@ -173,7 +173,7 @@
 
   <section class="ctx-group" aria-label={t('WordArt Styles')}>
     <div class="anchor">
-      <button class="ctx-big" bind:this={quickStylesButton} aria-label={t('WordArt Quick Styles')} aria-haspopup="menu" aria-expanded={quickStylesOpen} disabled={!editable} onclick={() => (quickStylesOpen = !quickStylesOpen)}><span class="ctx-icon-row"><span class="wordart" aria-hidden="true">A</span><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{caption(t('Quick Styles'))}</span></button>
+      <button class="ctx-big" bind:this={quickStylesButton} aria-label={t('WordArt Quick Styles')} aria-haspopup="menu" aria-expanded={quickStylesOpen} disabled={!editable} onclick={() => (quickStylesOpen = !quickStylesOpen)}><span class="ctx-icon-row"><span class="wordart" aria-hidden="true">A</span><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{captionLines(t('Quick Styles'))}</span></button>
       {#if quickStylesOpen && quickStylesButton}
         <WordArtGallery anchor={quickStylesButton} label={t('WordArt Quick Styles')} choose={wordArt} close={() => (quickStylesOpen = false)} />
       {/if}
@@ -191,7 +191,7 @@
       <select class="ok-input" aria-label={t('Pen Weight')} title={t('Pen Weight')} bind:value={penWeight}>{#each PEN_WEIGHTS as weight (weight)}<option value={weight}>{weight} pt</option>{/each}</select>
       <span class="ctx-paint ctx-row pen-color"><Icon name="pen" size={16} /><span>{t('Pen Color')}</span><ColorPicker compact label={t('Pen Color')} choose={(color) => (penColor = color)} /></span>
     </div>
-    <button class="ctx-big" aria-label={t('Draw Table')} title={t('Drawing table borders with the pointer is not available in this editor yet; use Borders.')} disabled><span class="ctx-icon-row"><Icon name="draw-table" size={32} /></span><span class="ctx-caption">{caption(t('Draw Table'))}</span></button>
+    <button class="ctx-big" aria-label={t('Draw Table')} title={t('Drawing table borders with the pointer is not available in this editor yet; use Borders.')} disabled><span class="ctx-icon-row"><Icon name="draw-table" size={32} /></span><span class="ctx-caption">{captionLines(t('Draw Table'))}</span></button>
     <button class="ctx-big" aria-label={t('Eraser')} title={t('Erasing table borders with the pointer is not available in this editor yet; use Borders ▸ No Border.')} disabled><span class="ctx-icon-row"><Icon name="eraser" size={32} /></span><span class="ctx-caption">{t('Eraser')}</span></button>
   </section>
 </div>

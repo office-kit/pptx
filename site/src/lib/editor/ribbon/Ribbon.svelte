@@ -19,6 +19,7 @@
   import ShapeFormatRibbon from './ShapeFormatRibbon.svelte';
   import HomeRibbon from './HomeRibbon.svelte';
   import DesignRibbon from './DesignRibbon.svelte';
+  import InsertRibbon from './InsertRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import PictureFormatRibbon from './PictureFormatRibbon.svelte';
   import TableDesignRibbon from './TableDesignRibbon.svelte';
@@ -165,6 +166,7 @@
     {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
     {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}
+    {#if current?.id === 'insert'}<InsertRibbon />{/if}
     {#if current?.id === 'design'}<DesignRibbon />{/if}
     {#if current?.id === 'shape'}<ShapeFormatRibbon />{/if}
     {#if current?.id === 'picture'}<PictureFormatRibbon />{/if}

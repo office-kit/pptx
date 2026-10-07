@@ -4,7 +4,7 @@
   // icon only) and `tool` (38 × 26, icon only). Choosing a menu item closes it.
   import { tick, type Snippet } from 'svelte';
   import Icon from '../ui/Icon.svelte';
-  import { caption } from './caption.ts';
+  import { captionLines } from './caption.ts';
   import { placeBelowTrigger } from './place-menu.ts';
 
   let {
@@ -75,7 +75,7 @@
   onclick={toggle}
 >
   {#if look === 'big'}
-    <span class="ctx-icon-row"><Icon name={icon} size={32} /><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{caption(label)}</span>
+    <span class="ctx-icon-row"><Icon name={icon} size={32} /><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{captionLines(label)}</span>
   {:else if look === 'row'}
     <Icon name={icon} size={16} /><span>{label}</span><span class="ctx-caret" aria-hidden="true">▾</span>
   {:else}

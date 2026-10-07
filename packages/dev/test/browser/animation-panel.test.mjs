@@ -82,7 +82,7 @@ test(
       assert.deepEqual(await stored(), []);
 
       // --- Adding, by name ------------------------------------------------
-      const objects = pane().getByLabel(label('Object', '対象'));
+      const objects = pane().getByLabel(label('Object', 'オブジェクト'));
       assert.deepEqual(
         (await objects.locator('option').allTextContents()).map((text) => text.trim()),
         ['TextBox 2 — Alpha', 'TextBox 3 — Beta', 'TextBox 4 — One Two'],

@@ -16,7 +16,7 @@
   import SizeSpinners from './SizeSpinners.svelte';
   import VideoCorrectionsMenu from './VideoCorrectionsMenu.svelte';
   import VideoRecolorMenu from './VideoRecolorMenu.svelte';
-  import { caption } from './caption.ts';
+  import { captionLines } from './caption.ts';
   import { RibbonCollapse } from './ribbon-collapse.svelte.ts';
 
   const editor = getEditor();
@@ -106,7 +106,7 @@
 
 <div class="ctx-ribbon picture-format" bind:this={collapse.node} bind:clientWidth={collapse.width}>
   <section class="ctx-group" aria-label={t('Remove Background')}>
-    <button class="ctx-big" aria-label={t('Remove Background')} title={t('Removing a background needs image segmentation, which the editor does not have.')} disabled><span class="ctx-icon-row"><Icon name="remove-background" size={32} /></span><span class="ctx-caption">{caption(t('Remove Background'))}</span></button>
+    <button class="ctx-big" aria-label={t('Remove Background')} title={t('Removing a background needs image segmentation, which the editor does not have.')} disabled><span class="ctx-icon-row"><Icon name="remove-background" size={32} /></span><span class="ctx-caption">{captionLines(t('Remove Background'))}</span></button>
   </section>
 
   <section class="ctx-group" aria-label={t('Adjust')}>
@@ -142,7 +142,7 @@
   </section>
 
   <section class="ctx-group" aria-label={t('Accessibility')}>
-    <button class="ctx-big" aria-label={t('Alt Text')} title={t('Display the Alt Text Pane')} disabled={!editor.canRun('setShapeDescription')} onclick={() => editor.runOrPrompt('setShapeDescription')}><span class="ctx-icon-row"><Icon name="alt-text" size={32} /></span><span class="ctx-caption">{caption(t('Alt Text'))}</span></button>
+    <button class="ctx-big" aria-label={t('Alt Text')} title={t('Display the Alt Text Pane')} disabled={!editor.canRun('setShapeDescription')} onclick={() => editor.runOrPrompt('setShapeDescription')}><span class="ctx-icon-row"><Icon name="alt-text" size={32} /></span><span class="ctx-caption">{captionLines(t('Alt Text'))}</span></button>
   </section>
 
   <ArrangeGroup collapsed={compact} />
@@ -153,11 +153,11 @@
   </section>
 
   <section class="ctx-group" aria-label={t('Format Pane')}>
-    <button class="ctx-big" aria-label={t('Format Pane')} title={t('Display the Format Pane')} disabled={!picture} onclick={() => editor.showShapeFormat()}><span class="ctx-icon-row"><Icon name="format-pane" size={32} /></span><span class="ctx-caption">{caption(t('Format Pane'))}</span></button>
+    <button class="ctx-big" aria-label={t('Format Pane')} title={t('Display the Format Pane')} disabled={!picture} onclick={() => editor.showShapeFormat()}><span class="ctx-icon-row"><Icon name="format-pane" size={32} /></span><span class="ctx-caption">{captionLines(t('Format Pane'))}</span></button>
   </section>
 
   <section class="ctx-group" aria-label={t('Animate as Background')}>
-    <button class="ctx-big" aria-label={t('Animate as Background')} title={t('Animated backgrounds are not supported by the library yet.')} disabled><span class="ctx-icon-row"><Icon name="animate-background" size={32} /></span><span class="ctx-caption">{caption(t('Animate as Background'))}</span></button>
+    <button class="ctx-big" aria-label={t('Animate as Background')} title={t('Animated backgrounds are not supported by the library yet.')} disabled><span class="ctx-icon-row"><Icon name="animate-background" size={32} /></span><span class="ctx-caption">{captionLines(t('Animate as Background'))}</span></button>
   </section>
 </div>
 

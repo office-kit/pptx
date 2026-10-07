@@ -67,7 +67,7 @@ test(
       };
       assert.deepEqual(
         await panel
-          .locator('.design > section')
+          .locator('.design section')
           .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label'))),
         ['Themes', 'Variants', 'Customize', 'Designer'],
       );
@@ -90,17 +90,69 @@ test(
 
       await panel.getByRole('button', { name: 'Colors', exact: true }).click();
       await assertMenuUnclipped('Colors');
-      await changed(() => panel.getByRole('menuitemradio', { name: 'Green' }).click());
+      // PowerPoint's Colors menu: the deck's colors, then Office's 24 sets.
+      const allColors = panel.getByRole('group', { name: 'All Colors', exact: true });
+      assert.deepEqual(
+        await allColors
+          .getByRole('menuitemradio')
+          .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label'))),
+        [
+          'Office',
+          'Office 2013 - 2022',
+          'Office 2007 - 2010',
+          'Grayscale',
+          'Blue Warm',
+          'Blue',
+          'Blue II',
+          'Blue Green',
+          'Green',
+          'Green Yellow',
+          'Yellow',
+          'Yellow Orange',
+          'Orange',
+          'Orange Red',
+          'Red Orange',
+          'Red',
+          'Red Violet',
+          'Violet',
+          'Violet II',
+          'Median',
+          'Paper',
+          'Marquee',
+          'Slipstream',
+          'Aspect',
+        ],
+      );
+      assert.equal(
+        await panel
+          .getByRole('group', { name: 'Theme Colors', exact: true })
+          .getByRole('menuitemradio')
+          .count(),
+        1,
+      );
+      assert.equal(
+        await panel
+          .getByRole('menuitem', { name: 'Reset Slide Theme Colors', exact: true })
+          .isDisabled(),
+        true,
+      );
+      await changed(() =>
+        allColors.getByRole('menuitemradio', { name: 'Green', exact: true }).click(),
+      );
       assert.equal(getPresentationTheme(await pres()).accent1.toUpperCase(), '#549E39');
 
       await panel.getByRole('button', { name: 'Fonts', exact: true }).click();
       await assertMenuUnclipped('Fonts');
-      await changed(() => panel.getByRole('menuitemradio', { name: /^Georgia/ }).click());
+      const allFonts = panel.getByRole('group', { name: 'All Fonts', exact: true });
+      assert.equal(await allFonts.getByRole('menuitemradio').count(), 26);
+      await changed(() =>
+        allFonts.getByRole('menuitemradio', { name: 'Georgia', exact: true }).click(),
+      );
       assert.equal(getPresentationFonts(await pres()).minorLatin, 'Georgia');
 
       await panel.getByRole('button', { name: 'Slide Size', exact: true }).click();
       await assertMenuUnclipped('Slide Size');
-      await changed(() => panel.getByRole('menuitem', { name: 'Standard (4:3)' }).click());
+      await changed(() => panel.getByRole('menuitemradio', { name: 'Standard (4:3)' }).click());
       deck = await pres();
       assert.equal(getSlideSize(deck).width, SLIDE_SIZE_4_3.width);
     } finally {

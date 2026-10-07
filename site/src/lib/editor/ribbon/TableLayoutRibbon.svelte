@@ -15,7 +15,7 @@
   import ArrangeGroup from './ArrangeGroup.svelte';
   import MenuButton from './MenuButton.svelte';
   import SizeSpinners from './SizeSpinners.svelte';
-  import { caption } from './caption.ts';
+  import { captionLines } from './caption.ts';
   import { RibbonCollapse } from './ribbon-collapse.svelte.ts';
 
   const editor = getEditor();
@@ -202,14 +202,14 @@
   {#if row}
     <button class="ctx-row" aria-label={t(name)} disabled={!editable || !!target?.merged} title={target?.merged ? t(MERGED_REASON) : t(name)} onclick={run}><Icon name={icon} size={16} /><span>{t(name)}</span></button>
   {:else}
-    <button class="ctx-big" aria-label={t(name)} disabled={!editable || !!target?.merged} title={target?.merged ? t(MERGED_REASON) : t(name)} onclick={run}><span class="ctx-icon-row"><Icon name={icon} size={32} /></span><span class="ctx-caption">{caption(t(name))}</span></button>
+    <button class="ctx-big" aria-label={t(name)} disabled={!editable || !!target?.merged} title={target?.merged ? t(MERGED_REASON) : t(name)} onclick={run}><span class="ctx-icon-row"><Icon name={icon} size={32} /></span><span class="ctx-caption">{captionLines(t(name))}</span></button>
   {/if}
 {/snippet}
 
 <div class="ctx-ribbon table-layout" bind:this={collapse.node} bind:clientWidth={collapse.width}>
   <section class="ctx-group" aria-label={t('Table')}>
     <MenuButton look="big" icon="select-table" label={t('Select')} disabled={!target}>{@render selectItems()}</MenuButton>
-    <button class="ctx-big" aria-label={t('View Gridlines')} aria-pressed="true" title={t('The editor always shows table gridlines.')} disabled><span class="ctx-icon-row"><Icon name="gridlines" size={32} /></span><span class="ctx-caption">{caption(t('View Gridlines'))}</span></button>
+    <button class="ctx-big" aria-label={t('View Gridlines')} aria-pressed="true" title={t('The editor always shows table gridlines.')} disabled><span class="ctx-icon-row"><Icon name="gridlines" size={32} /></span><span class="ctx-caption">{captionLines(t('View Gridlines'))}</span></button>
   </section>
 
   <section class="ctx-group" aria-label={t('Rows & Columns')}>
@@ -230,8 +230,8 @@
   </section>
 
   <section class="ctx-group" aria-label={t('Merge')}>
-    <button class="ctx-big" aria-label={t('Merge Cells')} disabled={!editable || !canMerge} onclick={merge}><span class="ctx-icon-row"><Icon name="merge" size={32} /></span><span class="ctx-caption">{caption(t('Merge Cells'))}</span></button>
-    <button class="ctx-big" aria-label={t('Split Cells')} title={canSplit ? t('Split Cells') : t('Only merged cells can be split in this editor.')} disabled={!editable || !canSplit} onclick={split}><span class="ctx-icon-row"><Icon name="split" size={32} /></span><span class="ctx-caption">{caption(t('Split Cells'))}</span></button>
+    <button class="ctx-big" aria-label={t('Merge Cells')} disabled={!editable || !canMerge} onclick={merge}><span class="ctx-icon-row"><Icon name="merge" size={32} /></span><span class="ctx-caption">{captionLines(t('Merge Cells'))}</span></button>
+    <button class="ctx-big" aria-label={t('Split Cells')} title={canSplit ? t('Split Cells') : t('Only merged cells can be split in this editor.')} disabled={!editable || !canSplit} onclick={split}><span class="ctx-icon-row"><Icon name="split" size={32} /></span><span class="ctx-caption">{captionLines(t('Split Cells'))}</span></button>
   </section>
 
   <section class="ctx-group" aria-label={t('Cell Size')}>
@@ -274,7 +274,7 @@
   <ArrangeGroup collapsed={compact} table />
 
   <section class="ctx-group" aria-label={t('Format Pane')}>
-    <button class="ctx-big" aria-label={t('Format Pane')} title={t('Display the Format Pane')} disabled={!target} onclick={() => editor.showShapeFormat()}><span class="ctx-icon-row"><Icon name="format-pane" size={32} /></span><span class="ctx-caption">{caption(t('Format Pane'))}</span></button>
+    <button class="ctx-big" aria-label={t('Format Pane')} title={t('Display the Format Pane')} disabled={!target} onclick={() => editor.showShapeFormat()}><span class="ctx-icon-row"><Icon name="format-pane" size={32} /></span><span class="ctx-caption">{captionLines(t('Format Pane'))}</span></button>
   </section>
 </div>
 
