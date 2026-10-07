@@ -1,8 +1,8 @@
 <script lang="ts">
   import './ui/tokens.css';
-  import { arrangeShortcut } from './core/arrange-shortcuts.ts';
-  import { getShapeKind, getShapeText } from '@office-kit/pptx';
   import { parseTableClipboard } from './core/table-clipboard.ts';
+  import { menuItemForKey } from './core/menubar-shortcuts.ts';
+  import { nativeMenus } from './ui/menubar-commands.ts';
   import { t } from './i18n/i18n.svelte.ts';
   import { untrack, type Snippet } from 'svelte';
   import { EditorController } from './core/controller.svelte.ts';
@@ -77,46 +77,8 @@
     const typing =
       target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '');
 
-    // PowerPoint opens the full Font dialog with Cmd/Ctrl+T while a text
-    // range is selected, including when the caret is in the inline editor.
-    const hasTextTarget = editor.inlineTextFormat || doc.selection.kind === 'cell' ||
-      (doc.selection.kind === 'shape' && editor.selectedShapes().some(shape => getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0));
-    if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 't' && hasTextTarget && !typing && !e.defaultPrevented) {
-      e.preventDefault();
-      editor.openFontDialog();
-      return;
-    }
-
-    if (mod && e.shiftKey && !e.altKey && e.code === 'KeyN' && !typing && !e.defaultPrevented) {
-      e.preventDefault();
-      editor.addNewSlide();
-      return;
-    }
-
-    if (mod && e.key.toLowerCase() === 's' && onsave) {
-      e.preventDefault();
-      void onsave();
-      return;
-    }
-    if (mod && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      editor.togglePalette();
-      return;
-    }
-    const arrangement = arrangeShortcut(e);
-    if (arrangement && !typing && !e.defaultPrevented) {
-      e.preventDefault();
-      if (arrangement === 'regroup') editor.regroupSelection();
-      else if (editor.canRun(arrangement)) editor.invoke(arrangement);
-      return;
-    }
-    if (mod && !e.shiftKey && !e.altKey && ['f', 'h'].includes(e.key.toLowerCase())) {
-      e.preventDefault();
-      editor.runOrPrompt('replaceTextInPresentation');
-      return;
-    }
-    if (mod && e.altKey && e.code === 'KeyR') { e.preventDefault(); editor.ribbonVisible = !editor.ribbonVisible; return; }
-    if (mod && !e.altKey && !e.shiftKey && ['Digit1', 'Digit2', 'Digit4'].includes(e.code)) { e.preventDefault(); editor.setViewMode(e.code === 'Digit1' ? 'normal' : e.code === 'Digit2' ? 'sorter' : 'outline'); return; }
+    // Menu-bar shortcuts (⌘T, ⇧⌘N, ⌥⌘G, ⌘1 …) run in MenuBar; this keymap
+    // keeps undo, the clipboard, Select All, deletion, nudging and Escape.
     if (typing || e.defaultPrevented) return;
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
@@ -127,35 +89,24 @@
 
     const hasShapes = doc.selection.kind === 'shape' || doc.selection.kind === 'cell';
 
-    if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    // Undo, Repeat, the clipboard and Select All keep their keys from the
+    // menu bar's table, so they follow PowerPoint's shortcuts exactly.
+    const menuKey = menuItemForKey(nativeMenus(), e)?.id;
+    if (menuKey === 'edit/undo') {
       e.preventDefault();
       doc.undo();
-    } else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+    } else if (menuKey === 'edit/repeat' || (mod && e.shiftKey && !e.altKey && e.code === 'KeyZ')) {
       e.preventDefault();
       doc.redo();
-    } else if (mod && e.key.toLowerCase() === 'a') {
+    } else if (menuKey === 'edit/select-all') {
       e.preventDefault();
       editor.selectAll();
-    } else if (mod && e.key.toLowerCase() === 'd') {
-      e.preventDefault();
-      editor.duplicateSelection();
-    } else if (mod && e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
-      // Format painter. `code`, not `key`: Alt rewrites the character on macOS.
-      e.preventDefault();
-      if (e.code === 'KeyC') editor.copyObjectFormat();
-      else editor.pasteObjectFormat();
-    } else if (mod && e.key.toLowerCase() === 'c') {
+    } else if (menuKey === 'edit/copy') {
       if (doc.selection.kind !== 'cell') editor.copySelection();
-    } else if (mod && e.key.toLowerCase() === 'x') {
+    } else if (menuKey === 'edit/cut') {
       if (doc.selection.kind !== 'cell') editor.cutSelection();
-    } else if (mod && e.key.toLowerCase() === 'v') {
+    } else if (menuKey === 'edit/paste') {
       if (doc.selection.kind !== 'cell') editor.paste();
-    } else if (mod && e.key === '=') {
-      e.preventDefault();
-      editor.zoomIn();
-    } else if (mod && e.key === '-') {
-      e.preventDefault();
-      editor.zoomOut();
     } else if (mod && e.key === '0') {
       e.preventDefault();
       editor.zoomFit();

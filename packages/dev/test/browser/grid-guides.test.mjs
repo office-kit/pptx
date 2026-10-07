@@ -35,7 +35,7 @@ test(
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const revision = (await waitForState(preview.url, () => true)).revision;
       const open = async () => {
-        await editor.getByRole('button', { name: 'View', exact: true }).click();
+        await editor.getByRole('menuitem', { name: 'View', exact: true }).click();
         await editor.getByRole('menuitem', { name: 'Grid and Guides', exact: true }).click();
         await editor.getByRole('menuitem', { name: 'Grid Options...', exact: true }).click();
       };
@@ -98,7 +98,7 @@ test(
       const second = await page.context().newPage();
       await second.goto(preview.url);
       const otherEditor = second.frameLocator('#editor-frame');
-      await otherEditor.getByRole('button', { name: 'View', exact: true }).waitFor();
+      await otherEditor.getByRole('menuitem', { name: 'View', exact: true }).waitFor();
       await otherEditor.locator('.grid-dots').waitFor();
       await open();
       await dialog.getByLabel('Display grid on screen', { exact: true }).uncheck();

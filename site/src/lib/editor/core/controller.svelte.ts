@@ -154,6 +154,16 @@ export class EditorController {
     toggle: (property: TextFormatToggle) => void;
     /** Replaces the text selection (or inserts at the caret), as typing does. */
     insertText?: (text: string) => void;
+    // The menu bar's commands for text being edited on the slide; they act on
+    // the selected range and leave the caret in the text.
+    hasSelection?: boolean;
+    clipboard?: (action: 'copy' | 'cut' | 'paste') => void;
+    pastePlain?: () => void;
+    hyperlink?: () => void;
+    pickUpStyle?: () => void;
+    applyStyle?: () => void;
+    /** The text editor, so dialogs return focus to it. */
+    element?: () => HTMLElement | undefined;
   } | null>(null);
   /** Selection-aware formatting target used by the speaker-notes editor. */
   notesInlineTextFormat = $state<{

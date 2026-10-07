@@ -111,6 +111,14 @@ export class EditorDocument {
   canRedo = $derived(
     this.#requestedCursor >= 0 && this.#requestedCursor < this.#history.length - 1,
   );
+  /** The name of the edit Undo reverts (Edit ▸ Undo <name>), or null. */
+  undoLabel = $derived(
+    this.#requestedCursor > 0 ? (this.#history[this.#requestedCursor]?.label ?? null) : null,
+  );
+  /** The name of the edit Redo restores, or null. */
+  redoLabel = $derived(
+    this.canRedo ? (this.#history[this.#requestedCursor + 1]?.label ?? null) : null,
+  );
 
   // --- Resolvers ---------------------------------------------------------
   slideAt(index: number): SlideData | null {

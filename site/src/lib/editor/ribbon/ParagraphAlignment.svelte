@@ -1,36 +1,13 @@
 <script lang="ts">
-  import { getShapeKind, getShapeParagraphCount, getParagraphPropertiesEffective } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
+  import { alignParagraphs, canAlignParagraphs, paragraphAlignment, PARAGRAPH_ALIGNMENTS } from '../core/paragraph-alignment.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
-  const shapes = $derived(editor.selectedShapes());
-  const enabled = $derived(!!editor.inlineTextFormat || (shapes.length > 0 && shapes.every(shape => getShapeKind(shape) === 'shape')));
-  const alignment = $derived.by(() => {
-    editor.doc.version;
-    if (editor.inlineTextFormat) return editor.inlineTextFormat.alignment;
-    if (!enabled) return '';
-    const values = new Set<string>();
-    for (const shape of shapes) {
-      const defaultAlign = shapeTextDefaults(shape).align;
-      const count = getShapeParagraphCount(shape);
-      for (let index = 0; index < count; index++) values.add(getParagraphPropertiesEffective(editor.doc.pres, shape, index).align ?? defaultAlign);
-      if (!count) values.add(defaultAlign);
-    }
-    return values.size === 1 ? [...values][0] : '';
-  });
-  function align(value: string) {
-    if (editor.inlineTextFormat) editor.inlineTextFormat.align(value);
-    else editor.invoke('setShapeAlignment', { align: value });
-  }
-  const options = [
-    { value: 'left', label: 'Align Left' },
-    { value: 'center', label: 'Center' },
-    { value: 'right', label: 'Align Right' },
-    { value: 'justify', label: 'Justify' },
-    { value: 'distribute', label: 'Distributed' },
-  ];
+  const enabled = $derived(canAlignParagraphs(editor));
+  const alignment = $derived(paragraphAlignment(editor));
+  const align = (value: string) => alignParagraphs(editor, value);
+  const options = PARAGRAPH_ALIGNMENTS;
 </script>
 
 <div class="paragraph-alignment" role="group" aria-label={t('Paragraph alignment')}>

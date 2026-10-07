@@ -90,7 +90,7 @@ test(
       await page.setViewportSize({ width: 1100, height: 800 });
       await verifyAlignment();
       await panel.getByRole('checkbox', { name: 'Gridlines', exact: true }).check();
-      await editor.getByRole('button', { name: 'View', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'View', exact: true }).click();
       const menuRuler = editor.getByRole('menuitemcheckbox', { name: 'Ruler', exact: true });
       assert.equal(await menuRuler.getAttribute('aria-checked'), 'true');
       await menuRuler.click();

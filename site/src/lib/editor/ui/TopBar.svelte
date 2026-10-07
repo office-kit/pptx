@@ -1,6 +1,5 @@
 <script lang="ts">
-  import ViewMenu from './ViewMenu.svelte';
-  import EditMenu from './EditMenu.svelte';
+  import MenuBar from './MenuBar.svelte';
   import { getEditor } from '../core/context.ts';
   import { downloadPptx } from '../core/download.ts';
   import { t, getLocale, setLocale, LOCALES, type Locale } from '../i18n/i18n.svelte.ts';
@@ -27,6 +26,11 @@
     input.value = '';
   }
 
+  function newPresentation() {
+    doc.resetBlank();
+    if (onsave) doc.dirty = true;
+  }
+
   async function onSave() {
     try {
       const version = await downloadPptx(doc);
@@ -47,6 +51,8 @@
     <span class="tag">{t('Editor')}</span>
   </div>
 
+  <MenuBar file={{ save: () => void (onsave ?? onSave)(), download: () => void onSave(), open: () => fileInput?.click(), newPresentation }} />
+
   <div class="quick">
     {#if onsave}
       <!-- Mac PowerPoint's AutoSave switch leads the title bar. -->
@@ -60,7 +66,7 @@
       <button class="ok-btn qat" title={t('More Commands')} aria-label={t('More Commands')} aria-haspopup="menu" aria-expanded={moreOpen} onclick={() => (moreOpen = !moreOpen)}>⋯</button>
       {#if moreOpen}
         <div class="more-menu" role="menu" aria-label={t('More Commands')}>
-          <button role="menuitem" class="ok-btn" title={t('New')} onclick={() => { moreOpen = false; doc.resetBlank(); if (onsave) doc.dirty = true; }}>{t('New')}</button>
+          <button role="menuitem" class="ok-btn" title={t('New')} onclick={() => { moreOpen = false; newPresentation(); }}>{t('New')}</button>
           <button role="menuitem" class="ok-btn" title={t('Open .pptx')} onclick={() => { moreOpen = false; fileInput?.click(); }}>{t('Open')}</button>
           {#if onsave}<button role="menuitem" class="ok-btn" onclick={() => { moreOpen = false; void onSave(); }}>{t('Download')}</button>{/if}
         </div>
@@ -73,8 +79,6 @@
   </div>
 
   <div class="right">
-    <EditMenu />
-    <ViewMenu />
     <label class="lang" title={t('Language')}>
       <select value={getLocale()} onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value as Locale)}>
         {#each LOCALES as l (l.id)}
@@ -83,9 +87,9 @@
       </select>
     </label>
     <!-- Sits where Mac PowerPoint's Search box does; it searches every command. -->
-    <button class="ok-btn palette-btn" onclick={() => editor.togglePalette(true)} title={t('Command palette (Ctrl+K)')}>
+    <button class="ok-btn palette-btn" onclick={() => editor.togglePalette(true)} title={t('Search every command (⌘?)')}>
       <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.5" /><path d="M9.5 9.5L13 13" /></svg>
-      {t('Search (⌘K)')}
+      {t('Search (⌘?)')}
     </button>
   </div>
 

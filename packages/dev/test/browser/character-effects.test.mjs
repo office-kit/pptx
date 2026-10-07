@@ -99,14 +99,14 @@ for (const language of ['en', 'ja']) {
           .locator('.hit')
           .first()
           .click({ position: { x: 2, y: 2 } });
-        // PowerPoint copies and pastes object formatting by shortcut, not menu.
-        await page.keyboard.press('Control+Alt+KeyC');
+        // Format ▸ Pick Up Object Style: ⇧⌘C in English PowerPoint, ⌥⌘C in Japanese.
+        await page.keyboard.press(language === 'ja' ? 'Control+Alt+KeyC' : 'Control+Shift+KeyC');
         await editor
           .locator('.hit')
           .nth(1)
           .click({ position: { x: 2, y: 2 } });
-        // PowerPoint copies and pastes object formatting by shortcut, not menu.
-        await page.keyboard.press('Control+Alt+KeyV');
+        // Format ▸ Apply Object Style.
+        await page.keyboard.press('Control+Shift+KeyV');
         await editor.getByText(word('Saved to this project'), { exact: true }).waitFor();
 
         const { pres, shapes } = await savedShapes(preview);

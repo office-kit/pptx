@@ -119,7 +119,7 @@ test(
         .nth(1)
         .dblclick({ position: { x: 30, y: 20 } });
       await select(0, 3);
-      await input.press('ControlOrMeta+Shift+v');
+      await input.press('ControlOrMeta+Alt+Shift+v');
       await input.evaluate(async (node) => {
         for (let i = 0; i < 50 && node.textContent === 'old'; i++)
           await new Promise((resolve) => setTimeout(resolve, 20));
