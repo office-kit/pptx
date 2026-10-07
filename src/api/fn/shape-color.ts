@@ -45,39 +45,68 @@ import {
 // represents 100% — though some third-party tools emit bare floats; we
 // accept both forms.
 
+type ColorTransformFlag = 'gray' | 'inv' | 'comp' | 'gamma' | 'invGamma';
 type ColorTransformOp =
   | {
       readonly kind:
+        | 'lum'
         | 'lumMod'
         | 'lumOff'
         | 'shade'
         | 'tint'
+        | 'sat'
         | 'satMod'
         | 'satOff'
+        | 'hue'
         | 'hueMod'
         | 'hueOff'
+        | 'red'
+        | 'redMod'
+        | 'redOff'
+        | 'green'
+        | 'greenMod'
+        | 'greenOff'
+        | 'blue'
+        | 'blueMod'
+        | 'blueOff'
         | 'alpha'
         | 'alphaMod'
         | 'alphaOff';
       readonly val: number;
     }
-  | { readonly kind: 'gray' | 'inv' | 'comp' };
+  | { readonly kind: ColorTransformFlag };
 
-const COLOR_TRANSFORM_LOCALS: ReadonlySet<string> = new Set([
+const COLOR_TRANSFORM_FLAGS: ReadonlySet<string> = new Set<ColorTransformFlag>([
+  'gray',
+  'inv',
+  'comp',
+  'gamma',
+  'invGamma',
+]);
+const COLOR_TRANSFORM_VALUES: ReadonlySet<string> = new Set([
+  'lum',
   'lumMod',
   'lumOff',
   'shade',
   'tint',
+  'sat',
   'satMod',
   'satOff',
+  'hue',
   'hueMod',
   'hueOff',
+  'red',
+  'redMod',
+  'redOff',
+  'green',
+  'greenMod',
+  'greenOff',
+  'blue',
+  'blueMod',
+  'blueOff',
   'alpha',
   'alphaMod',
   'alphaOff',
-  'gray',
-  'inv',
-  'comp',
 ]);
 
 const readColorPercentage = (raw: string): number => {
@@ -106,16 +135,19 @@ const parseColorTransforms = (colorEl: XmlElement): readonly ColorTransformOp[] 
   for (const child of colorEl.children) {
     if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
     const local = child.name.localName;
-    if (!COLOR_TRANSFORM_LOCALS.has(local)) continue;
-    if (local === 'gray' || local === 'inv' || local === 'comp') {
-      out.push({ kind: local });
+    if (COLOR_TRANSFORM_FLAGS.has(local)) {
+      out.push({ kind: local as ColorTransformFlag });
       continue;
     }
+    if (!COLOR_TRANSFORM_VALUES.has(local)) continue;
     const raw = getAttrValue(child, qname('', 'val', ''));
     if (raw === null) continue;
-    const n = local === 'hueOff' ? readColorAngleDegrees(raw) : readColorPercentage(raw);
+    // `hue` / `hueOff` are ST_PositiveFixedAngle / ST_Angle (1/60000 degree);
+    // `hueMod` is a percentage like the rest.
+    const n =
+      local === 'hue' || local === 'hueOff' ? readColorAngleDegrees(raw) : readColorPercentage(raw);
     if (!Number.isFinite(n)) continue;
-    out.push({ kind: local as Exclude<ColorTransformOp['kind'], 'gray' | 'inv' | 'comp'>, val: n });
+    out.push({ kind: local as Exclude<ColorTransformOp['kind'], ColorTransformFlag>, val: n });
   }
   return out;
 };
@@ -165,74 +197,173 @@ const hslToRgb = (h: number, s: number, l: number): [number, number, number] => 
   return [hueToRgb(p, q, h + 1 / 3), hueToRgb(p, q, h), hueToRgb(p, q, h - 1 / 3)];
 };
 
-// PowerPoint applies <a:tint> / <a:shade> in LINEAR-LIGHT RGB, not in sRGB —
-// this contradicts the literal ECMA-376 "N% of input + (100-N)% white/black"
-// wording, but it is what PowerPoint computes and what LibreOffice renders
-// (a 75% tint of black is mid-gray ~#8B8B8B, not the sRGB-lerp #404040). The
-// next reader will expect the sRGB formula, hence this note.
+// sRGB transfer function (IEC 61966-2-1). `scrgbClr` channels and the
+// `tint` / `shade` / `red*` / `green*` / `blue*` arithmetic work in this
+// linear-light space.
 const srgbToLinear = (c: number): number =>
   c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 const linearToSrgb = (c: number): number =>
   c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
 
+const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
+
+type Rgb = [number, number, number];
+
+const mapChannels = (rgb: Rgb, f: (c: number) => number): Rgb => [
+  clamp01(f(rgb[0])),
+  clamp01(f(rgb[1])),
+  clamp01(f(rgb[2])),
+];
+
+const inLinearLight = (rgb: Rgb, f: (c: number) => number): Rgb =>
+  mapChannels(rgb, (c) => linearToSrgb(clamp01(f(srgbToLinear(c)))));
+
+const RGB_CHANNEL = { red: 0, green: 1, blue: 2 } as const;
+
+const adjustLinearChannel = (
+  rgb: Rgb,
+  channel: keyof typeof RGB_CHANNEL,
+  f: (c: number) => number,
+): Rgb => {
+  const out: Rgb = [rgb[0], rgb[1], rgb[2]];
+  const index = RGB_CHANNEL[channel];
+  out[index] = linearToSrgb(clamp01(f(srgbToLinear(rgb[index]))));
+  return out;
+};
+
+// HSL is taken on the sRGB-encoded channels, as LibreOffice's
+// oox::drawingml::Color::toHsl does; hue is in turns. Saturation is only
+// floored at 0 (see satMod below); luminance is clamped to [0, 1].
+const adjustHsl = (
+  rgb: Rgb,
+  f: (hsl: [number, number, number]) => [number, number, number],
+): Rgb => {
+  const [h, s, l] = f(rgbToHsl(rgb[0], rgb[1], rgb[2]));
+  return mapChannels(hslToRgb(((h % 1) + 1) % 1, Math.max(0, s), clamp01(l)), (c) => c);
+};
+
+/**
+ * Applies DrawingML color transforms (ECMA-376 §20.1.2.3) in document order.
+ *
+ * tint, shade, satMod and the HSL luminance transforms were checked against
+ * PowerPoint's own renderings (Mac PowerPoint 16.113 exports of all 74
+ * built-in table styles in the Office 2007 theme, and a native capture of
+ * Medium Style 2 - Accent 1 in the Office 2023 theme); test/color-transforms.test.ts
+ * holds those PowerPoint colors. The others follow the spec and LibreOffice's
+ * importer (oox/source/drawingml/color.cxx, Color::getColor) and say so.
+ */
 const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp[]): string => {
   if (transforms.length === 0) return hex;
-  let [r, g, b] = hexToRgb01(hex);
+  let rgb: Rgb = hexToRgb01(hex);
   for (const t of transforms) {
     switch (t.kind) {
-      case 'inv':
-        r = 1 - r;
-        g = 1 - g;
-        b = 1 - b;
-        break;
-      case 'gray': {
-        const y = 0.3 * r + 0.59 * g + 0.11 * b;
-        r = g = b = y;
-        break;
-      }
-      case 'comp': {
-        const [h, s, l] = rgbToHsl(r, g, b);
-        [r, g, b] = hslToRgb((h + 0.5) % 1, s, l);
-        break;
-      }
-      case 'shade':
-        // Mix toward black in linear light: out = srgb(linear(base) * val)
-        r = linearToSrgb(srgbToLinear(r) * t.val);
-        g = linearToSrgb(srgbToLinear(g) * t.val);
-        b = linearToSrgb(srgbToLinear(b) * t.val);
-        break;
       case 'tint':
-        // Mix toward white in linear light: out = srgb(linear(base)*val + (1-val))
-        r = linearToSrgb(srgbToLinear(r) * t.val + (1 - t.val));
-        g = linearToSrgb(srgbToLinear(g) * t.val + (1 - t.val));
-        b = linearToSrgb(srgbToLinear(b) * t.val + (1 - t.val));
+        // PowerPoint mixes toward white in LINEAR light, not in sRGB as the
+        // spec's "10% of the input color combined with 90% white" reads:
+        // accent1 #156082 at tint 40% paints #CCD2D8 (an sRGB mix would be
+        // #A1BFCD). out = srgb(linear(c) × val + (1 − val)).
+        rgb = inLinearLight(rgb, (c) => c * t.val + (1 - t.val));
+        break;
+      case 'shade':
+        // Toward black in linear light, like tint: out = srgb(linear(c) × val).
+        rgb = inLinearLight(rgb, (c) => c * t.val);
+        break;
+      case 'sat':
+        rgb = adjustHsl(rgb, ([h, , l]) => [h, t.val, l]);
+        break;
+      case 'satMod':
+      case 'satOff':
+        // PowerPoint does NOT cap saturation at 100%, although §20.1.2.3.27
+        // says increases "never increase the saturation beyond 100%" (and
+        // LibreOffice caps it). The over-saturated HSL value is converted as
+        // is and the RGB channels are clamped, which also darkens the color:
+        // accent6 #F79646 with tint 50% + satMod 300% (an Office 2007 theme
+        // gradient stop) paints #FFBE87, where a capped saturation gives
+        // #FFD2BD. Measured on all six accents at satMod 130%, 300% and 350%;
+        // satOff is assumed to behave the same way.
+        rgb = adjustHsl(rgb, ([h, s, l]) => [h, t.kind === 'satMod' ? s * t.val : s + t.val, l]);
+        break;
+      case 'lum':
+        rgb = adjustHsl(rgb, ([h, s]) => [h, s, t.val]);
         break;
       case 'lumMod':
-      case 'lumOff': {
-        const [h, s, l] = rgbToHsl(r, g, b);
-        const newL = Math.max(0, Math.min(1, t.kind === 'lumMod' ? l * t.val : l + t.val));
-        [r, g, b] = hslToRgb(h, s, newL);
+      case 'lumOff':
+        rgb = adjustHsl(rgb, ([h, s, l]) => [h, s, t.kind === 'lumMod' ? l * t.val : l + t.val]);
         break;
-      }
-      case 'satMod':
-      case 'satOff': {
-        const [h, s, l] = rgbToHsl(r, g, b);
-        const newS = Math.max(0, Math.min(1, t.kind === 'satMod' ? s * t.val : s + t.val));
-        [r, g, b] = hslToRgb(h, newS, l);
+      case 'hue':
+        rgb = adjustHsl(rgb, ([, s, l]) => [t.val / 360, s, l]);
         break;
-      }
       case 'hueMod':
-      case 'hueOff': {
-        const [h, s, l] = rgbToHsl(r, g, b);
-        const newH = (((t.kind === 'hueMod' ? h * t.val : h + t.val / 360) % 1) + 1) % 1;
-        [r, g, b] = hslToRgb(newH, s, l);
+        rgb = adjustHsl(rgb, ([h, s, l]) => [h * t.val, s, l]);
+        break;
+      case 'hueOff':
+        rgb = adjustHsl(rgb, ([h, s, l]) => [h + t.val / 360, s, l]);
+        break;
+      case 'comp':
+        // §20.1.2.3.7: the hue turned by 180°, saturation and luminance kept.
+        rgb = adjustHsl(rgb, ([h, s, l]) => [h + 0.5, s, l]);
+        break;
+      case 'red':
+      case 'green':
+      case 'blue':
+        // Component percentages are linear light, as in scrgbClr (LibreOffice
+        // does the same; not verified against PowerPoint).
+        rgb = adjustLinearChannel(rgb, t.kind, () => t.val);
+        break;
+      case 'redMod':
+        rgb = adjustLinearChannel(rgb, 'red', (c) => c * t.val);
+        break;
+      case 'greenMod':
+        rgb = adjustLinearChannel(rgb, 'green', (c) => c * t.val);
+        break;
+      case 'blueMod':
+        rgb = adjustLinearChannel(rgb, 'blue', (c) => c * t.val);
+        break;
+      case 'redOff':
+        rgb = adjustLinearChannel(rgb, 'red', (c) => c + t.val);
+        break;
+      case 'greenOff':
+        rgb = adjustLinearChannel(rgb, 'green', (c) => c + t.val);
+        break;
+      case 'blueOff':
+        rgb = adjustLinearChannel(rgb, 'blue', (c) => c + t.val);
+        break;
+      case 'inv':
+        // 1 − c on the sRGB channels. LibreOffice inverts in linear light
+        // instead; neither has been compared with PowerPoint.
+        rgb = mapChannels(rgb, (c) => 1 - c);
+        break;
+      case 'gray': {
+        // Rec. 601 luma weights. LibreOffice uses 22/72/6; neither has been
+        // compared with PowerPoint.
+        const y = 0.3 * rgb[0] + 0.59 * rgb[1] + 0.11 * rgb[2];
+        rgb = [y, y, y];
         break;
       }
-      // alpha / alphaMod / alphaOff intentionally don't touch RGB —
-      // `resolveDrawingColorOpacity` surfaces them as an opacity instead.
+      case 'gamma':
+        // §20.1.2.3.8 "sRGB gamma shift": the channels are read as linear
+        // light and encoded with the sRGB curve; invGamma is the inverse. So
+        // the <a:gamma/><a:shade/><a:invGamma/> wrapping found in converted
+        // legacy gradients turns the linear-light shade into an sRGB one.
+        // LibreOffice approximates the curve with a 2.3 power. Not verified
+        // against PowerPoint.
+        rgb = mapChannels(rgb, linearToSrgb);
+        break;
+      case 'invGamma':
+        rgb = mapChannels(rgb, srgbToLinear);
+        break;
+      case 'alpha':
+      case 'alphaMod':
+      case 'alphaOff':
+        // Opacity, not RGB: resolveDrawingColorOpacity reports it.
+        break;
+      default: {
+        const unhandled: never = t;
+        throw new TypeError(`unhandled color transform: ${JSON.stringify(unhandled)}`);
+      }
     }
   }
-  return rgb01ToHex(r, g, b);
+  return rgb01ToHex(rgb[0], rgb[1], rgb[2]);
 };
 
 const SCHEME_TOKEN_TO_THEME_KEY: Record<string, keyof Omit<PresentationTheme, 'name'>> = {

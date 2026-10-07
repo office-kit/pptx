@@ -18,6 +18,7 @@ import {
   setTableCellFill,
   setTableCellTextFormat,
   setTableStyleFlags,
+  setPresentationTheme,
   setTableStyleId,
 } from '../src/api/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
@@ -61,6 +62,12 @@ const cellColors = (svg: string): string[][] => {
   return out;
 };
 const column = (svg: string, col: number) => cellColors(svg).map((row) => row[col]);
+const channelDistance = (a: string, b: string): number =>
+  Math.max(
+    ...[0, 2, 4].map((i) =>
+      Math.abs(Number.parseInt(a.slice(i, i + 2), 16) - Number.parseInt(b.slice(i, i + 2), 16)),
+    ),
+  );
 const row = (svg: string, r: number) => cellColors(svg)[r];
 
 describe('built-in table styles in the preview', () => {
@@ -134,6 +141,40 @@ describe('built-in table styles in the preview', () => {
     const body = getTableCells(table)[1]![0]!;
     setTableCellTextFormat(body, {}, { reset: true });
     expect(getTableCellRunFormatEffective(pres, body, 0, 0).bold).toBeUndefined();
+  });
+
+  // Medium Style 2's bands are accent1 tinted 40% / 20%. In the Office 2023
+  // theme (accent1 #156082) PowerPoint paints them #CCD2D8 / #E6EAED (native
+  // Table Design screenshot, Display P3 converted to sRGB); an sRGB tint
+  // would give the much bluer #A1BFCD / #D0DFE6. One level of tolerance for
+  // the color-space conversion.
+  it('paints Medium Style 2’s tinted bands as PowerPoint does in the Office 2023 theme', () => {
+    const { pres, svg } = render('Medium Style 2 - Accent 1', { firstRow: true, bandRow: true });
+    setPresentationTheme(pres, { accent1: '#156082' });
+    const expected = ['156082', 'CCD2D8', 'E6EAED', 'CCD2D8', 'E6EAED'];
+    const actual = column(svg(), 0);
+    expected.forEach((color, r) =>
+      expect(channelDistance(actual[r]!, color), `row ${r}: ${actual[r]}`).toBeLessThanOrEqual(1),
+    );
+  });
+
+  // The Themed Styles' backgrounds are the theme's gradient fills, whose
+  // stops saturate accents with satMod 130–350%. Expected stop colors come
+  // from Mac PowerPoint 16.113's exports (Office 2007 theme), sampled 3 px
+  // from each end of the table; 2 levels of tolerance for that offset.
+  it.each([
+    ['Themed Style 1 - Accent 6', 'FFBE87', undefined],
+    ['Themed Style 1 - Accent 1', 'A3C4FF', undefined],
+    ['Themed Style 2 - Accent 6', 'FF932C', 'FFB977'],
+    ['Themed Style 2 - Accent 5', '3AB8D8', '95EEFF'],
+  ] as const)('saturates %s’s background gradient like PowerPoint', (style, first, last) => {
+    const { svg } = render(style, { firstRow: true, bandRow: true });
+    const out = svg();
+    const gradient = out.slice(out.indexOf('<linearGradient'), out.indexOf('</linearGradient>'));
+    const stops = [...gradient.matchAll(/stop-color="#([0-9A-F]{6})"/gi)].map((m) => m[1]!);
+    expect(channelDistance(stops[0]!, first), stops[0]).toBeLessThanOrEqual(2);
+    if (last !== undefined)
+      expect(channelDistance(stops.at(-1)!, last), stops.at(-1)).toBeLessThanOrEqual(2);
   });
 
   it('paints the Themed Styles’ theme gradient behind translucent bands', () => {
