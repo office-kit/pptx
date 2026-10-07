@@ -49,7 +49,7 @@
 </div>
 
 <style>
-  .paragraph-alignment { display: flex; align-self: flex-end; gap: 2px; }
-  button { display: grid; place-items: center; padding: 3px; min-width: 25px; }
+  .paragraph-alignment { display: flex; align-self: flex-end; gap: 0; }
+  button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; }
   button[aria-pressed='true'] { background: var(--ok-hover); border-color: var(--ok-accent); }
 </style>

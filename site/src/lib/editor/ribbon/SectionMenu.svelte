@@ -68,9 +68,9 @@
   button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
-  .big { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 44px; padding: 3px 3px; font-size: 11px; line-height: 1.15; }
+  .big { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 50px; padding: 4px 2px; font-size: 11px; line-height: 1.15; }
   .icon-row { display: flex; align-items: center; gap: 2px; }
-  .row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 11px; white-space: nowrap; }
+  .row { display: flex; align-items: center; gap: 3px; padding: 2px 3px; font-size: 11px; white-space: nowrap; }
   .menu { position: fixed; z-index: 400; display: flex; flex-direction: column; min-width: 200px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { padding: 5px 8px; text-align: left; font-size: 12px; }
   hr { width: 100%; border: none; border-top: 1px solid var(--ok-border); margin: 4px 0; }

@@ -17,6 +17,7 @@
     setShapePatternFill,
     getShapeFillColorResolved,
     getShapeStroke,
+    getShapeStrokeEffective,
     getShapeStrokeWidth,
     getShapeStrokeColorResolved,
     getShapeId,
@@ -35,7 +36,7 @@
   import ColorPicker from '../ui/ColorPicker.svelte';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { selectedShapeId } from '../core/selection.ts';
-  import { t } from '../i18n/i18n.svelte.ts';
+  import { getLocale, t } from '../i18n/i18n.svelte.ts';
 
   let { tab }: { tab: 'paint' | 'effects' | 'size' | 'all' } = $props();
   const editor = getEditor();
@@ -176,6 +177,20 @@
       }
     });
   }
+  const lineKind = $derived.by(() => {
+    doc.version;
+    const kinds = new Set(editor.selectedShapes().map(target => getShapeStrokeEffective(doc.pres, target).kind));
+    return kinds.size === 1 ? [...kinds][0] : 'mixed';
+  });
+  // English PowerPoint calls both the line type and the solid dash "Solid
+  // line"; Japanese distinguishes them (線 (単色) here, 実線 for the dash), so
+  // the shared English key cannot carry this one.
+  const solidLineLabel = $derived(getLocale() === 'ja' ? '線 (単色)' : 'Solid line');
+  function changeLine(kind: 'none' | 'solid') {
+    if (editor.selectionLocked() || lineKind === kind) return;
+    if (kind === 'none') editor.invoke('setShapeNoStroke');
+    else editor.invoke('setShapeStroke', { options: { color: 'accent1' } });
+  }
   function applyFill(value: string) {
     editor.invoke('setShapeFill', { color: { color: value.replace('#', '') } });
   }
@@ -218,11 +233,12 @@
           {:else if fillKind === 'pattern'}
             <PatternFillSection />
           {:else if fillKind !== 'none' && fillKind !== 'background' && fillKind !== 'image'}
-          <div class="mini">
+          <hr class="rule" />
+          <div class="paint-field">
             <span>{t('Color')}</span>
             <span class="colorwrap">
+              <span class="paint-state" data-paint-state="fill">{paintLabel(paint.fill)}</span>
               <ColorPicker label={t('Fill')} value={paintColors.fill} resolvedColor={colorValue(paint.fill)} disabled={editor.selectionLocked()} choose={applyFill} />
-              <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
             </span>
           </div>
           <TransparencyField paint="fill" />
@@ -233,13 +249,20 @@
       <details class="paint-section" open>
         <summary>{t('Line')}</summary>
         <div class="paint-fields">
-          <div class="mini">
+          <!-- PowerPoint's Line section opens with the line type, like Fill. -->
+          <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Line type')}>
+            <label><input type="radio" name="shape-line-type" checked={lineKind === 'none'} onchange={() => changeLine('none')} />{t('No line')}</label>
+            <label><input type="radio" name="shape-line-type" checked={lineKind === 'solid'} onchange={() => changeLine('solid')} />{solidLineLabel}</label>
+            <label title={t('Gradient lines are not supported by the library yet.')}><input type="radio" name="shape-line-type" disabled />{t('Gradient line')}</label>
+          </fieldset>
+          {#if lineKind !== 'none'}
+          <hr class="rule" />
+          <div class="paint-field">
             <span>{t('Color')}</span>
             <span class="colorwrap">
+              <span class="paint-state" data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
               <ColorPicker label={t('Outline')} value={paintColors.stroke} resolvedColor={colorValue(paint.stroke)} disabled={editor.selectionLocked()} choose={applyStroke} />
-              <span data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
             </span>
-            <button class="ok-btn" onclick={() => editor.invoke('setShapeNoStroke')}>{t('No outline')}</button>
           </div>
           <TransparencyField paint="line" />
           <label class="paint-field">
@@ -249,6 +272,7 @@
               onchange={(e) => applyWidth(e.currentTarget)} /><span>pt</span></span>
           </label>
           <LineStyleFields />
+          {/if}
         </div>
       </details>
 
@@ -287,7 +311,8 @@
 {/if}
 
 <style>
-  .fill-types { border: 0; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+  .fill-types { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .fill-types label { min-height: 18px; }
   .fill-types label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
   .fill-types input { margin: 0; accent-color: var(--ok-accent); }
 
@@ -308,33 +333,52 @@
   }
   .paint-section {
     margin: 0 -10px;
-    font-size: 11px;
+    font-size: 12px;
   }
+  /* PowerPoint's section headers: a chevron (› closed, ⌄ open) on a band. */
   .paint-section summary {
-    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 23px;
+    padding: 0 8px;
+    list-style: none;
     background: var(--ok-hover);
     cursor: pointer;
   }
+  .paint-section summary::-webkit-details-marker { display: none; }
+  .paint-section summary::before { content: '›'; display: inline-block; width: 10px; text-align: center; font-size: 14px; transition: transform 0.12s; }
+  .paint-section[open] > summary::before { transform: rotate(90deg); }
+  /* Mac PowerPoint's Format pane rows: radio options on a 20 pt pitch, then a
+     rule, then label-left / control-right rows on a 30 pt pitch with 26 pt
+     controls ending 17 pt from the pane edge. */
   .paint-fields {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px;
+    gap: 4px;
+    padding: 10px 17px 10px 16px;
   }
   .paint-field {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    min-height: 26px;
   }
+  .rule { width: 100%; margin: 2px 0; border: none; border-top: 1px solid var(--ok-border); }
+  .colorwrap { display: flex; align-items: center; gap: 6px; }
+  .colorwrap :global(.trigger) { width: 39px; height: 26px; }
+  .paint-state { color: var(--ok-text-3); }
   .number {
     display: flex;
     align-items: center;
     gap: 3px;
-    width: 96px;
+    width: 82px;
   }
   .number input {
-    width: 72px;
+    box-sizing: border-box;
+    width: 64px;
+    height: 26px;
     min-width: 0;
     padding: 2px 4px;
     font-size: inherit;
@@ -348,15 +392,6 @@
   .row2 {
     display: flex;
     gap: 10px;
-  }
-  .mini {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    font-size: 11px;
-    color: var(--ok-text-2);
-    flex: 1;
-    min-width: 0;
   }
   .scope {
     font-size: 11px;

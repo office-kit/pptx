@@ -26,8 +26,8 @@
   --ok-shadow-lg: 0 12px 32px -8px rgba(16, 18, 23, 0.22), 0 2px 6px rgba(16, 18, 23, 0.08);
   --ok-font: system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --ok-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  --ok-ribbon-h: 92px;
-  --ok-nav-w: 200px;
+  --ok-ribbon-h: 102px; /* 30 px tab row + Mac PowerPoint's 72 pt command row */
+  --ok-nav-w: 249px; /* Mac PowerPoint's thumbnail pane in a 1512 pt window */
   --ok-panel-w: 300px;
 
   font-family: var(--ok-font);

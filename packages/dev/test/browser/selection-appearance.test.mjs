@@ -440,17 +440,22 @@ test(
       ja = false;
       await editor.locator('.bespoke').getByRole('radio', { name: 'No fill', exact: true }).click();
       await saved();
-      await editor
-        .locator('.bespoke')
-        .getByRole('button', { name: 'No outline', exact: true })
-        .click();
+      await editor.locator('.bespoke').getByRole('radio', { name: 'No line', exact: true }).click();
       await saved();
       assert.deepEqual(await colors((shape) => getShapeStroke(shape).kind), [
         'none',
         'none',
         originalStrokeKinds[2],
       ]);
-      assert.equal(await editor.locator('[data-paint-state=stroke]').textContent(), 'None');
+      // As in PowerPoint, No line leaves only the line type options.
+      assert.equal(
+        await editor
+          .locator('.bespoke')
+          .getByRole('radio', { name: 'No line', exact: true })
+          .isChecked(),
+        true,
+      );
+      assert.equal(await editor.locator('[data-paint-state=stroke]').count(), 0);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await colors(getShapeStrokeColor), ['#ABCDEF', '#ABCDEF', initialStroke[2]]);

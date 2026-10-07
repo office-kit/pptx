@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getShapeChartSpec, getShapeKind, getShapeMedia, isSlideHidden, type SlideShapeData, setSlideHidden, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
+  import { getShapeChartSpec, getShapeKind, getShapeMedia, isShapeLocked, isSlideHidden, type SlideShapeData, setSlideHidden, getSlideLayout, getSlideLayoutName, getSlideLayoutPartName, getSlideLayouts, setSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
@@ -20,6 +20,8 @@
     disabled?: boolean;
     checked?: boolean;
     sep?: boolean;
+    /** Why a disabled item is unavailable, shown as its tooltip. */
+    reason?: string;
   } & ({ run: () => void; children?: never } | { children: Item[]; run?: never });
   let submenu = $state<string | null>(null);
   function collapse(collapsed: boolean, all: boolean) {
@@ -102,23 +104,32 @@
         { label: 'Format Shape...', run: () => editor.showShapeFormat() },
       );
     } else if (hasShapes) {
+      // Mac PowerPoint's object menu, in its order and with its separators
+      // (verified on PowerPoint 16 for Mac, 2026-10-07). Commands the editor
+      // cannot perform are shown disabled with the reason.
+      const shapes = editor.selectedShapes();
+      const single = shapes.length === 1 ? shapes[0]! : null;
+      const locked = shapes.length > 0 && shapes.every((shape) => isShapeLocked(shape));
       list.push(
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
-        { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
+        { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard(), sep: true },
       );
-      // PowerPoint's object menu: Edit Text, Group / Bring to Front / Send to
-      // Back as submenus, Link, Alt Text, Size and Position, Format, Comment.
-      const shapes = editor.selectedShapes();
-      const single = shapes.length === 1 ? shapes[0]! : null;
-      if (single && getShapeKind(single) === 'shape') list.push({ label: 'Edit Text', sep: true, run: () => editor.editSelectedText() });
+      if (single && getShapeKind(single) === 'shape') {
+        list.push(
+          { label: 'Edit Text', run: () => editor.editSelectedText() },
+          { label: 'Edit Points', sep: true, disabled: true, reason: 'The editor has no point editor yet.', run: () => {} },
+        );
+      }
       list.push(
+        { label: 'Reorder Objects', disabled: true, reason: 'The layered stacking view is not available in this editor.', run: () => {} },
+        { label: 'Reorder Overlapping Objects', sep: true, disabled: editor.reorderMembers().length < 2, run: () => editor.activeDialog = 'reorderObjects' },
         {
-          label: 'Group', sep: !single || getShapeKind(single) !== 'shape',
+          label: 'Group',
           children: [
             { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: !editor.canRun('groupShapes') },
+            { label: 'Regroup', run: () => editor.regroupSelection(), disabled: !editor.canRegroup(), sep: true },
             { label: 'Ungroup', run: () => editor.invoke('ungroupShapes'), disabled: !editor.canRun('ungroupShapes') },
-            { label: 'Regroup', run: () => editor.regroupSelection(), disabled: !editor.canRegroup() },
           ],
         },
         {
@@ -135,43 +146,59 @@
             { label: 'Send Backward', run: () => editor.invoke('sendShapeBackward') },
           ],
         },
-        { label: 'Link...', sep: true, run: () => editor.runOrPrompt('setShapeHyperlink'), disabled: !editor.canRun('setShapeHyperlink') },
-        { label: 'Edit Alt Text...', run: () => editor.runOrPrompt('setShapeDescription'), disabled: !editor.canRun('setShapeDescription') },
+        { label: locked ? 'Unlock' : 'Lock', sep: true, disabled: !shapes.length, run: () => editor.lockObjects(shapes, !locked) },
+        { label: 'Hyperlink...', sep: true, run: () => editor.runOrPrompt('setShapeHyperlink'), disabled: !editor.canRun('setShapeHyperlink') },
+        { label: 'Save as Picture...', sep: true, disabled: true, reason: 'The editor cannot export objects as pictures yet.', run: () => {} },
+        { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs the Microsoft translation service.', run: () => {} },
+        { label: 'View Alt Text...', run: () => editor.runOrPrompt('setShapeDescription'), disabled: !editor.canRun('setShapeDescription') },
+        { label: 'Set as Default Shape Style', disabled: true, reason: 'The editor does not keep a default shape style yet.', run: () => {} },
       );
       if (shapes.length) {
         list.push(
-          { label: 'Size and Position...', sep: true, run: () => editor.showShapeFormat('size') },
+          { label: 'Size and Position...', run: () => editor.showShapeFormat('size') },
           { label: formatLabel(shapes), run: () => editor.showShapeFormat() },
         );
       }
-      list.push({ label: 'New Comment', sep: true, run: () => editor.runOrPrompt('addSlideComment') });
-    } else if (doc.selection.kind === 'slide') {
+      list[list.length - 1]!.sep = true;
       list.push(
-        { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
-        { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
-        { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
-        ...slideItems(),
+        { label: 'Action Settings...', sep: true, run: () => editor.runOrPrompt('setShapeClickAction'), disabled: !editor.canRun('setShapeClickAction') },
+        { label: 'New Comment', run: () => editor.runOrPrompt('addSlideComment') },
       );
+    } else if (doc.selection.kind === 'slide') {
       if (menu.source === 'outline') {
         list.push(
+          { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
+          { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
+          { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
+          ...slideItems(),
           ...outlineCollapseItems(),
           { label: 'Move Up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
           { label: 'Move Down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
         );
       } else {
-        // PowerPoint's thumbnail menu.
+        // Mac PowerPoint's thumbnail menu, in its order and with its
+        // separators (verified on PowerPoint 16 for Mac, 2026-10-07). It has
+        // no Layout or Reset Slide; those are on the Home tab.
         const slides = selected.map((index) => doc.slideAt(index)).filter((slide) => slide !== null);
         const hidden = slides.length > 0 && slides.every((slide) => isSlideHidden(slide));
+        const anchor = doc.selection.slideIndex;
         list.push(
+          { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
+          { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
+          { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
+          { label: 'Select All', accel: '⌘A', sep: true, run: () => doc.select({ kind: 'slide', slideIndex: anchor, slideIndices: doc.slides.map((_, index) => index), anchorIndex: anchor }) },
+          { label: 'New Slide', accel: '⇧⌘N', run: () => editor.addNewSlide() },
+          { label: 'Duplicate Slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
+          { label: 'Delete Slide', run: () => editor.invoke('removeSlide') },
           { label: 'Add Section', sep: true, run: () => {
             const start = firstSelected;
             doc.transact(t('Add Section'), () => addSection(doc.pres, start, t(UNTITLED_SECTION)));
           } },
-          slideLayoutItem(),
-          { label: 'Reset Slide', run: () => editor.invoke('resetSlideLayout'), disabled: !editor.canRun('resetSlideLayout') },
           { label: 'Format Background...', sep: true, run: () => editor.showBackgroundFormat() },
-          { label: 'New Comment', sep: true, run: () => editor.runOrPrompt('addSlideComment') },
-          { label: 'Hide Slide', checked: hidden, run: () => doc.transact(t('Hide Slide'), () => { for (const slide of slides) setSlideHidden(slide, !hidden); }) },
+          { label: 'Hide Slide', checked: hidden, sep: true, run: () => doc.transact(t('Hide Slide'), () => { for (const slide of slides) setSlideHidden(slide, !hidden); }) },
+          { label: 'Zoom...', run: () => editor.activeDialog = 'zoom' },
+          { label: 'Slide Show', sep: true, disabled: !editor.canPresent, run: () => editor.present('current') },
+          { label: 'New Comment', run: () => editor.runOrPrompt('addSlideComment') },
         );
       }
     } else {
@@ -288,26 +315,28 @@
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.preventDefault()}
 >
-  {#each items as item (item.label)}
+  {#each items as item, index (item.label)}
     {#if item.children}
       <div class="branch">
-        <button class="ctx-item" class:sep={item.sep} role="menuitem" tabindex="-1" aria-label={t(item.label)} aria-haspopup="menu" aria-expanded={submenu === item.label} data-submenu={item.label} onclick={() => activate(item)} onpointerenter={() => submenu = item.label}>
+        <button class="ctx-item" role="menuitem" tabindex="-1" aria-label={t(item.label)} aria-haspopup="menu" aria-expanded={submenu === item.label} data-submenu={item.label} onclick={() => activate(item)} onpointerenter={() => submenu = item.label}>
           <span>{t(item.label)}</span><span>›</span>
         </button>
         {#if submenu === item.label}
           <div class="ctx submenu" role="menu" aria-label={t(item.label)} use:placeSubmenu>
             {#each item.children as child (child.label)}
               <button class="ctx-item" role={child.checked === undefined ? 'menuitem' : 'menuitemradio'} aria-checked={child.checked} tabindex="-1" disabled={child.disabled} onclick={() => activate(child)}>{child.checked ? '✓ ' : ''}{t(child.label)}</button>
+              {#if child.sep}<div class="ctx-sep" role="separator"></div>{/if}
             {/each}
           </div>
         {/if}
       </div>
     {:else}
-      <button class="ctx-item" class:sep={item.sep} role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={item.checked} aria-label={item.checked === undefined ? undefined : t(item.label)} tabindex="-1" disabled={item.disabled} onclick={() => activate(item)} onpointerenter={() => submenu = null}>
+      <button class="ctx-item" role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={item.checked} aria-label={t(item.label)} title={item.disabled && item.reason ? t(item.reason) : undefined} tabindex="-1" disabled={item.disabled} onclick={() => activate(item)} onpointerenter={() => submenu = null}>
         <span>{item.checked ? "✓ " : ""}{t(item.label)}</span>
         {#if item.accel}<span class="accel">{item.accel}</span>{/if}
       </button>
     {/if}
+    {#if item.sep && index < items.length - 1}<div class="ctx-sep" role="separator"></div>{/if}
   {/each}
 </div>
 
@@ -326,14 +355,16 @@
     box-shadow: var(--ok-shadow-lg);
     padding: 5px;
   }
+  /* Mac menus: 24 pt items and 11 pt separators. */
   .ctx-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 24px;
     width: 100%;
+    height: 24px;
     text-align: left;
-    padding: 6px 10px;
+    padding: 0 10px;
     border: none;
     background: none;
     border-radius: var(--ok-radius);
@@ -349,10 +380,10 @@
     color: var(--ok-text-3);
     cursor: default;
   }
-  .ctx-item.sep {
-    margin-bottom: 5px;
-    padding-bottom: 9px;
-    border-bottom: 1px solid var(--ok-border);
+  .ctx-sep {
+    height: 1px;
+    margin: 5px 10px;
+    background: var(--ok-border);
   }
   .accel {
     font-size: 11px;

@@ -11,6 +11,8 @@
   import RichTextInput from './RichTextInput.svelte';
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
 
+  // Mac PowerPoint opens the notes pane one line tall: 39 pt plus its 5 pt splitter.
+  const NOTES_MIN_HEIGHT = 44;
   const editor = getEditor();
   const doc = editor.doc;
   const slide = untrack(() => doc.currentSlide!);
@@ -60,8 +62,8 @@
   });
 
   function updateHeightLimit() {
-    maxHeight = Math.max(60, Math.min((pane.parentElement?.clientHeight ?? 600) - 100, pane.ownerDocument.defaultView!.innerHeight / 2));
-    editor.notesHeight = Math.min(maxHeight, Math.max(60, editor.notesHeight));
+    maxHeight = Math.max(NOTES_MIN_HEIGHT, Math.min((pane.parentElement?.clientHeight ?? 600) - 100, pane.ownerDocument.defaultView!.innerHeight / 2));
+    editor.notesHeight = Math.min(maxHeight, Math.max(NOTES_MIN_HEIGHT, editor.notesHeight));
   }
   onMount(() => {
     const observer = new ResizeObserver(updateHeightLimit);
@@ -458,21 +460,21 @@
   }
   function resizeMove(event: PointerEvent) {
     if (drag?.id !== event.pointerId) return;
-    editor.notesHeight = Math.min(maxHeight, Math.max(60, drag.height + drag.y - event.clientY));
+    editor.notesHeight = Math.min(maxHeight, Math.max(NOTES_MIN_HEIGHT, drag.height + drag.y - event.clientY));
   }
   function resizeKeys(event: KeyboardEvent) {
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
     updateHeightLimit();
-    editor.notesHeight = event.key === 'Home' ? 60 : event.key === 'End' ? maxHeight : Math.min(maxHeight, Math.max(60, editor.notesHeight + (event.key === 'ArrowUp' ? 10 : -10)));
+    editor.notesHeight = event.key === 'Home' ? NOTES_MIN_HEIGHT : event.key === 'End' ? maxHeight : Math.min(maxHeight, Math.max(NOTES_MIN_HEIGHT, editor.notesHeight + (event.key === 'ArrowUp' ? 10 : -10)));
   }
 </script>
 
 <section class="notes-pane" bind:this={pane} aria-label={t('Notes')} style:height="{editor.notesHeight}px">
   <!-- A focusable separator implements the ARIA window-splitter pattern. -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-  <div class="resize" role="separator" tabindex="0" aria-label={t('Notes pane height')} aria-orientation="horizontal" aria-valuemin={60} aria-valuemax={maxHeight} aria-valuenow={editor.notesHeight} onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={() => drag = null} onpointercancel={() => drag = null} onlostpointercapture={() => drag = null} onkeydown={resizeKeys}></div>
-  <RichTextInput bind:this={input} {value} html={noteHtml} label={t('Notes content')} autofocus={false} style="position:static; width:100%; height:100%; min-height:40px; box-sizing:border-box;" textZoom={1}
+  <div class="resize" role="separator" tabindex="0" aria-label={t('Notes pane height')} aria-orientation="horizontal" aria-valuemin={NOTES_MIN_HEIGHT} aria-valuemax={maxHeight} aria-valuenow={editor.notesHeight} onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={() => drag = null} onpointercancel={() => drag = null} onlostpointercapture={() => drag = null} onkeydown={resizeKeys}></div>
+  <RichTextInput bind:this={input} {value} html={noteHtml} label={t('Notes content')} autofocus={false} style="position:static; width:100%; height:100%; min-height:20px; box-sizing:border-box;" textZoom={1}
     onfocus={() => { editor.inlineTextFormat = null; focused = true; }} onblur={() => { commit(); setTimeout(() => { if (document.activeElement !== input?.getElement?.()) focused = false; }, 0); }}
     onselect={(next) => { const paragraph = paragraphIndexAt(next.start); const pendingEmptyParagraph = next.start === next.end && typingFormat && pendingParagraphs.has(paragraph) && paragraphIsEmptyAt(next.start); if ((next.start !== range.start || next.end !== range.end) && !pendingEmptyParagraph) { typingFormat = undefined; } range = next; formatForRange(next); }} onbeforeinput={(next) => { range = next; formatForRange(next); }} oninput={changed} onkeydown={keys}
     onnewline={(kind) => {
@@ -526,7 +528,7 @@
 
 <style>
   .placeholder { position: absolute; top: 12px; left: 18px; color: var(--ok-text-3); font-size: 14px; pointer-events: none; }
-  .notes-pane { position: relative; min-height: 60px; max-height: 50vh; box-sizing: border-box; border-top: 1px solid var(--ok-border); background: var(--ok-panel); padding: 10px 16px 8px; }
+  .notes-pane { position: relative; min-height: 44px; max-height: 50vh; box-sizing: border-box; border-top: 1px solid var(--ok-border); background: var(--ok-panel); padding: 10px 16px 6px; }
   .resize { position: absolute; left: 0; right: 0; top: -3px; height: 6px; cursor: ns-resize; touch-action: none; }
   .resize:focus-visible { outline: 2px solid var(--ok-accent); }
 </style>

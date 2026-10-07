@@ -161,7 +161,8 @@ export class EditorController {
   sorterZoom = $state(1);
   // Normal view shows the notes pane by default, as PowerPoint does.
   notesVisible = $state(true);
-  notesHeight = $state(120);
+  // One line tall, as Mac PowerPoint opens it (see NotesPane).
+  notesHeight = $state(44);
   notesFocusRequest = $state(0);
   /** Bumped by Edit Text; the canvas starts editing the selected shape's text. */
   textEditRequest = $state(0);
@@ -553,7 +554,7 @@ export class EditorController {
   }
 
   // --- Zoom --------------------------------------------------------------
-  /** Canvas zoom multiplier (1 = fit-ish base). */
+  /** Canvas zoom as a fraction of Mac PowerPoint's 100% (one slide point per screen point). */
   zoom = $state(1);
   autoFitZoom = $state(true);
   /** When set by the canvas, `fit` recomputes to this multiplier. */

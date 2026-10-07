@@ -67,7 +67,7 @@
   }
 </script>
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} />
-<button class="trigger" class:compact bind:this={trigger} aria-label={t('Arrange')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if !compact}<Icon name="arrange" size={32} />{/if}<span>{t('Arrange')} ▾</span></button>
+<button class="trigger" class:compact bind:this={trigger} aria-label={t('Arrange')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if compact}<span>{t('Arrange')} ▾</span>{:else}<span class="icon-row"><Icon name="arrange" size={32} /><span aria-hidden="true">▾</span></span><span>{t('Arrange')}</span>{/if}</button>
 {#if open}
   <div class="menu" role="menu" aria-label={t('Arrange')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="heading">{t('Reorder Objects')}</div>
@@ -102,6 +102,8 @@
 {/if}
 <style>
   .trigger { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); color: var(--ok-text); font: inherit; font-size: 11px; cursor: pointer; }
+  .trigger:not(.compact) { align-self: stretch; justify-content: flex-start; gap: 2px; min-width: 50px; padding: 4px 2px; }
+  .icon-row { display: flex; align-items: center; gap: 1px; font-size: 10px; }
   .trigger:hover { background: var(--ok-hover); border-color: var(--ok-border); }
   .trigger.compact { flex-direction: row; justify-content: center; min-width: 76px; padding: 8px 7px; border-color: var(--ok-border); background: var(--ok-panel); }
   .trigger.compact:hover, .trigger.compact[aria-expanded='true'] { background: var(--ok-hover); border-color: var(--ok-accent); }

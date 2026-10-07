@@ -11,6 +11,7 @@ import {
   getShapeText,
   getTableCells,
   getTableCellText,
+  isShapeLocked,
   isTableShape,
   loadPresentation,
 } from '@office-kit/pptx';
@@ -74,27 +75,89 @@ test(
       await hits.nth(0).click();
       await hits.nth(1).click({ button: 'right' });
       assert.equal(await selected.count(), 1);
-      // PowerPoint's object menu, in its order. It has no Delete; the key
-      // deletes the selection.
+      // Mac PowerPoint's object menu, in its order and with its separators
+      // (native capture 2026-10-07). It has no Delete; the key deletes the
+      // selection. Commands the editor cannot perform are disabled.
+      const entries = await menu
+        .locator(':scope > .ctx-item, :scope > .branch > .ctx-item, :scope > .ctx-sep')
+        .evaluateAll((nodes) =>
+          nodes.map((node) =>
+            node.classList.contains('ctx-sep')
+              ? '----'
+              : `${node.textContent.replace(/[›⌘⌥⇧].*$/, '').trim()}${node.disabled ? ' (disabled)' : ''}`,
+          ),
+        );
+      assert.deepEqual(entries, [
+        'Cut',
+        'Copy',
+        'Paste (disabled)',
+        '----',
+        'Edit Text',
+        'Edit Points (disabled)',
+        '----',
+        'Reorder Objects (disabled)',
+        'Reorder Overlapping Objects (disabled)',
+        '----',
+        'Group',
+        'Bring to Front',
+        'Send to Back',
+        'Lock',
+        '----',
+        'Hyperlink...',
+        '----',
+        'Save as Picture... (disabled)',
+        '----',
+        'Translate... (disabled)',
+        '----',
+        'View Alt Text...',
+        'Set as Default Shape Style (disabled)',
+        'Size and Position...',
+        'Format Shape...',
+        '----',
+        'Action Settings...',
+        '----',
+        'New Comment',
+      ]);
+      // Mac menus use 24 pt items and 11 pt separators.
       assert.deepEqual(
-        (
-          await menu.locator(':scope > .ctx-item, :scope > .branch > .ctx-item').allTextContents()
-        ).map((text) => text.replace(/[›⌘⌥⇧].*$/, '').trim()),
-        [
-          'Cut',
-          'Copy',
-          'Paste',
-          'Edit Text',
-          'Group',
-          'Bring to Front',
-          'Send to Back',
-          'Link...',
-          'Edit Alt Text...',
-          'Size and Position...',
-          'Format Shape...',
-          'New Comment',
-        ],
+        await menu.evaluate((node) => [
+          node.querySelector(':scope > .ctx-item').getBoundingClientRect().height,
+          (() => {
+            const sep = node.querySelector(':scope > .ctx-sep');
+            const style = getComputedStyle(sep);
+            return (
+              sep.getBoundingClientRect().height +
+              parseFloat(style.marginTop) +
+              parseFloat(style.marginBottom)
+            );
+          })(),
+        ]),
+        [24, 11],
       );
+      await menu.getByRole('menuitem', { name: 'Group', exact: true }).hover();
+      assert.deepEqual(
+        await editor
+          .getByRole('menu', { name: 'Group', exact: true })
+          .locator(':scope > .ctx-item, :scope > .ctx-sep')
+          .evaluateAll((nodes) =>
+            nodes.map((node) => (node.classList.contains('ctx-sep') ? '----' : node.textContent)),
+          ),
+        ['Group', 'Regroup', '----', 'Ungroup'],
+      );
+      // Lock toggles PowerPoint's object locks; the menu then offers Unlock.
+      const locked = async (expected) => {
+        const deadline = Date.now() + 10000;
+        while (isShapeLocked((await shapes())[1]) !== expected) {
+          assert.ok(Date.now() < deadline, `shape lock did not become ${expected}`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      };
+      await menu.getByRole('menuitem', { name: 'Lock', exact: true }).click();
+      await locked(true);
+      await hits.nth(1).click({ button: 'right' });
+      await menu.getByRole('menuitem', { name: 'Unlock', exact: true }).click();
+      await locked(false);
+      await hits.nth(1).click({ button: 'right' });
       await page.keyboard.press('Escape');
       await page.keyboard.press('Delete');
       await saved();
@@ -108,7 +171,14 @@ test(
       // the selection to the cell.
       await editor.locator('.stage').click({ button: 'right', position: { x: 3, y: 3 } });
       await menu.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
-      const tableBox = await hits.nth(2).boundingBox();
+      // Wait for the canvas to refit to the narrower area before measuring.
+      let tableBox = await hits.nth(2).boundingBox();
+      for (;;) {
+        await page.waitForTimeout(100);
+        const next = await hits.nth(2).boundingBox();
+        if (next.x === tableBox.x && next.width === tableBox.width) break;
+        tableBox = next;
+      }
       const cellContext = async (row, col) => {
         await page.mouse.click(
           tableBox.x + (tableBox.width * (col + 0.5)) / 2,

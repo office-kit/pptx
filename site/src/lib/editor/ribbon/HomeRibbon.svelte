@@ -214,7 +214,7 @@
       <button class="menu-trigger" class:big={!small} class:row={small} disabled={!hasSlide} aria-label={t('Layout')} aria-haspopup="menu" aria-expanded={openMenu === 'layout'} onclick={() => toggleMenu('layout')}>{#if small}<Icon name="layout" size={18} /><span>{t('Layout')}</span><span aria-hidden="true">⌄</span>{:else}<span class="icon-row"><Icon name="layout" size={32} /><span aria-hidden="true">⌄</span></span><span>{t('Layout')}</span>{/if}</button>
       {#if openMenu === 'layout'}{@render layoutMenu('layout')}{/if}
     </div>
-    <button class:big={!small} class:row={small} disabled={!editor.canRun('resetSlideLayout')} aria-label={t('Reset')} title={t('Reset the position, size, and formatting of the slide placeholders to their default settings.')} onclick={() => editor.invoke('resetSlideLayout')}><Icon name="reset" size={small ? 18 : 32} /><span>{t('Reset')}</span></button>
+    <button class:big={!small} class:narrow={!small} class:row={small} disabled={!editor.canRun('resetSlideLayout')} aria-label={t('Reset')} title={t('Reset the position, size, and formatting of the slide placeholders to their default settings.')} onclick={() => editor.invoke('resetSlideLayout')}><Icon name="reset" size={small ? 18 : 32} /><span>{t('Reset')}</span></button>
     <SectionMenu {small} />
   </div>
 {/snippet}
@@ -296,7 +296,10 @@
   {@render group('Insert', 'textbox', insert)}
   {@render group('Drawing', 'quick-styles', drawing)}
   <section class="cluster" aria-label={t('Add-ins')}>
-    <button class={small ? 'tool' : 'big'} aria-label={t('Add-ins')} title={t('Office Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
+    <button class={small ? 'tool' : 'big narrow'} aria-label={t('Add-ins')} title={t('Office Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
+  </section>
+  <!-- PowerPoint separates Add-ins and Designer into two groups. -->
+  <section class="cluster" aria-label={t('Designer')}>
     <button class={small ? 'tool' : 'big'} aria-label={t('Designer')} title={t('Designer needs the Microsoft 365 design service.')} disabled><Icon name="designer" size={small ? 18 : 32} />{#if !small}<span>{t('Designer')}</span>{/if}</button>
   </section>
 </div>
@@ -308,27 +311,37 @@
 {/if}
 
 <style>
-  .home { display: flex; align-items: stretch; min-width: 0; width: 100%; gap: 0; }
-  .cluster { position: relative; display: flex; align-items: center; gap: 2px; padding: 0 4px; border-right: 1px solid var(--ok-border); flex: none; }
+  /* Mac PowerPoint's Home commands: a 72 pt row of groups separated by a
+     rule with 10 pt on either side; large buttons are 50 pt wide and fill the
+     row, small ones 26 × 26 pt, and menu buttons with an arrow 38 × 26 pt. */
+  .home { display: flex; align-items: stretch; min-width: 0; width: 100%; height: 72px; gap: 0; }
+  .cluster { position: relative; display: flex; align-items: center; gap: 0; padding: 0 10px; border-right: 1px solid var(--ok-border); flex: none; }
+  .cluster:first-child { padding-left: 4px; }
   .cluster:last-child { border-right: none; }
   button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
   button[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
-  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 40px; padding: 3px 2px; font-size: 11px; line-height: 1.15; }
+  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; align-self: stretch; gap: 2px; min-width: 50px; padding: 4px 2px; font-size: 11px; line-height: 1.15; }
   .big > span { max-width: 52px; text-align: center; }
+  .split > .big { min-width: 36px; }
+  .split > .big > span { max-width: 36px; }
+  .big.narrow { min-width: 38px; }
   .icon-row { display: flex; align-items: center; gap: 2px; max-width: none !important; }
-  .row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 11px; white-space: nowrap; }
-  .tool { display: flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 0; }
-  .stack { display: flex; align-items: center; gap: 4px; }
+  .row { display: flex; align-items: center; gap: 3px; padding: 2px 3px; font-size: 11px; white-space: nowrap; }
+  .tool { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; }
+  .stack { display: flex; align-items: center; gap: 0; }
+  .stack:not(.small) { align-self: stretch; align-items: stretch; }
+  .stack:not(.small) > .anchor, .stack:not(.small) > :global(.section-menu) { display: flex; }
   .stack.small { flex-direction: column; align-items: flex-start; gap: 2px; }
   .stack.tools { align-items: center; }
   .split { position: relative; display: flex; align-items: flex-start; }
+  .split.large { align-self: stretch; }
   .arrow { align-self: center; padding: 2px; font-size: 12px; }
   .anchor { position: relative; }
-  .rows { display: flex; flex-direction: column; gap: 4px; }
-  .row-controls { display: flex; align-items: center; gap: 2px; }
-  .sep { width: 1px; height: 20px; margin: 0 2px; background: var(--ok-border); }
+  .rows { display: flex; flex-direction: column; align-self: flex-start; gap: 6px; margin-top: 4px; }
+  .row-controls { display: flex; align-items: center; gap: 0; height: 26px; }
+  .sep { width: 1px; height: 20px; margin: 0 7px; background: var(--ok-border); }
   .paint-row { display: flex; align-items: center; gap: 5px; font-size: 11px; white-space: nowrap; }
   .home-menu, .group-popup { position: fixed; z-index: 400; padding: 6px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .group-popup { display: flex; align-items: center; gap: 4px; }

@@ -68,8 +68,6 @@ test(
       await cell(1, 1).click();
       await cell(1, 2).click({ modifiers: ['Shift'] });
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 2);
-      const homeFontDialog = editor.getByRole('button', { name: 'Font dialog', exact: true });
-      assert.equal(await homeFontDialog.isEnabled(), true);
       const home = editor.getByRole('tabpanel', { name: 'Home', exact: true });
       const bold = home.getByRole('button', { name: 'Bold', exact: true });
       assert.equal(await bold.isEnabled(), true);
@@ -82,7 +80,8 @@ test(
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await readCells(), before);
-      await homeFontDialog.click();
+      // PowerPoint opens the Font dialog with Cmd+T; the Home ribbon has no Font button.
+      await page.keyboard.press('ControlOrMeta+t');
       const dialog = editor.getByRole('dialog', { name: 'Font', exact: true });
       await dialog.waitFor();
       await dialog.getByRole('tab', { name: 'Character Spacing', exact: true }).click();
