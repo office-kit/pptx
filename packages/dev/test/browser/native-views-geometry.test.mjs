@@ -464,22 +464,29 @@ for (const locale of ['en', 'ja'])
           await bar.locator('.position').getAttribute('title'),
           L.masterHelp(L.handoutMaster),
         );
-        // The page settles once the fitted zoom has been measured.
-        await page.waitForFunction(() => {
-          const sheet = document.querySelector('.page-area .page')?.getBoundingClientRect();
-          const frame = document
-            .querySelector('.page-area [data-role="slide"]')
-            ?.getBoundingClientRect();
-          return sheet && frame && frame.left > sheet.left;
+        // Measure once the fitted page has stopped moving: the page refits as
+        // the ribbon switches to the Handout Master tab.
+        const { handoutPage, frames } = await handout.evaluate(async (area) => {
+          const measure = () => {
+            const sheet = area.querySelector('.page').getBoundingClientRect();
+            return {
+              handoutPage: { x: sheet.x, y: sheet.y, width: sheet.width },
+              frames: [...area.querySelectorAll('[data-role="slide"]')].map((node) => {
+                const rect = node.getBoundingClientRect();
+                return [rect.x, rect.y, rect.width, rect.height];
+              }),
+            };
+          };
+          const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+          let last = '';
+          for (;;) {
+            await frame();
+            const current = JSON.stringify(measure());
+            if (current === last) return JSON.parse(current);
+            last = current;
+          }
         });
-        const handoutPage = await box(handout.locator('.page'));
         const handoutZoom = handoutPage.width / 540;
-        const frames = await handout.locator('[data-role="slide"]').evaluateAll((nodes) =>
-          nodes.map((node) => {
-            const rect = node.getBoundingClientRect();
-            return [rect.x, rect.y, rect.width, rect.height];
-          }),
-        );
         assert.equal(frames.length, 6);
         const expected = [88.5, 297.5, 506].flatMap((y) => [38.5, 281].map((x) => [x, y]));
         frames.forEach(([x, y, width, height], index) => {
