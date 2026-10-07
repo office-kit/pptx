@@ -21,6 +21,8 @@
   import { selectedShapeId } from '../core/selection.ts';
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import RibbonGallery from './RibbonGallery.svelte';
+  import EffectGalleryPopover from './EffectGalleryPopover.svelte';
+  import AnimationColorPalette from './AnimationColorPalette.svelte';
   import {
     ALL_TILES,
     EMPHASIS_TILES,
@@ -30,6 +32,8 @@
     effectOptionSections,
     optionChecked,
     optionLabel,
+    stepOptions,
+    takesColor,
     takesSequence,
     type EffectTile,
   } from './animation-gallery.ts';
@@ -79,6 +83,8 @@
   });
   const label = (item: { en: string; ja: string }) => (getLocale() === 'ja' ? item.ja : item.en);
 
+  // A new preset replaces the effect and takes the preset's own duration, as
+  // PowerPoint's galleries do; the library resets it when the preset changes.
   function choose(effect: AnimationEffect) {
     const slide = doc.currentSlide;
     const shape = editor.selectedShapes()[0];
@@ -102,7 +108,7 @@
   type Menu = 'emphasis' | 'exit' | 'options';
   let menu = $state<Menu | null>(null);
   const toggle = (name: Menu) => (menu = menu === name ? null : name);
-  function chooseFromMenu(item: EffectTile) {
+  function chooseFromPopover(item: EffectTile) {
     menu = null;
     choose(item.effect);
   }
@@ -119,11 +125,7 @@
       from: shapeId,
       options: {
         effect: step.effect,
-        ...(step.direction ? { direction: step.direction } : {}),
-        ...(step.orientation ? { orientation: step.orientation } : {}),
-        ...(step.inOut ? { inOut: step.inOut } : {}),
-        ...(step.shape ? { shape: step.shape } : {}),
-        ...(step.spokes ? { spokes: step.spokes } : {}),
+        ...stepOptions(step),
         ...(step.build !== 'custom' ? { build: step.build } : {}),
         ...(step.durationMs != null ? { durationMs: step.durationMs } : {}),
         ...(step.delayMs != null ? { delayMs: step.delayMs } : {}),
@@ -162,12 +164,10 @@
 {#snippet star(kind: EffectTile['kind'])}
   <svg class="star {kind}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /></svg>
 {/snippet}
-{#snippet effectMenu(name: Menu, items: readonly EffectTile[])}
-  <div class="menu" role="menu" use:placeBelowTrigger aria-label={t(name === 'exit' ? 'Exit Effects' : 'Emphasis Effects')}>
-    {#each items as item (item.key)}
-      <button role="menuitemradio" aria-checked={checkedIn(item.kind) === item.key} onclick={() => chooseFromMenu(item)}>{@render star(item.kind)}{label(item)}</button>
-    {/each}
-  </div>
+{#snippet effectPopover(name: Menu, items: readonly EffectTile[])}
+  <EffectGalleryPopover label={t(name === 'exit' ? 'Exit Effects' : 'Emphasis Effects')} tiles={items} checked={checkedIn(name === 'exit' ? 'exit' : 'emphasis')} choose={chooseFromPopover}>
+    {#snippet tile(item)}{@render star(item.kind)}{/snippet}
+  </EffectGalleryPopover>
 {/snippet}
 
 <div class="animations" lang={getLocale()} bind:this={row} bind:clientWidth={width}>
@@ -190,21 +190,21 @@
       </RibbonGallery>
     {:else}
       <div class="anchor">
-        <button class="big" style:--w="55px" aria-haspopup="menu" aria-expanded={menu === 'emphasis'} disabled={shapeId === null} onclick={() => toggle('emphasis')}>
+        <button class="big" style:--w="55px" aria-haspopup="dialog" aria-expanded={menu === 'emphasis'} disabled={shapeId === null} onclick={() => toggle('emphasis')}>
           <span class="icon-row">{@render star('emphasis')}<span class="arrow" aria-hidden="true">⌄</span></span>
           <span>{t('Emphasis Effects')}</span>
         </button>
-        {#if menu === 'emphasis'}{@render effectMenu('emphasis', EMPHASIS_TILES)}{/if}
+        {#if menu === 'emphasis'}{@render effectPopover('emphasis', EMPHASIS_TILES)}{/if}
       </div>
     {/if}
   </section>
   <section class="cluster" role="group" aria-label={t('Exit Effects')}>
     <div class="anchor">
-      <button class="big" style:--w="50px" aria-haspopup="menu" aria-expanded={menu === 'exit'} disabled={shapeId === null} onclick={() => toggle('exit')}>
+      <button class="big" style:--w="50px" aria-haspopup="dialog" aria-expanded={menu === 'exit'} disabled={shapeId === null} onclick={() => toggle('exit')}>
         <span class="icon-row">{@render star('exit')}<span class="arrow" aria-hidden="true">⌄</span></span>
         <span>{t('Exit Effects')}</span>
       </button>
-      {#if menu === 'exit'}{@render effectMenu('exit', EXIT_TILES)}{/if}
+      {#if menu === 'exit'}{@render effectPopover('exit', EXIT_TILES)}{/if}
     </div>
   </section>
   <section class="cluster" role="group" aria-label={t('Path Animation')}>
@@ -215,15 +215,16 @@
   </section>
   <section class="cluster" role="group" aria-label={t('Advanced Animation')}>
     <div class="anchor">
-      <button class="big" style:--w="50px" aria-haspopup="menu" aria-expanded={menu === 'options'} disabled={step?.id == null || (optionSections.length === 0 && !takesSequence(step.effect))} onclick={() => toggle('options')}>
+      <button class="big" style:--w="50px" aria-haspopup="menu" aria-expanded={menu === 'options'} disabled={step?.id == null || (optionSections.length === 0 && !takesColor(step.effect) && !takesSequence(step.effect))} onclick={() => toggle('options')}>
         <span class="icon-row"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3l2 4.4 4.7.5-3.5 3.2.9 4.6L10 13.4l-4.1 2.3.9-4.6-3.5-3.2 4.7-.5z" /><circle cx="17" cy="17" r="3" /></svg><span class="arrow" aria-hidden="true">⌄</span></span>
         <span>{t('Effect Options')}</span>
       </button>
       {#if menu === 'options' && step}
         <!-- PowerPoint's Effect Options menu: the effect's own sections
-             (Direction, Shapes, Spokes), then Sequence. -->
+             (Direction, Shapes, Spokes, Amount), the colour palette of a
+             colour effect, then Sequence. -->
         <div class="menu options" role="menu" use:placeBelowTrigger aria-label={t('Effect Options')}>
-          {#each optionSections as group, at (group.heading)}
+          {#each optionSections as group, at (`${at}:${group.heading}`)}
             {#if at > 0}<hr />{/if}
             <div class="heading" role="presentation">{t(group.heading)}</div>
             {#each group.items as item (item.en)}
@@ -235,8 +236,12 @@
               </button>
             {/each}
           {/each}
-          {#if takesSequence(step.effect)}
+          {#if takesColor(step.effect)}
             {#if optionSections.length > 0}<hr />{/if}
+            <AnimationColorPalette value={step.color} choose={(color) => { menu = null; patch({ color }); }} />
+          {/if}
+          {#if takesSequence(step.effect)}
+            {#if optionSections.length > 0 || takesColor(step.effect)}<hr />{/if}
             <div class="heading" role="presentation">{t('Sequence')}</div>
             {#each SEQUENCE as item (item.build)}
               <button role="menuitemradio" aria-checked={step.build === item.build} onclick={() => { menu = null; patch({ build: item.build }); }}><span class="check" aria-hidden="true">✓</span>{t(item.en)}</button>

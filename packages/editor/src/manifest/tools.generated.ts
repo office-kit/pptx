@@ -2540,7 +2540,7 @@ export const generatedTools: GeneratedTools = {
             properties: {
               barType: {
                 type: 'string',
-                enum: ['plus', 'both', 'minus'],
+                enum: ['both', 'plus', 'minus'],
                 description: 'Which side of the point gets a bar (`<c:errBarType>`).',
               },
               amount: {
@@ -7791,7 +7791,7 @@ export const generatedTools: GeneratedTools = {
             properties: {
               barType: {
                 type: 'string',
-                enum: ['plus', 'both', 'minus'],
+                enum: ['both', 'plus', 'minus'],
                 description: 'Which side of the point gets a bar (`<c:errBarType>`).',
               },
               amount: {
@@ -9981,7 +9981,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeAnimation',
       description:
-        "Adds a single animation effect to the given shape.\n\nThe effect is *merged* into any existing `<p:timing>` on the slide rather\nthan replacing it: animating a second shape (or re-running on a template that\nalready has authored animations) preserves the existing effects, with cTn ids\nrenumbered to stay unique. To clear every animation first, call\n`clearSlideAnimations`.\n\n`effect` is any entry of PowerPoint's Entrance, Emphasis and Exit\ngalleries (see `AnimationEffect`), written exactly as PowerPoint writes it:\nthe same preset numbers and the same behaviours, so the deck plays the same\nin PowerPoint as an effect picked from its gallery.\n\nEffect Options are the options PowerPoint offers for the preset:\n\n  - `direction` — `'flyIn'` / `'flyOut'` take any edge or corner of the\n    slide (`'bottom'` by default); `'wipe…'` and `'peek…'` one of the four\n    edges; `'strips…'` one of the four corners (`'bottomLeft'` by default).\n  - `orientation` — blinds, random bars and checkerboard (`'horizontal'`)\n    and split (`'vertical'`).\n  - `inOut` — shape and split: close in on the centre (`'in'`) or open out\n    of it (`'out'`). PowerPoint's Shape exit defaults to `'out'`.\n  - `shape` — `'circle'` (the default), `'box'`, `'diamond'` or `'plus'`.\n  - `spokes` — wheel: 1 (the default), 2, 3, 4 or 8.\n\nAn option passed for an effect that does not take it is an error rather\nthan a no-op.\n\n`durationMs` defaults to PowerPoint's default for the preset\n(`defaultAnimationDurationMs`). An effect made of several behaviours — a\nBounce, a Teeter — is scaled as a whole, the way PowerPoint's Duration box\nscales it. `appear` and `disappear` are instantaneous and write no timed\nbehaviour; `transparency` and `boldReveal` hold until the slide ends and\ntake no duration.\n\n`start` decides where the effect lands. The default `'click'` gives it a\nclick stop of its own, so the viewer sees it on the next click.\n`'withPrevious'` and `'afterPrevious'` join the stop the last effect is in,\nrunning alongside it or once it has finished — both off the same click. As\nthe slide's first effect neither has a predecessor, so both run when the\nslide appears. `delayMs` waits that long once the start condition is met.\n\n`'afterPrevious'` throws when the slide's timing does not say when the effect\nbefore it ends — it runs indefinitely, states no duration, repeats, runs\nletter by letter, or starts from another node rather than at a fixed offset.\nThe slide is left untouched; `'click'` and `'withPrevious'` need no such\nmeasurement.\n\n`build` is PowerPoint's Effect Options \"Sequence\". `'asOneObject'` (the\ndefault) animates the shape with its text as one effect. `'allAtOnce'` and\n`'byParagraph'` give every paragraph its own effect: all of them starting\ntogether, or each on its own `start` — so the default `'click'` advances a\nparagraph per click. They share a single `<p:bldP>`, which is how PowerPoint\nand Google Slides both present the build as one animation.\n`getSlideAnimations` reports each paragraph as its own step, targeting a\nparagraph range.\n\nReading the result back, including the order and start condition of every\neffect on the slide, is `getSlideAnimations`.",
+        "Adds a single animation effect to the given shape.\n\nThe effect is *merged* into any existing `<p:timing>` on the slide rather\nthan replacing it: animating a second shape (or re-running on a template that\nalready has authored animations) preserves the existing effects, with cTn ids\nrenumbered to stay unique. To clear every animation first, call\n`clearSlideAnimations`.\n\n`effect` is any entry of PowerPoint's Entrance, Emphasis and Exit\ngalleries (see `AnimationEffect`), written exactly as PowerPoint writes it:\nthe same preset numbers and the same behaviours, so the deck plays the same\nin PowerPoint as an effect picked from its gallery.\n\nEffect Options are the options PowerPoint offers for the preset:\n\n  - `direction` — `'flyIn'` / `'flyOut'` take any edge or corner of the\n    slide (`'bottom'` by default); `'wipe…'` and `'peek…'` one of the four\n    edges; `'strips…'` one of the four corners (`'bottomLeft'` by default).\n  - `orientation` — blinds, random bars and checkerboard (`'horizontal'`)\n    and split (`'vertical'`).\n  - `inOut` — shape and split: close in on the centre (`'in'`) or open out\n    of it (`'out'`). PowerPoint's Shape exit defaults to `'out'`.\n  - `shape` — `'circle'` (the default), `'box'`, `'diamond'` or `'plus'`.\n  - `spokes` — wheel: 1 (the default), 2, 3, 4 or 8.\n  - `spinDirection` and `spinDegrees` — spin: `'clockwise'` (the default)\n    or `'counterclockwise'`, through any positive angle (360 by default).\n  - `scaleDirection` and `scalePercent` — grow/shrink: `'both'` axes (the\n    default), `'horizontal'` or `'vertical'`, to any positive size (150 %).\n  - `transparencyPercent` — transparency: 0–100 (50 by default).\n  - `color` — the colour emphasis effects (fill, font, line, brush and\n    object colour, colour pulse, grow with colour): a theme slot or\n    `#RRGGBB`, optionally with colour transforms. Accent 2 by default, and\n    Background 1 for colour pulse.\n\nAn option passed for an effect that does not take it is an error rather\nthan a no-op.\n\n`durationMs` defaults to PowerPoint's default for the preset\n(`defaultAnimationDurationMs`). An effect made of several behaviours — a\nBounce, a Teeter — is scaled as a whole, the way PowerPoint's Duration box\nscales it. `appear` and `disappear` are instantaneous and write no timed\nbehaviour; `transparency` and `boldReveal` hold until the slide ends and\ntake no duration.\n\n`start` decides where the effect lands. The default `'click'` gives it a\nclick stop of its own, so the viewer sees it on the next click.\n`'withPrevious'` and `'afterPrevious'` join the stop the last effect is in,\nrunning alongside it or once it has finished — both off the same click. As\nthe slide's first effect neither has a predecessor, so both run when the\nslide appears. `delayMs` waits that long once the start condition is met.\n\n`'afterPrevious'` throws when the slide's timing does not say when the effect\nbefore it ends — it runs indefinitely, states no duration, repeats, runs\nletter by letter, or starts from another node rather than at a fixed offset.\nThe slide is left untouched; `'click'` and `'withPrevious'` need no such\nmeasurement.\n\n`build` is PowerPoint's Effect Options \"Sequence\". `'asOneObject'` (the\ndefault) animates the shape with its text as one effect. `'allAtOnce'` and\n`'byParagraph'` give every paragraph its own effect: all of them starting\ntogether, or each on its own `start` — so the default `'click'` advances a\nparagraph per click. They share a single `<p:bldP>`, which is how PowerPoint\nand Google Slides both present the build as one animation.\n`getSlideAnimations` reports each paragraph as its own step, targeting a\nparagraph range.\n\nReading the result back, including the order and start condition of every\neffect on the slide, is `getSlideAnimations`.",
       args: ['shape', 'opts'],
       input_schema: {
         type: 'object',
@@ -10107,8 +10107,7 @@ export const generatedTools: GeneratedTools = {
                   "Which edge of the slide a `'flyIn'` comes from, or a `'flyOut'` leaves by\n— any of the eight. `'wipeIn'`, `'wipeOut'`, `'peekIn'` and `'peekOut'`\ntake one of the four edges, `'stripsIn'` and `'stripsOut'` one of the four\ncorners. Defaults to PowerPoint's own default for the preset (`'bottom'`;\n`'bottomLeft'` for strips). Passing it for an effect that takes no\ndirection is an error rather than a no-op: it would otherwise read as a\ndirection the file never records. The same holds for the options below.",
               },
               orientation: {
-                type: 'string',
-                enum: ['horizontal', 'vertical'],
+                $ref: '#/$defs/AnimationOrientation',
                 description:
                   "For blinds, random bars and split: which way the bars run. For a\ncheckerboard, `'horizontal'` is PowerPoint's \"Across\" and `'vertical'` its\n\"Down\". Defaults to `'horizontal'` (`'vertical'` for split).",
               },
@@ -10127,6 +10126,103 @@ export const generatedTools: GeneratedTools = {
                 type: 'number',
                 description:
                   "For `'wheelIn'` / `'wheelOut'`: 1, 2, 3, 4 or 8 spokes. Defaults to 1.",
+              },
+              spinDirection: {
+                type: 'string',
+                enum: ['clockwise', 'counterclockwise'],
+                description: "For `'spin'`: which way it turns. Defaults to `'clockwise'`.",
+              },
+              spinDegrees: {
+                type: 'number',
+                description:
+                  "For `'spin'`: how far it turns, in degrees. PowerPoint's menu offers 90\n(Quarter Spin), 180 (Half Spin), 360 (Full Spin, the default) and 720\n(Two Spins); any positive angle can be written.",
+              },
+              scaleDirection: {
+                anyOf: [
+                  { $ref: '#/$defs/AnimationOrientation' },
+                  { type: 'string', const: 'both' },
+                ],
+                description:
+                  "For `'growShrink'`: scale both axes (the default), or only the width\n(`'horizontal'`) or only the height (`'vertical'`).",
+              },
+              scalePercent: {
+                type: 'number',
+                description:
+                  "For `'growShrink'`: the size to reach, in percent of the shape's own.\nPowerPoint's menu offers 25 (Tiny), 50 (Smaller), 150 (Larger, the\ndefault) and 400 (Huge).",
+              },
+              transparencyPercent: {
+                type: 'number',
+                description:
+                  "For `'transparency'`: how transparent the shape becomes, 0–100. PowerPoint\noffers 25, 50 (the default), 75 and 100.",
+              },
+              color: {
+                anyOf: [
+                  { $ref: '#/$defs/Color' },
+                  {
+                    type: 'object',
+                    properties: {
+                      color: { $ref: '#/$defs/Color' },
+                      colorTransforms: {
+                        type: 'array',
+                        items: {
+                          anyOf: [
+                            {
+                              type: 'object',
+                              properties: {
+                                kind: {
+                                  type: 'string',
+                                  enum: ['comp', 'inv', 'gray', 'gamma', 'invGamma'],
+                                },
+                              },
+                              required: ['kind'],
+                              additionalProperties: false,
+                            },
+                            {
+                              type: 'object',
+                              properties: {
+                                kind: {
+                                  type: 'string',
+                                  enum: [
+                                    'tint',
+                                    'shade',
+                                    'alpha',
+                                    'alphaOff',
+                                    'alphaMod',
+                                    'hue',
+                                    'hueOff',
+                                    'hueMod',
+                                    'sat',
+                                    'satOff',
+                                    'satMod',
+                                    'lum',
+                                    'lumOff',
+                                    'lumMod',
+                                    'red',
+                                    'redOff',
+                                    'redMod',
+                                    'green',
+                                    'greenOff',
+                                    'greenMod',
+                                    'blue',
+                                    'blueOff',
+                                    'blueMod',
+                                  ],
+                                },
+                                value: { type: 'number' },
+                              },
+                              required: ['kind', 'value'],
+                              additionalProperties: false,
+                            },
+                          ],
+                        },
+                      },
+                    },
+                    required: ['color'],
+                    additionalProperties: false,
+                  },
+                ],
+                description:
+                  "For the colour emphasis effects — `'fillColor'`, `'fontColor'`,\n`'lineColor'`, `'brushColor'`, `'objectColor'`, `'colorPulse'` and\n`'growWithColor'` — the colour to change to. Defaults to Accent 2, and to\nBackground 1 for `'colorPulse'`, as PowerPoint's gallery does.",
               },
               durationMs: {
                 type: 'number',
@@ -10157,6 +10253,60 @@ export const generatedTools: GeneratedTools = {
         required: ['shape', 'opts'],
         additionalProperties: false,
         $defs: {
+          AnimationOrientation: { type: 'string', enum: ['horizontal', 'vertical'] },
+          Color: {
+            anyOf: [
+              {
+                type: 'string',
+                enum: [
+                  'bg1',
+                  'tx1',
+                  'bg2',
+                  'tx2',
+                  'accent1',
+                  'accent2',
+                  'accent3',
+                  'accent4',
+                  'accent5',
+                  'accent6',
+                  'hlink',
+                  'folHlink',
+                  'phClr',
+                  'lt1',
+                  'dk1',
+                  'lt2',
+                  'dk2',
+                ],
+              },
+              {
+                type: 'string',
+                enum: [
+                  'scheme:bg1',
+                  'scheme:tx1',
+                  'scheme:bg2',
+                  'scheme:tx2',
+                  'scheme:accent1',
+                  'scheme:accent2',
+                  'scheme:accent3',
+                  'scheme:accent4',
+                  'scheme:accent5',
+                  'scheme:accent6',
+                  'scheme:hlink',
+                  'scheme:folHlink',
+                  'scheme:phClr',
+                  'scheme:lt1',
+                  'scheme:dk1',
+                  'scheme:lt2',
+                  'scheme:dk2',
+                ],
+              },
+              {
+                type: 'string',
+                pattern: '^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$',
+                description: 'An sRGB color, "#RRGGBB" or "#RGB".',
+              },
+            ],
+          },
           ShapeRef: {
             type: 'object',
             description:
@@ -21403,11 +21553,97 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Which edge a fly, wipe or peek comes from or leaves by, or which corner\nstrips start from. Changing it rewrites the effect the same way changing\nthe preset does, because the direction is part of what the preset says.\nPassing it for an effect that takes no direction is an error — including\none this patch is turning into such an effect. The same holds for the\nfour options below; `setShapeAnimation` documents which effects take\nwhich.',
               },
-              orientation: { type: 'string', enum: ['horizontal', 'vertical'] },
+              orientation: { $ref: '#/$defs/AnimationOrientation' },
               inOut: { type: 'string', enum: ['in', 'out'] },
               shape: { type: 'string', enum: ['circle', 'box', 'diamond', 'plus'] },
               spokes: { type: 'number' },
-              durationMs: { type: 'number' },
+              spinDirection: {
+                type: 'string',
+                enum: ['clockwise', 'counterclockwise'],
+                description:
+                  "The emphasis effects' own options, as `setShapeAnimation` takes them:\nSpin's direction and angle, Grow/Shrink's axes and size, Transparency's\namount, and the colour of the colour effects.",
+              },
+              spinDegrees: { type: 'number' },
+              scaleDirection: {
+                anyOf: [
+                  { $ref: '#/$defs/AnimationOrientation' },
+                  { type: 'string', const: 'both' },
+                ],
+              },
+              scalePercent: { type: 'number' },
+              transparencyPercent: { type: 'number' },
+              color: {
+                anyOf: [
+                  { $ref: '#/$defs/Color' },
+                  {
+                    type: 'object',
+                    properties: {
+                      color: { $ref: '#/$defs/Color' },
+                      colorTransforms: {
+                        type: 'array',
+                        items: {
+                          anyOf: [
+                            {
+                              type: 'object',
+                              properties: {
+                                kind: {
+                                  type: 'string',
+                                  enum: ['comp', 'inv', 'gray', 'gamma', 'invGamma'],
+                                },
+                              },
+                              required: ['kind'],
+                              additionalProperties: false,
+                            },
+                            {
+                              type: 'object',
+                              properties: {
+                                kind: {
+                                  type: 'string',
+                                  enum: [
+                                    'tint',
+                                    'shade',
+                                    'alpha',
+                                    'alphaOff',
+                                    'alphaMod',
+                                    'hue',
+                                    'hueOff',
+                                    'hueMod',
+                                    'sat',
+                                    'satOff',
+                                    'satMod',
+                                    'lum',
+                                    'lumOff',
+                                    'lumMod',
+                                    'red',
+                                    'redOff',
+                                    'redMod',
+                                    'green',
+                                    'greenOff',
+                                    'greenMod',
+                                    'blue',
+                                    'blueOff',
+                                    'blueMod',
+                                  ],
+                                },
+                                value: { type: 'number' },
+                              },
+                              required: ['kind', 'value'],
+                              additionalProperties: false,
+                            },
+                          ],
+                        },
+                      },
+                    },
+                    required: ['color'],
+                    additionalProperties: false,
+                  },
+                ],
+              },
+              durationMs: {
+                type: 'number',
+                description:
+                  "How long the effect runs. Left out, a changed effect keeps the duration\nthe slide gave it, unless the patch changes the preset itself: a new\npreset takes its own default length, as picking one from PowerPoint's\ngallery does.",
+              },
               start: { type: 'string', enum: ['click', 'withPrevious', 'afterPrevious'] },
               delayMs: { type: 'number' },
               build: { type: 'string', enum: ['asOneObject', 'allAtOnce', 'byParagraph'] },
@@ -21418,6 +21654,60 @@ export const generatedTools: GeneratedTools = {
         required: ['slide', 'id', 'patch'],
         additionalProperties: false,
         $defs: {
+          AnimationOrientation: { type: 'string', enum: ['horizontal', 'vertical'] },
+          Color: {
+            anyOf: [
+              {
+                type: 'string',
+                enum: [
+                  'bg1',
+                  'tx1',
+                  'bg2',
+                  'tx2',
+                  'accent1',
+                  'accent2',
+                  'accent3',
+                  'accent4',
+                  'accent5',
+                  'accent6',
+                  'hlink',
+                  'folHlink',
+                  'phClr',
+                  'lt1',
+                  'dk1',
+                  'lt2',
+                  'dk2',
+                ],
+              },
+              {
+                type: 'string',
+                enum: [
+                  'scheme:bg1',
+                  'scheme:tx1',
+                  'scheme:bg2',
+                  'scheme:tx2',
+                  'scheme:accent1',
+                  'scheme:accent2',
+                  'scheme:accent3',
+                  'scheme:accent4',
+                  'scheme:accent5',
+                  'scheme:accent6',
+                  'scheme:hlink',
+                  'scheme:folHlink',
+                  'scheme:phClr',
+                  'scheme:lt1',
+                  'scheme:dk1',
+                  'scheme:lt2',
+                  'scheme:dk2',
+                ],
+              },
+              {
+                type: 'string',
+                pattern: '^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$',
+                description: 'An sRGB color, "#RRGGBB" or "#RGB".',
+              },
+            ],
+          },
           SlideRef: {
             type: 'string',
             pattern: '^/ppt/slides/[^/]+\\.xml$',

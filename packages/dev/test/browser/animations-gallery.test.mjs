@@ -8,7 +8,7 @@ import { getSlideAnimations, getSlides, loadPresentation } from '@office-kit/ppt
 import { startPreview } from '../helpers/server.mjs';
 
 // Every preset of the Entrance and Emphasis galleries and of the Exit Effects
-// menu can be chosen and writes its own effect, every item of its Effect
+// gallery can be chosen and writes its own effect, every item of its Effect
 // Options too, and Sequence offers PowerPoint's three builds — in English and
 // Japanese.
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="One" /><Shape preset="rect" x={5} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
@@ -53,26 +53,30 @@ const ENTRANCE = [
   ['Whip', 'whipIn', 0],
 ];
 
+// The colour effects offer the palette: ten theme colours, five rows of their
+// tints and shades, and ten standard colours.
+const PALETTE = 70;
+
 const EMPHASIS = [
-  ['Fill Color', 'fillColor'],
-  ['Font Color', 'fontColor'],
-  ['Grow/Shrink', 'growShrink'],
-  ['Line Color', 'lineColor'],
-  ['Spin', 'spin'],
-  ['Transparency', 'transparency'],
+  ['Fill Color', 'fillColor', PALETTE],
+  ['Font Color', 'fontColor', PALETTE],
+  ['Grow/Shrink', 'growShrink', 7],
+  ['Line Color', 'lineColor', PALETTE],
+  ['Spin', 'spin', 6],
+  ['Transparency', 'transparency', 4],
   ['Bold Flash', 'boldFlash'],
-  ['Brush Color', 'brushColor'],
+  ['Brush Color', 'brushColor', PALETTE],
   ['Complementary Color', 'complementaryColor'],
   ['Complementary Color 2', 'complementaryColor2'],
   ['Contrasting Color', 'contrastingColor'],
   ['Darken', 'darken'],
   ['Desaturate', 'desaturate'],
   ['Lighten', 'lighten'],
-  ['Object Color', 'objectColor'],
+  ['Object Color', 'objectColor', PALETTE],
   ['Pulse', 'pulse'],
   ['Underline', 'underline'],
-  ['Color Pulse', 'colorPulse'],
-  ['Grow With Color', 'growWithColor'],
+  ['Color Pulse', 'colorPulse', PALETTE],
+  ['Grow With Color', 'growWithColor', PALETTE],
   ['Shimmer', 'shimmer'],
   ['Teeter', 'teeter'],
   ['Blink', 'blink'],
@@ -165,7 +169,8 @@ test(
           .locator('[role^=menuitem]')
           .evaluateAll((nodes) =>
             nodes.map((node) => ({
-              name: node.textContent.replace('✓', '').trim(),
+              // A palette swatch has no text, only its colour's name.
+              name: (node.getAttribute('aria-label') ?? node.textContent).replace('✓', '').trim(),
               checked: node.getAttribute('aria-checked') === 'true',
               disabled: node.disabled,
             })),
@@ -195,7 +200,10 @@ test(
           `${label} options are all enabled`,
         );
         await effectOptions.click();
-        for (const item of own) {
+        // Every swatch of a palette writes the same way, so a theme colour, a
+        // tint and a standard colour stand for the seventy.
+        const exercised = count === PALETTE ? [own[5], own[25], own[count - 1]] : own;
+        for (const item of exercised) {
           await effectOptions.click();
           await changed(() =>
             page.getByRole('menuitemradio', { name: item.name, exact: true }).click(),
@@ -253,16 +261,17 @@ test(
         }
       }
 
+      const exitGallery = () => panel.getByRole('dialog', { name: 'Exit Effects', exact: true });
       for (const [en, , effect, count] of EXIT) {
         await button('Exit Effects').click();
-        const item = page.getByRole('menuitemradio', { name: en, exact: true });
+        const item = exitGallery().getByRole('radio', { name: en, exact: true });
         assert.equal(await item.isDisabled(), false, en);
         await changed(() => item.click());
         assert.equal((await animations())[0].effect, effect, en);
         await button('Exit Effects').click();
         assert.equal(
-          await page
-            .getByRole('menuitemradio', { name: en, exact: true })
+          await exitGallery()
+            .getByRole('radio', { name: en, exact: true })
             .getAttribute('aria-checked'),
           'true',
           `${en} is checked`,
@@ -294,7 +303,7 @@ test(
       // An exit's directions say where the shape goes.
       await changed(async () => {
         await button('Exit Effects').click();
-        await page.getByRole('menuitemradio', { name: 'Fly Out', exact: true }).click();
+        await exitGallery().getByRole('radio', { name: 'Fly Out', exact: true }).click();
       });
       await effectOptions.click();
       assert.deepEqual(
@@ -312,13 +321,26 @@ test(
       );
       await effectOptions.click();
 
-      // Japanese: the Exit Effects menu in PowerPoint's names, all available,
-      // and Effect Options (Sequence included) in Japanese.
+      // Japanese: the Exit Effects gallery in PowerPoint's names and group
+      // headings, all available, and Effect Options (Sequence included) in
+      // Japanese.
       await page.locator('.lang select').selectOption('ja');
       await page.getByRole('tab', { name: 'アニメーション', exact: true }).click();
       await panel.getByRole('button', { name: '終了効果', exact: true }).click();
+      const jaGallery = panel.getByRole('dialog', { name: '終了効果', exact: true });
       assert.deepEqual(
-        (await menuItems()).map(({ name, disabled }) => ({ name, disabled })),
+        await jaGallery
+          .getByRole('radiogroup')
+          .evaluateAll((groups) => groups.map((group) => group.getAttribute('aria-label'))),
+        ['基本', '弱', '中', 'はなやか'],
+      );
+      assert.deepEqual(
+        await jaGallery.getByRole('radio').evaluateAll((radios) =>
+          radios.map((radio) => ({
+            name: radio.getAttribute('aria-label'),
+            disabled: radio.disabled,
+          })),
+        ),
         EXIT.map(([, ja]) => ({ name: ja, disabled: false })),
       );
       await panel.getByRole('button', { name: '終了効果', exact: true }).click();

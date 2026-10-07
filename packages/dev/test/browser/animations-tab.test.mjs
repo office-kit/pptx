@@ -10,7 +10,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={2} height={1} text="A" /><Shape preset="ellipse" x={5} y={3} width={2} height={1} text="B" /></Slide></Presentation>`;
 
 test(
-  'Animations tab: Exit Effects menu, Preview and Animation Painter',
+  'Animations tab: Exit Effects gallery, Preview and Animation Painter',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-animations-tab-'));
@@ -54,7 +54,12 @@ test(
       const hits = editor.locator('.hit');
       await hits.nth(0).click();
       await button('Exit Effects').click();
-      await changed(() => panel.getByRole('menuitemradio', { name: 'Fade', exact: true }).click());
+      await changed(() =>
+        panel
+          .getByRole('dialog', { name: 'Exit Effects', exact: true })
+          .getByRole('radio', { name: 'Fade', exact: true })
+          .click(),
+      );
       assert.deepEqual(
         (await animations()).map((step) => step.effect),
         ['fadeOut'],

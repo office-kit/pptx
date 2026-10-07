@@ -1351,6 +1351,7 @@ export const ja: Record<string, string> = {
   'Top-right corner': '右上の角',
   'Bottom-right corner': '右下の角',
   Spokes: 'スポーク',
+  Amount: '量',
   'On click': 'クリック時',
   'With previous': '直前の動作と同時',
   'After previous': '直前の動作の後',

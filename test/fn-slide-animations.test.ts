@@ -1218,9 +1218,10 @@ const clickStop = (effect: string): string =>
 describe('fn API: an emphasis preset is read from its own behaviour', () => {
   // `presetClass="emph" presetID="8"` is PowerPoint's Spin whatever angle it
   // turns through: the amount is on `<p:animRot>`, in sixtieth-thousandths of a
-  // degree, and negative for a counter-clockwise turn. Only a single full
-  // clockwise turn is an effect this library names, so a tree that says
-  // anything else has to come back as one it reads rather than plays.
+  // degree, and negative for a counter-clockwise turn. The angle and direction
+  // are read off that behaviour as Spin's Effect Options; a tree that fixes
+  // where the turn starts or ends says something those options cannot, so it
+  // has to come back as one this library reads rather than plays.
   const spinEffect = (id: number, spid: number, rotation: string): string =>
     `<p:par><p:cTn id="${id}" presetID="8" presetClass="emph" presetSubtype="0" fill="hold" ` +
     `grpId="0" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst>` +
@@ -1241,16 +1242,33 @@ describe('fn API: an emphasis preset is read from its own behaviour', () => {
     expect(steps[0]!.playable).toBe(true);
   });
 
-  it('refuses to name a half turn, a counter-clockwise one, or one with fixed ends', async () => {
+  it('names a half turn and a counter-clockwise one, with their angle and direction', async () => {
     const spid = await firstShapeId();
-    for (const rotation of ['by="10800000"', 'by="-21600000"', 'from="0" to="21600000"']) {
+    for (const [rotation, direction, degrees] of [
+      ['by="10800000"', 'clockwise', 180],
+      ['by="-21600000"', 'counterclockwise', 360],
+      ['by="5400000"', 'clockwise', 90],
+    ] as const) {
+      const { slide } = await withTiming(
+        timingRoot(mainSeq(clickStop(spinEffect(3, spid, rotation)))),
+      );
+      const step = getSlideAnimations(slide)[0]!;
+      expect(step.effect, rotation).toBe('spin');
+      expect([step.spinDirection, step.spinDegrees], rotation).toEqual([direction, degrees]);
+      expect(step.playable, rotation).toBe(true);
+    }
+  });
+
+  it('refuses to name a turn with fixed ends', async () => {
+    const spid = await firstShapeId();
+    for (const rotation of ['from="0" to="21600000"', 'by="21600000" to="0"', 'by="0"']) {
       const { slide } = await withTiming(
         timingRoot(mainSeq(clickStop(spinEffect(3, spid, rotation)))),
       );
       const steps = getSlideAnimations(slide);
       expect(steps, rotation).toHaveLength(1);
       // Still listed, with its place in the click order, but not named and not
-      // ours to rewrite: turning it a full circle would be a different slide.
+      // ours to rewrite: turning it by an angle would be a different slide.
       expect(steps[0]!.effect, rotation).toBeNull();
       expect(steps[0]!.presetId, rotation).toBe(8);
       expect(steps[0]!.playable, rotation).toBe(false);
@@ -1262,14 +1280,14 @@ describe('fn API: an emphasis preset is read from its own behaviour', () => {
     const spid = await firstShapeId();
     const { pres, slide } = await withTiming(
       timingRoot(
-        mainSeq(clickStop(spinEffect(3, spid, 'by="10800000"'))),
+        mainSeq(clickStop(spinEffect(3, spid, 'from="0" to="10800000"'))),
         `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
       ),
     );
     const before = decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data);
     // `<p:animRot>` is a behaviour this library writes, so the layout check
-    // alone would let this node be replaced. What stops it is that a half turn
-    // is not an effect the read model names.
+    // alone would let this node be replaced. What stops it is that a turn with
+    // fixed ends is not an effect the read model names.
     expect(() => updateSlideAnimation(slide, 3, { effect: 'fadeIn' })).toThrow(/cannot edit/);
     expect(() => updateSlideAnimation(slide, 3, { durationMs: 900 })).toThrow(/cannot edit/);
     expect(decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data)).toBe(before);

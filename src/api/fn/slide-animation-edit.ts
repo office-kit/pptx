@@ -8,22 +8,30 @@
 
 import { unsignedIntMs } from '../../internal/bounds.ts';
 import {
+  ANIMATION_EMPHASIS_OPTION_NAMES,
+  type AnimationColor,
   type AnimationDirection,
   type AnimationEffect,
   type AnimationEffectOptions,
+  type AnimationEmphasisOptionName,
+  type AnimationEmphasisOptions,
   type AnimationInOut,
   type AnimationOptionName,
   type AnimationOptions,
   type AnimationOrientation,
+  type AnimationScaleDirection,
   type AnimationShape,
+  type AnimationSpinDirection,
   type AnimationStartCondition,
   type AnimationTextBuild,
   type EffectContext,
   animationBuildKind,
+  animationEmphasisOptionNames,
   animationOptionDomains,
   buildSingleEffectTiming,
   defaultAnimationDurationMs,
   isMediaTimingNode,
+  resolveAnimationEmphasisOptions,
   resolveAnimationOptions,
   setEffectDurationMs,
 } from '../../internal/presentationml/index.ts';
@@ -95,6 +103,23 @@ export interface AnimationPatch {
   readonly inOut?: AnimationInOut;
   readonly shape?: AnimationShape;
   readonly spokes?: number;
+  /**
+   * The emphasis effects' own options, as `setShapeAnimation` takes them:
+   * Spin's direction and angle, Grow/Shrink's axes and size, Transparency's
+   * amount, and the colour of the colour effects.
+   */
+  readonly spinDirection?: AnimationSpinDirection;
+  readonly spinDegrees?: number;
+  readonly scaleDirection?: AnimationScaleDirection;
+  readonly scalePercent?: number;
+  readonly transparencyPercent?: number;
+  readonly color?: AnimationColor;
+  /**
+   * How long the effect runs. Left out, a changed effect keeps the duration
+   * the slide gave it, unless the patch changes the preset itself: a new
+   * preset takes its own default length, as picking one from PowerPoint's
+   * gallery does.
+   */
   readonly durationMs?: number;
   readonly start?: AnimationStartCondition;
   readonly delayMs?: number;
@@ -112,13 +137,27 @@ const OPTION_NAMES: readonly AnimationOptionName[] = [
 ];
 
 /** The resolved options as `AnimationOptions` fields, leaving out the ones the effect does not take. */
-const presentOptions = (options: AnimationEffectOptions): Partial<AnimationOptions> => ({
+const presentOptions = (
+  options: AnimationEffectOptions,
+  emphasis: AnimationEmphasisOptions,
+): Partial<AnimationOptions> => ({
   ...(options.direction === null ? {} : { direction: options.direction }),
   ...(options.orientation === null ? {} : { orientation: options.orientation }),
   ...(options.inOut === null ? {} : { inOut: options.inOut }),
   ...(options.shape === null ? {} : { shape: options.shape }),
   ...(options.spokes === null ? {} : { spokes: options.spokes }),
+  ...(emphasis.spinDirection === null ? {} : { spinDirection: emphasis.spinDirection }),
+  ...(emphasis.spinDegrees === null ? {} : { spinDegrees: emphasis.spinDegrees }),
+  ...(emphasis.scaleDirection === null ? {} : { scaleDirection: emphasis.scaleDirection }),
+  ...(emphasis.scalePercent === null ? {} : { scalePercent: emphasis.scalePercent }),
+  ...(emphasis.transparencyPercent === null
+    ? {}
+    : { transparencyPercent: emphasis.transparencyPercent }),
+  ...(emphasis.color === null ? {} : { color: emphasis.color }),
 });
+
+/** Whether two resolved values of an emphasis option say the same thing. */
+const sameValue = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 const NO_TIMING = 'the slide has no animation effects';
 const NOT_EDITABLE =
@@ -349,9 +388,26 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
       },
       `${fn}: animation ${id}`,
     );
+    // The emphasis options carry over the same way: to an effect that takes
+    // them too (Fill Color to Line Color keeps the colour), and from what the
+    // slide says unless the patch says otherwise.
+    const takesEmphasis = new Set(animationEmphasisOptionNames(effect));
+    const keptEmphasis = (name: AnimationEmphasisOptionName): unknown =>
+      patch[name] !== undefined
+        ? patch[name]
+        : takesEmphasis.has(name)
+          ? (node.step[name] ?? undefined)
+          : undefined;
+    const emphasis = resolveAnimationEmphasisOptions(
+      effect,
+      Object.fromEntries(ANIMATION_EMPHASIS_OPTION_NAMES.map((name) => [name, keptEmphasis(name)])),
+      `${fn}: animation ${id}`,
+    );
+    const changesEffect = patch.effect !== undefined && patch.effect !== node.step.effect;
     const changesPreset =
-      (patch.effect !== undefined && patch.effect !== node.step.effect) ||
-      OPTION_NAMES.some((name) => options[name] !== node.step[name]);
+      changesEffect ||
+      OPTION_NAMES.some((name) => options[name] !== node.step[name]) ||
+      ANIMATION_EMPHASIS_OPTION_NAMES.some((name) => !sameValue(emphasis[name], node.step[name]));
     const rebuild = changesPreset || nowBuild !== wasBuild;
 
     let replaced: ReadonlySet<XmlElement> = new Set([node.cTn]);
@@ -377,7 +433,10 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
       if (!isPlainEffect(current.par, node.step.effect)) {
         throw new Error(`${fn}: animation ${id} ${NOT_REPLACEABLE}.`);
       }
-      const durationMs = patch.durationMs ?? node.step.durationMs;
+      // A different preset starts from its own default length, the way picking
+      // it from PowerPoint's gallery does; a new option or text build keeps the
+      // length the effect already had.
+      const durationMs = patch.durationMs ?? (changesEffect ? null : node.step.durationMs);
       const delayMs = patch.delayMs ?? node.step.delayMs;
       // An effect that holds until the slide ends has no duration to carry
       // over to one that does, and the other way round.
@@ -385,7 +444,7 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
         durationMs === null || defaultAnimationDurationMs(effect) === null ? {} : { durationMs };
       const opts = (startAs: AnimationStartCondition): AnimationOptions => ({
         effect,
-        ...presentOptions(options),
+        ...presentOptions(options, emphasis),
         ...carriedDuration,
         ...(delayMs === null ? {} : { delayMs }),
         start: startAs,

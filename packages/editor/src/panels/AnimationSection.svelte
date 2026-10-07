@@ -28,13 +28,18 @@
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import AnimationPlayback from '../ui/AnimationPlayback.svelte';
+  import ColorPicker from '../ui/ColorPicker.svelte';
   import {
     EMPHASIS_TILES,
     ENTRANCE_TILES,
     EXIT_TILES,
     SEQUENCE,
     effectDirections,
+    effectOptionSections,
+    optionChecked,
+    takesColor,
     takesSequence,
+    type EffectOptionSection,
     type EffectTile,
   } from '../ribbon/animation-gallery.ts';
 
@@ -65,6 +70,22 @@
   };
   const directionsOf = (effect: AnimationEffect | null): { value: AnimationDirection; label: string }[] =>
     effect === null ? [] : effectDirections(effect).map((value) => ({ value, label: DIRECTION_LABELS[value] }));
+  // The Effect Options sections other than a direction, which has a list of
+  // its own above: the emphasis effects' Direction and Amount, a split's or a
+  // shape's options, a wheel's spokes. Offered as the ribbon's menu offers them.
+  const otherSections = (effect: AnimationEffect | null): EffectOptionSection[] =>
+    effectOptionSections(effect).filter((section) =>
+      section.items.every((item) => item.patch.direction === undefined),
+    );
+  const optionName = (item: { en: string; ja: string }): string => (getLocale() === 'ja' ? item.ja : item.en);
+  const checkedIndex = (step: SlideAnimationStep, section: EffectOptionSection): string => {
+    const at = section.items.findIndex((item) => optionChecked(step, item));
+    return at < 0 ? '' : String(at);
+  };
+  const colorValue = (step: SlideAnimationStep): string | undefined =>
+    step.color === null ? undefined : typeof step.color === 'string' ? step.color : step.color.color;
+  const colorTransformsOf = (step: SlideAnimationStep) =>
+    step.color === null || typeof step.color === 'string' ? [] : (step.color.colorTransforms ?? []);
   const STARTS: { value: AnimationStartCondition; label: string }[] = [
     { value: 'click', label: 'On click' },
     { value: 'withPrevious', label: 'With previous' },
@@ -302,6 +323,42 @@
                   </select>
                 </label>
               </div>
+              {#if otherSections(step.effect).length > 0 || takesColor(step.effect)}
+                <div class="row">
+                  {#each otherSections(step.effect) as section, at (`${at}:${section.heading}`)}
+                    <label
+                      >{t(section.heading)}
+                      <select
+                        class="ok-input"
+                        aria-label="{t(section.heading)} {place + 1}"
+                        value={checkedIndex(step, section)}
+                        onchange={(event) => {
+                          const item = section.items[Number(event.currentTarget.value)];
+                          if (item) patch(step, item.patch);
+                        }}
+                      >
+                        {#if checkedIndex(step, section) === ''}<option value=""></option>{/if}
+                        {#each section.items as item, index (item.en)}<option value={String(index)}>{optionName(item)}</option>{/each}
+                      </select>
+                    </label>
+                  {/each}
+                  {#if takesColor(step.effect)}
+                    <div class="color">
+                      <span>{t('Color')}</span>
+                      <ColorPicker
+                        label="{t('Color')} {place + 1}"
+                        value={colorValue(step)}
+                        selectedColorTransforms={colorTransformsOf(step)}
+                        showThemeShades
+                        choose={(color, colorTransforms) =>
+                          patch(step, {
+                            color: colorTransforms && colorTransforms.length > 0 ? { color, colorTransforms } : color,
+                          })}
+                      />
+                    </div>
+                  {/if}
+                </div>
+              {/if}
               <div class="row">
                 <label
                   >{t('Duration (ms)')}
@@ -516,7 +573,8 @@
   .spacer {
     flex: 1;
   }
-  label {
+  label,
+  .color {
     display: grid;
     gap: 6px;
     font-size: 11px;

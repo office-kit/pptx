@@ -563,7 +563,12 @@ test(
         .getByLabel(`${label('Effect', '効果')} 1`)
         .selectOption('spin');
       await settles([{ effect: 'spin', direction: null }]);
-      assert.equal(await direction().count(), 0, 'no edge for a spin');
+      // Its Direction is the way it turns, not an edge.
+      assert.deepEqual(
+        (await direction().locator('option').allTextContents()).map((text) => text.trim()),
+        ['Clockwise', 'Counterclockwise'],
+        'no edge for a spin',
+      );
 
       // Back to a fly: it takes this library's own default rather than an edge
       // the row was showing before the spin.

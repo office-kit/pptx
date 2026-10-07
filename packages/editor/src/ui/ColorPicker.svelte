@@ -3,7 +3,7 @@
   import { tick } from 'svelte';
   import { asColor, getPresentationTheme, type Color, type ColorTransform } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { resolveColor } from '../core/theme-color.ts';
+  import { paletteSwatches, sameColorTransforms, type PaletteSwatch } from '../core/theme-palette.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import type { TextureId } from '../core/textures.ts';
   import TextureGallery from './TextureGallery.svelte';
@@ -27,65 +27,7 @@
   } = $props();
   const editor = getEditor();
   const theme = $derived.by(() => { editor.doc.version; return getPresentationTheme(editor.doc.pres); });
-  const themeSlots = [
-    ['bg1', 'light1', 'Background 1'], ['tx1', 'dark1', 'Text 1'],
-    ['bg2', 'light2', 'Background 2'], ['tx2', 'dark2', 'Text 2'],
-    ['accent1', 'accent1', 'Accent 1'], ['accent2', 'accent2', 'Accent 2'],
-    ['accent3', 'accent3', 'Accent 3'], ['accent4', 'accent4', 'Accent 4'],
-    ['accent5', 'accent5', 'Accent 5'], ['accent6', 'accent6', 'Accent 6'],
-  ] as const;
-  const standard = [
-    ['#C00000', 'Dark Red'], ['#FF0000', 'Red'], ['#FFC000', 'Orange'],
-    ['#FFFF00', 'Yellow'], ['#92D050', 'Light Green'], ['#00B050', 'Green'],
-    ['#00B0F0', 'Light Blue'], ['#0070C0', 'Blue'], ['#002060', 'Dark Blue'], ['#7030A0', 'Purple'],
-  ] as const;
-  type Swatch = { color: string; paint: string; name: string; theme: boolean; transforms?: readonly ColorTransform[]; shade?: 'Darker' | 'Lighter'; shadePercent?: number };
-  type ShadeTransform = Extract<ColorTransform, { value: number }>;
-  const shadeRows: readonly (readonly ShadeTransform[])[] = [
-    [{ kind: 'lumMod', value: 0.95 }], [{ kind: 'lumMod', value: 0.85 }], [{ kind: 'lumMod', value: 0.75 }],
-    [{ kind: 'lumMod', value: 0.65 }], [{ kind: 'lumMod', value: 0.5 }],
-  ];
-  const lightRows: readonly (readonly ShadeTransform[])[] = [
-    [{ kind: 'lumMod', value: 0.2 }, { kind: 'lumOff', value: 0.8 }],
-    [{ kind: 'lumMod', value: 0.4 }, { kind: 'lumOff', value: 0.6 }],
-    [{ kind: 'lumMod', value: 0.6 }, { kind: 'lumOff', value: 0.4 }],
-    [{ kind: 'lumMod', value: 0.75 }], [{ kind: 'lumMod', value: 0.5 }],
-  ];
-  const textRows: readonly (readonly ShadeTransform[])[] = [
-    [{ kind: 'lumMod', value: 0.5 }, { kind: 'lumOff', value: 0.5 }],
-    [{ kind: 'lumMod', value: 0.65 }, { kind: 'lumOff', value: 0.35 }],
-    [{ kind: 'lumMod', value: 0.75 }, { kind: 'lumOff', value: 0.25 }],
-    [{ kind: 'lumMod', value: 0.85 }, { kind: 'lumOff', value: 0.15 }],
-    [{ kind: 'lumMod', value: 0.95 }, { kind: 'lumOff', value: 0.05 }],
-  ];
-  const transformRowsFor = (color: string): readonly (readonly ShadeTransform[])[] =>
-    color === 'bg1' ? shadeRows : color === 'tx1' ? textRows : color === 'bg2' ? [
-      [{ kind: 'lumMod', value: 0.9 }], [{ kind: 'lumMod', value: 0.75 }], [{ kind: 'lumMod', value: 0.5 }],
-      [{ kind: 'lumMod', value: 0.25 }], [{ kind: 'lumMod', value: 0.1 }],
-    ] : lightRows;
-  function transformedPaint(schemeToken: Color, transforms: readonly ShadeTransform[]): string {
-    return resolveColor(schemeToken, transforms, theme) ?? '#000000';
-  }
-  const shadeInfo = (color: string, index: number): { shade: 'Darker' | 'Lighter'; shadePercent: number } => {
-    if (color === 'bg1') return { shade: 'Darker', shadePercent: [5, 15, 25, 35, 50][index]! };
-    if (color === 'tx1') return { shade: 'Lighter', shadePercent: [50, 35, 25, 15, 5][index]! };
-    if (color === 'bg2') return { shade: 'Darker', shadePercent: [10, 25, 50, 75, 90][index]! };
-    return index < 3 ? { shade: 'Lighter', shadePercent: [80, 60, 40][index]! } : { shade: 'Darker', shadePercent: [25, 50][index - 3]! };
-  };
-  const themeColors = $derived<Swatch[]>(theme ? (() => {
-    const base = themeSlots.flatMap(([color, slot, name]) => theme![slot] ? [{ color, paint: theme![slot], name, theme: true } satisfies Swatch] : []);
-    if (!showThemeShades) return base;
-    const shades = [0, 1, 2, 3, 4].flatMap(index => themeSlots.flatMap(([color, slot, name]) => {
-      if (!theme![slot]) return [];
-      const transforms = transformRowsFor(color)[index]!;
-      return [{ color, paint: transformedPaint(color, transforms), name, theme: true, transforms, ...shadeInfo(color, index) } satisfies Swatch];
-    }));
-    return [...base, ...shades];
-  })() : []);
-  const colors = $derived<Swatch[]>([
-    ...themeColors,
-    ...standard.map(([color, name]) => ({ color, paint: color, name, theme: false })),
-  ]);
+  const colors = $derived(paletteSwatches(theme, showThemeShades));
   const paint = $derived(resolvedColor ?? colors.find(color => color.color.toLowerCase() === value?.replace(/^scheme:/, '').toLowerCase())?.paint ?? value);
   let open = $state(false);
   let trigger: HTMLButtonElement;
@@ -100,15 +42,10 @@
     if (parsed && !disabled && !trigger.matches(':disabled')) choose(parsed);
     close();
   }
-  function selectTheme(swatch: Swatch): void {
+  function selectTheme(swatch: PaletteSwatch): void {
     const parsed = asColor(swatch.color);
     if (parsed && !disabled && !trigger.matches(':disabled')) choose(parsed, swatch.transforms);
     close();
-  }
-  function sameTransforms(left: readonly ColorTransform[] | undefined, right: readonly ColorTransform[] | undefined): boolean {
-    const a = left ?? [], b = right ?? [];
-    return a.length === b.length && a.every((transform, index) => transform.kind === b[index]?.kind &&
-      ('value' in transform ? 'value' in b[index]! && transform.value === b[index]!.value : !('value' in b[index]!)));
   }
   async function show() {
     if (open) { close(); return; }
@@ -150,7 +87,7 @@
         <div class="colors" role="group" aria-label={t(isTheme ? 'Theme Colors' : 'Standard Colors')}>
           {#each colors.filter(color => color.theme === isTheme) as color}
             {@const label = `${t(color.name)}${color.shade ? `, ${t(color.shade)} ${color.shadePercent}%` : ''}`}
-            <button type="button" role="menuitemradio" aria-label={label} title={label} aria-checked={value?.replace(/^scheme:/, '').toLowerCase() === color.color.toLowerCase() && sameTransforms(selectedColorTransforms, color.transforms)} style:background={color.paint} onclick={() => color.theme ? selectTheme(color) : select(color.color)}></button>
+            <button type="button" role="menuitemradio" aria-label={label} title={label} aria-checked={value?.replace(/^scheme:/, '').toLowerCase() === color.color.toLowerCase() && sameColorTransforms(selectedColorTransforms, color.transforms)} style:background={color.paint} onclick={() => color.theme ? selectTheme(color) : select(color.color)}></button>
           {/each}
         </div>
       {/if}
