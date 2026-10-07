@@ -14,9 +14,13 @@
 // with `editable: false` instead of a handle.
 
 import {
-  ANIMATION_DIRECTIONS,
+  ANIMATION_PRESET_ENTRIES,
   type AnimationDirection,
   type AnimationEffect,
+  type AnimationEffectOptions,
+  type AnimationInOut,
+  type AnimationOrientation,
+  type AnimationShape,
   FULL_TURN,
   isMediaTimingNode,
   trailingHideDelayMs,
@@ -136,10 +140,20 @@ export interface SlideAnimationStep {
   /** `null` for a preset outside the `AnimationEffect` tokens. */
   readonly effect: AnimationEffect | null;
   /**
-   * Which edge of the slide a fly comes from or leaves by. `null` for every
-   * other effect — the preset states no direction, so neither does this.
+   * Which edge (or corner) of the slide a fly, wipe or peek comes from or
+   * leaves by, or which corner strips start from. `null` for every other
+   * effect — the preset states no direction, so neither does this. The same
+   * goes for the four options below, each `null` unless the effect takes it.
    */
   readonly direction: AnimationDirection | null;
+  /** Blinds, checkerboard, random bars and split: which way the bars run. */
+  readonly orientation: AnimationOrientation | null;
+  /** Shape and split: whether the effect closes in on the centre or opens out of it. */
+  readonly inOut: AnimationInOut | null;
+  /** Shape: the outline the object is revealed or hidden through. */
+  readonly shape: AnimationShape | null;
+  /** Wheel: how many spokes. */
+  readonly spokes: number | null;
   readonly presetId: number | null;
   readonly presetClass: string | null;
   /** `'unknown'` when the node type is not one this library models. */
@@ -416,16 +430,14 @@ const readValueAfterEnd = (step: XmlElement): AnimationValueAfterEnd => {
   return stated ? 'held' : 'unstated';
 };
 
-/** The bit PowerPoint's directional presets set for each edge of the slide. */
-const FLY_SUBTYPES: Record<AnimationDirection, number> = { top: 1, right: 2, bottom: 4, left: 8 };
-
 interface PresetEffect {
   readonly effect: AnimationEffect;
-  readonly direction: AnimationDirection | null;
+  readonly options: AnimationEffectOptions;
 }
 
 /**
- * Which effect a `(presetClass, presetID, presetSubtype)` triple names.
+ * Which effect a `(presetClass, presetID, presetSubtype)` triple names — the
+ * writer's own table, read backwards.
  *
  * All three are read, because for several presets the subtype is what the
  * effect actually does: entrance preset 23 grows from nothing at subtype 16 and
@@ -436,26 +448,14 @@ interface PresetEffect {
  * `'-'` stands for a subtype the tree does not state. It is accepted only where
  * PowerPoint's gallery offers the preset no options at all, so there is a
  * single thing it could have meant; a fly or a zoom without a subtype is an
- * effect we cannot name, and neither are the diagonal flies (two bits at once)
- * this library does not write.
+ * effect we cannot name.
  */
 const PRESET_EFFECTS: ReadonlyMap<string, PresetEffect> = (() => {
   const out = new Map<string, PresetEffect>();
-  const plain = (cls: string, id: number, effect: AnimationEffect): void => {
-    out.set(`${cls}:${id}:0`, { effect, direction: null });
-    out.set(`${cls}:${id}:-`, { effect, direction: null });
-  };
-  plain('entr', 1, 'appear');
-  plain('entr', 10, 'fadeIn');
-  plain('exit', 1, 'disappear');
-  plain('exit', 10, 'fadeOut');
-  plain('emph', 8, 'spin');
-  out.set('entr:23:16', { effect: 'zoomIn', direction: null });
-  out.set('exit:23:32', { effect: 'zoomOut', direction: null });
-  for (const direction of ANIMATION_DIRECTIONS) {
-    const subtype = FLY_SUBTYPES[direction];
-    out.set(`entr:2:${subtype}`, { effect: 'flyIn', direction });
-    out.set(`exit:2:${subtype}`, { effect: 'flyOut', direction });
+  for (const entry of ANIMATION_PRESET_ENTRIES) {
+    const value = { effect: entry.effect, options: entry.options };
+    out.set(`${entry.presetClass}:${entry.presetId}:${entry.presetSubtype}`, value);
+    if (entry.optionless) out.set(`${entry.presetClass}:${entry.presetId}:-`, value);
   }
   return out;
 })();
@@ -561,7 +561,11 @@ const toStep = (
     target,
     targetShapeIds,
     effect,
-    direction: preset?.direction ?? null,
+    direction: preset?.options.direction ?? null,
+    orientation: preset?.options.orientation ?? null,
+    inOut: preset?.options.inOut ?? null,
+    shape: preset?.options.shape ?? null,
+    spokes: preset?.options.spokes ?? null,
     presetId,
     presetClass,
     start,

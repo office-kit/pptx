@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import * as common from '../src/internal/enum-values.ts';
 import * as chart from '../src/internal/chartml/enum-validation.ts';
-import { TRANSITION_EFFECTS } from '../src/internal/presentationml/transition-builder.ts';
+import { ECMA_TRANSITION_EFFECTS } from '../src/internal/presentationml/transition-builder.ts';
 
 const schemaUrl = (file: string): URL =>
   new URL(
@@ -68,9 +68,11 @@ for (const [name, values, file, types] of domains) {
 }
 
 // CT_SlideTransition's effects are a choice of elements rather than an ST_* enum.
-// `sndAc` and `extLst` are siblings of that choice, not effects.
+// `sndAc` and `extLst` are siblings of that choice, not effects. The p14 / p15 /
+// p159 effects are MS-PPTX extensions and are checked against their own schemas
+// in fn-transition-extensions.test.ts.
 it.skipIf(!existsSync(schemaUrl('pml')))(
-  'TRANSITION_EFFECTS matches the CT_SlideTransition element choice exactly',
+  'ECMA_TRANSITION_EFFECTS matches the CT_SlideTransition element choice exactly',
   () => {
     const schema = readFileSync(schemaUrl('pml'), 'utf8');
     const body = schema.match(
@@ -80,6 +82,6 @@ it.skipIf(!existsSync(schemaUrl('pml')))(
     const expected = [...body!.matchAll(/<xsd:element name="(\w+)"/g)]
       .map((match) => match[1]!)
       .filter((name) => name !== 'sndAc' && name !== 'extLst');
-    expect([...TRANSITION_EFFECTS].sort()).toEqual(expected.sort());
+    expect([...ECMA_TRANSITION_EFFECTS].sort()).toEqual(expected.sort());
   },
 );

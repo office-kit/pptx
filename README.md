@@ -565,8 +565,39 @@ import { setShapeAnimation, getSlideShapes, getSlides } from '@office-kit/pptx';
 const slide = getSlides(pres)[0]!;
 const shape = getSlideShapes(slide)[0]!;
 setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 800 });
-// effects: 'fadeIn' | 'fadeOut' | 'appear' | 'disappear'
+setShapeAnimation(shape, { effect: 'flyIn', direction: 'topLeft', start: 'afterPrevious' });
+setShapeAnimation(shape, { effect: 'shapeOut', shape: 'diamond', inOut: 'out' });
 ```
+
+Entrance / exit pairs: `appear` / `disappear`, `fadeIn` / `fadeOut`,
+`flyIn` / `flyOut` (eight `direction`s), `zoomIn` / `zoomOut`, and
+PowerPoint's filter effects `wipe…`, `peek…` (four edges), `split…`
+(`orientation`, `inOut`), `blinds…`, `checkerboard…`, `randomBars…`
+(`orientation`), `shape…` (`shape`, `inOut`), `strips…` (four corners),
+`wheel…` (`spokes`), `dissolve…` and `wedge…`, each with an `In` and an `Out`
+form. Emphasis: `spin`. Each writes the preset numbers and behaviours
+PowerPoint writes for the same gallery entry, with its default duration.
+
+### Transitions
+
+```ts
+import { getSlides, setSlideTransition } from '@office-kit/pptx';
+
+const slide = getSlides(pres)[0]!;
+setSlideTransition(slide, { effect: 'push', direction: 'u', durationMs: 1000 });
+setSlideTransition(slide, { effect: 'vortex', direction: 'r' }); // PowerPoint 2010+
+setSlideTransition(slide, { effect: 'prstTrans', preset: 'curtains' });
+setSlideTransition(slide, { effect: 'morph', morphOption: 'byWord' });
+```
+
+The ECMA-376 effects are written as `<p:…>` elements. PowerPoint 2010+
+effects (`vortex`, `ripple`, `honeycomb`, `prism`, `doors`, `window`, `ferris`,
+`gallery`, `conveyor`, `pan`, `glitter`, `warp`, `flythrough`, `flash`,
+`shred`, `reveal`, `switch`, `flip`, `wheelReverse`), the `prstTrans` presets
+and `morph` are written the way PowerPoint writes them: inside
+`mc:AlternateContent`, with a `<p:fade/>` fallback for readers that do not
+know them. Their options are `pattern`, `isContent`, `isInverted`,
+`hasBounce`, `preset`, `invertX`, `invertY` and `morphOption`.
 
 ### Comments
 
@@ -667,7 +698,7 @@ shown together.
 | Background                                                            | `getSlideBackground` / `setSlideBackground` / `clearSlideBackground`                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Notes                                                                 | `getSlideNotes` / `setSlideNotes`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Transitions                                                           | `getSlideTransition` / `setSlideTransition` / `clearSlideTransition`                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Animations                                                            | `getShapeAnimation` / `setShapeAnimation` (`fadeIn` / `fadeOut` / `appear` / `disappear`), `clearSlideAnimations`                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Animations                                                            | `getShapeAnimation` / `setShapeAnimation` (entrance / exit / emphasis presets), `clearSlideAnimations`                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Comments                                                              | `addSlideComment`, `getSlideComments`, `removeSlideComment`, `getCommentAuthors`, `getCommentText` / `getCommentAuthor` / `getCommentPosition`                                                                                                                                                                                                                                                                                                                                                                                      |
 | Shape authoring                                                       | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideMedia`, `addSlideChart`                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Shape lookup                                                          | `findShapeByName`, `findShapesByName`, `findShapesByKind`, `findShapeInPresentation`, `getAllShapes`, `getSlideShapes`                                                                                                                                                                                                                                                                                                                                                                                                              |

@@ -4,8 +4,10 @@
 //
 // Scope:
 //
-//   - Entrance, exit and one emphasis preset (`spin`). Motion paths
-//     (`presetClass="path"`) and the rest of the emphasis family are not
+//   - Entrance and exit presets — fade, fly, zoom and the transition filters
+//     PowerPoint runs on one object (`<p:animEffect>`) — and one emphasis
+//     preset (`spin`). Motion paths (`presetClass="path"`), the remaining
+//     entrance / exit motions and the rest of the emphasis family are not
 //     modelled.
 //   - The whole shape, or one paragraph of its text body
 //     (`<p:txEl><p:pRg>`, `<p:bldP build="p">`).
@@ -56,6 +58,7 @@ const NAME_FLT_VAL = qname('p', 'fltVal', NS.pml);
 const NAME_VAL = qname('p', 'val', NS.pml);
 const NAME_ANIM = qname('p', 'anim', NS.pml);
 const NAME_ANIM_ROT = qname('p', 'animRot', NS.pml);
+const NAME_ANIM_EFFECT = qname('p', 'animEffect', NS.pml);
 const NAME_TAV_LST = qname('p', 'tavLst', NS.pml);
 const NAME_TAV = qname('p', 'tav', NS.pml);
 const NAME_BLD_LST = qname('p', 'bldLst', NS.pml);
@@ -86,6 +89,8 @@ const ATTR_TM = qname('', 'tm', '');
 const ATTR_BUILD = qname('', 'build', '');
 const ATTR_ST = qname('', 'st', '');
 const ATTR_END = qname('', 'end', '');
+const ATTR_TRANSITION = qname('', 'transition', '');
+const ATTR_FILTER = qname('', 'filter', '');
 
 /**
  * What kind of effect to apply.
@@ -94,48 +99,119 @@ const ATTR_END = qname('', 'end', '');
  * `spin` is the one emphasis effect modelled here: it turns a shape that is
  * already on the slide and leaves it exactly where it was, so it never decides
  * whether the shape is shown.
+ *
+ * The `…In` / `…Out` pairs past the first four are PowerPoint's transition
+ * filters applied to one object (`<p:animEffect filter>`, ECMA-376 §19.5.3):
+ * Blinds, Checkerboard, Dissolve, Peek, Random Bars, Shape, Split, Strips,
+ * Wedge, Wheel and Wipe.
  */
 export type AnimationEffect =
   | 'appear'
   | 'fadeIn'
   | 'flyIn'
   | 'zoomIn'
+  | 'blindsIn'
+  | 'checkerboardIn'
+  | 'dissolveIn'
+  | 'peekIn'
+  | 'randomBarsIn'
+  | 'shapeIn'
+  | 'splitIn'
+  | 'stripsIn'
+  | 'wedgeIn'
+  | 'wheelIn'
+  | 'wipeIn'
   | 'disappear'
   | 'fadeOut'
   | 'flyOut'
   | 'zoomOut'
+  | 'blindsOut'
+  | 'checkerboardOut'
+  | 'dissolveOut'
+  | 'peekOut'
+  | 'randomBarsOut'
+  | 'shapeOut'
+  | 'splitOut'
+  | 'stripsOut'
+  | 'wedgeOut'
+  | 'wheelOut'
+  | 'wipeOut'
   | 'spin';
 
 /**
  * Which edge of the slide a `flyIn` comes from, or a `flyOut` leaves by —
- * PowerPoint's "From Bottom" / Google Slides' "Fly in from bottom".
+ * PowerPoint's "From Bottom" / Google Slides' "Fly in from bottom" — or, for
+ * the four corners, the corner. A wipe or a peek names an edge too; strips
+ * name a corner.
  */
-export type AnimationDirection = 'top' | 'right' | 'bottom' | 'left';
+export type AnimationDirection =
+  | 'top'
+  | 'right'
+  | 'bottom'
+  | 'left'
+  | 'topLeft'
+  | 'topRight'
+  | 'bottomLeft'
+  | 'bottomRight';
+
+/** Which way blinds, random bars and a split run — and a checkerboard: across or down. */
+export type AnimationOrientation = 'horizontal' | 'vertical';
+
+/** Whether a shape or split effect opens from the centre outwards or closes inwards. */
+export type AnimationInOut = 'in' | 'out';
+
+/** The outline a `shapeIn` / `shapeOut` reveals the object through. */
+export type AnimationShape = 'circle' | 'box' | 'diamond' | 'plus';
 
 export const ANIMATION_EFFECTS: readonly AnimationEffect[] = [
   'appear',
   'fadeIn',
   'flyIn',
   'zoomIn',
+  'blindsIn',
+  'checkerboardIn',
+  'dissolveIn',
+  'peekIn',
+  'randomBarsIn',
+  'shapeIn',
+  'splitIn',
+  'stripsIn',
+  'wedgeIn',
+  'wheelIn',
+  'wipeIn',
   'disappear',
   'fadeOut',
   'flyOut',
   'zoomOut',
+  'blindsOut',
+  'checkerboardOut',
+  'dissolveOut',
+  'peekOut',
+  'randomBarsOut',
+  'shapeOut',
+  'splitOut',
+  'stripsOut',
+  'wedgeOut',
+  'wheelOut',
+  'wipeOut',
   'spin',
 ];
 
-export const ANIMATION_DIRECTIONS: readonly AnimationDirection[] = [
-  'top',
-  'right',
-  'bottom',
-  'left',
-];
+const SIDES: readonly AnimationDirection[] = ['top', 'right', 'bottom', 'left'];
+const CORNERS: readonly AnimationDirection[] = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+
+export const ANIMATION_DIRECTIONS: readonly AnimationDirection[] = [...SIDES, ...CORNERS];
+
+const ORIENTATIONS: readonly AnimationOrientation[] = ['horizontal', 'vertical'];
+const IN_OUT: readonly AnimationInOut[] = ['in', 'out'];
+const SHAPES: readonly AnimationShape[] = ['circle', 'box', 'diamond', 'plus'];
+/** The spoke counts PowerPoint's Wheel offers (1, 2, 3, 4 and 8 Spokes). */
+const WHEEL_SPOKES: readonly number[] = [1, 2, 3, 4, 8];
 
 /**
  * The `presetSubtype` PowerPoint writes for a directional preset. It is a
- * bitmask over the four edges, which is why the diagonals it also offers are
- * the two bits together (top-left is 1|8 = 9). Only the four straight
- * directions are modelled, so only the four single bits are written.
+ * bitmask over the four edges, so a corner is the two bits together
+ * (top-left is 1|8 = 9).
  *
  * The bit names the *edge*, not the way the shape travels: subtype 4 is the
  * bottom edge for both classes — an entrance rises from below it, an exit
@@ -146,34 +222,382 @@ const DIRECTION_SUBTYPES: Record<AnimationDirection, number> = {
   right: 2,
   bottom: 4,
   left: 8,
+  topLeft: 9,
+  topRight: 3,
+  bottomLeft: 12,
+  bottomRight: 6,
 };
+// Orientation and in / out are bits of the same mask: 10 is left|right, 5 is
+// top|bottom, 16 in and 32 out.
+const ORIENTATION_SUBTYPES: Record<AnimationOrientation, number> = { horizontal: 10, vertical: 5 };
+const IN_OUT_SUBTYPES: Record<AnimationInOut, number> = { in: 16, out: 32 };
 
 /** How an effect animates, beyond putting the shape on the slide or off it. */
-type Motion = 'none' | 'fade' | 'fly' | 'zoom' | 'spin';
+type Motion = 'none' | 'fade' | 'fly' | 'zoom' | 'spin' | 'filter' | 'peek';
+
+/** The options an effect's family takes, besides timing. */
+export type AnimationOptionName = 'direction' | 'orientation' | 'inOut' | 'shape' | 'spokes';
+
+/** Every option an effect can carry, resolved: `null` where the effect takes none. */
+export interface AnimationEffectOptions {
+  readonly direction: AnimationDirection | null;
+  readonly orientation: AnimationOrientation | null;
+  readonly inOut: AnimationInOut | null;
+  readonly shape: AnimationShape | null;
+  readonly spokes: number | null;
+}
+
+/** The values each option an effect takes may have, its default first. */
+export interface AnimationOptionDomains {
+  readonly direction?: readonly AnimationDirection[];
+  readonly orientation?: readonly AnimationOrientation[];
+  readonly inOut?: readonly AnimationInOut[];
+  readonly shape?: readonly AnimationShape[];
+  readonly spokes?: readonly number[];
+}
+
+interface Family {
+  readonly motion: Motion;
+  /** The values each option this family takes may have; the first is the default. */
+  readonly domains: AnimationOptionDomains;
+  /** PowerPoint's own default length for the preset, in milliseconds. */
+  readonly durationMs: number;
+  readonly presetId: (o: AnimationEffectOptions) => number;
+  readonly presetSubtype: (o: AnimationEffectOptions) => number;
+  /** The `<p:animEffect filter>` an entrance (`entering`) or exit writes. */
+  readonly filter?: (o: AnimationEffectOptions, entering: boolean) => string;
+}
+
+// What PowerPoint writes for each preset — preset id, subtype and filter —
+// as its object model records them (MsoAnimEffect, PowerPoint 16; see
+// POWERPOINT_PARITY.md "Animations"). Durations are PowerPoint's defaults for
+// the preset, except that the four original effects and Spin keep this
+// library's 500 ms.
+const constant = (value: number) => (): number => value;
+const edgeWord: Record<string, string> = {
+  top: 'up',
+  right: 'right',
+  bottom: 'down',
+  left: 'left',
+};
+const oppositeEdge: Record<string, string> = {
+  top: 'bottom',
+  right: 'left',
+  bottom: 'top',
+  left: 'right',
+};
+const cornerWord: Record<string, string> = {
+  topLeft: 'upLeft',
+  topRight: 'upRight',
+  bottomLeft: 'downLeft',
+  bottomRight: 'downRight',
+};
+const SHAPE_PRESET_IDS: Record<AnimationShape, number> = {
+  circle: 6,
+  box: 4,
+  diamond: 8,
+  plus: 13,
+};
+const capitalised = (word: string): string => word[0]!.toUpperCase() + word.slice(1);
+
+const FAMILIES = {
+  appear: {
+    motion: 'none',
+    domains: {},
+    durationMs: 500,
+    presetId: constant(1),
+    presetSubtype: constant(0),
+  },
+  fade: {
+    motion: 'fade',
+    domains: {},
+    durationMs: 500,
+    presetId: constant(10),
+    presetSubtype: constant(0),
+  },
+  fly: {
+    motion: 'fly',
+    domains: { direction: ['bottom', ...SIDES.filter((d) => d !== 'bottom'), ...CORNERS] },
+    durationMs: 500,
+    presetId: constant(2),
+    presetSubtype: (o) => DIRECTION_SUBTYPES[o.direction!],
+  },
+  zoom: {
+    motion: 'zoom',
+    domains: {},
+    durationMs: 500,
+    presetId: constant(23),
+    presetSubtype: constant(0),
+  },
+  spin: {
+    motion: 'spin',
+    domains: {},
+    durationMs: 500,
+    presetId: constant(8),
+    presetSubtype: constant(0),
+  },
+  blinds: {
+    motion: 'filter',
+    domains: { orientation: ORIENTATIONS },
+    durationMs: 500,
+    presetId: constant(3),
+    presetSubtype: (o) => ORIENTATION_SUBTYPES[o.orientation!],
+    filter: (o) => `blinds(${o.orientation})`,
+  },
+  checkerboard: {
+    motion: 'filter',
+    domains: { orientation: ORIENTATIONS },
+    durationMs: 500,
+    presetId: constant(5),
+    presetSubtype: (o) => ORIENTATION_SUBTYPES[o.orientation!],
+    filter: (o) => `checkerboard(${o.orientation === 'horizontal' ? 'across' : 'down'})`,
+  },
+  dissolve: {
+    motion: 'filter',
+    domains: {},
+    durationMs: 500,
+    presetId: constant(9),
+    presetSubtype: constant(0),
+    filter: () => 'dissolve',
+  },
+  peek: {
+    motion: 'peek',
+    domains: { direction: ['bottom', ...SIDES.filter((d) => d !== 'bottom')] },
+    durationMs: 500,
+    presetId: constant(12),
+    presetSubtype: (o) => DIRECTION_SUBTYPES[o.direction!],
+    // The object slides in from the edge while the wipe uncovers it from the
+    // far side, so an entrance wipes towards the opposite edge.
+    filter: (o, entering) =>
+      `wipe(${edgeWord[entering ? oppositeEdge[o.direction!]! : o.direction!]})`,
+  },
+  randomBars: {
+    motion: 'filter',
+    domains: { orientation: ORIENTATIONS },
+    durationMs: 500,
+    presetId: constant(14),
+    presetSubtype: (o) => ORIENTATION_SUBTYPES[o.orientation!],
+    // ECMA-376's filter table spells this `randomBars(…)`; PowerPoint writes
+    // and reads `randombar(…)`, so that is what is written.
+    filter: (o) => `randombar(${o.orientation})`,
+  },
+  shape: {
+    motion: 'filter',
+    domains: { shape: SHAPES, inOut: IN_OUT },
+    durationMs: 2000,
+    presetId: (o) => SHAPE_PRESET_IDS[o.shape!],
+    presetSubtype: (o) => IN_OUT_SUBTYPES[o.inOut!],
+    filter: (o) => `${o.shape}(${o.inOut})`,
+  },
+  split: {
+    motion: 'filter',
+    domains: { orientation: ['vertical', 'horizontal'], inOut: IN_OUT },
+    durationMs: 500,
+    presetId: constant(16),
+    presetSubtype: (o) =>
+      IN_OUT_SUBTYPES[o.inOut!] +
+      (o.orientation === 'vertical' ? 5 : ORIENTATION_SUBTYPES.horizontal),
+    filter: (o) => `barn(${o.inOut}${capitalised(o.orientation!)})`,
+  },
+  strips: {
+    motion: 'filter',
+    domains: { direction: ['bottomLeft', 'topLeft', 'topRight', 'bottomRight'] },
+    durationMs: 500,
+    presetId: constant(18),
+    presetSubtype: (o) => DIRECTION_SUBTYPES[o.direction!],
+    filter: (o) => `strips(${cornerWord[o.direction!]})`,
+  },
+  wedge: {
+    motion: 'filter',
+    domains: {},
+    durationMs: 2000,
+    presetId: constant(20),
+    presetSubtype: constant(0),
+    filter: () => 'wedge',
+  },
+  wheel: {
+    motion: 'filter',
+    domains: { spokes: WHEEL_SPOKES },
+    durationMs: 2000,
+    presetId: constant(21),
+    presetSubtype: (o) => o.spokes!,
+    filter: (o) => `wheel(${o.spokes})`,
+  },
+  wipe: {
+    motion: 'filter',
+    domains: { direction: ['bottom', ...SIDES.filter((d) => d !== 'bottom')] },
+    durationMs: 500,
+    presetId: constant(22),
+    presetSubtype: (o) => DIRECTION_SUBTYPES[o.direction!],
+    filter: (o) => `wipe(${edgeWord[o.direction!]})`,
+  },
+} satisfies Record<string, Family>;
+
+type FamilyName = keyof typeof FAMILIES;
 
 interface PresetDescriptor {
-  readonly presetId: number;
   readonly presetClass: 'entr' | 'exit' | 'emph';
-  /** `null` when the effect's direction supplies it. */
-  readonly presetSubtype: number | null;
-  readonly motion: Motion;
+  readonly family: FamilyName;
+  /** A subtype the preset writes whatever its options (zoom's 16 and 32). */
+  readonly presetSubtype?: number;
 }
 
 const PRESETS: Record<AnimationEffect, PresetDescriptor> = {
-  appear: { presetId: 1, presetClass: 'entr', presetSubtype: 0, motion: 'none' },
-  fadeIn: { presetId: 10, presetClass: 'entr', presetSubtype: 0, motion: 'fade' },
-  flyIn: { presetId: 2, presetClass: 'entr', presetSubtype: null, motion: 'fly' },
-  zoomIn: { presetId: 23, presetClass: 'entr', presetSubtype: 16, motion: 'zoom' },
-  disappear: { presetId: 1, presetClass: 'exit', presetSubtype: 0, motion: 'none' },
-  fadeOut: { presetId: 10, presetClass: 'exit', presetSubtype: 0, motion: 'fade' },
-  flyOut: { presetId: 2, presetClass: 'exit', presetSubtype: null, motion: 'fly' },
-  zoomOut: { presetId: 23, presetClass: 'exit', presetSubtype: 32, motion: 'zoom' },
-  spin: { presetId: 8, presetClass: 'emph', presetSubtype: 0, motion: 'spin' },
+  appear: { presetClass: 'entr', family: 'appear' },
+  fadeIn: { presetClass: 'entr', family: 'fade' },
+  flyIn: { presetClass: 'entr', family: 'fly' },
+  zoomIn: { presetClass: 'entr', family: 'zoom', presetSubtype: 16 },
+  blindsIn: { presetClass: 'entr', family: 'blinds' },
+  checkerboardIn: { presetClass: 'entr', family: 'checkerboard' },
+  dissolveIn: { presetClass: 'entr', family: 'dissolve' },
+  peekIn: { presetClass: 'entr', family: 'peek' },
+  randomBarsIn: { presetClass: 'entr', family: 'randomBars' },
+  shapeIn: { presetClass: 'entr', family: 'shape' },
+  splitIn: { presetClass: 'entr', family: 'split' },
+  stripsIn: { presetClass: 'entr', family: 'strips' },
+  wedgeIn: { presetClass: 'entr', family: 'wedge' },
+  wheelIn: { presetClass: 'entr', family: 'wheel' },
+  wipeIn: { presetClass: 'entr', family: 'wipe' },
+  disappear: { presetClass: 'exit', family: 'appear' },
+  fadeOut: { presetClass: 'exit', family: 'fade' },
+  flyOut: { presetClass: 'exit', family: 'fly' },
+  zoomOut: { presetClass: 'exit', family: 'zoom', presetSubtype: 32 },
+  blindsOut: { presetClass: 'exit', family: 'blinds' },
+  checkerboardOut: { presetClass: 'exit', family: 'checkerboard' },
+  dissolveOut: { presetClass: 'exit', family: 'dissolve' },
+  peekOut: { presetClass: 'exit', family: 'peek' },
+  randomBarsOut: { presetClass: 'exit', family: 'randomBars' },
+  shapeOut: { presetClass: 'exit', family: 'shape' },
+  splitOut: { presetClass: 'exit', family: 'split' },
+  stripsOut: { presetClass: 'exit', family: 'strips' },
+  wedgeOut: { presetClass: 'exit', family: 'wedge' },
+  wheelOut: { presetClass: 'exit', family: 'wheel' },
+  wipeOut: { presetClass: 'exit', family: 'wipe' },
+  spin: { presetClass: 'emph', family: 'spin' },
 };
+
+const familyOf = (effect: AnimationEffect): Family => FAMILIES[PRESETS[effect].family];
+
+/** The options `effect` takes and the values each may have, the default first. */
+export const animationOptionDomains = (effect: AnimationEffect): AnimationOptionDomains =>
+  familyOf(effect).domains;
+
+// The behaviour elements each motion writes. Appear, fade, fly and zoom share
+// one list: a node naming one of them and holding a `<p:set>` and `<p:anim>`s
+// is rewritable whichever it is.
+const BEHAVIOURS_BY_MOTION: Record<Motion, ReadonlySet<string>> = {
+  none: new Set(['set', 'anim']),
+  fade: new Set(['set', 'anim']),
+  fly: new Set(['set', 'anim']),
+  zoom: new Set(['set', 'anim']),
+  spin: new Set(['animRot']),
+  filter: new Set(['set', 'animEffect']),
+  peek: new Set(['set', 'anim', 'animEffect']),
+};
+
+/** The local names of the behaviour elements this library writes for `effect`. */
+export const effectBehaviourNames = (effect: AnimationEffect): ReadonlySet<string> =>
+  BEHAVIOURS_BY_MOTION[familyOf(effect).motion];
 
 /** Whether the effect flies, and so takes a direction. */
 export const isDirectionalEffect = (effect: AnimationEffect): boolean =>
-  PRESETS[effect].motion === 'fly';
+  PRESETS[effect].family === 'fly';
+
+/** PowerPoint's own default length for the preset, in milliseconds. */
+export const defaultAnimationDurationMs = (effect: AnimationEffect): number =>
+  familyOf(effect).durationMs;
+
+/** The options passed for an effect, before they are checked against it. */
+export type AnimationOptionValues = Partial<Record<AnimationOptionName, unknown>>;
+
+/**
+ * Validates the options passed for `effect` and fills in the defaults of the
+ * ones it takes. An option the effect does not take is an error rather than a
+ * no-op: it would otherwise read as something the file never records.
+ */
+export const resolveAnimationOptions = (
+  effect: AnimationEffect,
+  given: AnimationOptionValues,
+  label: string,
+): AnimationEffectOptions => {
+  const domains = familyOf(effect).domains;
+  const pick = <T extends string | number>(
+    name: AnimationOptionName,
+    domain: readonly T[] | undefined,
+  ): T | null => {
+    const value = given[name];
+    if (domain === undefined) {
+      if (value === undefined) return null;
+      throw new RangeError(
+        `${label}: ${name} only applies to ${ANIMATION_EFFECTS.filter(
+          (other) => familyOf(other).domains[name] !== undefined,
+        ).join(', ')}; ${JSON.stringify(effect)} does not take it.`,
+      );
+    }
+    if (value === undefined) return domain[0]!;
+    const found = domain.find((candidate) => candidate === value);
+    if (found === undefined) {
+      throw new RangeError(
+        `${label}: ${name} ${JSON.stringify(value)} is not one of ${domain.join(', ')} for ${JSON.stringify(effect)}.`,
+      );
+    }
+    return found;
+  };
+  return {
+    direction: pick('direction', domains.direction),
+    orientation: pick('orientation', domains.orientation),
+    inOut: pick('inOut', domains.inOut),
+    shape: pick('shape', domains.shape),
+    spokes: pick('spokes', domains.spokes),
+  };
+};
+
+/** One `(presetClass, presetID, presetSubtype)` triple this library writes, and what it means. */
+export interface AnimationPresetEntry {
+  readonly presetClass: 'entr' | 'exit' | 'emph';
+  readonly presetId: number;
+  readonly presetSubtype: number;
+  readonly effect: AnimationEffect;
+  readonly options: AnimationEffectOptions;
+  /**
+   * Whether the effect has no options at all, so a tree that leaves the
+   * subtype out can only have meant this one.
+   */
+  readonly optionless: boolean;
+}
+
+// Every combination of the options a family takes; one empty set when it takes none.
+const combinations = (d: AnimationOptionDomains): AnimationEffectOptions[] => {
+  const axis = <T>(domain: readonly T[] | undefined): readonly (T | null)[] => domain ?? [null];
+  return axis(d.direction).flatMap((direction) =>
+    axis(d.orientation).flatMap((orientation) =>
+      axis(d.inOut).flatMap((inOut) =>
+        axis(d.shape).flatMap((shape) =>
+          axis(d.spokes).map((spokes) => ({ direction, orientation, inOut, shape, spokes })),
+        ),
+      ),
+    ),
+  );
+};
+
+/**
+ * Every preset triple this library writes, with the effect and options it
+ * stands for — the one table both the writer and the reader go by.
+ */
+export const ANIMATION_PRESET_ENTRIES: readonly AnimationPresetEntry[] = ANIMATION_EFFECTS.flatMap(
+  (effect) => {
+    const preset = PRESETS[effect];
+    const family = familyOf(effect);
+    return combinations(family.domains).map((options) => ({
+      presetClass: preset.presetClass,
+      presetId: family.presetId(options),
+      presetSubtype: preset.presetSubtype ?? family.presetSubtype(options),
+      effect,
+      options,
+      optionless: Object.keys(family.domains).length === 0 && preset.presetSubtype === undefined,
+    }));
+  },
+);
 
 /** A full turn in `a:ST_Angle`, which counts sixtieth-thousandths of a degree. */
 export const FULL_TURN = 360 * 60000;
@@ -199,16 +623,32 @@ export interface AnimationOptions {
   /** Which preset effect to apply. */
   readonly effect: AnimationEffect;
   /**
-   * Which edge of the slide a `'flyIn'` comes from, or a `'flyOut'` leaves by.
-   * Defaults to `'bottom'`, PowerPoint's own default for the preset. Passing it
-   * for an effect that does not fly is an error rather than a no-op: it would
-   * otherwise read as a direction the file never records.
+   * Which edge of the slide a `'flyIn'` comes from, or a `'flyOut'` leaves by
+   * — any of the eight. `'wipeIn'`, `'wipeOut'`, `'peekIn'` and `'peekOut'`
+   * take one of the four edges, `'stripsIn'` and `'stripsOut'` one of the four
+   * corners. Defaults to PowerPoint's own default for the preset (`'bottom'`;
+   * `'bottomLeft'` for strips). Passing it for an effect that takes no
+   * direction is an error rather than a no-op: it would otherwise read as a
+   * direction the file never records. The same holds for the options below.
    */
   readonly direction?: AnimationDirection;
   /**
-   * Animation length in milliseconds. Defaults to 500ms. `'appear'` and
-   * `'disappear'` are instantaneous by definition of the preset and write no
-   * timed behaviour at all, so it does not reach them.
+   * For blinds, random bars and split: which way the bars run. For a
+   * checkerboard, `'horizontal'` is PowerPoint's "Across" and `'vertical'` its
+   * "Down". Defaults to `'horizontal'` (`'vertical'` for split).
+   */
+  readonly orientation?: AnimationOrientation;
+  /** For shape and split: open from the centre (`'out'`) or close in on it (`'in'`). Defaults to `'in'`. */
+  readonly inOut?: AnimationInOut;
+  /** For `'shapeIn'` / `'shapeOut'`: the outline. Defaults to `'circle'`. */
+  readonly shape?: AnimationShape;
+  /** For `'wheelIn'` / `'wheelOut'`: 1, 2, 3, 4 or 8 spokes. Defaults to 1. */
+  readonly spokes?: number;
+  /**
+   * Animation length in milliseconds. Defaults to PowerPoint's default for
+   * the preset — 2000ms for shape, wedge and wheel, 500ms for the rest.
+   * `'appear'` and `'disappear'` are instantaneous by definition of the preset
+   * and write no timed behaviour at all, so it does not reach them.
    */
   readonly durationMs?: number;
   /**
@@ -365,16 +805,15 @@ const buildFlyAnims = (
   paragraph: number | null,
 ): XmlElement[] => {
   const base = (axis: 'x' | 'y' | 'w' | 'h'): string => `${entering ? '#' : ''}ppt_${axis}`;
+  // The edge the direction names on each axis; a corner names one on both.
+  const edge = { x: horizontalEdge(direction), y: verticalEdge(direction) };
   // Just outside the edge: the shape's centre one half-size beyond it.
   const offSlide = (axis: 'x' | 'y'): string => {
     const half = `${base(axis === 'x' ? 'w' : 'h')}/2`;
-    const far = axis === 'x' ? direction === 'right' : direction === 'bottom';
+    const far = edge[axis] === 'right' || edge[axis] === 'bottom';
     return far ? `1+${half}` : `0-${half}`;
   };
-  const moves = (axis: 'x' | 'y'): boolean =>
-    axis === 'x'
-      ? direction === 'left' || direction === 'right'
-      : direction === 'top' || direction === 'bottom';
+  const moves = (axis: 'x' | 'y'): boolean => edge[axis] !== null;
   return (['x', 'y'] as const).map((axis, at) => {
     const own: AnimValue = { str: base(axis) };
     const away: AnimValue = { str: offSlide(axis) };
@@ -389,6 +828,75 @@ const buildFlyAnims = (
       additive: true,
       paragraph,
     });
+  });
+};
+
+const horizontalEdge = (direction: AnimationDirection): 'left' | 'right' | null =>
+  direction === 'left' || direction === 'topLeft' || direction === 'bottomLeft'
+    ? 'left'
+    : direction === 'right' || direction === 'topRight' || direction === 'bottomRight'
+      ? 'right'
+      : null;
+
+const verticalEdge = (direction: AnimationDirection): 'top' | 'bottom' | null =>
+  direction === 'top' || direction === 'topLeft' || direction === 'topRight'
+    ? 'top'
+    : direction === 'bottom' || direction === 'bottomLeft' || direction === 'bottomRight'
+      ? 'bottom'
+      : null;
+
+/**
+ * The slide of a peek: the shape travels 1.125 of its own size from just past
+ * the edge into place (or out again), on the one axis the edge is on. Unlike a
+ * fly, PowerPoint writes only the moving axis, and keeps the `#` on both ends
+ * of an exit too.
+ */
+const buildPeekAnim = (
+  spid: number,
+  id: number,
+  durationMs: number,
+  entering: boolean,
+  direction: AnimationDirection,
+  paragraph: number | null,
+): XmlElement => {
+  const horizontal = horizontalEdge(direction) !== null;
+  const axis = horizontal ? 'x' : 'y';
+  const size = horizontal ? 'w' : 'h';
+  const sign = direction === 'right' || direction === 'bottom' ? '+' : '-';
+  const own: AnimValue = { str: `#ppt_${axis}` };
+  const away: AnimValue = { str: `#ppt_${axis}${sign}#ppt_${size}*1.125000` };
+  return buildAttrAnim({
+    spid,
+    id,
+    durationMs,
+    attrName: `ppt_${axis}`,
+    from: entering ? away : own,
+    to: entering ? own : away,
+    additive: true,
+    paragraph,
+  });
+};
+
+/**
+ * A transition filter applied to the one object (ECMA-376 §19.5.3,
+ * `<p:animEffect>`): `in` uncovers the shape through it, `out` covers it up.
+ */
+const buildFilterEffect = (
+  spid: number,
+  id: number,
+  durationMs: number,
+  entering: boolean,
+  filter: string,
+  paragraph: number | null,
+): XmlElement => {
+  // `fill="hold"` for the same reason as `buildAttrAnim`: PowerPoint leaves it
+  // off, but an omitted fill says nothing about the end state.
+  const cTn = elem(NAME_C_TN, {
+    attrs: [attr(ATTR_ID, String(id)), attr(ATTR_DUR, String(durationMs)), attr(ATTR_FILL, 'hold')],
+  });
+  return elem(NAME_ANIM_EFFECT, {
+    attrs: [attr(ATTR_TRANSITION, entering ? 'in' : 'out'), attr(ATTR_FILTER, filter)],
+    children: [elem(NAME_C_BHVR, { children: [cTn, buildTarget(spid, paragraph)] })],
   });
 };
 
@@ -461,22 +969,15 @@ export const buildSingleEffectTiming = (
   const label = ctx.label ?? 'setShapeAnimation';
   const effect = oneOf(opts.effect, ANIMATION_EFFECTS, `${label}: effect`);
   const preset = PRESETS[effect];
-  if (opts.direction !== undefined && preset.presetSubtype !== null) {
-    throw new RangeError(
-      `${label}: direction only applies to an effect that flies (${ANIMATION_EFFECTS.filter(
-        isDirectionalEffect,
-      ).join(', ')}); ${JSON.stringify(effect)} does not.`,
-    );
-  }
-  const direction =
-    preset.presetSubtype === null
-      ? oneOf(opts.direction ?? 'bottom', ANIMATION_DIRECTIONS, `${label}: direction`)
-      : null;
+  const family = familyOf(effect);
+  const options = resolveAnimationOptions(effect, opts, label);
   // <p:cTn dur> is ST_TLTime (xsd:unsignedInt ms or "indefinite"). Bounds
   // checking rounds to whole milliseconds and rejects anything outside the
   // range, so we never emit an invalid dur.
   const duration =
-    opts.durationMs === undefined ? 500 : unsignedIntMs(opts.durationMs, `${label}: durationMs`);
+    opts.durationMs === undefined
+      ? family.durationMs
+      : unsignedIntMs(opts.durationMs, `${label}: durationMs`);
 
   const start = oneOf(
     opts.start ?? 'click',
@@ -494,7 +995,7 @@ export const buildSingleEffectTiming = (
   // visibility at all — the shape it turns is already on the slide.
   const motion: XmlElement[] = [];
   const firstMotionId = isEntrance ? 7 : 6;
-  switch (preset.motion) {
+  switch (family.motion) {
     case 'none':
       break;
     case 'fade':
@@ -513,7 +1014,32 @@ export const buildSingleEffectTiming = (
       break;
     case 'fly':
       motion.push(
-        ...buildFlyAnims(spid, firstMotionId, duration, isEntrance, direction!, paragraph),
+        ...buildFlyAnims(spid, firstMotionId, duration, isEntrance, options.direction!, paragraph),
+      );
+      break;
+    case 'peek':
+      motion.push(
+        buildPeekAnim(spid, firstMotionId, duration, isEntrance, options.direction!, paragraph),
+        buildFilterEffect(
+          spid,
+          firstMotionId + 1,
+          duration,
+          isEntrance,
+          family.filter!(options, isEntrance),
+          paragraph,
+        ),
+      );
+      break;
+    case 'filter':
+      motion.push(
+        buildFilterEffect(
+          spid,
+          firstMotionId,
+          duration,
+          isEntrance,
+          family.filter!(options, isEntrance),
+          paragraph,
+        ),
       );
       break;
     case 'zoom':
@@ -531,7 +1057,7 @@ export const buildSingleEffectTiming = (
     // An instant exit hides the shape straight away; one that animates has to
     // stay on the slide until it is over, so the kick trails the motion by the
     // one millisecond it takes itself.
-    const hideAt = preset.motion === 'none' ? 0 : trailingHideDelayMs(duration);
+    const hideAt = family.motion === 'none' ? 0 : trailingHideDelayMs(duration);
     effectChildren.push(buildSetVisibility(spid, 6 + motion.length, false, hideAt, paragraph));
   }
 
@@ -539,9 +1065,9 @@ export const buildSingleEffectTiming = (
   const effectCTn = elem(NAME_C_TN, {
     attrs: [
       attr(ATTR_ID, '5'),
-      attr(ATTR_PRESET_ID, String(preset.presetId)),
+      attr(ATTR_PRESET_ID, String(family.presetId(options))),
       attr(ATTR_PRESET_CLASS, preset.presetClass),
-      attr(ATTR_PRESET_SUBTYPE, String(preset.presetSubtype ?? DIRECTION_SUBTYPES[direction!])),
+      attr(ATTR_PRESET_SUBTYPE, String(preset.presetSubtype ?? family.presetSubtype(options))),
       attr(ATTR_FILL, 'hold'),
       attr(ATTR_GRP_ID, '0'),
       attr(ATTR_NODE_TYPE, START_NODE_TYPES[start]),

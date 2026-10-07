@@ -25,6 +25,9 @@ const SCHEMAS = {
   chart: 'ECMA-376/OfficeOpenXML-XMLSchema-Transitional/dml-chart.xsd',
   rels: 'ECMA-376/OpenPackagingConventions-XMLSchema/opc-relationships.xsd',
   contentTypes: 'ECMA-376/OpenPackagingConventions-XMLSchema/opc-contentTypes.xsd',
+  // PowerPoint's own transition elements (p14 / p15 / p159), which ECMA-376
+  // does not define: [MS-PPTX]'s schema fragments, transcribed under test/lib.
+  pptxTransitions: fileURLToPath(new URL('./ms-pptx/transitions.xsd', import.meta.url)),
 } as const;
 
 export type SchemaKind = keyof typeof SCHEMAS;
@@ -32,7 +35,8 @@ export type SchemaKind = keyof typeof SCHEMAS;
 // Repo-relative path of the ecma-376 submodule.
 const ECMA_376_ROOT = fileURLToPath(new URL('../../references/ecma-376-5th/', import.meta.url));
 
-const schemaPath = (kind: SchemaKind): string => join(ECMA_376_ROOT, SCHEMAS[kind]);
+const schemaPath = (kind: SchemaKind): string =>
+  kind === 'pptxTransitions' ? SCHEMAS[kind] : join(ECMA_376_ROOT, SCHEMAS[kind]);
 
 /**
  * Returns true if `xmllint` is on PATH. Tests that need schema validation

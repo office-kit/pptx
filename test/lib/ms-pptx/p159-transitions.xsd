@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  p159:morph, transcribed from [MS-PPTX] v20240820 §2.6 / §5.4. Test-only:
+  validates the effect element setSlideTransition writes inside an mc:Choice
+  Requires="p159".
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://schemas.microsoft.com/office/powerpoint/2015/09/main"
+  targetNamespace="http://schemas.microsoft.com/office/powerpoint/2015/09/main"
+  elementFormDefault="qualified" attributeFormDefault="unqualified">
+  <xsd:simpleType name="ST_TransitionMorphOption">
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="byObject"/>
+      <xsd:enumeration value="byWord"/>
+      <xsd:enumeration value="byChar"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="CT_MorphTransition">
+    <xsd:attribute name="option" type="ST_TransitionMorphOption" use="required"/>
+  </xsd:complexType>
+  <xsd:element name="morph" type="CT_MorphTransition"/>
+</xsd:schema>

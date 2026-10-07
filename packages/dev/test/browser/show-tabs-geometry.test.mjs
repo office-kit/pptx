@@ -225,7 +225,7 @@ test(
       ]);
       const none = await box(panel.getByRole('radio', { name: 'None', exact: true }));
       assert.deepEqual([none.width, none.height], [92, 56]);
-      assert.equal(await panel.getByRole('radio', { name: 'Morph' }).isDisabled(), true);
+      assert.equal(await panel.getByRole('radio', { name: 'Morph' }).isDisabled(), false);
       const duration = await box(panel.getByRole('spinbutton', { name: 'Duration:' }));
       assert.deepEqual([duration.width, duration.height], [78, 24]);
       const sound = await box(panel.getByRole('combobox', { name: 'Sound:' }));
@@ -285,13 +285,13 @@ test(
       await button('Effect Options').click();
       assert.deepEqual(await menuItems(), [
         { name: 'From Bottom', checked: true, disabled: false },
-        { name: 'From Bottom-Left', checked: false, disabled: true },
+        { name: 'From Bottom-Left', checked: false, disabled: false },
         { name: 'From Left', checked: false, disabled: false },
-        { name: 'From Top-Left', checked: false, disabled: true },
+        { name: 'From Top-Left', checked: false, disabled: false },
         { name: 'From Top', checked: false, disabled: false },
-        { name: 'From Top-Right', checked: false, disabled: true },
+        { name: 'From Top-Right', checked: false, disabled: false },
         { name: 'From Right', checked: false, disabled: false },
-        { name: 'From Bottom-Right', checked: false, disabled: true },
+        { name: 'From Bottom-Right', checked: false, disabled: false },
         { name: 'As One Object', checked: true, disabled: false },
         { name: 'All at Once', checked: false, disabled: true },
         { name: 'By Paragraph', checked: false, disabled: false },

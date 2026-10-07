@@ -3,7 +3,10 @@
 import {
   type AnimationDirection,
   type AnimationEffect,
+  type AnimationInOut,
   type AnimationOptions,
+  type AnimationOrientation,
+  type AnimationShape,
   type AnimationStartCondition,
   buildSingleEffectTiming,
 } from '../../internal/presentationml/index.ts';
@@ -60,6 +63,7 @@ import { maxCTnId, rootChildTnLst } from './_media-timing.ts';
 // the emphasis family, are not modelled.
 
 export type { AnimationDirection, AnimationEffect, AnimationOptions, AnimationStartCondition };
+export type { AnimationInOut, AnimationOrientation, AnimationShape };
 export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
 export type { AnimationValueAfterEnd };
 
@@ -531,17 +535,40 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  *   - `'appear'` / `'disappear'` — instant entrance and exit
  *   - `'fadeIn'` / `'fadeOut'` — entrance and exit fade
  *   - `'flyIn'` / `'flyOut'` — entrance and exit that travel in from, or out
- *     to, one edge of the slide. `direction` picks the edge (`'top'`,
- *     `'right'`, `'bottom'` — the default — or `'left'`) and is an error for
- *     any other effect.
+ *     to, one edge or corner of the slide. `direction` picks it: `'top'`,
+ *     `'right'`, `'bottom'` (the default), `'left'`, `'topLeft'`,
+ *     `'topRight'`, `'bottomLeft'` or `'bottomRight'`.
  *   - `'zoomIn'` / `'zoomOut'` — entrance that grows from nothing, exit that
  *     shrinks back to it, both about the shape's centre
+ *   - `'wipeIn'` / `'wipeOut'` — uncovered, or covered, from one edge
+ *     (`direction`, one of the four edges; default `'bottom'`)
+ *   - `'peekIn'` / `'peekOut'` — slides in from, or out to, one edge while it
+ *     is uncovered or covered (`direction`, one of the four edges)
+ *   - `'splitIn'` / `'splitOut'` — opens out of, or closes in on, the centre
+ *     line (`orientation`, default `'vertical'`; `inOut`, default `'in'`)
+ *   - `'blindsIn'` / `'blindsOut'`, `'randomBarsIn'` / `'randomBarsOut'` and
+ *     `'checkerboardIn'` / `'checkerboardOut'` — bars or squares
+ *     (`orientation`, default `'horizontal'`)
+ *   - `'shapeIn'` / `'shapeOut'` — through a growing or shrinking outline
+ *     (`shape`: `'circle'` — the default — `'box'`, `'diamond'` or `'plus'`;
+ *     `inOut`, default `'in'`)
+ *   - `'stripsIn'` / `'stripsOut'` — diagonal strips from a corner
+ *     (`direction`, one of the four corners; default `'bottomLeft'`)
+ *   - `'wheelIn'` / `'wheelOut'` — clock-hand sweep (`spokes`: 1 — the
+ *     default — 2, 3, 4 or 8)
+ *   - `'dissolveIn'` / `'dissolveOut'` and `'wedgeIn'` / `'wedgeOut'`
  *   - `'spin'` — emphasis: one clockwise turn about the shape's centre,
  *     leaving it exactly where it was. It never puts the shape on the slide or
  *     takes it off, so a shape that is not already shown stays unshown.
  *
- * `durationMs` defaults to 500ms. `appear` and `disappear` are instantaneous by
- * definition of the preset and write no timed behaviour at all.
+ * Each writes the preset id, subtype and behaviours PowerPoint itself writes
+ * for that gallery entry. An option passed for an effect that does not take
+ * it is an error rather than a no-op.
+ *
+ * `durationMs` defaults to PowerPoint's default for the preset: 2000ms for
+ * shape, wedge and wheel, 500ms for everything else. `appear` and `disappear`
+ * are instantaneous by definition of the preset and write no timed behaviour
+ * at all.
  *
  * `start` decides where the effect lands. The default `'click'` gives it a
  * click stop of its own, so the viewer sees it on the next click.
