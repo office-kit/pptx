@@ -65,7 +65,7 @@
 </div>
 
 <style>
-  .ctx-gallery-items.picture-strip { --ctx-gallery-min: 150px; width: 212px; justify-content: space-around; }
+  .ctx-gallery-items.picture-strip { width: 212px; justify-content: space-around; }
   .picture-style { display: flex; align-items: center; justify-content: center; width: 62px; height: 54px; padding: 0; border: 1px solid transparent; border-radius: 3px; background: none; cursor: pointer; }
   .picture-style:hover:not(:disabled), .picture-style:focus-visible { outline: 2px solid var(--ok-accent); outline-offset: -2px; }
   .picture-style[aria-checked='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
