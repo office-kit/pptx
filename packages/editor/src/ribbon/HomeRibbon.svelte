@@ -297,11 +297,11 @@
   {@render group('Insert', 'textbox', insert)}
   {@render group('Drawing', 'quick-styles', drawing)}
   <section class="cluster" aria-label={t('Add-ins')}>
-    <button class={small ? 'tool' : 'big narrow'} aria-label={t('Add-ins')} title={t('Office Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
+    <button class={small ? 'tool' : 'big narrow'} aria-label={t('Add-ins')} title={t('Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
   </section>
   <!-- PowerPoint separates Add-ins and Designer into two groups. -->
   <section class="cluster" aria-label={t('Designer')}>
-    <button class={small ? 'tool' : 'big'} aria-label={t('Designer')} title={t('Designer needs the Microsoft 365 design service.')} disabled><Icon name="designer" size={small ? 18 : 32} />{#if !small}<span>{t('Designer')}</span>{/if}</button>
+    <button class={small ? 'tool' : 'big'} aria-label={t('Designer')} title={t('Designer needs an online design service.')} disabled><Icon name="designer" size={small ? 18 : 32} />{#if !small}<span>{t('Designer')}</span>{/if}</button>
   </section>
 </div>
 {#if paragraphOptions}

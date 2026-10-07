@@ -70,11 +70,11 @@ export function nativeMenus(): readonly NativeMenu[] {
 const unavailable = (reason: string): MenuCommand => ({ disabled: true, reason });
 
 // Reasons shared by several items.
-const NO_CLOUD = 'Needs a presentation saved to OneDrive or SharePoint.';
+const NO_CLOUD = 'Needs a presentation saved to cloud storage.';
 const WINDOWS = 'The browser manages its own windows.';
-const SUBTITLES = 'Live subtitles need Microsoft 365 online services.';
+const SUBTITLES = 'Live subtitles need an online service.';
 const SLIDE_SHOW_HOST = 'The slide show runs in the preview page around the editor.';
-const ONLINE = 'Online pictures need the Microsoft 365 service.';
+const ONLINE = 'Online pictures need an online image service.';
 const MEDIA_LIBRARY = 'The Photos and Music libraries are not available in the browser.';
 const OS_TEXT_SERVICE = 'macOS provides this to native apps, not to web pages.';
 const OUTLINE_PASTE = 'Press ⌘V to paste into the outline.';
@@ -150,7 +150,7 @@ const UNAVAILABLE_GROUPS: readonly (readonly [string, string])[] = [
   ['insert/zoom/', 'Slide zoom is not supported by the library yet.'],
   ['insert/action-buttons/', 'Action buttons are not in the editor’s shape gallery yet.'],
   ['insert/chart/', 'This chart type is not supported by the library yet.'],
-  ['tools/macro/', 'Macros (VBA) do not run outside PowerPoint.'],
+  ['tools/macro/', 'Macros (VBA) do not run in this editor.'],
   ['slide-show/subtitle-settings/', SUBTITLES],
   ['window/', WINDOWS],
 ];
@@ -262,7 +262,7 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     case 'file/always-open-read-only':
       return unavailable('The editor cannot mark a file read-only.');
     case 'file/restrict-permissions':
-      return unavailable('Restricting permissions needs Microsoft 365 rights management.');
+      return unavailable('Restricting permissions needs a rights management service.');
     case 'file/passwords':
       return unavailable('Password protection is not available in this editor.');
     case 'file/compress-pictures':
@@ -510,7 +510,7 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
           }
         : unavailable('Place the cursor in text to insert a symbol.');
     case 'insert/icons':
-      return unavailable('The Office icon library is not available here.');
+      return unavailable('The icon library is not available here.');
     case 'insert/action-settings':
       return run('setShapeClickAction');
     case 'insert/object':
@@ -615,9 +615,9 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     case 'tools/spelling':
       return unavailable('Spelling is checked by the browser as you type.');
     case 'tools/thesaurus':
-      return unavailable('The thesaurus needs the Microsoft reference service.');
+      return unavailable('The thesaurus needs an online reference service.');
     case 'tools/translate':
-      return unavailable('Translation needs the Microsoft translation service.');
+      return unavailable('Translation needs an online translation service.');
     case 'tools/set-proofing-language':
       return unavailable('Choose the proofing language from Review ▸ Language.');
     case 'tools/autocorrect-options':
@@ -626,8 +626,8 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       return { run: () => (editor.accessibilityOpen = true) };
     case 'tools/macro':
       return {};
-    case 'tools/powerpoint-add-ins':
-      return unavailable('Office add-ins are not available in this editor.');
+    case 'tools/add-ins':
+      return unavailable('Add-ins are not available in this editor.');
 
     // Slide Show
     case 'slide-show/play-from-start':
@@ -639,7 +639,7 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     case 'slide-show/custom-slide-show/custom-shows':
       return { run: () => editor.openCustomShows() };
     case 'slide-show/rehearse-with-coach':
-      return unavailable('Rehearse with Coach needs Microsoft 365 online services.');
+      return unavailable('Rehearse with Coach needs an online service.');
     case 'slide-show/presenter-view':
       return present('presenter');
     case 'slide-show/rehearse-timings':
@@ -674,7 +674,7 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       };
 
     // Help
-    case 'help/powerpoint-help':
+    case 'help/editor-help':
       return { run: () => editor.togglePalette(true) };
     case 'help/feedback':
       return {

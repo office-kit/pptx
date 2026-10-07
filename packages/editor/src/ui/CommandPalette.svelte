@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The command palette (⌘?, Help ▸ PowerPoint Help). Lists every capability
+  // The command palette (⌘?, Help ▸ Editor Help). Lists every capability
   // (all 147), searchable, grouped by category, with a live enabled/disabled
   // state from the current selection. This is the guaranteed-reachable path:
   // whatever the ribbon has not surfaced, the user can still run from here.

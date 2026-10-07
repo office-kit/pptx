@@ -11,7 +11,7 @@
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import { placeBelowTrigger } from './place-menu.ts';
 
-  const SUBTITLES = 'Live subtitles need Microsoft 365 online services.';
+  const SUBTITLES = 'Live subtitles need an online service.';
   const editor = getEditor();
   const doc = editor.doc;
   const slides = $derived.by(() => {
@@ -65,7 +65,7 @@
     </div>
   </section>
   <section class="cluster" role="group" aria-label={t('Rehearse with Coach')}>
-    <button class="big" style:--w="63px" disabled title={t('Rehearse with Coach needs Microsoft 365 online services.')}>
+    <button class="big" style:--w="63px" disabled title={t('Rehearse with Coach needs an online service.')}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="16" height="12" rx="1" /><path d="M11 16v4M7 20h8" /><path d="M19 9a2 2 0 0 1 2 2v3a2 2 0 0 1-4 0v-3a2 2 0 0 1 2-2z" style="stroke: var(--ok-accent)" /></svg>
       <span>{t('Rehearse with Coach')}</span>
     </button>
@@ -96,7 +96,7 @@
       {/if}
     </div>
     <div class="checks">
-      <label title={t('Keep Slides Updated needs a presentation shared from OneDrive or SharePoint.')}><input type="checkbox" disabled checked={false} />{t('Keep Slides Updated')}</label>
+      <label title={t('Keep Slides Updated needs a presentation shared from cloud storage.')}><input type="checkbox" disabled checked={false} />{t('Keep Slides Updated')}</label>
       <label><input type="checkbox" checked={show.showNarration} onchange={(event) => setShow('Play Narrations', { showNarration: event.currentTarget.checked })} />{t('Play Narrations')}</label>
       <label><input type="checkbox" checked={show.useTimings} onchange={(event) => setShow('Use Timings', { useTimings: event.currentTarget.checked })} />{t('Use Timings')}</label>
       <label><input type="checkbox" checked={show.showMediaControls ?? true} onchange={(event) => setShow('Show Media Controls', { showMediaControls: event.currentTarget.checked })} />{t('Show Media Controls')}</label>

@@ -52,10 +52,7 @@ test('key events find PowerPoint’s menu item, by physical key', () => {
   );
   assert.equal(id('en', key('Equal', { metaKey: true }, '=')), 'view/zoom/zoom-in');
   assert.equal(id('en', key('Minus', { metaKey: true }, '-')), 'view/zoom/zoom-out');
-  assert.equal(
-    id('en', key('Slash', { metaKey: true, shiftKey: true }, '?')),
-    'help/powerpoint-help',
-  );
+  assert.equal(id('en', key('Slash', { metaKey: true, shiftKey: true }, '?')), 'help/editor-help');
   assert.equal(
     id('en', key('Enter', { metaKey: true }, 'Enter')),
     'slide-show/play-from-current-slide',

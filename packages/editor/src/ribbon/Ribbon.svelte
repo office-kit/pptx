@@ -156,10 +156,10 @@
         <button class="share" aria-label={t('Share')} aria-haspopup="menu" aria-expanded={shareOpen} onclick={() => (shareOpen = !shareOpen)}><Icon name="share" size={16} /><span>{t('Share')}</span><span aria-hidden="true">⌄</span></button>
         {#if shareOpen}
           <div class="share-menu" role="menu" aria-label={t('Share')}>
-            <button role="menuitem" title={t('Sharing with people needs OneDrive or SharePoint.')} disabled>{t('Share with People...')}</button>
-            <button role="menuitem" title={t('Sharing with people needs OneDrive or SharePoint.')} disabled>{t('Copy Link')}</button>
+            <button role="menuitem" title={t('Sharing with people needs cloud storage.')} disabled>{t('Share with People...')}</button>
+            <button role="menuitem" title={t('Sharing with people needs cloud storage.')} disabled>{t('Copy Link')}</button>
             <hr />
-            <button role="menuitem" onclick={sendCopy}>{t('Send a Copy (PowerPoint Presentation)')}</button>
+            <button role="menuitem" onclick={sendCopy}>{t('Send a Copy (PPTX Presentation)')}</button>
           </div>
         {/if}
       </div>

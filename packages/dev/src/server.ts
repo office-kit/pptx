@@ -696,7 +696,7 @@ export async function serveDeck(entry: string, port = 4173) {
     } else if (request.url === '/editor') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       response.end(
-        '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Office Kit Editor</title><body><script type="module" src="/editor.js"></script></body></html>',
+        '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Presentation editor</title><body><script type="module" src="/editor.js"></script></body></html>',
       );
     } else if (request.url === '/presenter') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

@@ -38,7 +38,7 @@
     <button class="big" style:--w="47px" onclick={() => editor.zoomFit()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2H2v6M16 2h6v6M2 16v6h6M22 16v6h-6"/><rect x="6" y="7" width="12" height="10"/></svg><span>{t('Fit to Window')}</span></button>
   </section>
   <section class="cluster" role="group" aria-label={t('Macros')}>
-    <button class="big" style:--w="43px" disabled title={t('Macros (VBA) do not run outside PowerPoint.')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l12 8-12 8z"/></svg><span>{t('Macros')}</span></button>
+    <button class="big" style:--w="43px" disabled title={t('Macros (VBA) do not run in this editor.')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l12 8-12 8z"/></svg><span>{t('Macros')}</span></button>
   </section>
 </div>
 

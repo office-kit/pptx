@@ -56,7 +56,7 @@ editor and saved PPTX content.
 
 Every capability is reachable by at least one path, in increasing ergonomics:
 
-- **Command palette** (`⌘?`, Help ▸ PowerPoint Help, or the title bar's Search) —
+- **Command palette** (`⌘?`, Help ▸ Editor Help, or the title bar's Search) —
   searchable list of every capability, always available. The guaranteed floor.
 - **Properties panel** — auto-generated from the manifest: given the current
   selection it lists _every_ capability that can act on it, grouped by category.

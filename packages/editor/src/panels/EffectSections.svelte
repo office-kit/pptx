@@ -87,7 +87,7 @@
   const softEdgePreset = $derived(common((state) => SOFT_EDGE_PRESETS.find((preset) => preset.value === state.softEdgeEmu)?.label));
   // Mac PowerPoint disables Soft Edges under Text Effects, although a run's
   // effect list can hold one.
-  const softEdgeReason = $derived(target.softEdge ? undefined : t('PowerPoint does not offer soft edges for text.'));
+  const softEdgeReason = $derived(target.softEdge ? undefined : t('Soft edges are not available for text.'));
   function softEdge(radiusEmu: number | null) {
     const write = target.softEdge;
     if (write) apply('Soft Edges', (shape) => write(shape, radiusEmu));

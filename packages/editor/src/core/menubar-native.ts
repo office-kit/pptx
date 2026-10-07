@@ -9,6 +9,10 @@
 // microphones). Japanese items carry the id of their English counterpart, so
 // commands bind once; PowerPoint orders the Japanese Window and Slide Show
 // menus differently and has no Rehearse with Coach in Japanese.
+//
+// The one deliberate departure: items whose label names the product (its
+// Add-ins and Help items) carry neutral labels and ids, because the editor
+// must not show a third-party trademark as its own UI.
 
 export interface NativeMenuItem {
   readonly id: string;
@@ -472,7 +476,7 @@ export const NATIVE_MENUBAR: {
             { id: 'tools/macro/visual-basic-editor', label: 'Visual Basic Editor' },
           ],
         },
-        { id: 'tools/powerpoint-add-ins', label: 'PowerPoint Add-ins...' },
+        { id: 'tools/add-ins', label: 'Add-ins...' },
       ],
     },
     {
@@ -595,7 +599,7 @@ export const NATIVE_MENUBAR: {
       id: 'help',
       label: 'Help',
       items: [
-        { id: 'help/powerpoint-help', label: 'PowerPoint Help', shortcut: '⌘?' },
+        { id: 'help/editor-help', label: 'Editor Help', shortcut: '⌘?' },
         '-',
         { id: 'help/feedback', label: 'Feedback' },
         '-',
@@ -1046,7 +1050,7 @@ export const NATIVE_MENUBAR: {
             { id: 'tools/macro/visual-basic-editor', label: 'Visual Basic Editor' },
           ],
         },
-        { id: 'tools/powerpoint-add-ins', label: 'PowerPoint アドイン' },
+        { id: 'tools/add-ins', label: 'アドイン' },
       ],
     },
     {
@@ -1169,7 +1173,7 @@ export const NATIVE_MENUBAR: {
       id: 'help',
       label: 'ヘルプ',
       items: [
-        { id: 'help/powerpoint-help', label: 'PowerPoint ヘルプ', shortcut: '⌘?' },
+        { id: 'help/editor-help', label: 'エディター ヘルプ', shortcut: '⌘?' },
         '-',
         { id: 'help/feedback', label: 'フィードバック' },
         '-',

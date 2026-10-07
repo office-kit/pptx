@@ -63,8 +63,8 @@
   // (on by default) | Hyperlink.
   function outlineTail(hyperlink: Item): Item[] {
     return [
-      { label: 'Thesaurus...', accel: '⌃⌥⌘R', disabled: true, reason: 'The thesaurus needs the Microsoft reference service.', run: noop },
-      { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs the Microsoft translation service.', run: noop },
+      { label: 'Thesaurus...', accel: '⌃⌥⌘R', disabled: true, reason: 'The thesaurus needs an online reference service.', run: noop },
+      { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs an online translation service.', run: noop },
       { label: 'Show Formatting', checked: editor.outlineShowFormatting, sep: true, run: () => editor.outlineShowFormatting = !editor.outlineShowFormatting },
       hyperlink,
     ];
@@ -163,8 +163,8 @@
 
   function proofingItems(): Item[] {
     return [
-      { label: 'Thesaurus...', accel: '⌃⌥⌘R', disabled: true, reason: 'The thesaurus needs the Microsoft reference service.', run: noop },
-      { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs the Microsoft translation service.', run: noop },
+      { label: 'Thesaurus...', accel: '⌃⌥⌘R', disabled: true, reason: 'The thesaurus needs an online reference service.', run: noop },
+      { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs an online translation service.', run: noop },
     ];
   }
 
@@ -248,7 +248,7 @@
 
   // Mac PowerPoint's picture menu.
   function pictureItems(shapes: readonly SlideShapeData[]): Item[] {
-    const online = 'Online pictures need Microsoft 365 services.';
+    const online = 'Online pictures need an online image service.';
     return [
       ...clipboardItems(undefined),
       {
@@ -271,7 +271,7 @@
       { label: 'Save as Picture...', sep: true, disabled: true, reason: 'The editor cannot export objects as pictures yet.', run: noop },
       { label: 'View Alt Text...', run: () => editor.runOrPrompt('setShapeDescription'), disabled: !editor.canRun('setShapeDescription') },
       { label: 'Crop', accel: '⇧C', run: () => editor.runOrPrompt('setShapeImageCrop'), disabled: !editor.canRun('setShapeImageCrop') },
-      { label: 'Auto Crop', disabled: true, reason: 'Auto Crop needs the Microsoft image service.', run: noop },
+      { label: 'Auto Crop', disabled: true, reason: 'Auto Crop needs an online image service.', run: noop },
       { label: 'Size and Position...', run: () => editor.showShapeFormat('size') },
       { label: 'Format Picture...', accel: '⇧⌘1', sep: true, run: () => editor.showShapeFormat() },
       { label: 'Action Settings...', sep: true, run: () => editor.runOrPrompt('setShapeClickAction'), disabled: !editor.canRun('setShapeClickAction') },
@@ -295,7 +295,7 @@
       lockItem(shapes),
       { label: 'Hyperlink...', accel: '⌘K', sep: true, run: () => editor.runOrPrompt('setShapeHyperlink'), disabled: !editor.canRun('setShapeHyperlink') },
       { label: 'Save as Picture...', sep: true, disabled: true, reason: 'The editor cannot export objects as pictures yet.', run: noop },
-      { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs the Microsoft translation service.', run: noop },
+      { label: 'Translate...', sep: true, disabled: true, reason: 'Translation needs an online translation service.', run: noop },
       { label: 'View Alt Text...', run: () => editor.runOrPrompt('setShapeDescription'), disabled: !editor.canRun('setShapeDescription') },
       { label: 'Set as Default Shape Style', disabled: true, reason: 'The editor does not keep a default shape style yet.', run: noop },
     );
