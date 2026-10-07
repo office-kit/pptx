@@ -208,6 +208,58 @@
     <rect x="3" y="7" width="18" height="10" rx="1" /><path d="M7 10v4M14 5v14M12 5h4M12 19h4" />
   {:else if name === 'close-master'}
     <rect x="3" y="4" width="18" height="16" rx="1" /><path d="m9 9 6 6M15 9l-6 6" stroke="#c92a2a" />
+  {:else if name === 'alt-text'}
+    <rect x="3" y="4" width="14" height="11" rx="1" /><path d="m5 13 3-4 3 3 2-2 3 3" /><rect x="11" y="14" width="10" height="7" rx="1" /><path d="M13 17h6M13 19h4" />
+  {:else if name === 'selection-pane'}
+    <rect x="3" y="4" width="18" height="16" rx="1" /><path d="M14 4v16M16 8h3M16 11h3M16 14h3" /><path d="m6 8 4 9 1-3.5 3.5-1z" />
+  {:else if name === 'align-objects'}
+    <path d="M4 3v18" /><rect x="6" y="5" width="13" height="5" rx="1" /><rect x="6" y="14" width="8" height="5" rx="1" />
+  {:else if name === 'remove-background'}
+    <rect x="3" y="4" width="18" height="16" rx="1" stroke-dasharray="2 2" /><path d="M7 18c0-4 2-6 5-6s5 2 5 6" /><circle cx="12" cy="9" r="2.5" />
+  {:else if name === 'corrections'}
+    <circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" />
+  {:else if name === 'artistic-effects'}
+    <rect x="3" y="4" width="18" height="16" rx="1" /><path d="M7 16c2-6 4-8 5-4s3 2 5-2" />
+  {:else if name === 'transparency'}
+    <rect x="3" y="4" width="18" height="16" rx="1" /><path d="M3 12h18M12 4v16" stroke-dasharray="2 2" />
+  {:else if name === 'compress'}
+    <rect x="5" y="5" width="14" height="14" rx="1" /><path d="M3 3l5 5M21 3l-5 5M3 21l5-5M21 21l-5-5" />
+  {:else if name === 'gridlines'}
+    <rect x="3" y="5" width="18" height="14" /><path d="M3 9.7h18M3 14.3h18M9 5v14M15 5v14" stroke-dasharray="1.5 1.5" />
+  {:else if name === 'split'}
+    <rect x="3" y="6" width="18" height="12" rx="1.5" /><path d="M12 6v12" /><polyline points="8,9.5 5.5,12 8,14.5" /><polyline points="16,9.5 18.5,12 16,14.5" />
+  {:else if name === 'distribute-rows'}
+    <rect x="4" y="4" width="16" height="16" /><path d="M4 9.3h16M4 14.6h16" />
+  {:else if name === 'distribute-columns'}
+    <rect x="4" y="4" width="16" height="16" /><path d="M9.3 4v16M14.6 4v16" />
+  {:else if name === 'cell-margins'}
+    <rect x="3" y="3" width="18" height="18" /><rect x="7" y="7" width="10" height="10" stroke-dasharray="2 2" />
+  {:else if name === 'insert-row-above'}
+    <rect x="3" y="11" width="18" height="9" /><path d="M3 15.5h18" /><path d="M12 9V3M9 6l3-3 3 3" />
+  {:else if name === 'insert-row-below'}
+    <rect x="3" y="4" width="18" height="9" /><path d="M3 8.5h18" /><path d="M12 15v6M9 18l3 3 3-3" />
+  {:else if name === 'insert-column-left'}
+    <rect x="11" y="3" width="9" height="18" /><path d="M15.5 3v18" /><path d="M9 12H3M6 9l-3 3 3 3" />
+  {:else if name === 'insert-column-right'}
+    <rect x="4" y="3" width="9" height="18" /><path d="M8.5 3v18" /><path d="M15 12h6M18 9l3 3-3 3" />
+  {:else if name === 'select-table'}
+    <path d="m5 3 5 15 2-6 6-2z" />
+  {:else if name === 'pen'}
+    <path d="M4 20l2-6L16 4l4 4-10 10z" /><path d="M14 6l4 4" />
+  {:else if name === 'draw-table'}
+    <rect x="3" y="6" width="13" height="13" /><path d="M3 12.5h13M9.5 6v13" /><path d="m14 10 6-6 1.5 1.5-6 6-2.5 1z" />
+  {:else if name === 'eraser'}
+    <path d="m4 16 9-9 7 7-5 5H8z" /><path d="M9 12l6 6M3 20h18" />
+  {:else if name === 'align-top'}
+    <path d="M4 4h16" /><rect x="7" y="7" width="4" height="12" /><rect x="13" y="7" width="4" height="7" />
+  {:else if name === 'align-middle'}
+    <path d="M4 12h16" /><rect x="7" y="5" width="4" height="14" /><rect x="13" y="8" width="4" height="8" />
+  {:else if name === 'align-bottom'}
+    <path d="M4 20h16" /><rect x="7" y="5" width="4" height="12" /><rect x="13" y="10" width="4" height="7" />
+  {:else if name === 'animate-background'}
+    <rect x="3" y="7" width="15" height="13" rx="1" /><path d="m5 18 4-5 3 3 2-2 3 4" /><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" />
+  {:else if name === 'picture-layout'}
+    <rect x="3" y="4" width="8" height="7" /><rect x="13" y="4" width="8" height="7" /><path d="M3 15h18M3 19h12" />
   {:else}
     <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
   {/if}

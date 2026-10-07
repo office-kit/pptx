@@ -358,58 +358,11 @@ export const RIBBON: readonly RibbonTab[] = [
       },
     ],
   },
-  {
-    id: 'shape',
-    title: 'Shape Format',
-    contextual: 'shape',
-    groups: [],
-  },
-  {
-    id: 'tableDesign',
-    title: 'Table Design',
-    contextual: 'table',
-    groups: [
-      {
-        title: 'Table Styles',
-        items: [{ id: 'setTableStyleId', icon: 'theme', label: 'Table Styles' }],
-      },
-      {
-        title: 'Table Style Shading',
-        items: [
-          { id: 'setTableCellFill', icon: 'fill', label: 'Shading' },
-          { id: 'setTableCellBorders', icon: 'border', label: 'Borders' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'table',
-    title: 'Layout',
-    contextual: 'table',
-    groups: [
-      {
-        title: 'Rows & Columns',
-        items: [
-          { id: 'removeTableRow', icon: 'cells-row', label: 'Delete Rows' },
-          { id: 'removeTableColumn', icon: 'cells-col', label: 'Delete Columns' },
-          { id: 'insertTableRow', icon: 'cells-row', label: 'Insert Rows' },
-          { id: 'insertTableColumn', icon: 'cells-col', label: 'Insert Columns' },
-        ],
-      },
-      { title: 'Merge', items: [{ id: 'mergeTableCells', icon: 'merge', label: 'Merge Cells' }] },
-      {
-        title: 'Cell Size',
-        items: [
-          { id: 'setTableRowHeight', icon: 'cells-row', label: 'Height' },
-          { id: 'setTableColumnWidth', icon: 'cells-col', label: 'Width' },
-        ],
-      },
-      {
-        title: 'Alignment',
-        items: [{ id: 'setTableCellAlignment', icon: 'align', label: 'Alignment' }],
-      },
-    ],
-  },
+  { id: 'shape', title: 'Shape Format', contextual: 'shape', groups: [] },
+  // Laid out by PictureFormatRibbon, TableDesignRibbon and TableLayoutRibbon.
+  { id: 'picture', title: 'Picture Format', contextual: 'image', groups: [] },
+  { id: 'tableDesign', title: 'Table Design', contextual: 'table', groups: [] },
+  { id: 'table', title: 'Table Layout', contextual: 'table', groups: [] },
   { id: 'playback', title: 'Playback', contextual: 'media', groups: [] },
 ];
 

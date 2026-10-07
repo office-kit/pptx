@@ -86,6 +86,7 @@
   {#if inline}
     <div class="inline-gallery" role="group" aria-label={t('Quick Styles')}>
     <button class="inline-more" class:hidden={inlinePage === 0} {disabled} aria-label={t('Previous Quick Styles')} onclick={() => pageInline(-1)}>‹</button>
+    <div class="inline-items">
     {#each inlineVisible as item}
       <button class="inline-item" {disabled} aria-label={`${t(item.style)} - ${t(item.color === 'dk1' ? 'Dark 1' : `Accent ${item.color.slice(-1)}`)}`} title={`${t(item.style)} - ${t(item.color === 'dk1' ? 'Dark 1' : `Accent ${item.color.slice(-1)}`)}`} onclick={() => apply(item.style, item.color)}>
         {#if images.has(`${item.style}:${item.color}`)}<img src={images.get(`${item.style}:${item.color}`)} alt="" />{:else}<span>Abc</span>{/if}
@@ -94,6 +95,7 @@
     {#each Array(3 - inlineVisible.length) as _}
       <span class="inline-item placeholder" aria-hidden="true"></span>
     {/each}
+    </div>
     <button class="inline-more" bind:this={trigger} class:hidden={inlinePage === inlinePageCount - 1} {disabled} aria-label={t('Next Quick Styles')} onclick={() => pageInline(1)}>›</button>
     {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
   </div>
@@ -124,13 +126,17 @@
   .trigger:disabled { opacity:.4; }
   .sample { display:flex; align-items:center; justify-content:center; width:34px; height:30px; border:1px solid currentColor; border-radius:3px; font-size:13px; }
   .compact { flex-direction:row; }
-  .inline-gallery { display:flex; align-items:center; gap:2px; }
-  .inline-item, .inline-more { width:40px; height:30px; padding:0; border:1px solid transparent; border-radius:2px; background:white; color:var(--ok-text); cursor:pointer; }
+  /* PowerPoint's in-ribbon strip: 18 × 58 pt arrows around three 58 pt
+     swatches in a 174 pt frame. */
+  .inline-gallery { display:flex; align-items:flex-start; flex:none; height:60px; }
+  .inline-items { display:flex; align-items:center; justify-content:space-around; width:174px; height:58px; margin-top:1px; box-sizing:border-box; border:1px solid var(--ok-border); border-radius:3px; background:white; }
+  .inline-item, .inline-more { width:54px; height:50px; padding:0; border:1px solid transparent; border-radius:2px; background:white; color:var(--ok-text); cursor:pointer; }
   .inline-item:hover:not(:disabled), .inline-item:focus-visible, .inline-more:hover:not(:disabled), .inline-more:focus-visible { outline:2px solid var(--ok-accent); outline-offset:-2px; }
   .inline-item:disabled, .inline-more:disabled { opacity:.4; cursor:default; }
-  .inline-item img { width:100%; height:100%; display:block; }
+  .inline-item img { width:100%; height:100%; display:block; object-fit:contain; }
   .inline-item.placeholder { visibility:hidden; pointer-events:none; }
-  .inline-more { width:20px; font-size:20px; line-height:1; }
+  .inline-more { width:18px; height:58px; margin-top:1px; background:none; font-size:14px; line-height:1; }
+  .inline-more:hover:not(:disabled) { background:var(--ok-hover); outline:none; }
   .inline-more.hidden { visibility:hidden; }
   .inline-error { flex-basis:100%; max-width:280px; color:var(--ok-danger); }
   .menu { position:fixed; z-index:400; padding:5px; max-height:calc(100dvh - 16px); overflow-y:auto; border:1px solid var(--ok-border); border-radius:6px; background:var(--ok-panel); color:var(--ok-text); box-shadow:var(--ok-shadow-lg); }

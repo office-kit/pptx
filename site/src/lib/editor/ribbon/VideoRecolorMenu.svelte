@@ -7,6 +7,7 @@
     getShapeImageBrightness,
     getShapeImageContrast,
     getShapeImageDuotone,
+    getShapeKind,
     getShapeMedia,
     isShapeImageGrayscale,
     resolveDrawingColor,
@@ -19,7 +20,10 @@
   import Icon from '../ui/Icon.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
 
-  let { variant = 'ribbon' } = $props<{ variant?: 'ribbon' | 'pane' }>();
+  // `target` picks videos (Video Format) or pictures (Picture Format); `big`
+  // `row` and `icon` are the Picture Format tab's large button, 22 pt row
+  // and 36 × 22 pt icon menu.
+  let { variant = 'ribbon', target = 'video' } = $props<{ variant?: 'ribbon' | 'pane' | 'big' | 'row' | 'icon'; target?: 'video' | 'picture' }>();
 
   type RecolorPreset = {
     id: string;
@@ -64,7 +68,9 @@
   const selected = $derived.by(() => {
     doc.version;
     const shapes = editor.selectedShapes();
-    if (shapes.length !== 1 || getShapeMedia(shapes[0]!)?.kind !== 'video') return null;
+    if (shapes.length !== 1) return null;
+    const media = getShapeMedia(shapes[0]!);
+    if (target === 'video' ? media?.kind !== 'video' : media || getShapeKind(shapes[0]!) !== 'picture') return null;
     return shapes[0]!;
   });
   const locked = $derived(editor.selectionLocked());
@@ -244,9 +250,15 @@
 
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger?.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 
+{#if variant === 'big' || variant === 'row' || variant === 'icon'}
+<button class="ctx-{variant}" type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t('Color')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
+  {#if variant === 'big'}<span class="ctx-icon-row"><Icon name="gradient" size={32} /><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{t('Color')}</span>{:else if variant === 'icon'}<Icon name="gradient" size={18} /><span class="ctx-caret" aria-hidden="true">▾</span>{:else}<Icon name="gradient" size={16} /><span>{t('Color')}</span><span class="ctx-caret" aria-hidden="true">▾</span>{/if}
+</button>
+{:else}
 <button class="trigger" class:compact={variant === 'pane'} type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t(variant === 'pane' ? 'Recolor presets' : 'Color')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
   {#if variant !== 'pane'}<Icon name="gradient" />{/if}<span>{t(variant === 'pane' ? 'Presets' : 'Color')} ▾</span>
 </button>
+{/if}
 {#if open}
   <div class="menu" role="menu" aria-label={t('Recolor')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="heading">{t('Recolor')}</div>
@@ -301,7 +313,7 @@
       <ColorPicker label={t('More Variations...')} showThemeShades disabled={!selected || locked} choose={chooseVariation} />
       <span>{t('More Variations...')}</span>
     </div>
-    <button class="options" type="button" role="menuitem" onclick={() => { close(false); editor.showShapeFormat('video'); }}>{t('Movie Color Options...')}</button>
+    <button class="options" type="button" role="menuitem" onclick={() => { close(false); editor.showShapeFormat(target === 'video' ? 'video' : 'paint'); }}>{t(target === 'video' ? 'Movie Color Options...' : 'Picture Color Options...')}</button>
   </div>
 {/if}
 
