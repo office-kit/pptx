@@ -1592,6 +1592,8 @@
     box-shadow: var(--ok-shadow);
   }
   .canvas-viewport.with-rulers { padding-top: 22px; padding-left: 22px; }
+  /* Keep the floating bar off the horizontal ruler's tick labels. */
+  .canvas-viewport.with-rulers .floating-text-format-bar { top: 26px; }
   .canvas-area {
     position: relative;
     flex: 1;

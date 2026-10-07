@@ -145,6 +145,11 @@ test(
       const { editor, read, revision, saved } = context;
       const input = await context.edit(17, 22);
       assert.equal(await editor.locator('.text-axis').getAttribute('data-axis'), 'x');
+      const ruler = await editor.locator('.rulers svg.horizontal').boundingBox();
+      const formatToggle = await editor
+        .locator('.floating-text-format-bar > summary')
+        .boundingBox();
+      assert.ok(formatToggle.y >= ruler.y + ruler.height - 1, 'format toggle sits below the ruler');
       // The origin is the unrotated text-box start: the rotated box's centre
       // minus half its layout width plus its left inset.
       const geometry = await input.evaluate((node) => {
