@@ -488,7 +488,7 @@ export const getShapeRunFormatEffective = (
     }
   }
 
-  return result as TextFormat;
+  return result;
 };
 
 // -- Effective pPr cascade --------------------------------------------------

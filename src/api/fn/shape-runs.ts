@@ -13,7 +13,6 @@ import {
   type ParagraphAlignment,
   type ParagraphAlignmentToken,
   type ReadTextFormat,
-  type TextFormat,
   applyBulletToParagraph,
   parseAlignmentToken,
   updateBulletIndentForLevel,
@@ -246,7 +245,7 @@ export const readParagraphElements = (
   const readFmt = (parent: XmlElement): ReadTextFormat | null => {
     const rPr = firstChildElement(parent, NAME_A_RPR);
     if (!rPr) return null;
-    return parseRPrLikeElement(rPr) as TextFormat;
+    return parseRPrLikeElement(rPr);
   };
   for (const child of paragraph.children) {
     if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;

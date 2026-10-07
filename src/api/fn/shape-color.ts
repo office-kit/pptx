@@ -6,7 +6,6 @@ import {
   type ReadGradientStop,
   type ReadLineFill,
   type ReadTextFormat,
-  type TextFormat,
 } from '../../internal/drawingml/index.ts';
 // Type-only: erased at compile time, so this does not make the modules cyclic.
 import type { ShapeEffectAny } from './shape-effects.ts';
@@ -1095,5 +1094,5 @@ export const getShapeRunFormat = (
     rPr,
     undefined,
     relatedImageBytes(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME]),
-  ) as TextFormat;
+  );
 };

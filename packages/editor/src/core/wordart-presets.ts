@@ -3,9 +3,6 @@
 // (test/fixtures/native/wordart-*-shape.xml, catalogued in wordart-capture.md).
 
 import {
-  getShapeParagraphCount,
-  getShapeRunCount,
-  getShapeRunFormat,
   setShapeText3D,
   setShapeTextFormat,
   setTableCellTextFormat,
@@ -340,9 +337,12 @@ export const WORDART_PRESETS: readonly WordArtPreset[] = [
 ];
 
 // Everything a preset sets. Native replaces these rather than merging, so a
-// white bold preset followed by the black shadow one leaves no white or bold.
+// white bold preset followed by the black shadow one leaves no white or bold:
+// PowerPoint removes `b` and `spc` rather than writing them off.
 const CLEARED: TextFormat = {
   color: null,
+  bold: null,
+  spc: null,
   outline: null,
   shadow: null,
   innerShadow: null,
@@ -352,20 +352,8 @@ const CLEARED: TextFormat = {
 
 /** Applies a gallery preset to every run of `shape` and its paragraph ends. */
 export function applyWordArtPreset(shape: SlideShapeData, preset: WordArtPreset): void {
-  const format = preset.format;
-  const runs = Array.from({ length: getShapeParagraphCount(shape) }, (_, paragraph) =>
-    Array.from({ length: getShapeRunCount(shape, paragraph) }, (_, run) =>
-      getShapeRunFormat(shape, paragraph, run),
-    ),
-  ).flat();
-  // Native drops `b` and `spc`; the text-format API can only write b="0" and
-  // spc="0", so it does so only over text that sets them itself.
-  setShapeTextFormat(shape, {
-    ...CLEARED,
-    ...(!format.bold && runs.some((run) => run?.bold) ? { bold: false } : {}),
-    ...(format.spc === undefined && runs.some((run) => run?.spc) ? { spc: 0 } : {}),
-  });
-  setShapeTextFormat(shape, format);
+  setShapeTextFormat(shape, CLEARED);
+  setShapeTextFormat(shape, preset.format);
   // The bevel belongs to the preset like the run effects do, so a preset
   // without one removes it. (Unlike the run properties, this is not yet
   // confirmed against a native capture of one preset applied over another.)
