@@ -67,7 +67,7 @@ const speedForDuration = (ms: number): 'slow' | 'med' | 'fast' =>
  * Every transition effect element name in `CT_SlideTransition`'s choice
  * (ECMA-376 pml.xsd), emitted verbatim as `<p:{token}/>`.
  */
-const ECMA_TRANSITION_EFFECTS = [
+export const ECMA_TRANSITION_EFFECTS = [
   'blinds',
   'checker',
   'circle',

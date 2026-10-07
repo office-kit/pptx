@@ -38,8 +38,35 @@
 import type { SlideAnimationStep } from '@office-kit/pptx';
 
 const INSTANT_EFFECTS = ['appear', 'disappear'];
-const ENTRANCE_EFFECTS = ['fadeIn', 'appear', 'flyIn', 'zoomIn'];
-const EXIT_EFFECTS = ['fadeOut', 'disappear', 'flyOut', 'zoomOut'];
+// The transition filters PowerPoint also runs on single objects, each with an
+// `…In` entrance and an `…Out` exit.
+const FILTER_FAMILIES = [
+  'blinds',
+  'checkerboard',
+  'dissolve',
+  'peek',
+  'randomBars',
+  'shape',
+  'split',
+  'strips',
+  'wedge',
+  'wheel',
+  'wipe',
+];
+const ENTRANCE_EFFECTS = [
+  'fadeIn',
+  'appear',
+  'flyIn',
+  'zoomIn',
+  ...FILTER_FAMILIES.map((family) => `${family}In`),
+];
+const EXIT_EFFECTS = [
+  'fadeOut',
+  'disappear',
+  'flyOut',
+  'zoomOut',
+  ...FILTER_FAMILIES.map((family) => `${family}Out`),
+];
 const EMPHASIS_EFFECTS = ['spin'];
 
 /**
@@ -48,19 +75,36 @@ const EMPHASIS_EFFECTS = ['spin'];
  * behaviour the deck states: `style.opacity` as `opacity`, `ppt_x` / `ppt_y` as
  * a translation, `ppt_w` / `ppt_h` as a scale about the shape's centre, and `r`
  * as a rotation about it.
+ *
+ * A transition filter (`<p:animEffect>`) has no browser equivalent, so it is
+ * approximated with an animated `clip-path` drawing the same reveal — bars,
+ * a wedge, an outline growing out of the centre. Dissolve is the one the clip
+ * cannot draw; it plays as a fade.
  */
-type Motion = 'none' | 'fade' | 'fly' | 'zoom' | 'spin';
+type Motion = 'none' | 'fade' | 'fly' | 'zoom' | 'spin' | 'filter' | 'peek';
 
 const MOTIONS: Readonly<Record<string, Motion>> = {
   appear: 'none',
   disappear: 'none',
   fadeIn: 'fade',
   fadeOut: 'fade',
+  dissolveIn: 'fade',
+  dissolveOut: 'fade',
   flyIn: 'fly',
   flyOut: 'fly',
   zoomIn: 'zoom',
   zoomOut: 'zoom',
   spin: 'spin',
+  peekIn: 'peek',
+  peekOut: 'peek',
+  ...Object.fromEntries(
+    FILTER_FAMILIES.filter((family) => family !== 'dissolve' && family !== 'peek').flatMap(
+      (family) => [
+        [`${family}In`, 'filter'],
+        [`${family}Out`, 'filter'],
+      ],
+    ),
+  ),
 };
 
 /** One clockwise turn, which is what the `spin` preset this library reads is. */
@@ -336,26 +380,27 @@ const screenMatrixOf = (el: StyledElement): DOMMatrix | null => {
  */
 const flyOffset = (
   el: StyledElement,
-  direction: 'top' | 'right' | 'bottom' | 'left',
+  direction: NonNullable<SlideAnimationStep['direction']>,
   root: ParentNode,
 ): { readonly dx: number; readonly dy: number } | null => {
   const slide = slideBoxOf(el, root);
   if (slide === null || slide.width <= 0 || slide.height <= 0) return null;
   const box = el.getBoundingClientRect();
+  // A corner moves on both axes; the side it names on each is what the edge
+  // of a straight fly is.
+  const lower = direction.toLowerCase();
   // Clear of the edge by the element's own extent: the far side of the box has
   // to reach the edge before the near side goes past it.
-  const dx =
-    direction === 'right'
-      ? slide.right - box.left
-      : direction === 'left'
-        ? slide.left - box.right
-        : 0;
-  const dy =
-    direction === 'bottom'
-      ? slide.bottom - box.top
-      : direction === 'top'
-        ? slide.top - box.bottom
-        : 0;
+  const dx = lower.includes('right')
+    ? slide.right - box.left
+    : lower.includes('left')
+      ? slide.left - box.right
+      : 0;
+  const dy = lower.includes('bottom')
+    ? slide.bottom - box.top
+    : lower.includes('top')
+      ? slide.top - box.bottom
+      : 0;
   const matrix = screenMatrixOf(el);
   // Plain HTML with no SVG above it: its pixels are the screen's.
   if (matrix === null) return { dx, dy };
@@ -436,6 +481,254 @@ const movementFor = (item: AnimationItem, el: StyledElement, root: ParentNode): 
       const place = { translate: '0px 0px' };
       return { frames: entering ? [away, place] : [place, away], aboutOwnCentre: false };
     }
+    case 'filter':
+    case 'peek': {
+      const reveal = filterReveal(item.step);
+      if (reveal === null) return null;
+      const covered: Keyframe = { clipPath: reveal.covered };
+      const uncovered: Keyframe = { clipPath: reveal.uncovered };
+      const shift = item.step.direction === null ? undefined : EDGE_VECTORS[item.step.direction];
+      if (effect === 'peekIn' || effect === 'peekOut') {
+        if (shift === undefined) return null;
+        // 1.125 of the shape's own size, as PowerPoint's `#ppt_h*1.125` says;
+        // a percentage translation is of the fill box `centreOn` sets.
+        covered.translate = `${shift[0] * 112.5}% ${shift[1] * 112.5}%`;
+        uncovered.translate = '0% 0%';
+      }
+      return {
+        frames: entering ? [covered, uncovered] : [uncovered, covered],
+        aboutOwnCentre: true,
+      };
+    }
+  }
+};
+
+/** Which way each edge lies from the centre, as unit steps in x and y. */
+const EDGE_VECTORS: Readonly<Record<string, readonly [number, number]>> = {
+  top: [0, -1],
+  bottom: [0, 1],
+  left: [-1, 0],
+  right: [1, 0],
+};
+
+const OPPOSITE_EDGE: Readonly<Record<string, string>> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+/** `inset()` with nothing showing but the named edge's zero-width strip. */
+const COVERED_FROM_EDGE: Readonly<Record<string, string>> = {
+  top: 'inset(0% 0% 100% 0%)',
+  bottom: 'inset(100% 0% 0% 0%)',
+  left: 'inset(0% 100% 0% 0%)',
+  right: 'inset(0% 0% 0% 100%)',
+};
+
+const CORNERS: Readonly<Record<string, readonly [number, number]>> = {
+  topLeft: [0, 0],
+  topRight: [100, 0],
+  bottomLeft: [0, 100],
+  bottomRight: [100, 100],
+};
+
+/**
+ * A `clip-path` at the two ends of a filter: nothing of the shape showing, and
+ * all of it. Both ends are written with the same number of points so the
+ * browser can interpolate between them. Percentages are of the shape's own
+ * fill box, which is what the filter is stated against.
+ */
+interface Reveal {
+  readonly covered: string;
+  readonly uncovered: string;
+}
+
+type Point = readonly [number, number];
+
+const polygon = (points: readonly Point[], evenOdd = false): string =>
+  `polygon(${evenOdd ? 'evenodd, ' : ''}${points.map(([x, y]) => `${x}% ${y}%`).join(', ')}) fill-box`;
+
+const FULL_BOX: readonly Point[] = [
+  [0, 0],
+  [100, 0],
+  [100, 100],
+  [0, 100],
+];
+
+/**
+ * `count` bars across the box, each `fraction` of its slot wide. The bars are
+ * one polygon, joined along the box's edge by lines of no width.
+ */
+const bars = (count: number, horizontal: boolean, fraction: number): string => {
+  const points: Point[] = [];
+  for (let i = 0; i < count; i++) {
+    const from = (100 * i) / count;
+    const to = from + (100 * fraction) / count;
+    if (horizontal) points.push([0, from], [100, from], [100, to], [0, to]);
+    else points.push([from, 0], [from, 100], [to, 100], [to, 0]);
+  }
+  return polygon(points);
+};
+
+// A circle through the box's corners has a radius of half its diagonal.
+const CIRCLE_RADIUS = 50 * Math.SQRT2;
+const CIRCLE_POINTS = 32;
+const FAN_POINTS = 12;
+
+/** An outline about the box's centre, `scale` 1 being large enough to cover the box. */
+const outline = (shape: string, scale: number): Point[] => {
+  const at = (x: number, y: number): Point => [50 + x * scale, 50 + y * scale];
+  switch (shape) {
+    case 'box':
+      return [at(-50, -50), at(50, -50), at(50, 50), at(-50, 50)];
+    case 'diamond':
+      return [at(0, -100), at(100, 0), at(0, 100), at(-100, 0)];
+    case 'plus':
+      return [
+        at(-50, -100),
+        at(50, -100),
+        at(50, -50),
+        at(100, -50),
+        at(100, 50),
+        at(50, 50),
+        at(50, 100),
+        at(-50, 100),
+        at(-50, 50),
+        at(-100, 50),
+        at(-100, -50),
+        at(-50, -50),
+      ];
+    default:
+      return Array.from({ length: CIRCLE_POINTS }, (_, i) => {
+        const angle = (2 * Math.PI * i) / CIRCLE_POINTS;
+        return at(CIRCLE_RADIUS * Math.cos(angle), CIRCLE_RADIUS * Math.sin(angle));
+      });
+  }
+};
+
+/**
+ * A fan from the centre, swept `sweep` of a turn from `start` — both in turns,
+ * clockwise from 12 o'clock — and long enough to reach every corner.
+ */
+const fan = (start: number, sweep: number): Point[] => [
+  [50, 50],
+  ...Array.from({ length: FAN_POINTS + 1 }, (_, i): Point => {
+    const angle = 2 * Math.PI * (start + (sweep * i) / FAN_POINTS);
+    return [50 + 100 * Math.sin(angle), 50 - 100 * Math.cos(angle)];
+  }),
+];
+
+const filterReveal = (step: SlideAnimationStep): Reveal | null => {
+  const effect = step.effect;
+  if (effect === null) return null;
+  const family = effect.replace(/(In|Out)$/, '');
+  const horizontal = step.orientation !== 'vertical';
+  switch (family) {
+    case 'wipe':
+    case 'peek': {
+      // The filter keeps the side it names: a wipe from the bottom shows the
+      // bottom of the shape first. A peek comes in from the edge it names, so
+      // the side it shows first is the far one.
+      const edge =
+        step.direction === null
+          ? undefined
+          : family === 'peek'
+            ? OPPOSITE_EDGE[step.direction]
+            : step.direction;
+      const covered = edge === undefined ? undefined : COVERED_FROM_EDGE[edge];
+      if (covered === undefined) return null;
+      return { covered: `${covered} fill-box`, uncovered: 'inset(0% 0% 0% 0%) fill-box' };
+    }
+    case 'blinds':
+      return { covered: bars(6, horizontal, 0), uncovered: bars(6, horizontal, 1) };
+    case 'randomBars':
+      return { covered: bars(16, horizontal, 0), uncovered: bars(16, horizontal, 1) };
+    case 'checkerboard':
+      // Across opens columns left to right, down opens rows top to bottom.
+      return { covered: bars(8, !horizontal, 0), uncovered: bars(8, !horizontal, 1) };
+    case 'split': {
+      // A vertical split opens from (or closes onto) a vertical centre line.
+      // `out` opens from it; `in` closes in from both edges at once — two
+      // strips, one polygon joined along an edge.
+      const vertical = step.orientation === 'vertical';
+      if (step.inOut === 'out') {
+        const line = (open: number): string => {
+          const side = `${50 - open / 2}%`;
+          return vertical
+            ? `inset(0% ${side} 0% ${side}) fill-box`
+            : `inset(${side} 0% ${side} 0%) fill-box`;
+        };
+        return { covered: line(0), uncovered: line(100) };
+      }
+      const edges = (p: number): string =>
+        polygon(
+          vertical
+            ? [
+                [0, 0],
+                [p, 0],
+                [p, 100],
+                [100 - p, 100],
+                [100 - p, 0],
+                [100, 0],
+                [100, 100],
+                [0, 100],
+              ]
+            : [
+                [0, 0],
+                [100, 0],
+                [100, p],
+                [0, p],
+                [0, 100 - p],
+                [100, 100 - p],
+                [100, 100],
+                [0, 100],
+              ],
+        );
+      return { covered: edges(0), uncovered: edges(50) };
+    }
+    case 'shape': {
+      const shape = step.shape ?? 'circle';
+      // `out` grows the outline from the centre; `in` closes it onto the
+      // centre from outside — the box with a shrinking hole in it.
+      if (step.inOut === 'out') {
+        return { covered: polygon(outline(shape, 0)), uncovered: polygon(outline(shape, 1)) };
+      }
+      return {
+        covered: polygon([...FULL_BOX, ...outline(shape, 1)], true),
+        uncovered: polygon([...FULL_BOX, ...outline(shape, 0)], true),
+      };
+    }
+    case 'strips': {
+      // A triangle out of the corner the direction names, large enough at the
+      // end to cover the box.
+      const corner = step.direction === null ? undefined : CORNERS[step.direction];
+      if (corner === undefined) return null;
+      const [cx, cy] = corner;
+      const sx = cx === 0 ? 1 : -1;
+      const sy = cy === 0 ? 1 : -1;
+      const triangle = (size: number): string =>
+        polygon([
+          [cx, cy],
+          [cx + sx * size, cy],
+          [cx, cy + sy * size],
+        ]);
+      return { covered: triangle(0), uncovered: triangle(200) };
+    }
+    case 'wedge':
+      // Two fans from 12 o'clock, opening both ways until they meet at 6.
+      return {
+        covered: polygon([...fan(0, 0), ...fan(0, 0)]),
+        uncovered: polygon([...fan(0, 0.5), ...fan(0, -0.5)]),
+      };
+    case 'wheel': {
+      const spokes = step.spokes ?? 1;
+      const sectors = (sweep: number): string =>
+        polygon(Array.from({ length: spokes }, (_, i) => fan(i / spokes, sweep / spokes)).flat());
+      return { covered: sectors(0), uncovered: sectors(1) };
+    }
+    default:
+      return null;
   }
 };
 

@@ -65,15 +65,26 @@ export { buildTransition, transitionEffectNamespace } from './transition-builder
 export type {
   AnimationDirection,
   AnimationEffect,
+  AnimationEffectOptions,
+  AnimationInOut,
+  AnimationOptionDomains,
+  AnimationOptionName,
   AnimationOptions,
+  AnimationOrientation,
+  AnimationShape,
   AnimationStartCondition,
 } from './animation-builder.ts';
 export {
   ANIMATION_DIRECTIONS,
   ANIMATION_EFFECTS,
+  ANIMATION_PRESET_ENTRIES,
+  animationOptionDomains,
   buildSingleEffectTiming,
+  defaultAnimationDurationMs,
+  effectBehaviourNames,
   FULL_TURN,
   isDirectionalEffect,
+  resolveAnimationOptions,
   trailingHideDelayMs,
 } from './animation-builder.ts';
 export type {

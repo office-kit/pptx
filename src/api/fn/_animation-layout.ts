@@ -21,7 +21,11 @@ import {
   getAttrValue,
   qname,
 } from '../../internal/xml/index.ts';
-import type { AnimationStartCondition } from '../../internal/presentationml/index.ts';
+import {
+  type AnimationEffect,
+  type AnimationStartCondition,
+  effectBehaviourNames,
+} from '../../internal/presentationml/index.ts';
 import { groupEndMs } from './_animation-timing.ts';
 import { rootChildTnLst } from './_media-timing.ts';
 
@@ -446,26 +450,17 @@ const EFFECT_ATTRS = new Set([
   'grpId',
   'nodeType',
 ]);
-// The behaviours this library writes, per effect: `<p:set>` flips visibility
-// and `<p:anim>` drives opacity, position and size, while `<p:animRot>` belongs
-// to the one effect that turns the shape.
-//
-// Asked per effect rather than as one list, because a node saying it is a fade
-// and holding a rotation is a node whose behaviours are not the ones its preset
-// stands for. Replacing it would throw the rotation away, so it is refused —
-// which is also why listing `animRot` here does not make every rotation
-// rewritable.
-const EFFECT_BEHAVIOURS = new Set(['set', 'anim']);
-const BEHAVIOURS_BY_EFFECT: Readonly<Record<string, ReadonlySet<string>>> = {
-  spin: new Set(['animRot']),
-};
-
+// The behaviours this library writes are asked per effect rather than as one
+// list, because a node saying it is a fade and holding a rotation is a node
+// whose behaviours are not the ones its preset stands for. Replacing it would
+// throw the rotation away, so it is refused.
+const UNNAMED_EFFECT_BEHAVIOURS: ReadonlySet<string> = new Set(['set', 'anim']);
 /**
  * Whether the effect in `par` is one this library could have written, and so
  * one it may write again. `effect` is the preset the read model named it as;
  * `null` for a node it could not name, which is never replaced anyway.
  */
-export const isPlainEffect = (par: XmlElement, effect: string | null): boolean => {
+export const isPlainEffect = (par: XmlElement, effect: AnimationEffect | null): boolean => {
   if (par.attrs.length > 0 || elementChildren(par).length !== 1) return false;
   const cTn = firstChildElement(par, NAME_C_TN);
   if (cTn === null) return false;
@@ -475,7 +470,7 @@ export const isPlainEffect = (par: XmlElement, effect: string | null): boolean =
   if (!elementChildren(cTn).every((c) => isPml(c, 'stCondLst') || isPml(c, 'childTnLst'))) {
     return false;
   }
-  const allowed = (effect === null ? undefined : BEHAVIOURS_BY_EFFECT[effect]) ?? EFFECT_BEHAVIOURS;
+  const allowed = effect === null ? UNNAMED_EFFECT_BEHAVIOURS : effectBehaviourNames(effect);
   const childTnLst = firstChildElement(cTn, NAME_CHILD_TN_LST);
   return elementChildren(childTnLst).every(
     (c) => c.name.namespaceURI === NS.pml && allowed.has(c.name.localName),

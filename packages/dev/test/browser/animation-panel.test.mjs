@@ -480,7 +480,7 @@ test(
 );
 
 test(
-  'a fly is given an edge in the panel, and only a fly is offered one',
+  'a fly is given an edge in the panel, and only an effect that takes one is offered one',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-animation-direction-'));
@@ -578,7 +578,8 @@ test(
       await assert.doesNotReject(pane().waitFor());
       assert.deepEqual(
         (await direction().locator('option').allTextContents()).map((text) => text.trim()),
-        ['下辺', '上辺', '左辺', '右辺'],
+        // Fly's eight, in the order of the ribbon's Effect Options.
+        ['下辺', '左下の角', '左辺', '左上の角', '上辺', '右上の角', '右辺', '右下の角'],
       );
       await direction().selectOption('right');
       await settles([{ effect: 'flyOut', direction: 'right' }]);

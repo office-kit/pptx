@@ -151,17 +151,22 @@ describe('PowerPoint extension transitions', () => {
     },
   );
 
-  skipIfNoXmllint('keeps every choice and fallback schema-valid', async () => {
-    for (const [options] of CASES) {
-      const { slide } = await firstSlide();
-      setSlideTransition(slide, { ...options, durationMs: 1250, advanceAfterMs: 3000 });
-      setSlideTransitionSound(slide, { kind: 'stop' });
-      const xml = getSlideXmlString(slide);
-      expectSchemaValid(resolveFallback(xml), 'pml');
-      expectSchemaValid(resolveChoiceForEcma(xml), 'pml');
-      expectSchemaValid(extensionElement(xml), 'pptxTransitions');
-    }
-  });
+  skipIfNoXmllint(
+    'keeps every choice and fallback schema-valid',
+    async () => {
+      for (const [options] of CASES) {
+        const { slide } = await firstSlide();
+        setSlideTransition(slide, { ...options, durationMs: 1250, advanceAfterMs: 3000 });
+        setSlideTransitionSound(slide, { kind: 'stop' });
+        const xml = getSlideXmlString(slide);
+        expectSchemaValid(resolveFallback(xml), 'pml');
+        expectSchemaValid(resolveChoiceForEcma(xml), 'pml');
+        expectSchemaValid(extensionElement(xml), 'pptxTransitions');
+      }
+      // Three xmllint runs per case.
+    },
+    60_000,
+  );
 
   it('declares p14 beside a p15 or p159 choice only when a duration needs it', async () => {
     const { slide } = await firstSlide();

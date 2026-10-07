@@ -114,6 +114,7 @@ const scene = (page, { steps, go, at, watch, reduced }) =>
           rotate: style.rotate,
           scale: style.scale,
           opacity: style.opacity,
+          clipPath: style.clipPath,
           visibility: el.style.visibility || 'visible',
           top: box.top,
           bottom: box.bottom,
@@ -647,5 +648,97 @@ test('reduced motion puts every effect where it ends without moving anything', a
       assert.ok(!turns(seen.rotate), `${effect} rotate ${seen.rotate}`);
       assert.ok(!scales(seen.scale), `${effect} scale ${seen.scale}`);
     }
+  });
+});
+
+test('a diagonal fly comes from, and leaves by, the corner the deck names', async () => {
+  await withBrowser(async (page) => {
+    for (const direction of ['topLeft', 'topRight', 'bottomLeft', 'bottomRight']) {
+      const start = await scene(page, {
+        steps: [step({ effect: 'flyIn', direction })],
+        go: { advance: 1 },
+        at: 0,
+        watch: [shape(10)],
+      });
+      const at = start[shape(10)];
+      // Clear of both edges the corner is made of.
+      if (direction.startsWith('top')) assert.ok(at.bottom <= start.slide.top + 1, direction);
+      else assert.ok(at.top >= start.slide.bottom - 1, direction);
+      if (direction.endsWith('Left')) assert.ok(at.right <= start.slide.left + 1, direction);
+      else assert.ok(at.left >= start.slide.right - 1, direction);
+
+      const end = await scene(page, {
+        steps: [step({ effect: 'flyIn', direction })],
+        go: { advance: 1 },
+        at: DURATION,
+        watch: [shape(10)],
+      });
+      assertDrawnPlace(end, end[shape(10)], direction);
+    }
+  });
+});
+
+test('a filter effect uncovers its shape through an animated clip', async () => {
+  await withBrowser(async (page) => {
+    const cases = [
+      { effect: 'wipeIn', direction: 'bottom' },
+      { effect: 'blindsIn', orientation: 'horizontal' },
+      { effect: 'checkerboardIn', orientation: 'vertical' },
+      { effect: 'randomBarsIn', orientation: 'vertical' },
+      { effect: 'splitIn', orientation: 'vertical', inOut: 'in' },
+      { effect: 'splitIn', orientation: 'horizontal', inOut: 'out' },
+      { effect: 'shapeIn', shape: 'circle', inOut: 'in' },
+      { effect: 'shapeIn', shape: 'diamond', inOut: 'out' },
+      { effect: 'stripsIn', direction: 'topRight' },
+      { effect: 'wedgeIn' },
+      { effect: 'wheelIn', spokes: 4 },
+      { effect: 'peekIn', direction: 'left' },
+    ];
+    for (const options of cases) {
+      const label = JSON.stringify(options);
+      const exit = { ...options, effect: options.effect.replace(/In$/, 'Out') };
+      const half = await scene(page, {
+        steps: [step({ ...options })],
+        go: { advance: 1 },
+        at: DURATION / 2,
+        watch: [shape(10)],
+      });
+      const seen = half[shape(10)];
+      assert.equal(seen.animations, 1, label);
+      assert.notEqual(seen.clipPath, 'none', label);
+      assert.equal(seen.visibility, 'visible', label);
+      if (options.effect === 'peekIn') assert.ok(moves(seen.translate), `${label} slides`);
+
+      const end = await scene(page, {
+        steps: [step({ ...options })],
+        go: { advance: 1 },
+        at: DURATION,
+        watch: [shape(10)],
+      });
+      assertDrawnPlace(end, end[shape(10)], label);
+
+      // The exit plays the same clip the other way.
+      const leaving = await scene(page, {
+        steps: [step({ ...exit, presetClass: 'exit' })],
+        go: { advance: 1 },
+        at: DURATION / 2,
+        watch: [shape(10)],
+      });
+      assert.deepEqual(leaving.unsupported, [], label);
+      assert.notEqual(leaving[shape(10)].clipPath, 'none', `${label} exit`);
+    }
+  });
+});
+
+test('dissolve plays as a fade', async () => {
+  await withBrowser(async (page) => {
+    const half = await scene(page, {
+      steps: [step({ effect: 'dissolveIn' })],
+      go: { advance: 1 },
+      at: DURATION / 2,
+      watch: [shape(10)],
+    });
+    const opacity = Number(half[shape(10)].opacity);
+    assert.ok(opacity > 0 && opacity < 1, `opacity ${opacity}`);
   });
 });

@@ -27,6 +27,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import AnimationPlayback from '../ui/AnimationPlayback.svelte';
+  import { effectDirections } from '../ribbon/animation-gallery.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -36,23 +37,51 @@
     { value: 'appear', label: 'Appear' },
     { value: 'flyIn', label: 'Fly in' },
     { value: 'zoomIn', label: 'Zoom in' },
+    { value: 'wipeIn', label: 'Wipe in' },
+    { value: 'splitIn', label: 'Split in' },
+    { value: 'shapeIn', label: 'Shape in' },
+    { value: 'wheelIn', label: 'Wheel in' },
+    { value: 'blindsIn', label: 'Blinds in' },
+    { value: 'checkerboardIn', label: 'Checkerboard in' },
+    { value: 'dissolveIn', label: 'Dissolve in' },
+    { value: 'peekIn', label: 'Peek in' },
+    { value: 'randomBarsIn', label: 'Random bars in' },
+    { value: 'stripsIn', label: 'Strips in' },
+    { value: 'wedgeIn', label: 'Wedge in' },
     { value: 'spin', label: 'Spin' },
     { value: 'fadeOut', label: 'Fade out' },
     { value: 'disappear', label: 'Disappear' },
     { value: 'flyOut', label: 'Fly out' },
     { value: 'zoomOut', label: 'Zoom out' },
+    { value: 'wipeOut', label: 'Wipe out' },
+    { value: 'splitOut', label: 'Split out' },
+    { value: 'shapeOut', label: 'Shape out' },
+    { value: 'wheelOut', label: 'Wheel out' },
+    { value: 'blindsOut', label: 'Blinds out' },
+    { value: 'checkerboardOut', label: 'Checkerboard out' },
+    { value: 'dissolveOut', label: 'Dissolve out' },
+    { value: 'peekOut', label: 'Peek out' },
+    { value: 'randomBarsOut', label: 'Random bars out' },
+    { value: 'stripsOut', label: 'Strips out' },
+    { value: 'wedgeOut', label: 'Wedge out' },
   ];
-  // What the file records is an edge of the slide, and the same edge means
-  // "from there" for an entrance and "out through there" for an exit. The
-  // labels name the edge, so the effect beside them says which of the two it
-  // is rather than the list having to say it twice.
-  const DIRECTIONS: { value: AnimationDirection; label: string }[] = [
-    { value: 'bottom', label: 'Bottom edge' },
-    { value: 'top', label: 'Top edge' },
-    { value: 'left', label: 'Left edge' },
-    { value: 'right', label: 'Right edge' },
-  ];
-  const FLYING: AnimationEffect[] = ['flyIn', 'flyOut'];
+  // What the file records is an edge (or corner) of the slide, and the same
+  // edge means "from there" for an entrance and "out through there" for an
+  // exit. The labels name the edge, so the effect beside them says which of
+  // the two it is rather than the list having to say it twice. Each effect
+  // offers the ones the ribbon's Effect Options offer it.
+  const DIRECTION_LABELS: Record<AnimationDirection, string> = {
+    bottom: 'Bottom edge',
+    top: 'Top edge',
+    left: 'Left edge',
+    right: 'Right edge',
+    bottomLeft: 'Bottom-left corner',
+    topLeft: 'Top-left corner',
+    topRight: 'Top-right corner',
+    bottomRight: 'Bottom-right corner',
+  };
+  const directionsOf = (effect: AnimationEffect | null): { value: AnimationDirection; label: string }[] =>
+    effect === null ? [] : effectDirections(effect).map((value) => ({ value, label: DIRECTION_LABELS[value] }));
   const STARTS: { value: AnimationStartCondition; label: string }[] = [
     { value: 'click', label: 'On click' },
     { value: 'withPrevious', label: 'With previous' },
@@ -184,7 +213,7 @@
     apply('Add animation', () =>
       setShapeAnimation(shape, {
         effect: addEffect,
-        ...(FLYING.includes(addEffect) ? { direction: addDirection } : {}),
+        ...(effectDirections(addEffect).includes(addDirection) ? { direction: addDirection } : {}),
         durationMs: addDuration,
         start: addStart,
         delayMs: addDelay,
@@ -241,13 +270,9 @@
                     aria-label="{t('Effect')} {place + 1}"
                     value={step.effect}
                     onchange={(event) => {
-                      const next = event.currentTarget.value as AnimationEffect;
-                      // A preset that flies needs an edge, and one that does
-                      // not refuses to be given one.
-                      patch(step, {
-                        effect: next,
-                        ...(FLYING.includes(next) ? { direction: step.direction ?? 'bottom' } : {}),
-                      });
+                      // The library keeps the options the two presets share and
+                      // gives the new one its defaults for the rest.
+                      patch(step, { effect: event.currentTarget.value as AnimationEffect });
                     }}
                   >
                     {#each EFFECTS as item}<option value={item.value}>{t(item.label)}</option>{/each}
@@ -265,7 +290,7 @@
                           direction: event.currentTarget.value as AnimationDirection,
                         })}
                     >
-                      {#each DIRECTIONS as item}<option value={item.value}>{t(item.label)}</option
+                      {#each directionsOf(step.effect) as item}<option value={item.value}>{t(item.label)}</option
                         >{/each}
                     </select>
                   </label>
@@ -374,9 +399,9 @@
           <select class="ok-input" aria-label={t('New effect')} bind:value={addEffect}>
             {#each EFFECTS as item}<option value={item.value}>{t(item.label)}</option>{/each}
           </select>
-          {#if FLYING.includes(addEffect)}
+          {#if directionsOf(addEffect).length > 0}
             <select class="ok-input" aria-label={t('New direction')} bind:value={addDirection}>
-              {#each DIRECTIONS as item}<option value={item.value}>{t(item.label)}</option>{/each}
+              {#each directionsOf(addEffect) as item}<option value={item.value}>{t(item.label)}</option>{/each}
             </select>
           {/if}
         </label>

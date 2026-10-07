@@ -10,11 +10,17 @@ import { unsignedIntMs } from '../../internal/bounds.ts';
 import {
   type AnimationDirection,
   type AnimationEffect,
+  type AnimationEffectOptions,
+  type AnimationInOut,
+  type AnimationOptionName,
   type AnimationOptions,
+  type AnimationOrientation,
+  type AnimationShape,
   type AnimationStartCondition,
+  animationOptionDomains,
   buildSingleEffectTiming,
-  isDirectionalEffect,
   isMediaTimingNode,
+  resolveAnimationOptions,
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -68,12 +74,19 @@ import { rootChildTnLst } from './_media-timing.ts';
 export interface AnimationPatch {
   readonly effect?: AnimationEffect;
   /**
-   * Which edge a fly comes from or leaves by. Changing it rewrites the effect
-   * the same way changing the preset does, because the direction is part of
-   * what the preset says. Passing it for an effect that does not fly is an
-   * error — including one this patch is turning into such an effect.
+   * Which edge a fly, wipe or peek comes from or leaves by, or which corner
+   * strips start from. Changing it rewrites the effect the same way changing
+   * the preset does, because the direction is part of what the preset says.
+   * Passing it for an effect that takes no direction is an error — including
+   * one this patch is turning into such an effect. The same holds for the
+   * four options below; `setShapeAnimation` documents which effects take
+   * which.
    */
   readonly direction?: AnimationDirection;
+  readonly orientation?: AnimationOrientation;
+  readonly inOut?: AnimationInOut;
+  readonly shape?: AnimationShape;
+  readonly spokes?: number;
   readonly durationMs?: number;
   readonly start?: AnimationStartCondition;
   readonly delayMs?: number;
@@ -81,6 +94,23 @@ export interface AnimationPatch {
 }
 
 const ATTR_GRP_ID = qname('', 'grpId', '');
+
+const OPTION_NAMES: readonly AnimationOptionName[] = [
+  'direction',
+  'orientation',
+  'inOut',
+  'shape',
+  'spokes',
+];
+
+/** The resolved options as `AnimationOptions` fields, leaving out the ones the effect does not take. */
+const presentOptions = (options: AnimationEffectOptions): Partial<AnimationOptions> => ({
+  ...(options.direction === null ? {} : { direction: options.direction }),
+  ...(options.orientation === null ? {} : { orientation: options.orientation }),
+  ...(options.inOut === null ? {} : { inOut: options.inOut }),
+  ...(options.shape === null ? {} : { shape: options.shape }),
+  ...(options.spokes === null ? {} : { spokes: options.spokes }),
+});
 
 const NO_TIMING = 'the slide has no animation effects';
 const NOT_EDITABLE =
@@ -272,21 +302,31 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
     // node; anything else is set on the one that is there, so an effect this
     // library did not author keeps whatever else it carries.
     const effect = patch.effect ?? node.step.effect!;
-    if (patch.direction !== undefined && !isDirectionalEffect(effect)) {
-      throw new RangeError(
-        `${fn}: direction only applies to an effect that flies, and animation ${id} would be ` +
-          `${JSON.stringify(effect)}.`,
-      );
-    }
-    // The direction is part of the preset, so changing it writes a new effect
-    // node just as changing the preset itself does. An effect that keeps flying
-    // keeps the edge the slide already names unless the patch says otherwise.
-    const direction = isDirectionalEffect(effect)
-      ? (patch.direction ?? (isDirectionalEffect(node.step.effect!) ? node.step.direction : null))
-      : null;
+    // The options are part of the preset, so changing one writes a new effect
+    // node just as changing the preset itself does. An option the new effect
+    // shares with the old one keeps what the slide already says unless the
+    // patch says otherwise, as long as the new effect offers that value too.
+    const domains = animationOptionDomains(effect);
+    const kept = (name: AnimationOptionName): unknown => {
+      if (patch[name] !== undefined) return patch[name];
+      const old = node.step[name];
+      const domain: readonly unknown[] | undefined = domains[name];
+      return old !== null && domain?.includes(old) === true ? old : undefined;
+    };
+    const options = resolveAnimationOptions(
+      effect,
+      {
+        direction: kept('direction'),
+        orientation: kept('orientation'),
+        inOut: kept('inOut'),
+        shape: kept('shape'),
+        spokes: kept('spokes'),
+      },
+      `${fn}: animation ${id}`,
+    );
     const changesPreset =
       (patch.effect !== undefined && patch.effect !== node.step.effect) ||
-      direction !== node.step.direction;
+      OPTION_NAMES.some((name) => options[name] !== node.step[name]);
     const rebuild = changesPreset || nowBuild !== wasBuild;
 
     let replaced: ReadonlySet<XmlElement> = new Set([node.cTn]);
@@ -322,7 +362,7 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
       const delayMs = patch.delayMs ?? node.step.delayMs;
       const opts: AnimationOptions = {
         effect,
-        ...(direction === null ? {} : { direction }),
+        ...presentOptions(options),
         ...(durationMs === null ? {} : { durationMs }),
         ...(delayMs === null ? {} : { delayMs }),
         start,

@@ -49,12 +49,12 @@ test(
       for (const name of ['Path Animation', 'Trigger', 'Preview'])
         assert.equal(await button(name).isDisabled(), true, name);
       // Exit effects are not in the inline gallery.
-      assert.equal(await panel.getByRole('radio', { name: 'Fade Out' }).count(), 0);
+      assert.equal(await panel.getByRole('radio', { name: 'Dissolve Out' }).count(), 0);
 
       const hits = editor.locator('.hit');
       await hits.nth(0).click();
       await button('Exit Effects').click();
-      await changed(() => panel.getByRole('menuitemradio', { name: 'Fade Out' }).click());
+      await changed(() => panel.getByRole('menuitemradio', { name: 'Fade', exact: true }).click());
       assert.deepEqual(
         (await animations()).map((step) => step.effect),
         ['fadeOut'],
