@@ -45,6 +45,12 @@ test(
             exact: true,
           })
           .click();
+        await editor
+          .getByRole('menuitem', {
+            name: language === 'en' ? 'Custom Slide Show...' : 'カスタム スライド ショー...',
+            exact: true,
+          })
+          .click();
         return editor.getByRole('dialog', {
           name: language === 'en' ? 'Custom Shows' : 'カスタム ショー',
         });

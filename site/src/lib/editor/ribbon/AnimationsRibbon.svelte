@@ -1,4 +1,9 @@
 <script lang="ts">
+  // Mac PowerPoint 16's Animations tab: Preview | Entrance Effects gallery |
+  // Emphasis Effects gallery | Exit Effects | Path Animation | Effect Options,
+  // Animation Pane, Trigger, Animation Painter | Start and Duration. In a
+  // 1512 pt window both galleries show five 64 pt tiles; at 1200 pt the
+  // Emphasis gallery collapses into a button and Entrance shows six.
   import { placeBelowTrigger } from './place-menu.ts';
   import {
     getSlideAnimations,
@@ -6,70 +11,93 @@
     setShapeAnimation,
     updateSlideAnimation,
     type AnimationEffect,
+    type AnimationPatch,
     type AnimationStartCondition,
   } from '@office-kit/pptx';
   import { tick, untrack } from 'svelte';
   import AnimationPlayback from '../ui/AnimationPlayback.svelte';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
-  import { t } from '../i18n/i18n.svelte.ts';
+  import { getLocale, t } from '../i18n/i18n.svelte.ts';
+  import RibbonGallery from './RibbonGallery.svelte';
+  import {
+    EMPHASIS_TILES,
+    ENTRANCE_TILES,
+    EXIT_TILES,
+    FLY_DIRECTIONS,
+    UNSUPPORTED_DIRECTION,
+    UNSUPPORTED_SEQUENCE,
+    type EffectTile,
+  } from './animation-gallery.ts';
 
-  // Mac PowerPoint's animation gallery, limited to the presets the library
-  // writes. The star color marks the class, as it does there: green entrance,
-  // gold emphasis, red exit.
-  const GALLERY: ReadonlyArray<{ effect: AnimationEffect; label: string; kind: 'entrance' | 'emphasis' | 'exit' }> = [
-    { effect: 'appear', label: 'Appear', kind: 'entrance' },
-    { effect: 'fadeIn', label: 'Fade', kind: 'entrance' },
-    { effect: 'flyIn', label: 'Fly In', kind: 'entrance' },
-    { effect: 'zoomIn', label: 'Zoom', kind: 'entrance' },
-    { effect: 'spin', label: 'Spin', kind: 'emphasis' },
-    { effect: 'disappear', label: 'Disappear', kind: 'exit' },
-    { effect: 'fadeOut', label: 'Fade Out', kind: 'exit' },
-    { effect: 'flyOut', label: 'Fly Out', kind: 'exit' },
-    { effect: 'zoomOut', label: 'Zoom Out', kind: 'exit' },
-  ];
   const STARTS: ReadonlyArray<readonly [AnimationStartCondition, string]> = [
     ['click', 'On Click'],
     ['withPrevious', 'With Previous'],
     ['afterPrevious', 'After Previous'],
   ];
   const MS_PER_SECOND = 1000;
+  const TILE_WIDTH = 64;
+  // The command row width (CSS px) PowerPoint's expanded layout needs; below
+  // it the Emphasis gallery becomes a button and Entrance gains a tile.
+  const EXPANDED_FROM = 1380;
 
   const editor = getEditor();
   const doc = editor.doc;
   const shapeId = $derived(selectedShapeId(doc.selection));
-  // The first effect on the selected shape is the one the gallery shows and
-  // replaces, like PowerPoint's single-effect gallery.
+  // The first effect on the selected shape is the one the galleries show and
+  // replace, like PowerPoint's single-effect galleries.
   const step = $derived.by(() => {
     doc.version;
     const slide = doc.currentSlide;
     if (!slide || shapeId === null) return null;
     return getSlideAnimations(slide).find((item) => item.id !== null && item.targetShapeIds.includes(shapeId)) ?? null;
   });
+  const checkedKey = $derived([...ENTRANCE_TILES, ...EMPHASIS_TILES, ...EXIT_TILES].find((item) => item.effect !== undefined && item.effect === step?.effect)?.key ?? null);
+  let width = $state(typeof window === 'undefined' ? Number.POSITIVE_INFINITY : window.innerWidth);
+  // The threshold fits PowerPoint's English labels; longer ones (Japanese)
+  // collapse the Emphasis gallery whenever the expanded row does not fit.
+  let squeezed = $state(false);
+  let row = $state<HTMLDivElement>();
+  const expanded = $derived(width >= EXPANDED_FROM && !squeezed);
+  $effect.pre(() => {
+    width;
+    getLocale();
+    squeezed = false;
+  });
+  $effect(() => {
+    const last = row?.lastElementChild;
+    if (!expanded || !row || !last) return;
+    if (last.getBoundingClientRect().right > row.getBoundingClientRect().right) squeezed = true;
+  });
+  const label = (item: { en: string; ja: string }) => (getLocale() === 'ja' ? item.ja : item.en);
 
-  function choose(effect: AnimationEffect | null) {
+  function choose(effect: AnimationEffect) {
     const slide = doc.currentSlide;
     const shape = editor.selectedShapes()[0];
     if (!slide || !shape) return;
     doc.transact(t('Animation'), () => {
-      if (effect === null) {
-        for (const item of getSlideAnimations(slide)) {
-          if (item.id !== null && shapeId !== null && item.targetShapeIds.includes(shapeId)) removeSlideAnimation(slide, item.id);
-        }
-      } else if (step?.id != null) updateSlideAnimation(slide, step.id, { effect });
+      if (step?.id != null) updateSlideAnimation(slide, step.id, { effect });
       else setShapeAnimation(shape, { effect });
     });
   }
-  function patch(value: { start?: AnimationStartCondition; durationMs?: number }) {
+  function patch(value: AnimationPatch) {
     const slide = doc.currentSlide;
     if (!slide || step?.id == null) return;
     const id = step.id;
-    doc.transact(t('Animation'), () => updateSlideAnimation(slide, id, value));
+    try {
+      doc.transact(t('Animation'), () => updateSlideAnimation(slide, id, value));
+    } catch (error) {
+      editor.toast('error', error instanceof Error ? error.message : String(error));
+    }
   }
-  // Exit effects sit behind their own button, as on the Mac ribbon.
-  const INLINE = GALLERY.filter((item) => item.kind !== 'exit');
-  const EXITS = GALLERY.filter((item) => item.kind === 'exit');
-  let exitMenu = $state(false);
+
+  type Menu = 'emphasis' | 'exit' | 'options';
+  let menu = $state<Menu | null>(null);
+  const toggle = (name: Menu) => (menu = menu === name ? null : name);
+  function chooseFromMenu(item: EffectTile) {
+    menu = null;
+    if (item.effect) choose(item.effect);
+  }
 
   // Preview plays the current slide's effects over the editor.
   const steps = $derived.by(() => { doc.version; return doc.currentSlide ? [...getSlideAnimations(doc.currentSlide)] : []; });
@@ -116,94 +144,159 @@
   }
 </script>
 
-<svelte:window onkeydown={(event) => { if (event.key === 'Escape') { painter = null; exitMenu = false; } }} onpointerdown={(event) => { if (exitMenu && !(event.target as Element).closest?.('.exit-anchor')) exitMenu = false; }} />
+<svelte:window onkeydown={(event) => { if (event.key === 'Escape') { painter = null; menu = null; } }} onpointerdown={(event) => { if (menu && !(event.target as Element).closest?.('.anchor')) menu = null; }} />
 
-<div class="group">
-  <button class="big" disabled={steps.length === 0} onclick={() => (previewing = true)}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="star" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /><path d="m15 15 6 3.5-6 3.5z" fill="currentColor" /></svg>
-    <span>{t('Preview')}</span>
-  </button>
-</div>
-{#if previewing && doc.currentSlide}<AnimationPlayback svg={doc.currentSvg} {steps} onclose={() => (previewing = false)} />{/if}
-<div class="group gallery" role="radiogroup" aria-label={t('Animation')}>
-  <button role="radio" aria-checked={shapeId !== null && step === null} disabled={shapeId === null} onclick={() => choose(null)}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /><path d="M4 20 20 4" /></svg>
-    <span>{t('None')}</span>
-  </button>
-  {#each INLINE as item (item.effect)}
-    <button role="radio" class={item.kind} aria-checked={step?.effect === item.effect} disabled={shapeId === null} onclick={() => choose(item.effect)}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="star" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /></svg>
-      <span>{t(item.label)}</span>
+{#snippet star(kind: EffectTile['kind'])}
+  <svg class="star {kind}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /></svg>
+{/snippet}
+{#snippet effectMenu(name: Menu, items: readonly EffectTile[])}
+  <div class="menu" role="menu" use:placeBelowTrigger aria-label={t(name === 'exit' ? 'Exit Effects' : 'Emphasis Effects')}>
+    {#each items as item (item.key)}
+      <button role="menuitemradio" aria-checked={checkedKey === item.key} disabled={item.unavailable !== undefined} title={item.unavailable ? t(item.unavailable) : undefined} onclick={() => chooseFromMenu(item)}>{@render star(item.kind)}{label(item)}</button>
+    {/each}
+  </div>
+{/snippet}
+
+<div class="animations" lang={getLocale()} bind:this={row} bind:clientWidth={width}>
+  <section class="cluster" role="group" aria-label={t('Preview')}>
+    <button class="big" style:--w="50px" disabled={steps.length === 0} onclick={() => (previewing = true)}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /><path d="m15 15 6 3.5-6 3.5z" fill="currentColor" /></svg>
+      <span>{t('Preview')}</span>
     </button>
-  {/each}
-</div>
-<div class="group">
-  <div class="exit-anchor">
-    <button class="big exit" aria-haspopup="menu" aria-expanded={exitMenu} disabled={shapeId === null} onclick={() => (exitMenu = !exitMenu)}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="star" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /></svg>
-      <span>{t('Exit Effects')}</span>
-    </button>
-    {#if exitMenu}
-      <div class="menu" role="menu" use:placeBelowTrigger aria-label={t('Exit Effects')}>
-        {#each EXITS as item (item.effect)}
-          <button role="menuitemradio" class="exit" aria-checked={step?.effect === item.effect} onclick={() => { exitMenu = false; choose(item.effect); }}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="star" d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /></svg>{t(item.label)}
-          </button>
-        {/each}
+  </section>
+  {#if previewing && doc.currentSlide}<AnimationPlayback svg={doc.currentSvg} {steps} onclose={() => (previewing = false)} />{/if}
+  <section class="cluster" role="group" aria-label={t('Entrance Effects')}>
+    <RibbonGallery label={t('Entrance Effects')} items={ENTRANCE_TILES} checked={checkedKey} visible={expanded ? 5 : 6} tileWidth={TILE_WIDTH} disabled={shapeId === null} name={label} choose={(item) => item.effect && choose(item.effect)}>
+      {#snippet tile(item)}{@render star(item.kind)}{/snippet}
+    </RibbonGallery>
+  </section>
+  <section class="cluster" role="group" aria-label={t('Emphasis Effects')}>
+    {#if expanded}
+      <RibbonGallery label={t('Emphasis Effects')} items={EMPHASIS_TILES} checked={checkedKey} visible={5} tileWidth={TILE_WIDTH} disabled={shapeId === null} name={label} choose={(item) => item.effect && choose(item.effect)}>
+        {#snippet tile(item)}{@render star(item.kind)}{/snippet}
+      </RibbonGallery>
+    {:else}
+      <div class="anchor">
+        <button class="big" style:--w="55px" aria-haspopup="menu" aria-expanded={menu === 'emphasis'} disabled={shapeId === null} onclick={() => toggle('emphasis')}>
+          <span class="icon-row">{@render star('emphasis')}<span class="arrow" aria-hidden="true">⌄</span></span>
+          <span>{t('Emphasis Effects')}</span>
+        </button>
+        {#if menu === 'emphasis'}{@render effectMenu('emphasis', EMPHASIS_TILES)}{/if}
       </div>
     {/if}
-  </div>
-  <button class="big" disabled title={t('Motion paths are not supported by the library yet.')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8M4 12h12M4 18h6" /><path d="M14 18c4 0 6-3 6-6" stroke-dasharray="2 2" /></svg>
-    <span>{t('Path Animation')}</span>
-  </button>
-</div>
-<div class="group">
-  <button class="big" disabled={step?.id == null} onclick={() => editor.runOrPrompt('setShapeAnimation')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3l2 4.4 4.7.5-3.5 3.2.9 4.6L10 13.4l-4.1 2.3.9-4.6-3.5-3.2 4.7-.5z" /><circle cx="17" cy="17" r="3" /></svg>
-    <span>{t('Effect Options')}</span>
-  </button>
-  <button class="big" onclick={showPane}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /><path d="M16 15h6M16 18h6M16 21h6" /></svg>
-    <span>{t('Animation Pane')}</span>
-  </button>
-  <button class="big" disabled title={t('Triggers are not supported by the library yet.')}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h6l-2 9 9-12h-6z" fill="#d9a520" stroke="#a87c10" /></svg>
-    <span>{t('Trigger')}</span>
-  </button>
-  <button class="big" aria-pressed={painter !== null} disabled={!step?.effect} onclick={() => (painter ? (painter = null) : startPainter())}>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3l2 4.4 4.7.5-3.5 3.2.9 4.6L10 13.4l-4.1 2.3.9-4.6-3.5-3.2 4.7-.5z" /><path d="m15 21 6-6-2-2-6 6z" /></svg>
-    <span>{t('Animation Painter')}</span>
-  </button>
-</div>
-<div class="group timing">
-  <label>{t('Start:')}
-    <select aria-label={t('Start')} disabled={step?.id == null} value={step?.start ?? ''} onchange={(event) => patch({ start: event.currentTarget.value as AnimationStartCondition })}>
-      {#if step?.id == null}<option value=""></option>{/if}
-      {#each STARTS as [value, label] (value)}<option {value}>{t(label)}</option>{/each}
-    </select>
-  </label>
-  <label>{t('Duration:')}
-    <input type="number" min="0.01" step="0.25" aria-label={t('Duration')} disabled={step?.id == null} value={step?.durationMs != null ? (step.durationMs / MS_PER_SECOND).toFixed(2) : ''} onchange={(event) => { const value = event.currentTarget.valueAsNumber; if (Number.isFinite(value) && value > 0) patch({ durationMs: Math.round(value * MS_PER_SECOND) }); }} />
-  </label>
+  </section>
+  <section class="cluster" role="group" aria-label={t('Exit Effects')}>
+    <div class="anchor">
+      <button class="big" style:--w="50px" aria-haspopup="menu" aria-expanded={menu === 'exit'} disabled={shapeId === null} onclick={() => toggle('exit')}>
+        <span class="icon-row">{@render star('exit')}<span class="arrow" aria-hidden="true">⌄</span></span>
+        <span>{t('Exit Effects')}</span>
+      </button>
+      {#if menu === 'exit'}{@render effectMenu('exit', EXIT_TILES)}{/if}
+    </div>
+  </section>
+  <section class="cluster" role="group" aria-label={t('Path Animation')}>
+    <button class="big" style:--w="57px" aria-haspopup="menu" disabled title={t('Motion paths are not supported by the library yet.')}>
+      <span class="icon-row"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h8M4 12h12M4 18h6" /><path d="M14 18c4 0 6-3 6-6" stroke-dasharray="2 2" /></svg><span class="arrow" aria-hidden="true">⌄</span></span>
+      <span>{t('Path Animation')}</span>
+    </button>
+  </section>
+  <section class="cluster" role="group" aria-label={t('Advanced Animation')}>
+    <div class="anchor">
+      <button class="big" style:--w="50px" aria-haspopup="menu" aria-expanded={menu === 'options'} disabled={step?.id == null} onclick={() => toggle('options')}>
+        <span class="icon-row"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3l2 4.4 4.7.5-3.5 3.2.9 4.6L10 13.4l-4.1 2.3.9-4.6-3.5-3.2 4.7-.5z" /><circle cx="17" cy="17" r="3" /></svg><span class="arrow" aria-hidden="true">⌄</span></span>
+        <span>{t('Effect Options')}</span>
+      </button>
+      {#if menu === 'options' && step}
+        <!-- PowerPoint's Effect Options menu: a Direction section for effects
+             that fly, then Sequence. -->
+        <div class="menu options" role="menu" use:placeBelowTrigger aria-label={t('Effect Options')}>
+          {#if step.effect === 'flyIn' || step.effect === 'flyOut'}
+            <div class="heading" role="presentation">{t('Direction')}</div>
+            {#each FLY_DIRECTIONS as item (item.en)}
+              <button role="menuitemradio" aria-checked={item.direction !== undefined && item.direction === (step.direction ?? 'bottom')} disabled={item.direction === undefined} title={item.direction === undefined ? t(UNSUPPORTED_DIRECTION) : undefined} onclick={() => { menu = null; if (item.direction) patch({ direction: item.direction }); }}>
+                <span class="check" aria-hidden="true">✓</span>
+                <svg class="dir" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-5-5 5 5-5 5" transform="rotate({-(item.arrow + (step.effect === 'flyOut' ? 180 : 0))} 12 12)" /></svg>
+                {label(item)}
+              </button>
+            {/each}
+            <hr />
+          {/if}
+          <div class="heading" role="presentation">{t('Sequence')}</div>
+          <button role="menuitemradio" aria-checked={!step.buildByParagraph} onclick={() => { menu = null; patch({ byParagraph: false }); }}><span class="check" aria-hidden="true">✓</span>{t('As One Object')}</button>
+          <button role="menuitemradio" aria-checked="false" disabled title={t(UNSUPPORTED_SEQUENCE)}><span class="check" aria-hidden="true">✓</span>{t('All at Once')}</button>
+          <button role="menuitemradio" aria-checked={step.buildByParagraph} onclick={() => { menu = null; patch({ byParagraph: true }); }}><span class="check" aria-hidden="true">✓</span>{t('By Paragraph')}</button>
+        </div>
+      {/if}
+    </div>
+    <button class="big" style:--w="57px" onclick={showPane}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" /><path d="M16 15h6M16 18h6M16 21h6" /></svg>
+      <span>{t('Animation Pane')}</span>
+    </button>
+    <button class="big" style:--w="50px" aria-haspopup="menu" disabled title={t('Triggers are not supported by the library yet.')}>
+      <span class="icon-row"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h6l-2 9 9-12h-6z" fill="#d9a520" stroke="#a87c10" /></svg><span class="arrow" aria-hidden="true">⌄</span></span>
+      <span>{t('Trigger')}</span>
+    </button>
+    <button class="big" style:--w="57px" aria-pressed={painter !== null} disabled={!step?.effect} onclick={() => (painter ? (painter = null) : startPainter())}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3l2 4.4 4.7.5-3.5 3.2.9 4.6L10 13.4l-4.1 2.3.9-4.6-3.5-3.2 4.7-.5z" /><path d="m15 21 6-6-2-2-6 6z" /></svg>
+      <span>{t('Animation Painter')}</span>
+    </button>
+  </section>
+  <section class="cluster" role="group" aria-label={t('Timing')}>
+    <div class="timing">
+      <label>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m5 3 8 5-8 5z" /></svg>
+        <span>{t('Start:')}</span>
+        <select aria-label={t('Start')} disabled={step?.id == null} value={step?.start ?? ''} onchange={(event) => patch({ start: event.currentTarget.value as AnimationStartCondition })}>
+          {#if step?.id == null}<option value=""></option>{/if}
+          {#each STARTS as [value, name] (value)}<option {value}>{t(name)}</option>{/each}
+        </select>
+      </label>
+      <label>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" /><path d="M8 4v4l3 2" /></svg>
+        <span>{t('Duration:')}</span>
+        <input type="number" min="0.01" step="0.25" aria-label={t('Duration')} disabled={step?.id == null} value={step?.durationMs != null ? (step.durationMs / MS_PER_SECOND).toFixed(2) : ''} onchange={(event) => { const value = event.currentTarget.valueAsNumber; if (Number.isFinite(value) && value > 0) patch({ durationMs: Math.round(value * MS_PER_SECOND) }); }} />
+      </label>
+    </div>
+  </section>
 </div>
 
 <style>
-  .group { display: flex; align-items: center; flex-shrink: 0; gap: 2px; padding: 0 8px; border-right: 1px solid var(--ok-border); }
-  button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; padding: 3px 4px; font: inherit; font-size: 11px; line-height: 1.15; color: var(--ok-text); background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
-  button:not(:disabled):hover, button[aria-checked='true'], button[aria-pressed='true'] { background: var(--ok-hover); border-color: var(--ok-border); }
-  button:disabled, label:has(:disabled) { opacity: 0.45; cursor: default; }
-  .gallery button { width: 58px; min-height: 60px; }
-  svg { width: 32px; height: 32px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.1; }
-  .entrance .star { fill: #3f9b4a; stroke: #2d7a37; }
-  .emphasis .star { fill: #d9a520; stroke: #a87c10; }
-  .exit .star { fill: #c8423b; stroke: #9c2d27; }
-  .big { min-width: 52px; max-width: 72px; min-height: 66px; text-align: center; }
-  .exit-anchor { position: relative; }
-  .menu { position: fixed; z-index: 300; display: flex; flex-direction: column; min-width: 160px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
-  .menu button { flex-direction: row; gap: 8px; padding: 4px 8px; font-size: 12px; }
-  .menu svg { width: 18px; height: 18px; }
-  .timing { flex-direction: column; align-items: flex-end; justify-content: center; gap: 8px; font-size: 12px; }
-  label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-  select, input { width: 120px; font: inherit; padding: 1px 4px; border: 1px solid var(--ok-border); border-radius: 4px; background: var(--ok-panel); color: var(--ok-text); }
+  /* Geometry measured from Mac PowerPoint 16 (POWERPOINT_PARITY.md, "Native
+     geometry audit"): a 72 pt row, a rule with 10 pt each side between groups,
+     PowerPoint's own large-button widths and 26 pt rows on a 32 pt pitch. */
+  .animations { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
+  .cluster { display: flex; flex: none; align-items: stretch; padding: 0 10px; border-right: 1px solid var(--ok-border); }
+  .cluster:first-child { padding-left: 4px; }
+  .cluster:last-child { border-right: none; }
+  button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
+  button:hover:not(:disabled) { background: var(--ok-hover); }
+  button:disabled, label:has(:disabled) { opacity: 0.4; cursor: default; }
+  button[aria-pressed='true'], button[aria-expanded='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
+  .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: var(--w); padding: 4px 1px; font-size: 11px; line-height: 1.15; text-align: center; }
+  .big > span:last-child { max-width: var(--w); margin: 0 -2px; }
+  /* Japanese labels wrap per character, so they get at least six characters
+     a line and a smaller size that fits three lines (PowerPoint widens them). */
+  .big > span:last-child:lang(ja) { max-width: max(calc(var(--w) - 4px), 6em); font-size: 10px; line-height: 1.1; }
+  .icon-row { display: flex; align-items: center; gap: 1px; }
+  .arrow { font-size: 11px; }
+  svg { width: 32px; height: 32px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.1; }
+  .star.entrance path { fill: #3f9b4a; stroke: #2d7a37; }
+  .star.emphasis path { fill: #d9a520; stroke: #a87c10; }
+  .star.exit path { fill: #c8423b; stroke: #9c2d27; }
+  .anchor { position: relative; display: flex; }
+  .menu { position: fixed; z-index: 300; display: flex; flex-direction: column; min-width: 200px; max-height: 70vh; overflow-y: auto; padding: 4px 0; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .menu button { display: flex; flex: none; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 6px; border: none; border-radius: 0; font-size: 13px; text-align: left; }
+  .menu svg { width: 20px; height: 20px; }
+  .menu .dir { stroke: var(--ok-accent); }
+  .menu .heading { display: flex; align-items: center; height: 23px; padding: 0 12px; font-size: 12px; color: var(--ok-text-2); }
+  .menu hr { width: 100%; margin: 6px 0; border: none; border-top: 1px solid var(--ok-border); }
+  .menu .check { width: 12px; visibility: hidden; }
+  .menu button[aria-checked='true'] .check { visibility: visible; }
+  .options { width: 214px; }
+  .timing { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-top: 4px; font-size: 12px; }
+  .timing label { display: flex; align-items: center; gap: 6px; height: 26px; white-space: nowrap; }
+  .timing svg { width: 16px; height: 16px; }
+  select, input { box-sizing: border-box; font: inherit; padding: 1px 4px; border: 1px solid var(--ok-border); border-radius: 4px; background: var(--ok-panel); color: var(--ok-text); }
+  select { width: 102px; height: 26px; }
+  input { width: 78px; height: 24px; }
 </style>

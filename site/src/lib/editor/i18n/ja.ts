@@ -1841,4 +1841,37 @@ export const ja: Record<string, string> = {
   'Sketched style': 'スケッチ スタイル',
   'Sketched lines are not supported by the library yet.':
     'スケッチ スタイルの線はライブラリでまだサポートされていません。',
+  'Previous {name} gallery': '{name} ギャラリーの前の行',
+  'Next {name} gallery': '{name} ギャラリーの次の行',
+  'Transition Styles': '画面切り替え効果',
+  'PowerPoint 2010 and later transitions are not supported by the library yet.':
+    'PowerPoint 2010 以降の画面切り替えはまだライブラリでサポートされていません。',
+  Sound: 'サウンド',
+  'Entrance Effects': '開始効果',
+  'Emphasis Effects': '強調効果',
+  'Advanced Animation': 'アニメーションの詳細設定',
+  Sequence: '連続',
+  'As One Object': '1 つのオブジェクトとして',
+  'All at Once': 'すべて同時',
+  'By Paragraph': '段落別',
+  'This effect is not supported by the library yet.':
+    'この効果はまだライブラリでサポートされていません。',
+  'Diagonal directions are not supported by the library yet.':
+    '斜め方向はまだライブラリでサポートされていません。',
+  'Animating all paragraphs at once is not supported by the library yet.':
+    'すべての段落を同時に動かす設定はまだライブラリでサポートされていません。',
+  'Start Slide Show': 'スライド ショーの開始',
+  'Captions & Subtitles': 'キャプションと字幕',
+  'Custom Slide Show...': 'カスタム スライド ショー...',
+  'Keep Slides Updated needs a presentation shared from OneDrive or SharePoint.':
+    'スライドを最新の状態に保つには、OneDrive または SharePoint で共有されたプレゼンテーションが必要です。',
+  Camera: 'カメラ',
+  Help: 'ヘルプ',
+  Proofing: '文章校正',
+  Accessibility: 'アクセシビリティ',
+  Activity: 'アクティビティ',
+  Protect: '保護',
+  Ink: 'インク',
+  'Presentation Views': 'プレゼンテーションの表示',
+  'Master Views': 'マスター表示',
 };
