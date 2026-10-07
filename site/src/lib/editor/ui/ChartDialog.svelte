@@ -30,7 +30,9 @@
     { value: 'plus', label: 'Plus' }, { value: 'dash', label: 'Dash' }, { value: 'dot', label: 'Dot' },
   ];
   let dialog: HTMLDialogElement;
-  let kind = $state<ChartKind>(original?.kind ?? 'column');
+  // Insert ▸ Chart ▾ opens the dialog on the chart type chosen from its menu.
+  const presetKind = untrack(() => editor.pendingPreset.kind);
+  let kind = $state<ChartKind>(original?.kind ?? (kinds.find(item => item.value === presetKind)?.value ?? 'column'));
   let title = $state(original?.title ?? '');
   let stacking = $state<'none' | 'stacked' | 'percentStacked'>(original?.grouping === 'stacked' || original?.grouping === 'percentStacked' ? original.grouping : 'none');
   let stackingChanged = $state(false);

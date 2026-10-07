@@ -6,6 +6,7 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
+  import { captionLines } from './caption.ts';
   const editor = getEditor();
   const doc = editor.doc;
   let open = $state(false);
@@ -49,7 +50,7 @@
   }
 </script>
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
-<button class="trigger" bind:this={trigger} disabled={!doc.currentSlide} aria-label={t('Background Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}><Icon name="background" size={32} /><span>{t('Background Styles')} <span aria-hidden="true">⌄</span></span></button>
+<button class="trigger" bind:this={trigger} disabled={!doc.currentSlide} aria-label={t('Background Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}><span class="icon-row"><Icon name="background" size={32} /><span class="arrow" aria-hidden="true">⌄</span></span><span class="caption">{captionLines(t('Background Styles'))}</span></button>
 {#if open}
   <div class="menu" role="menu" aria-label={t('Background Styles')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="gallery" role="group" aria-label={t('Background Styles')}>
@@ -64,16 +65,20 @@
   </div>
 {/if}
 <style>
-  .trigger { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: 52px; min-height: 66px; padding: 3px 4px; background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); color: var(--ok-text); font: inherit; font-size: 11px; line-height: 1.15; cursor: pointer; }
-  .trigger > span { max-width: 72px; text-align: center; }
-  .trigger:hover { background: var(--ok-hover); border-color: var(--ok-border); }
-  .trigger:disabled { opacity: .4; }
+  /* A Design-tab ▾ button (see DesignRibbon.svelte). */
+  .trigger { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; align-self: stretch; gap: 2px; min-width: 50px; padding: 4px 1px; background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); color: var(--ok-text); font: inherit; font-size: 11px; line-height: 1.15; cursor: pointer; }
+  .icon-row { display: flex; align-items: center; gap: 1px; }
+  .arrow { font-size: 10px; }
+  .caption { white-space: pre-line; text-align: center; }
+  .trigger:hover:not(:disabled) { background: var(--ok-hover); }
+  .trigger:disabled { opacity: .4; cursor: default; }
   .menu { position: fixed; z-index: 400; padding: 5px; max-height: calc(100dvh - 16px); overflow-y: auto; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); color: var(--ok-text); box-shadow: var(--ok-shadow-lg); }
-  .gallery { display: grid; grid-template-columns: repeat(4, 58px); gap: 3px; }
+  /* PowerPoint's gallery: four 84 × 66 pt cells on an 82 pt pitch. */
+  .gallery { display: grid; grid-template-columns: repeat(4, 80px); gap: 2px; }
   .preset { padding: 4px; background: transparent; border: 1px solid transparent; border-radius: 3px; }
-  .swatch { background-size: 100% 100%; display: block; width: 48px; height: 32px; border: 1px solid var(--ok-border); }
+  .swatch { background-size: 100% 100%; display: block; width: 70px; height: 54px; border: 1px solid var(--ok-border); }
   .preset:hover, .preset:focus-visible, .preset[aria-checked=true] { background: var(--ok-hover); border-color: var(--ok-accent); }
-  .action { display: block; width: 100%; border: 0; border-radius: 4px; padding: 5px 10px; background: transparent; color: inherit; font: inherit; font-size: 12px; text-align: left; }
+  .action { display: block; width: 100%; height: 24px; border: 0; border-radius: 4px; padding: 0 10px; background: transparent; color: inherit; font: inherit; font-size: 12px; text-align: left; }
   .action:hover:not(:disabled), .action:focus-visible { background: var(--ok-accent); color: white; }
   .action:disabled { opacity: .4; }
   hr { border: 0; border-top: 1px solid var(--ok-border); margin: 5px; }

@@ -69,6 +69,7 @@ test(
         'base64',
       );
       await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
+      await editor.locator('#ribbon-panel [data-menu="pictures"]').click();
       await editor.getByTitle(/— addSlideImage$/).click();
       let dialog = editor.getByRole('dialog');
       await dialog

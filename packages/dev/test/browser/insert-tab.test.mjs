@@ -9,6 +9,9 @@ import {
   getShapeMedia,
   getShapeName,
   getShapeText,
+  getShapeTextDirection,
+  getTableCells,
+  isTableShape,
   getSlides,
   getSlideShapes,
   loadPresentation,
@@ -55,7 +58,7 @@ test(
 
       // Native order, with commands the library cannot write shown disabled.
       const labels = await panel
-        .locator('button.cmd')
+        .locator('.insert button:not(.side)')
         .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
       assert.deepEqual(labels, [
         'New Slide',
@@ -85,6 +88,63 @@ test(
       ]);
       for (const name of ['Cameo', 'Icons', 'SmartArt', 'Equation', 'Symbol'])
         assert.equal(await button(name).isDisabled(), true, name);
+
+      // PowerPoint's ▾ menus, with what the browser cannot do disabled.
+      const items = async (name) => {
+        await button(name).click();
+        const menu = panel.getByRole('menu', { name, exact: true });
+        const result = await menu
+          .getByRole('menuitem')
+          .evaluateAll((nodes) =>
+            nodes
+              .filter((node) => !node.classList.contains('cell'))
+              .map((node) => `${node.textContent.trim()}${node.disabled ? ' (off)' : ''}`),
+          );
+        await page.keyboard.press('Escape');
+        return result;
+      };
+      assert.deepEqual(await items('Pictures'), [
+        'Photo Browser... (off)',
+        'Picture from File...',
+        'Stock Images... (off)',
+        'Online Pictures... (off)',
+      ]);
+      assert.deepEqual(await items('Video'), [
+        'Movie Browser... (off)',
+        'Movie from File...',
+        'Online Movie... (off)',
+      ]);
+      assert.deepEqual(await items('Audio'), [
+        'Audio Browser... (off)',
+        'Audio from File...',
+        'Record Audio... (off)',
+      ]);
+      assert.deepEqual((await items('Chart')).slice(0, 5), [
+        'Column',
+        'Line',
+        'Pie',
+        'Bar',
+        'Area',
+      ]);
+
+      // Table ▸ the 3 × 2 cell of the grid inserts a two-column, three-row table.
+      await button('Table').click();
+      await changed(() => panel.getByRole('menuitem', { name: '2x3 Table', exact: true }).click());
+      const table = getSlideShapes((await slides())[0]).find((shape) => isTableShape(shape));
+      assert.deepEqual([getTableCells(table).length, getTableCells(table)[0].length], [3, 2]);
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
+
+      // Text Box ▸ Draw Vertical Text Box rotates the text 90°.
+      await panel.getByRole('button', { name: 'Text Box options', exact: true }).click();
+      await changed(() =>
+        panel.getByRole('menuitem', { name: 'Draw Vertical Text Box', exact: true }).click(),
+      );
+      assert.ok(
+        getSlideShapes((await slides())[0]).some(
+          (shape) => getShapeTextDirection(shape) === 'vert',
+        ),
+      );
 
       // Header & Footer ▸ Footer ▸ Apply to All fills every slide's footer slot.
       await button('Header & Footer').click();
@@ -142,6 +202,7 @@ test(
       ]);
       const chooser = page.waitForEvent('filechooser');
       await button('Video').click();
+      await panel.getByRole('menuitem', { name: 'Movie from File...', exact: true }).click();
       await changed(async () =>
         (await chooser).setFiles({ name: 'clip.mp4', mimeType: 'video/mp4', buffer: mp4 }),
       );

@@ -44,7 +44,8 @@ test(
       await editor.locator('select').first().selectOption('ja');
       await saved();
       await editor.getByRole('tab', { name: '挿入', exact: true }).click();
-      await editor.locator('button[title$="— addSlideChart"]').click();
+      await editor.locator('#ribbon-panel [data-menu="chart"]').click();
+      await editor.getByRole('menu').getByRole('menuitem').first().click();
       const dialog = editor.getByRole('dialog');
       await dialog.getByLabel('グラフの種類', { exact: true }).selectOption('doughnut');
       await dialog.getByLabel('最初の扇形の角度 (°)', { exact: true }).fill('90');

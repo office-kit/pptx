@@ -42,6 +42,15 @@ export const PENS: readonly Pen[] = [
 
 export type InkTool = 'pen' | 'eraser' | 'lasso';
 
+export type PenKind = 'pen' | 'pencil' | 'highlighter';
+const EMU_PER_MM = 36000;
+// The default gallery's widths and opacities for each kind of pen.
+const PEN_KINDS: Readonly<Record<PenKind, { label: string; mm: number; opacity: number }>> = {
+  pen: { label: 'Pen', mm: 1, opacity: 1 },
+  pencil: { label: 'Pencil', mm: 1, opacity: 0.8 },
+  highlighter: { label: 'Highlighter', mm: 6, opacity: 0.5 },
+};
+
 export class InkState {
   tool = $state<InkTool | null>(null);
   pens = $state<Pen[]>([...PENS]);
@@ -56,13 +65,15 @@ export class InkState {
     this.pen = pen;
     this.tool = 'pen';
   }
-  addPen(color: `#${string}`): void {
+  /** Draw ▸ Add ▸ Add Pen / Add Pencil / Add Highlighter in the chosen color. */
+  addPen(color: `#${string}`, kind: PenKind = 'pen'): void {
+    const style = PEN_KINDS[kind];
     const pen = {
       id: `custom-${this.pens.length}`,
-      label: `Pen: ${color.toUpperCase()}, 1 mm`,
+      label: `${style.label}: ${color.toUpperCase()}, ${style.mm} mm`,
       color,
-      widthEmu: 36000,
-      opacity: 1,
+      widthEmu: style.mm * EMU_PER_MM,
+      opacity: style.opacity,
     };
     this.pens = [...this.pens, pen];
     this.choosePen(pen);
