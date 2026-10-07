@@ -57,11 +57,18 @@ const NAME_ALTERNATE_CONTENT = qname('mc', 'AlternateContent', NS.mc);
 const NAME_CHOICE = qname('mc', 'Choice', NS.mc);
 const NAME_FALLBACK = qname('mc', 'Fallback', NS.mc);
 
+type TransitionSpeed = 'slow' | 'med' | 'fast';
+
 // PowerPoint's own durations for the three ECMA-376 speeds.
-const FAST_MS = 500;
-const MED_MS = 750;
-const speedForDuration = (ms: number): 'slow' | 'med' | 'fast' =>
-  ms <= FAST_MS ? 'fast' : ms <= MED_MS ? 'med' : 'slow';
+const SPEED_MS: Readonly<Record<TransitionSpeed, number>> = { fast: 500, med: 750, slow: 1000 };
+// The `spd` PowerPoint writes for a duration: the fastest speed whose own
+// duration is at least as long. Mac PowerPoint 16's 48 gallery defaults all
+// follow it — Cut
+// (100 ms) has no `spd` (fast), Fade (700) and Uncover (750) are `med`, Shape
+// (800) and Zoom (900) are `slow` — which rules out rounding to the nearest
+// speed (800 would be `med`).
+const speedForDuration = (ms: number): TransitionSpeed =>
+  ms <= SPEED_MS.fast ? 'fast' : ms <= SPEED_MS.med ? 'med' : 'slow';
 
 /**
  * Every transition effect element name in `CT_SlideTransition`'s choice
@@ -169,8 +176,11 @@ export type MorphOption = 'byObject' | 'byWord' | 'byChar';
 
 export interface TransitionOptions {
   effect: TransitionEffect;
-  /** Effect speed. Defaults to omitted (PowerPoint treats absence as `med`). */
-  speed?: 'slow' | 'med' | 'fast';
+  /**
+   * Effect speed: 0.5 s (`fast`), 0.75 s (`med`) or 1 s (`slow`). Omitted, it
+   * is the schema default `fast` (ECMA-376 pml.xsd, CT_SlideTransition).
+   */
+  speed?: TransitionSpeed;
   /**
    * Direction, valid only for effects that carry a `dir` attribute and only
    * within that effect's domain (validated on write). The side tokens name
@@ -224,8 +234,14 @@ export interface TransitionOptions {
   /**
    * Effect duration in milliseconds (PowerPoint 2010's `p14:dur`). ECMA-376
    * only has the three `speed` steps, so the transition is written as
-   * PowerPoint writes it: an `mc:AlternateContent` whose `p14` choice carries
-   * the duration and whose fallback carries the nearest `speed`.
+   * PowerPoint writes it:
+   *   - `spd` is the fastest speed at least this long (≤ 500 ms `fast`,
+   *     ≤ 750 ms `med`, otherwise `slow`) unless `speed` is given; a derived
+   *     `fast` is left out, being the schema default.
+   *   - A duration equal to its speed's own (500, 750 or 1000 ms) is that
+   *     speed alone: no `p14:dur`, and it reads back as `speed`.
+   *   - Any other duration is an `mc:AlternateContent` whose `p14` choice
+   *     carries `p14:dur` and whose fallback carries only `spd`.
    */
   durationMs?: number;
 }
@@ -392,8 +408,8 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
 
 /**
  * Returns the slide-level transition node: a `<p:transition>`, or the
- * `mc:AlternateContent` around two of them when a duration is set or the
- * effect is a PowerPoint extension. `sound` is the `<p:sndAc>` to keep (it
+ * `mc:AlternateContent` around two of them when it carries a `p14:dur` or
+ * the effect is a PowerPoint extension. `sound` is the `<p:sndAc>` to keep (it
  * follows the effect element).
  */
 export const buildTransition = (
@@ -402,13 +418,19 @@ export const buildTransition = (
 ): XmlElement => {
   if (opts.speed !== undefined)
     oneOf(opts.speed, ['slow', 'med', 'fast'], 'setSlideTransition: speed');
-  const duration =
+  const requested =
     opts.durationMs === undefined
       ? undefined
       : unsignedIntMs(opts.durationMs, 'setSlideTransition: durationMs');
-  const speed = opts.speed ?? (duration === undefined ? undefined : speedForDuration(duration));
+  const speed = opts.speed ?? (requested === undefined ? undefined : speedForDuration(requested));
+  // PowerPoint leaves out `p14:dur` when the speed already says it (Push,
+  // Wipe, Cover … at 1 s; Uncover at 0.75 s; Flash keeps its wrapper for its
+  // p14 element but has no `p14:dur`), and `spd` when it is the default
+  // `fast` (Cut at 0.1 s).
+  const duration = speed !== undefined && requested !== SPEED_MS[speed] ? requested : undefined;
+  const writtenSpeed = opts.speed ?? (speed === 'fast' ? undefined : speed);
   const attrs: XmlAttr[] = [];
-  if (speed !== undefined) attrs.push(attr(ATTR_SPD, speed));
+  if (writtenSpeed !== undefined) attrs.push(attr(ATTR_SPD, writtenSpeed));
   if (opts.advanceOnClick === false) attrs.push(attr(ATTR_ADV_CLICK, '0'));
   if (opts.advanceAfterMs !== undefined) {
     // advTm is xsd:unsignedInt (0..4294967295 ms).

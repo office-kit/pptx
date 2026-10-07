@@ -3,7 +3,9 @@ import type { SlideTransition, TransitionEffect, TransitionOptions } from '@offi
 // Mac PowerPoint 16's Transitions gallery and Effect Options menus, in its
 // order and wording (English and Japanese). PowerPoint 2010 and later effects
 // are written as PowerPoint writes them: p14 / p15 / p159 elements inside an
-// mc:AlternateContent with a fade fallback.
+// mc:AlternateContent with a fade fallback. Each tile's element, attributes
+// and duration are the ones Mac PowerPoint 16.113 saved for it (the captures
+// are test/fixtures/native/transitions).
 
 /** What choosing a gallery tile or an Effect Options item writes. */
 export type TransitionChoice = Pick<
@@ -26,12 +28,14 @@ export interface TransitionTile {
   readonly key: string;
   readonly en: string;
   readonly ja: string;
-  /** What the tile writes: PowerPoint's default option for the effect. */
+  /**
+   * What the tile writes: PowerPoint's default option for the effect, with
+   * only the attributes PowerPoint writes for it.
+   */
   readonly choice: TransitionChoice;
   /**
    * The Duration PowerPoint fills in when the effect is chosen, in
-   * milliseconds. PowerPoint keeps one per effect rather than per speed; the
-   * values are the ones Mac PowerPoint 16 shows (see POWERPOINT_PARITY.md).
+   * milliseconds. PowerPoint keeps one per effect rather than per speed.
    */
   readonly durationMs: number;
 }
@@ -46,61 +50,75 @@ const tile = (
 /** Duration shown, and written by a Duration edit, while a slide has no transition. */
 export const NO_TRANSITION_DURATION_MS = 2000;
 
+type TransitionSpeed = NonNullable<SlideTransition['speed']>;
+const SPEED_MS: Readonly<Record<TransitionSpeed, number>> = { fast: 500, med: 750, slow: 1000 };
+
+/**
+ * The speed a transition runs at: without `spd`, the schema default `fast`
+ * (ECMA-376 pml.xsd, CT_SlideTransition).
+ */
+export const transitionSpeed = (transition: SlideTransition): TransitionSpeed =>
+  transition.speed ?? 'fast';
+
+/**
+ * The Duration the ribbon shows for a slide's transition: its p14:dur, or
+ * else its speed's own duration.
+ */
+export const shownDurationMs = (transition: SlideTransition | null): number =>
+  transition === null
+    ? NO_TRANSITION_DURATION_MS
+    : (transition.durationMs ?? SPEED_MS[transitionSpeed(transition)]);
+
 export const TRANSITION_TILES: readonly TransitionTile[] = [
   tile('None', 'なし', NO_TRANSITION_DURATION_MS, { effect: 'none' }),
   tile('Morph', '変形', 2000, { effect: 'morph', morphOption: 'byObject' }),
   tile('Fade', 'フェード', 700, { effect: 'fade' }),
   tile('Push', 'プッシュ', 1000, { effect: 'push', direction: 'u' }),
   tile('Wipe', 'ワイプ', 1000, { effect: 'wipe' }),
-  tile('Split', 'スプリット', 1500, { effect: 'split', orientation: 'vert', direction: 'out' }),
-  tile('Reveal', '出現', 1600, { effect: 'reveal', direction: 'l' }),
+  tile('Split', 'スプリット', 1500, { effect: 'split', orientation: 'vert' }),
+  tile('Reveal', '出現', 3400, { effect: 'reveal' }),
   tile('Cut', 'カット', 100, { effect: 'cut' }),
-  tile('Random Bars', 'ランダム ストライプ', 1000, { effect: 'randomBar', direction: 'vert' }),
-  tile('Shape', '図形', 2000, { effect: 'circle' }),
-  tile('Uncover', 'アンカバー', 1000, { effect: 'pull' }),
+  tile('Random Bars', 'ランダムストライプ', 1000, { effect: 'randomBar', direction: 'vert' }),
+  tile('Shape', '図形', 800, { effect: 'circle' }),
+  tile('Uncover', 'アンカバー', 750, { effect: 'pull' }),
   tile('Cover', 'カバー', 1000, { effect: 'cover' }),
-  tile('Flash', 'フラッシュ', 750, { effect: 'flash' }),
+  tile('Flash', 'フラッシュ', 1000, { effect: 'flash' }),
   tile('Fall Over', 'フォール オーバー', 2000, { effect: 'prstTrans', preset: 'fallOver' }),
-  tile('Drape', 'ドレープ', 2000, { effect: 'prstTrans', preset: 'drape' }),
-  tile('Curtains', 'カーテン', 2250, { effect: 'prstTrans', preset: 'curtains' }),
-  tile('Wind', '風', 2000, { effect: 'prstTrans', preset: 'wind', invertX: true }),
+  tile('Drape', '垂れ幕', 2000, { effect: 'prstTrans', preset: 'drape' }),
+  tile('Curtains', 'カーテン', 6000, { effect: 'prstTrans', preset: 'curtains' }),
+  tile('Wind', '風', 2000, { effect: 'prstTrans', preset: 'wind' }),
   tile('Prestige', 'プレステージ', 2000, { effect: 'prstTrans', preset: 'prestige' }),
-  tile('Fracture', '割れる', 2000, { effect: 'prstTrans', preset: 'fracture' }),
-  tile('Crush', 'クラッシュ', 2000, { effect: 'prstTrans', preset: 'crush' }),
+  tile('Fracture', '破砕', 2000, { effect: 'prstTrans', preset: 'fracture' }),
+  tile('Crush', 'クシャクシャ', 2000, { effect: 'prstTrans', preset: 'crush' }),
   tile('Peel Off', 'ピール オフ', 1250, { effect: 'prstTrans', preset: 'peelOff' }),
-  tile('Page Curl', 'ページ カール', 2000, { effect: 'prstTrans', preset: 'pageCurlDouble' }),
-  tile('Airplane', '飛行機', 2000, { effect: 'prstTrans', preset: 'airplane', invertX: true }),
-  tile('Origami', '折り紙', 2000, { effect: 'prstTrans', preset: 'origami', invertX: true }),
+  tile('Page Curl', 'ページ カール', 1250, { effect: 'prstTrans', preset: 'pageCurlDouble' }),
+  tile('Airplane', '飛行機', 1250, { effect: 'prstTrans', preset: 'airplane' }),
+  tile('Origami', '折り紙', 3250, { effect: 'prstTrans', preset: 'origami' }),
   tile('Dissolve', 'ディゾルブ', 1200, { effect: 'dissolve' }),
-  tile('Checkerboard', 'チェッカーボード', 1500, { effect: 'checker' }),
+  tile('Checkerboard', 'チェッカーボード', 2500, { effect: 'checker' }),
   tile('Blinds', 'ブラインド', 1600, { effect: 'blinds', direction: 'vert' }),
-  tile('Clock', '時計', 2000, { effect: 'wheel', spokes: 1 }),
-  tile('Ripple', 'さざ波', 1400, { effect: 'ripple', direction: 'center' }),
-  tile('Honeycomb', 'ハニカム', 3000, { effect: 'honeycomb' }),
-  tile('Glitter', 'キラキラ', 2500, { effect: 'glitter', direction: 'r', pattern: 'hexagon' }),
-  tile('Vortex', '渦巻き', 3000, { effect: 'vortex', direction: 'r' }),
-  tile('Shred', '細断', 2500, { effect: 'shred', direction: 'in', pattern: 'strip' }),
-  tile('Switch', 'スイッチ', 1250, { effect: 'switch', direction: 'r' }),
+  tile('Clock', '時計', 1000, { effect: 'wheel', spokes: 1 }),
+  tile('Ripple', 'さざ波', 1400, { effect: 'ripple' }),
+  tile('Honeycomb', 'ハチの巣', 4400, { effect: 'honeycomb' }),
+  tile('Glitter', 'キラキラ', 3900, { effect: 'glitter', pattern: 'hexagon' }),
+  tile('Vortex', '渦巻き', 4000, { effect: 'vortex', direction: 'r' }),
+  tile('Shred', '細分', 3000, { effect: 'shred' }),
+  tile('Switch', '切り替え', 1250, { effect: 'switch', direction: 'r' }),
   tile('Flip', 'フリップ', 1250, { effect: 'flip', direction: 'r' }),
   tile('Gallery', 'ギャラリー', 1600, { effect: 'gallery', direction: 'l' }),
-  tile('Cube', 'キューブ', 1250, { effect: 'prism', direction: 'l' }),
-  tile('Doors', 'ドア', 1400, { effect: 'doors', direction: 'vert' }),
-  tile('Box', 'ボックス', 1600, { effect: 'prism', direction: 'l', isInverted: true }),
+  tile('Cube', 'キューブ', 1200, { effect: 'prism' }),
+  tile('Doors', '扉', 1400, { effect: 'doors', direction: 'vert' }),
+  tile('Box', 'ボックス', 1600, { effect: 'prism', isInverted: true }),
   tile('Comb', 'コーム', 1000, { effect: 'comb' }),
-  tile('Zoom', 'ズーム', 1200, { effect: 'warp', direction: 'in' }),
-  tile('Random', 'ランダム', 2000, { effect: 'random' }),
-  tile('Pan', 'パン', 1600, { effect: 'pan', direction: 'u' }),
+  tile('Zoom', 'ズーム', 900, { effect: 'warp', direction: 'in' }),
+  tile('Random', 'ランダム', 1500, { effect: 'random' }),
+  tile('Pan', 'パン', 1300, { effect: 'pan', direction: 'u' }),
   tile('Ferris Wheel', '観覧車', 2000, { effect: 'ferris', direction: 'l' }),
-  tile('Conveyor', 'コンベヤー', 1600, { effect: 'conveyor', direction: 'l' }),
-  tile('Rotate', '回転', 1200, { effect: 'prism', direction: 'l', isContent: true }),
-  tile('Window', 'ウィンドウ', 1250, { effect: 'window', direction: 'vert' }),
-  tile('Orbit', 'オービット', 1250, {
-    effect: 'prism',
-    direction: 'l',
-    isContent: true,
-    isInverted: true,
-  }),
-  tile('Fly Through', 'フライスルー', 1250, { effect: 'flythrough', direction: 'in' }),
+  tile('Conveyor', 'コンベヤ', 1600, { effect: 'conveyor', direction: 'l' }),
+  tile('Rotate', '回転', 2000, { effect: 'prism', isContent: true }),
+  tile('Window', '窓', 1500, { effect: 'window', direction: 'vert' }),
+  tile('Orbit', 'オービット', 1600, { effect: 'prism', isContent: true, isInverted: true }),
+  tile('Fly Through', 'フライスルー', 800, { effect: 'flythrough' }),
 ];
 
 // The gallery tile each written effect element belongs to. PowerPoint writes

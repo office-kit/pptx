@@ -1,0 +1,2 @@
+<!-- Transition "Wipe" (gallery 0_4), slide 5 (slides/slide5.xml); ribbon Duration after apply: 01.00 -->
+<p:transition spd="slow"><p:wipe/></p:transition>

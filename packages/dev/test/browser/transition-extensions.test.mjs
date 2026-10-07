@@ -37,7 +37,7 @@ test(
         }),
       );
       getSlides(deck).forEach((slide, i) =>
-        setSlideTransition(slide, { ...options[i], durationMs: 1000 }),
+        setSlideTransition(slide, { ...options[i], durationMs: 1200 }),
       );
       await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
       const file = join(dir, 'deck.tsx');
@@ -71,7 +71,7 @@ test(
         }));
         assert.ok(result.animations.length > 0, `${options[i].effect} animates`);
         assert.ok(
-          result.animations.every((duration) => duration === 1000),
+          result.animations.every((duration) => duration === 1200),
           `${options[i].effect} runs for its p14:dur`,
         );
         assert.equal(result.layers, 2, options[i].effect);

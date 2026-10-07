@@ -21,8 +21,8 @@
   import RibbonGallery from './RibbonGallery.svelte';
   import { placeBelowTrigger } from './place-menu.ts';
   import {
-    NO_TRANSITION_DURATION_MS,
     optionMatches,
+    shownDurationMs,
     tileOfTransition,
     TRANSITION_OPTIONS,
     TRANSITION_TILES,
@@ -57,12 +57,7 @@
     doc.version;
     return slides[0] ? getSlideTransitionSound(slides[0]) : null;
   });
-  // A transition written without p14:dur runs at its speed's duration; a
-  // slide without one shows PowerPoint's 2.00.
-  const SPEED_MS = { fast: 500, med: 750, slow: 1000 } as const;
-  const durationMs = $derived(
-    current === null ? NO_TRANSITION_DURATION_MS : (current.durationMs ?? SPEED_MS[current.speed ?? 'med']),
-  );
+  const durationMs = $derived(shownDurationMs(current));
   let soundFile = $state<HTMLInputElement>();
   // What a timing edit writes back: the slide's transition as it stands, or
   // null when its effect is one the library cannot write.
@@ -103,10 +98,11 @@
     const duration = item.choice.effect === 'none' ? {} : { durationMs: item.durationMs };
     apply('Slide transition', { ...item.choice, ...duration, ...timing() });
   }
-  // An Effect Options item keeps the effect's duration as well.
+  // An Effect Options item keeps the effect's duration as well, including
+  // one written as a speed alone.
   function chooseOption(choice: TransitionChoice) {
     menuOpen = false;
-    apply('Effect Options', { ...choice, ...timing(), ...(current?.durationMs !== undefined ? { durationMs: current.durationMs } : {}) });
+    apply('Effect Options', { ...choice, ...timing(), durationMs });
   }
   function changeDuration(ms: number) {
     if (!writable) return;

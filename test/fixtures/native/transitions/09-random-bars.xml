@@ -1,0 +1,2 @@
+<!-- Transition "Random Bars" (gallery 0_8), slide 9 (slides/slide9.xml); ribbon Duration after apply: 01.00 -->
+<p:transition spd="slow"><p:randomBar dir="vert"/></p:transition>
