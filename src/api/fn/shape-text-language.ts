@@ -12,8 +12,14 @@ import {
   qname,
   walkElements,
 } from '../../internal/xml/index.ts';
-import { SHAPE_ELEMENT, SHAPE_SNAPSHOT, type SlideShapeData } from '../_internal-symbols.ts';
+import {
+  SHAPE_ELEMENT,
+  SHAPE_SNAPSHOT,
+  type SlideShapeData,
+  type TableCellData,
+} from '../_internal-symbols.ts';
 import { commitAndRefresh, ensureTxBody } from './_helpers.ts';
+import { requireParagraph } from './shape-runs.ts';
 
 const ATTR_LANG = qname('', 'lang', '');
 const NAME_RPR = qname('a', 'rPr', NS.dml);
@@ -62,4 +68,24 @@ export const getShapeTextLanguage = (shape: SlideShapeData): string | null => {
       found = getAttrValue(element, ATTR_LANG);
   });
   return found;
+};
+
+/**
+ * The literal `lang` of each run, field and line break in a paragraph, in
+ * `getShapeParagraphElements` order, or `null` where the element names none.
+ * Renderers use it for language-dependent layout such as the character a
+ * decimal tab aligns on.
+ */
+export const getParagraphElementLanguages = (
+  target: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+): ReadonlyArray<string | null> => {
+  const languages: (string | null)[] = [];
+  for (const child of requireParagraph(target, paragraphIndex).children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    if (!RUN_CONTAINERS.has(child.name.localName)) continue;
+    const properties = firstChildElement(child, NAME_RPR);
+    languages.push(properties ? getAttrValue(properties, ATTR_LANG) : null);
+  }
+  return languages;
 };

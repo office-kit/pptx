@@ -1,7 +1,8 @@
 <script lang="ts">
   import { mergeTextFormat } from '../core/merge-text-format.ts';
   import { lockedShapeIds } from '../core/shape-locks.ts';
-  import { editTabStops, type TabStopEdit } from '../core/paragraph-tabs.ts';
+  import type { TabStopEdit } from '../core/paragraph-tabs.ts';
+  import { applyRulerChange, rulerIndent, type IndentHandle, type RulerChange, type TextFlow } from '../core/ruler.ts';
   import SlideRulers from './SlideRulers.svelte';
   import DrawingGuides from './DrawingGuides.svelte';
   // The editing surface. Paints the current slide with the preview renderer and
@@ -41,8 +42,6 @@
     setParagraphLevel,
     setParagraphLineSpacing,
     setParagraphSpacing,
-    setParagraphIndent,
-    setParagraphTabs,
     setParagraphBullet,
     getTableCells,
     getTableCellRunFormatEffective,
@@ -1011,7 +1010,7 @@
   const pendingTextHtml = $derived.by(() => {
     // Formatting mutates OOXML in place, so shape identity alone cannot invalidate this.
     doc.version;
-    const shape = pendingTextShape;
+    const shape = previewTextShape;
     const active = editing;
     if (!shape || !active) return '';
     const source = boxes.find(b => b.id === active.id)?.shape;
@@ -1019,7 +1018,7 @@
   });
   const pendingTextEffectsSvg = $derived.by(() => {
     doc.version;
-    const shape = pendingTextShape;
+    const shape = previewTextShape;
     const box = editBox;
     const slide = doc.currentSlide;
     if (!shape || !box || !slide || !scope) return '';
@@ -1131,22 +1130,32 @@
     const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
     if (!target || !target.indices.length || !editBox || !scope) return null;
     const shape = editBox.shape;
-    // Rotated and vertical text need a ruler projected onto the text axes.
-    if (editBox.rotation !== 0 || textBodyTurn !== 0 || getShapeFlip(shape)?.horizontal || getShapeFlip(shape)?.vertical) return null;
-    if (!editing?.cell) {
-      const body = getShapeBodyPrEffective(doc.pres, shape);
-      if (body.vert) return null;
-    }
+    const direction = editing?.cell
+      ? getTableCellTextDirection(getTableCells(shape)[editing.cell.row]![editing.cell.col]!)
+      : getShapeBodyPrEffective(doc.pres, shape).vert ?? getShapeTextDirection(shape);
+    const flow: TextFlow = !verticalTextStyle(direction).declarations ? 'horizontal' : textBodyTurn ? 'vertical-reversed' : 'vertical';
+    // A multi-paragraph selection shows the first paragraph's markers, as Office
+    // rulers are described to (not observed natively); gestures then apply
+    // relative to each paragraph's own values.
     const props = getParagraphPropertiesEffective(doc.pres, target.shape, target.indices[0]!);
-    return { left: props.marL ?? props.level * 32 * 9525, first: props.indent ?? 0, scale: editAutoFit, tabStops: props.tabStops ?? [] };
+    return { ...rulerIndent(props), scale: editAutoFit, flow, tabStops: props.tabStops ?? [] };
+  });
+  // The gesture in progress on the ruler, reflowed in the editing view only.
+  let rulerPreview = $state<RulerChange | null>(null);
+  const previewTextShape = $derived.by(() => {
+    doc.version;
+    const shape = pendingTextShape;
+    const box = boxes.find(b => b.id === editing?.id);
+    if (!rulerPreview || !shape || !box || !editing) return shape;
+    const copy = projectTextEdits(box.shape, editing.changes, editing.cell, doc.pres, { copy: true });
+    const target = inlineParagraphTarget(copy);
+    if (target) applyRulerChange(doc.pres, target.shape, target.indices, rulerPreview, editing.cell ? {} : { inheritanceSource: box.shape });
+    return copy;
   });
   function applyRulerTabs(edits: TabStopEdit[]) {
-    editInlineParagraphs((shape, index) => {
-      const props = getParagraphPropertiesEffective(doc.pres, shape, index);
-      setParagraphTabs(shape, index, { tabStops: editTabStops(props.tabStops ?? [], edits) });
-    });
+    editInlineParagraphs((shape, index) => applyRulerChange(doc.pres, shape, [index], { kind: 'tabs', edits }));
   }
-  function applyRulerIndent(kind: 'first' | 'hanging' | 'left', delta: number) {
+  function applyRulerIndent(kind: IndentHandle, delta: number) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
     if (!cur || !box || restoringEditing) return;
@@ -1154,17 +1163,7 @@
     doc.transact(t('Paragraph indentation'), () => {
       replayEdits(box, cur);
       const target = inlineParagraphTarget();
-      if (!target) return;
-      for (const index of target.indices) {
-        const props = getParagraphPropertiesEffective(doc.pres, target.shape, index);
-        const left = props.marL ?? props.level * 32 * 9525;
-        const first = props.indent ?? 0;
-        const limit = 51206400;
-        const moved = Math.max(0, Math.min(limit, left + delta));
-        setParagraphIndent(target.shape, index, kind === 'first'
-          ? { firstLineEmu: Math.max(-limit, Math.min(limit, first + delta)) }
-          : { leftEmu: moved, ...(kind === 'hanging' ? { firstLineEmu: Math.max(-limit, Math.min(limit, first + left - moved)) } : {}) });
-      }
+      if (target) applyRulerChange(doc.pres, target.shape, target.indices, { kind: 'indent', handle: kind, delta });
     });
     cur.changes = [];
     editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
@@ -1401,7 +1400,7 @@
     <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} onfontsize={stepInlineFontSize} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
   </details>
 {/if}
-{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} ontabs={applyRulerTabs} />{/if}
+{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} ontabs={applyRulerTabs} onpreview={change => rulerPreview = change} />{/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
     class="stage-wrap"

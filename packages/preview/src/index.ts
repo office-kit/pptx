@@ -42,6 +42,7 @@ export {
 } from './text-layout.ts';
 
 export { paragraphNumberLabels } from './paragraph-number-labels.ts';
+export { decimalSeparatorOf } from './decimal-separator.ts';
 
 export { resolveTextBodyRect, shapeTextRect } from './text-body-rect.ts';
 export type { TextRectFractions } from './text-body-rect.ts';

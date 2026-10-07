@@ -1,6 +1,7 @@
 import {
   toWritableTextFormat,
   getParagraphPropertiesEffective,
+  getParagraphElementLanguages,
   getParagraphBulletStyle,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -16,7 +17,7 @@ import {
   type SlideShapeData,
   type ReadTextFormat,
 } from '@office-kit/pptx';
-import { paragraphNumberLabels } from '@office-kit/pptx-preview';
+import { decimalSeparatorOf, paragraphNumberLabels } from '@office-kit/pptx-preview';
 import { defaultTextMetrics, shapeTextDefaults } from './text-layout-defaults.ts';
 import { textClipboardHtml } from './html-text-clipboard.ts';
 
@@ -198,9 +199,15 @@ export function inlineTextHtml(
     if (props.lineSpacing) style.setProperty('--marker-line-height', style.lineHeight);
     if (props.spcBefPts !== null) style.marginTop = scaled(props.spcBefPts, 'pt');
     if (props.spcAftPts !== null) style.marginBottom = scaled(props.spcAftPts, 'pt');
+    // Indents follow the line direction, so vertical text indents from the
+    // top like PowerPoint's rotated layout. Right-to-left paragraphs keep the
+    // physical sides they have always used.
+    const [start, end] = props.rtl
+      ? (['paddingLeft', 'paddingRight'] as const)
+      : (['paddingInlineStart', 'paddingInlineEnd'] as const);
     if (props.marL !== null || props.level > 0)
-      style.paddingLeft = scaled(props.marL !== null ? props.marL / 9525 : props.level * 32, 'px');
-    if (props.marR !== null) style.paddingRight = scaled(props.marR / 9525, 'px');
+      style[start] = scaled(props.marL !== null ? props.marL / 9525 : props.level * 32, 'px');
+    if (props.marR !== null) style[end] = scaled(props.marR / 9525, 'px');
     if (props.indent !== null) style.textIndent = scaled(props.indent / 9525, 'px');
     if (props.rtl !== null) style.direction = props.rtl ? 'rtl' : 'ltr';
     const formatted = document.createElement('div');
@@ -212,6 +219,13 @@ export function inlineTextHtml(
       },
       { editing: true },
     );
+    // One top-level span per element; editing tabs read the separator back.
+    getParagraphElementLanguages(target, index).forEach((lang, element) => {
+      const separator = decimalSeparatorOf(lang);
+      if (separator !== '.')
+        (formatted.firstElementChild!.children[element] as HTMLElement).dataset.decimalSeparator =
+          separator;
+    });
     for (const span of formatted.querySelectorAll('span')) {
       if (!span.style.fontSize) span.style.fontSize = `${defaults.size}pt`;
       if (!span.style.fontFamily) span.style.fontFamily = defaults.family;

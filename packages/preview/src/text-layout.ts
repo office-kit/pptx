@@ -202,6 +202,8 @@ export interface PieceInput {
   readonly reflection?: TextReflectionInput;
   /** Text-body bevel (`<a:bodyPr><a:sp3d><a:bevelT>`), shaded over the glyph fill. */
   readonly bevel?: TextBevelInput;
+  /** The character decimal tab stops align on in this run; `.` when omitted. */
+  readonly decimalSeparator?: string;
 }
 
 /** User-space bounds of a laid-out text block, in px. */
@@ -636,7 +638,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           fieldWidth = decimalWidth = 0;
         } else {
           fieldWidth += token.width;
-          const decimal = token.text.indexOf('.');
+          const decimal = token.text.indexOf(token.piece.decimalSeparator ?? '.');
           decimalWidth =
             decimal < 0
               ? decimalWidth + token.width

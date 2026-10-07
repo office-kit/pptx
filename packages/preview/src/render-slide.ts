@@ -2,6 +2,7 @@ import { resolveTextBodyRect, shapeTextRect } from './text-body-rect.ts';
 import { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
 import { textUnderlineStyle } from './text-underline-style.ts';
 import { paragraphNumberLabels } from './paragraph-number-labels.ts';
+import { decimalSeparatorOf } from './decimal-separator.ts';
 // Per-slide SVG renderer for the playground.
 //
 // @office-kit/pptx does not ship a full DrawingML renderer — that would be a
@@ -36,6 +37,7 @@ import {
   getParagraphBulletImageBytes,
   isParagraphBulletPicture,
   getParagraphIndent,
+  getParagraphElementLanguages,
   getParagraphLevel,
   getParagraphPropertiesEffective,
   getEffectiveColorMap,
@@ -1432,10 +1434,17 @@ const LINE_HEIGHT = 1.05;
 const AUTOFIT_FLOOR = 0.25;
 const AUTOFIT_STEP = 0.05;
 
+const decimalSeparatorField = (lang: string | null | undefined): { decimalSeparator?: string } => {
+  const separator = decimalSeparatorOf(lang);
+  return separator === '.' ? {} : { decimalSeparator: separator };
+};
+
 type RunData = {
   text: string;
   fmt: ReadTextFormat | null;
   sizePt: number;
+  /** Omitted for `.`, the separator of runs without a language. */
+  decimalSeparator?: string;
   href?: string;
   hrefTip?: string;
 };
@@ -1708,6 +1717,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         ...(a.bevel ? { bevel: a.bevel } : {}),
         href: run.href ?? null,
         ...(run.hrefTip !== undefined ? { hrefTip: run.hrefTip } : {}),
+        ...(run.decimalSeparator !== undefined ? { decimalSeparator: run.decimalSeparator } : {}),
       };
       // A run's text can carry embedded '\n' only via <a:br>, already split
       // out above; still split defensively so any stray newline becomes a break.
@@ -2080,10 +2090,11 @@ export const resolveTextBodyModel = (
     } catch {
       elements = [];
     }
+    const languages = elements.length ? getParagraphElementLanguages(shape, p) : [];
     let rIdx = 0;
     let fieldIndex = 0;
     let breakIndex = 0;
-    for (const el of elements) {
+    for (const [elementIndex, el] of elements.entries()) {
       if (el.kind === 'br') {
         const fmt = getShapeRunFormatEffective(pres, shape, p, { breakIndex: breakIndex++ });
         runs.push({ text: '\n', fmt, sizePt: fmt.size ?? defaultPt });
@@ -2127,6 +2138,7 @@ export const resolveTextBodyModel = (
         text: txt,
         fmt,
         sizePt,
+        ...decimalSeparatorField(languages[elementIndex]),
         ...(href !== undefined ? { href } : {}),
         ...(hrefTip !== undefined ? { hrefTip } : {}),
       });
@@ -2366,7 +2378,7 @@ const renderHtmlParagraphs = (
       para.spcAftPts !== null && para.spcAftPts > 0
         ? `margin-bottom:${(para.spcAftPts * PX_PER_PT * autoFitScale).toFixed(2)}px`
         : '';
-    // <a:pPr marL marR indent> → CSS padding-left / padding-right /
+    // <a:pPr marL marR indent> → CSS inline-start / inline-end padding and
     // text-indent. Authored indents override the level-based default
     // so paragraphs with explicit marL don't get doubled.
     const leftPx =
@@ -2405,8 +2417,9 @@ const renderHtmlParagraphs = (
       'padding:0',
       `text-align:${ALIGNMENT_TO_CSS[para.align] ?? 'left'}`,
       lineHeightCss,
-      leftPx > 0 ? `padding-left:${leftPx.toFixed(2)}px` : '',
-      rightPx > 0 ? `padding-right:${rightPx.toFixed(2)}px` : '',
+      // Logical sides keep indents along the line direction in vertical text.
+      leftPx > 0 ? `padding-inline-start:${leftPx.toFixed(2)}px` : '',
+      rightPx > 0 ? `padding-inline-end:${rightPx.toFixed(2)}px` : '',
       firstLinePx !== 0 ? `text-indent:${firstLinePx.toFixed(2)}px` : '',
     ].filter(Boolean);
     let prefix = '';
@@ -5406,10 +5419,11 @@ const cellParaData = (
     const bulletIsPicture = isParagraphBulletPicture(cell, index);
     const bulletImageBytes = bulletIsPicture ? getParagraphBulletImageBytes(cell, index) : null;
     const runs: RunData[] = [];
+    const languages = getParagraphElementLanguages(cell, index);
     let rIdx = 0;
     let fieldIndex = 0;
     let breakIndex = 0;
-    for (const el of para.elements) {
+    for (const [elementIndex, el] of para.elements.entries()) {
       if (el.kind === 'br') {
         const fmt = getTableCellRunFormatEffective(pres, cell, index, { breakIndex: breakIndex++ });
         runs.push({ text: '\n', fmt, sizePt: fmt.size ?? DEFAULT_BODY_PT });
@@ -5430,6 +5444,7 @@ const cellParaData = (
         text: el.text,
         fmt,
         sizePt: fmt?.size ?? DEFAULT_BODY_PT,
+        ...decimalSeparatorField(languages[elementIndex]),
         ...(href ? { href, ...(el.tooltip !== undefined ? { hrefTip: el.tooltip } : {}) } : {}),
       });
     }
