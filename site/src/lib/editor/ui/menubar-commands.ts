@@ -265,7 +265,7 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     case 'file/passwords':
       return unavailable('Password protection is not available in this editor.');
     case 'file/compress-pictures':
-      return unavailable('Compressing pictures is not available in this editor.');
+      return { run: () => (editor.activeDialog = 'compressPictures') };
     case 'file/page-setup':
       return run('setSlideSize');
     case 'file/print':
