@@ -60,13 +60,38 @@ const boxes = (locator) =>
       };
     }),
   );
-// Native positions were measured on macOS. Elsewhere the label font is wider,
-// and the extra width accumulates from left to right along the ribbon.
-const LINUX_DRIFT = 0.03;
+// Native metrics were measured on macOS, where the editor's system-ui font
+// is San Francisco like PowerPoint's. PowerPoint sizes a large button to its
+// caption (at least 38 pt, or 50 pt with ▾), so caption-driven widths and the
+// positions after them are font-dependent: elsewhere (CI's Linux fonts are
+// wider) a button may grow by up to WIDER_FONT, and the growth accumulates
+// from left to right. Sizes the CSS fixes (row height, the pen gallery, the
+// switch, small rows and icons) are checked exactly on every platform.
+const MAC = process.platform === 'darwin';
+const POSITION_DRIFT = 0.03;
+const WIDER_FONT = 0.2;
 const near = (actual, expected, label) => {
-  const tolerance =
-    process.platform === 'darwin' ? TOLERANCE : Math.max(TOLERANCE, expected * LINUX_DRIFT);
+  const tolerance = MAC ? TOLERANCE : Math.max(TOLERANCE, expected * POSITION_DRIFT);
   assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: ${actual} (native ${expected})`);
+};
+const sized = (actual, expected, label) => {
+  if (MAC) assert.equal(actual, expected, label);
+  else
+    assert.ok(
+      actual >= expected && actual <= expected * (1 + WIDER_FONT),
+      `${label}: ${actual} (native ${expected})`,
+    );
+};
+// The Themes gallery shows whole 95 pt slots; wider captions elsewhere may
+// leave room for one slot fewer.
+const SLOT = 95;
+const slots = (actual, expected) => {
+  if (MAC) assert.equal(actual, expected);
+  else
+    assert.ok(
+      actual % SLOT === 0 && actual <= expected && actual >= expected - SLOT,
+      `Themes gallery: ${actual} (native ${expected})`,
+    );
 };
 
 test(
@@ -108,7 +133,7 @@ test(
         assert.equal(height, 72, name);
       });
       const width = (name) => insert.find((item) => item.name === name).width;
-      for (const name of ['Icons', 'Link', 'Action']) assert.equal(width(name), 38, name);
+      for (const name of ['Icons', 'Link', 'Action']) sized(width(name), 38, name);
       for (const name of [
         'Table',
         'Pictures',
@@ -120,10 +145,10 @@ test(
         'Video',
         'Audio',
       ])
-        assert.equal(width(name), 50, name);
+        sized(width(name), 50, name);
       // New Slide and Text Box carry their ▾ inside one 50 pt button.
-      assert.equal(width('New Slide'), 50);
-      assert.equal(width('Text Box'), 50);
+      sized(width('New Slide'), 50, 'New Slide');
+      sized(width('Text Box'), 50, 'Text Box');
       assert.equal(
         await page.locator('.insert [aria-label="New Slide"] .caption').textContent(),
         'New\nSlide',
@@ -138,17 +163,11 @@ test(
       await page.locator('#ribbon-tab-draw').click();
       const draw = await boxes(commands('draw'));
       assert.deepEqual(
-        draw.map(({ name }) => [name, Math.round(draw.find((item) => item.name === name).width)]),
-        [
-          ['Draw', 38],
-          ['Eraser', 50],
-          ['Lasso Select', 38],
-          ['Add', 50],
-          ['Ink to Text', 38],
-          ['Ink to Shape', 38],
-          ['Ink to Math', 38],
-        ],
+        draw.map(({ name }) => name),
+        ['Draw', 'Eraser', 'Lasso Select', 'Add', 'Ink to Text', 'Ink to Shape', 'Ink to Math'],
       );
+      const drawWidths = [38, 50, 38, 50, 38, 38, 38];
+      draw.forEach(({ name, width }, index) => sized(width, drawWidths[index], name));
       const pens = await page.getByRole('radiogroup', { name: 'Pens' }).boundingBox();
       assert.deepEqual([pens.width, pens.height], [180, 60]);
       near(pens.x, 173, 'Pens');
@@ -159,7 +178,7 @@ test(
       // Design: the gallery fills ten 95 pt slots between 18 pt pagers, then
       // Variants, Colors, Fonts, Background Styles | Layout, Slide Size | Design Suggestions.
       await page.locator('#ribbon-tab-design').click();
-      assert.equal((await page.getByRole('listbox', { name: 'Themes' }).boundingBox()).width, 950);
+      slots((await page.getByRole('listbox', { name: 'Themes' }).boundingBox()).width, 950);
       const design = await boxes(commands('design'));
       assert.deepEqual(
         design.map(({ name }) => name),
@@ -184,8 +203,12 @@ test(
       };
       for (const { name, x } of design) near(x, native[name], name);
       for (const name of ['Variants', 'Colors', 'Fonts', 'Layout', 'Slide Size'])
-        assert.equal(design.find((item) => item.name === name).width, 50, name);
-      assert.equal(design.find(({ name }) => name === 'Design Suggestions').width, 69);
+        sized(design.find((item) => item.name === name).width, 50, name);
+      sized(
+        design.find(({ name }) => name === 'Design Suggestions').width,
+        69,
+        'Design Suggestions',
+      );
 
       // 1200 pt: Insert stacks 3D Models / SmartArt / Chart as 22 pt rows and
       // Date & Time / Slide Number / Object as 24 × 22 icons; Design keeps
@@ -208,7 +231,7 @@ test(
       near(at('Zoom').x, 543, 'Zoom at 1200');
       near(at('Audio').x, 1122, 'Audio at 1200');
       await page.locator('#ribbon-tab-design').click();
-      assert.equal((await page.getByRole('listbox', { name: 'Themes' }).boundingBox()).width, 665);
+      slots((await page.getByRole('listbox', { name: 'Themes' }).boundingBox()).width, 665);
       near(
         (await page.getByRole('button', { name: 'Variants', exact: true }).boundingBox()).x,
         731,
