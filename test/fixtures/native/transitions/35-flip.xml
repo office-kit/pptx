@@ -1,0 +1,2 @@
+<!-- Transition "Flip" (gallery 1_21), slide 35 (slides/slide35.xml); ribbon Duration after apply: 01.25 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14"><p:transition spd="slow" p14:dur="1250"><p14:flip dir="r"/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>

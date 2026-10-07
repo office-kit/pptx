@@ -1,0 +1,2 @@
+<!-- Transition "Fall Over" (gallery 1_0), slide 14 (slides/slide14.xml); ribbon Duration after apply: 02.00 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p15="http://schemas.microsoft.com/office/powerpoint/2012/main" Requires="p15"><p:transition spd="slow" xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" p14:dur="2000"><p15:prstTrans prst="fallOver"/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>

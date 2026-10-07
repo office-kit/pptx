@@ -34,7 +34,8 @@ function renderSlide(svg,options){
   outgoing.setAttribute('aria-hidden','true');outgoing.inert=true;
   canvas.innerHTML=style;canvas.append(outgoing,incoming);
   // PowerPoint plays fast/med/slow as 0.5/0.75/1 s; p14:dur overrides them.
-  const duration=options.durationMs??(options.speed==='slow'?1000:options.speed==='fast'?500:750);
+  // No spd is the schema default, fast.
+  const duration=options.durationMs??(options.speed==='slow'?1000:options.speed==='med'?750:500);
   const timing={duration,easing:'ease-in-out',fill:'both'};
   const animate=(node,frames,easing=timing.easing)=>transitionAnimations.push(node.animate(frames,{...timing,easing}));
   const vectors={l:[-100,0],r:[100,0],u:[0,-100],d:[0,100],lu:[-100,-100],ru:[100,-100],ld:[-100,100],rd:[100,100]};

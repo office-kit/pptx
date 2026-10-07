@@ -1,0 +1,2 @@
+<!-- Transition "Push" (gallery 0_3), slide 4 (slides/slide4.xml); ribbon Duration after apply: 01.00 -->
+<p:transition spd="slow"><p:push dir="u"/></p:transition>

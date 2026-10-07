@@ -1,0 +1,2 @@
+<!-- Transition "Reveal" (gallery 0_6), slide 7 (slides/slide7.xml); ribbon Duration after apply: 03.40 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14"><p:transition spd="slow" p14:dur="3400"><p14:reveal/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>

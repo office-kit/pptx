@@ -1,0 +1,2 @@
+<!-- Transition "Cover" (gallery 0_11), slide 12 (slides/slide12.xml); ribbon Duration after apply: 01.00 -->
+<p:transition spd="slow"><p:cover/></p:transition>

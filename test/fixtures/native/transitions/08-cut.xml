@@ -1,0 +1,2 @@
+<!-- Transition "Cut" (gallery 0_7), slide 8 (slides/slide8.xml); ribbon Duration after apply: 00.10 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14"><p:transition p14:dur="100"><p:cut/></p:transition></mc:Choice><mc:Fallback><p:transition><p:cut/></p:transition></mc:Fallback></mc:AlternateContent>
