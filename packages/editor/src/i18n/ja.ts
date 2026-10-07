@@ -1385,6 +1385,7 @@ export const ja: Record<string, string> = {
   Edit: '編集',
   Undo: '元に戻す',
   Redo: 'やり直し',
+  'Agent: {label}': 'エージェント: {label}',
   'Select All': 'すべて選択',
   'Find...': '検索...',
   'Replace...': '置換...',

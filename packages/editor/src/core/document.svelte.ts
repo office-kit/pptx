@@ -33,6 +33,7 @@ import {
 import type { RememberedFill } from './remembered-fill.ts';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
 import type { CustomShow, PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
+import type { ChangeSource } from './change-source.ts';
 import { RegroupHistory } from './regroup-history.ts';
 import { selectedSlideIndices, type Selection } from './selection.ts';
 
@@ -78,6 +79,13 @@ export class EditorDocument {
   #rollbackState: { selection: Selection; dirty: boolean } | null = null;
   #rollback: Promise<void> = Promise.resolve();
   readonly regroupHistory = new RegroupHistory();
+  /**
+   * Called after the committed document changes: an edit or gesture is
+   * committed, a document setting changes, Undo/Redo, New or Open. Not for live
+   * gesture frames, nor for a failed edit's rollback (which restores the state
+   * last reported).
+   */
+  onChange: ((source: ChangeSource) => void) | undefined;
 
   constructor() {
     // Seed the initial state so the first undo returns to the blank deck.
@@ -141,8 +149,8 @@ export class EditorDocument {
    * the UI updates immediately; a byte snapshot is captured asynchronously for
    * undo. Returns whatever `fn` returns (e.g. a newly created shape/slide).
    */
-  transact<T>(label: string, fn: () => T): T {
-    return this.#atomic(() => {
+  transact<T>(label: string, fn: () => T, source: ChangeSource = 'user'): T {
+    const result = this.#atomic(() => {
       this.#invalidateRestore();
       const current = this.#history[this.#cursor];
       if (current)
@@ -155,6 +163,9 @@ export class EditorDocument {
       this.#snapshot(label);
       return result;
     });
+    // Outside #atomic: a throwing listener must not roll back a committed edit.
+    this.onChange?.(source);
+    return result;
   }
 
   /** Persist a document setting without adding an undo step (as PowerPoint does for aspect locks). */
@@ -170,6 +181,7 @@ export class EditorDocument {
         index === this.#cursor ? { ...snapshot, bytes } : snapshot,
       );
     });
+    this.onChange?.('user');
   }
 
   /**
@@ -194,6 +206,7 @@ export class EditorDocument {
       this.liveEditing = false;
       this.#snapshot(label);
     });
+    this.onChange?.('user');
   }
 
   /**
@@ -307,12 +320,16 @@ export class EditorDocument {
   }
 
   async undo(): Promise<void> {
-    if (this.#requestedCursor > 0) await this.#restore(this.#requestedCursor - 1);
+    if (this.#requestedCursor > 0 && (await this.#restore(this.#requestedCursor - 1)))
+      this.onChange?.('user');
   }
 
   async redo(): Promise<void> {
-    if (this.#requestedCursor < this.#history.length - 1)
-      await this.#restore(this.#requestedCursor + 1);
+    if (
+      this.#requestedCursor < this.#history.length - 1 &&
+      (await this.#restore(this.#requestedCursor + 1))
+    )
+      this.onChange?.('user');
   }
 
   // --- Selection ---------------------------------------------------------
@@ -397,6 +414,7 @@ export class EditorDocument {
     this.dirty = false;
     this.liveEditing = false;
     this.#snapshot('Open');
+    this.onChange?.('user');
   }
 
   async toBytes(): Promise<Uint8Array> {
@@ -426,6 +444,7 @@ export class EditorDocument {
     this.dirty = false;
     this.liveEditing = false;
     this.#snapshot('New');
+    this.onChange?.('user');
   }
 }
 

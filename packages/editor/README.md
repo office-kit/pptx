@@ -28,7 +28,7 @@ const editor = mountEditor(document.getElementById('editor')!, {
 });
 
 await editor.ready; // the deck is open
-const pptx = await editor.save(); // the deck as it is now
+const pptx = await editor.snapshot(); // the deck as it is now
 editor.destroy(); // remove the editor again
 ```
 
@@ -49,11 +49,18 @@ editor tells the user the save failed.
 
 It returns an `EditorHandle`:
 
-| Member      | Description                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------ |
-| `ready`     | Resolves once `source` is open and the editor is shown; rejects if `source` is not a readable `.pptx`. |
-| `save()`    | The presentation as it is now, as `.pptx` bytes. It does not call `onSave`.                            |
-| `destroy()` | Removes the editor and every listener it added, leaving `target` as it was, ready to mount again.      |
+| Member               | Description                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| `ready`              | Resolves once `source` is open and the editor is shown; rejects if `source` is not a readable `.pptx`.    |
+| `snapshot()`         | The presentation as it is now, as `.pptx` bytes. It does not call `onSave` or mark the deck saved.        |
+| `selection()`        | The shapes the user has selected, as `ShapeRef`s (see [Agents in the browser](#agents-in-the-browser)).   |
+| `apply(label, edit)` | Runs `edit(presentation)` with the `@office-kit/pptx` API as one undo step named "Agent: `label`".        |
+| `on(type, listener)` | Calls `listener` on `'change'` (`{ source: 'user' \| 'agent' }`) or `'selectionchange'`; returns `off()`. |
+| `destroy()`          | Removes the editor and every listener it added, leaving `target` as it was, ready to mount again.         |
+
+`'change'` fires after every edit the presentation keeps: the user's, an
+`apply`, Undo, Redo, and File ▸ New / Open. It does not fire for the source
+you passed, nor while a shape is still being dragged.
 
 ### React
 
@@ -97,6 +104,90 @@ onBeforeUnmount(() => editor?.destroy());
   <div ref="target" style="height: 100vh" />
 </template>
 ```
+
+## Agents in the browser
+
+An agent running in your page — an LLM with tools, a script, a chat panel next
+to the editor — works on the same document the user sees, through the handle:
+
+- **Read**: `snapshot()` gives the `.pptx`; open it with `loadPresentation`
+  from `@office-kit/pptx` to read text, layout and anything else. To _look_ at
+  a slide, render it with `renderSlideToSvg` from `@office-kit/pptx-preview`,
+  the renderer the editor itself uses.
+- **"This shape"**: `selection()` returns what the user selected as
+  `ShapeRef`s — `{ slideIndex, slide, shapeId, name }`. A ref names the slide
+  by its part name and the shape by its id, so it stays valid while slides
+  move and across Undo. `resolveShape(presentation, ref)` finds the shape again
+  and throws if it was deleted, so an agent never edits the wrong shape.
+- **Write**: `apply(label, edit)` runs `edit` against the live presentation
+  with the `@office-kit/pptx` API. The user sees the change at once, and it is
+  one undo step named "Agent: `label`" (「エージェント: `label`」 in Japanese).
+  It marks the deck as changed exactly as a user edit does; `onSave` still runs
+  only when the user saves. If `edit` throws, nothing of it is kept and
+  `apply` rejects with the error. `edit` must be synchronous.
+- **Follow along**: `on('change', …)` reports every kept edit with its
+  `source` (`'user'` or `'agent'`), including Undo and Redo;
+  `on('selectionchange', …)` reports the user's new selection.
+
+A minimal tool-calling loop (the model call is pseudo-code; use any SDK):
+
+```ts
+import { mountEditor, resolveShape, type ShapeRef } from '@office-kit/pptx-editor';
+import {
+  getSlides,
+  loadPresentation,
+  setShapeFill,
+  setShapeText,
+  type HexColor,
+} from '@office-kit/pptx';
+import { renderSlideToSvg } from '@office-kit/pptx-preview';
+
+const editor = mountEditor(target, { source });
+await editor.ready;
+
+// Model output is untrusted input: check it before it reaches the library.
+const isHex = (value: string): value is HexColor => /^#[0-9a-f]{6}$/i.test(value);
+
+// Each tool call is one undo step the user can take back.
+const tools = {
+  set_text: (target: ShapeRef, args: { text: string }) =>
+    editor.apply(`Set text`, (presentation) => {
+      setShapeText(resolveShape(presentation, target), args.text);
+    }),
+  set_fill: (target: ShapeRef, args: { color: string }) => {
+    const { color } = args;
+    if (!isHex(color)) throw new Error(`Not a #RRGGBB color: ${color}`);
+    return editor.apply(`Fill ${color}`, (presentation) => {
+      setShapeFill(resolveShape(presentation, target), color);
+    });
+  },
+};
+
+async function instruct(instruction: string): Promise<void> {
+  const [target] = editor.selection();
+  if (!target) throw new Error('Select a shape first.');
+  // What the model sees: the slide as SVG, and which shape "this" is.
+  const presentation = await loadPresentation(await editor.snapshot());
+  const slide = getSlides(presentation)[target.slideIndex]!;
+  const call = await model.generate({
+    instruction,
+    slideSvg: renderSlideToSvg(presentation, slide),
+    selected: target,
+    tools: ['set_text', 'set_fill'],
+  }); // pseudo-code: returns { name: 'set_fill', arguments: { color: '#C00000' } }
+  if (call.name === 'set_text') await tools.set_text(target, call.arguments);
+  if (call.name === 'set_fill') await tools.set_fill(target, call.arguments);
+}
+
+editor.on('change', ({ source }) => {
+  if (source === 'user') {
+    // The user edited (or undid an agent's edit): refresh what the agent knows.
+  }
+});
+```
+
+There is no `renderSlide` on the handle: `snapshot()` plus
+`@office-kit/pptx-preview` already does it, with the preview's own options.
 
 ## Behaviour on your page
 
