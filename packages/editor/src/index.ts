@@ -2,6 +2,7 @@ import type { PresentationData } from '@office-kit/pptx';
 import EditorApp from './EditorApp.svelte';
 import { EditorController } from './core/controller.svelte.ts';
 import type { ChangeSource } from './core/change-source.ts';
+import type { EditorTool, JsonValue } from './core/agent-tools.ts';
 import { reconcileSelection, selectionShapeRefs, type ShapeRef } from './core/shape-ref.ts';
 import { watchSelection } from './core/watch-selection.svelte.ts';
 import { setLocale, t } from './i18n/i18n.svelte.ts';
@@ -9,6 +10,7 @@ import { mountInShadowRoot } from './mount.ts';
 
 export { resolveShape, type ShapeRef } from './core/shape-ref.ts';
 export type { ChangeSource } from './core/change-source.ts';
+export type { EditorTool, JsonSchema, JsonValue } from './core/agent-tools.ts';
 
 /** A language the editor's interface is available in. */
 export type EditorLocale = 'en' | 'ja';
@@ -71,6 +73,23 @@ export interface EditorHandle {
    * `destroy()`, and while the user is in the middle of dragging a shape.
    */
   apply(label: string, edit: (presentation: PresentationData) => void): Promise<void>;
+  /**
+   * Every editing capability as a tool definition for a language model: one
+   * per mutating `@office-kit/pptx` export, named after it, plus `listSlides`,
+   * `listShapes`, `listLayouts` and `listComments` to find what the others
+   * take. Sorted by name. The definitions load on first use.
+   */
+  tools(): Promise<readonly EditorTool[]>;
+  /**
+   * Runs the tool `name` with `input` as a model gave it, and resolves with the
+   * tool's result as JSON (refs for the slides and shapes it made). An editing
+   * tool is one undo step, as `apply` makes it, named "Agent: `name`".
+   *
+   * Rejects without editing when there is no such tool or `input` does not
+   * match its schema, with a message that lists each problem for the model to
+   * correct; and for the reasons `apply` does.
+   */
+  run(name: string, input: unknown): Promise<JsonValue>;
   /** Calls `listener` for each `type` event until the returned function is called. */
   on<K extends keyof EditorEventMap>(
     type: K,
@@ -142,7 +161,15 @@ export function mountEditor(target: HTMLElement, options: EditorOptions = {}): E
     opened = true;
   })();
 
-  return {
+  function assertOpen(): void {
+    if (destroyed) throw new Error('The editor has been destroyed.');
+    if (!opened) throw new Error('The editor is not ready yet; await `ready` first.');
+  }
+
+  // The tool schemas are large; embeddings that never call them never load them.
+  const agentTools = () => import('./core/agent-tools.ts');
+
+  const handle: EditorHandle = {
     ready,
     async snapshot() {
       await ready;
@@ -152,8 +179,7 @@ export function mountEditor(target: HTMLElement, options: EditorOptions = {}): E
       return selectionShapeRefs(doc.pres, doc.selection);
     },
     async apply(label, edit) {
-      if (destroyed) throw new Error('The editor has been destroyed.');
-      if (!opened) throw new Error('The editor is not ready yet; await `ready` first.');
+      assertOpen();
       if (doc.liveEditing)
         throw new Error('The user is dragging or resizing a shape; try again when they finish.');
       try {
@@ -172,6 +198,20 @@ export function mountEditor(target: HTMLElement, options: EditorOptions = {}): E
         throw error;
       }
     },
+    async tools() {
+      return (await agentTools()).editorTools;
+    },
+    async run(name, input) {
+      const { runTool } = await agentTools();
+      const host = {
+        presentation() {
+          assertOpen();
+          return doc.pres;
+        },
+        apply: handle.apply,
+      };
+      return runTool(host, name, input);
+    },
     on(type, listener) {
       const set: Set<typeof listener> = listeners[type];
       set.add(listener);
@@ -185,4 +225,5 @@ export function mountEditor(target: HTMLElement, options: EditorOptions = {}): E
       unmount = undefined;
     },
   };
+  return handle;
 }

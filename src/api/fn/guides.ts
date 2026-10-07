@@ -234,6 +234,7 @@ export function getSnapToGrid(presentation: PresentationData): boolean | null {
   // The OOXML default is true, including native files that omit this attribute.
   return snap !== '0' && snap !== 'false';
 }
+/** Turns snapping objects to the document grid (View ▸ Guides ▸ Snap to Grid) on or off. */
 export const setSnapToGrid = (presentation: PresentationData, enabled: boolean): void => {
   if (typeof enabled !== 'boolean') throw new Error('Invalid grid snapping.');
   updateViewProperties(presentation, (_root, common) => {
@@ -254,6 +255,7 @@ export function getGridSpacing(presentation: PresentationData): { x: number; y: 
   return Number.isSafeInteger(x) && x > 0 && Number.isSafeInteger(y) && y > 0 ? { x, y } : null;
 }
 
+/** Sets the document grid's horizontal (`x`) and vertical (`y`) spacing, in EMU. */
 export const setGridSpacing = (
   presentation: PresentationData,
   spacing: { x: number; y: number },

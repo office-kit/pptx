@@ -1219,6 +1219,7 @@ export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
   setCustomShows: {
+    category: 'slide',
     labelEn: 'Custom Shows',
     labelJa: 'カスタム ショー',
   },

@@ -9,15 +9,18 @@ import { chromium } from 'playwright';
 import {
   addTitleSlide,
   createPresentation,
+  findShapeById,
   getShapeBoundsResolved,
   getShapeFillColor,
   getShapeName,
+  getShapePosition,
   getShapeText,
   getSlidePartName,
   getSlideShapes,
   getSlideText,
   getSlideXmlString,
   getSlides,
+  isSlideHidden,
   loadPresentation,
   savePresentation,
 } from '@office-kit/pptx';
@@ -635,6 +638,124 @@ test('agents drive each editor on a page separately', async () => {
     null,
   );
   assert.deepEqual(await page.evaluate(() => window.unsubscribed), []);
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+// --- Tools for a model --------------------------------------------------------
+// The "model" is a script that picks tools from `tools()` and sends JSON
+// through `run`, as a host routes a model's tool calls.
+
+/** Runs `handle.run(name, input)` in the page; resolves to `{ result }` or `{ error }`. */
+const runTool = (page, id, name, input) =>
+  page.evaluate(
+    ({ id, name, input }) =>
+      window.handles[id].run(name, input).then(
+        (result) => ({ result }),
+        (error) => ({ error: error.message }),
+      ),
+    { id, name, input },
+  );
+
+test('a model calls tools by name with JSON, each edit one undo step', async () => {
+  const { page, errors } = await hostPage();
+  const editor = await mount(page, 'a', await deck('Tool deck'), { locale: 'en' });
+  await watchEvents(page, 'a');
+
+  const tools = await page.evaluate(() => window.handles.a.tools());
+  const names = tools.map((tool) => tool.name);
+  assert.deepEqual(
+    names,
+    [...names].sort((a, b) => a.localeCompare(b)),
+  );
+  for (const name of ['listShapes', 'setShapeText', 'setShapeFill', 'addSlideShape'])
+    assert.ok(names.includes(name), name);
+  // What a model API takes, as it is.
+  const setShapeFill = tools.find((tool) => tool.name === 'setShapeFill');
+  assert.deepEqual(Object.keys(setShapeFill), ['name', 'description', 'input_schema']);
+  assert.equal(setShapeFill.input_schema.type, 'object');
+
+  // Find "the title" the way a model would, then edit it.
+  const [slide] = (await runTool(page, 'a', 'listSlides', {})).result;
+  assert.deepEqual(slide, {
+    slide: '/ppt/slides/slide1.xml',
+    index: 0,
+    title: 'Tool deck',
+    layout: slide.layout,
+    hidden: false,
+  });
+  const shapes = (await runTool(page, 'a', 'listShapes', { slide: slide.slide })).result;
+  const title = shapes.find((entry) => entry.text === 'Tool deck').shape;
+  assert.deepEqual(
+    await runTool(page, 'a', 'setShapeText', { shape: title, value: 'Set by a tool' }),
+    { result: null },
+  );
+  assert.deepEqual(await runTool(page, 'a', 'setShapeFill', { shape: title, color: '#00B050' }), {
+    result: null,
+  });
+  const added = (
+    await runTool(page, 'a', 'addSlideShape', {
+      slide: slide.slide,
+      opts: { preset: 'ellipse', x: 457200, y: 457200, w: 914400, h: 914400, text: 'New' },
+    })
+  ).result;
+  assert.equal(added.slide, slide.slide);
+  assert.deepEqual(
+    await runTool(page, 'a', 'setShapePosition', { shape: added, x: 1828800, y: 914400 }),
+    { result: null },
+  );
+  assert.deepEqual((await events(page, 'a')).change, ['agent', 'agent', 'agent', 'agent']);
+
+  // The document says so, read back with the core library.
+  const edited = await handleDeck(page, 'a');
+  const editedTitle = findShapeById(getSlides(edited)[0], title.shapeId);
+  assert.equal(getShapeText(editedTitle), 'Set by a tool');
+  assert.equal(getShapeFillColor(editedTitle), '#00B050');
+  const circle = findShapeById(getSlides(edited)[0], added.shapeId);
+  assert.equal(getShapeText(circle), 'New');
+  assert.deepEqual(getShapePosition(circle), { x: 1828800, y: 914400 });
+  assert.match(await editor.locator('.canvas-shell .paint').textContent(), /Set by a tool/);
+
+  // One Undo takes back the last tool call only.
+  assert.equal(await undoMenuItem(editor, page), 'Undo Agent: setShapePosition');
+  await page.keyboard.press('ControlOrMeta+z');
+  await waitForChanges(page, 'a', 5);
+  const undone = await handleDeck(page, 'a');
+  assert.deepEqual(getShapePosition(findShapeById(getSlides(undone)[0], added.shapeId)), {
+    x: 457200,
+    y: 457200,
+  });
+  assert.equal(getShapeText(findShapeById(getSlides(undone)[0], title.shapeId)), 'Set by a tool');
+
+  // Input that does not fit is refused with what to fix, and nothing changes.
+  const refused = await runTool(page, 'a', 'setShapeFill', { shape: title, color: 'green' });
+  assert.match(refused.error, /^Invalid input for setShapeFill:\n- \/color: matches none/);
+  assert.match(
+    (await runTool(page, 'a', 'setShapePosition', { shape: title, x: '1in' })).error,
+    /- \(input\): missing required "y"\n- \/x: expected integer, got string "1in"$/,
+  );
+  assert.match((await runTool(page, 'a', 'paintItBlack', {})).error, /There is no tool/);
+  assert.equal((await events(page, 'a')).change.length, 5);
+  assert.equal(await undoMenuItem(editor, page), 'Undo Agent: addSlideShape');
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+test('names tool calls in Japanese', async () => {
+  const { page, errors } = await hostPage();
+  const editor = await mount(page, 'a', await deck('ツール'), { locale: 'ja' });
+  const [slide] = (await runTool(page, 'a', 'listSlides', {})).result;
+  assert.deepEqual(
+    await runTool(page, 'a', 'setSlideHidden', { slide: slide.slide, hidden: true }),
+    {
+      result: null,
+    },
+  );
+  assert.equal(
+    await undoMenuItem(editor, page, { edit: ja.Edit, undo: ja.Undo }),
+    `${ja.Undo} エージェント: setSlideHidden`,
+  );
+  assert.equal(isSlideHidden(getSlides(await handleDeck(page, 'a'))[0]), true);
   assert.deepEqual(errors, []);
   await page.close();
 });

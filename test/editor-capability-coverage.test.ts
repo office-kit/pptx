@@ -18,6 +18,8 @@
 // thereby wired into the editor's command registry). Implementation effort can
 // never silently drop a capability.
 
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as pptx from '@office-kit/pptx';
 // Import the generated data directly (pure JSON) rather than the resolved
@@ -117,6 +119,17 @@ describe('editor capability coverage', () => {
     const bad = capabilities.filter((c) => !c.operand || !c.category);
     expect(bad.map((c) => c.id)).toEqual([]);
   });
+
+  // The manifest and the tool schemas are generated from the library's types;
+  // a hand edit, or a signature change without regenerating, fails here.
+  it('is exactly what manifest/generate.mjs produces from the library', () => {
+    const generator = fileURLToPath(
+      new URL('../packages/editor/src/manifest/generate.mjs', import.meta.url),
+    );
+    const run = spawnSync(process.execPath, [generator, '--check'], { encoding: 'utf8' });
+    expect(run.stderr).toBe('');
+    expect(run.status).toBe(0);
+  }, 60_000);
 });
 
 describe('editor command localization', () => {
