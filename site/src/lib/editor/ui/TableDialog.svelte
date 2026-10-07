@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { addSlideTable, emu, getShapeId, inches } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { slideMetrics } from '../canvas/geometry.ts';
+  import { insertTable } from '../core/insert-objects.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -17,23 +16,9 @@
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    const doc = editor.doc;
-    const slide = doc.currentSlide;
-    if (!valid || rows === undefined || columns === undefined || !slide) return;
-    const columnCount = columns;
-    const cells = Array.from({ length: rows }, () => Array.from({ length: columnCount }, () => ''));
-    const metrics = slideMetrics(doc.pres);
-    const w = emu(Math.round(metrics.widthEmu * 0.8));
-    const h = emu(Math.round(Math.min(metrics.heightEmu * 0.7, rows * inches(0.4))));
+    if (!valid || rows === undefined || columns === undefined || !editor.doc.currentSlide) return;
     try {
-      doc.transact(t('Insert table'), () => {
-        const table = addSlideTable(slide, {
-          x: emu(Math.round((metrics.widthEmu - w) / 2)),
-          y: emu(Math.round((metrics.heightEmu - h) / 2)),
-          w, h, rows: cells, firstRow: header, bandRow: banded,
-        });
-        doc.selectCell(doc.selection.slideIndex, getShapeId(table), 0, 0);
-      });
+      insertTable(editor, t('Insert table'), rows, columns, { header, banded });
       editor.closeDialog();
     } catch (cause) {
       error = `${t('The table could not be inserted')}: ${cause instanceof Error ? cause.message : String(cause)}`;

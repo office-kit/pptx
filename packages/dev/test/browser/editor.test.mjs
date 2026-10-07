@@ -410,6 +410,7 @@ test(
       const original = await png('#eb5757'),
         replacement = await png('#2d9cdb');
       await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
+      await editor.locator('#ribbon-panel [data-menu="pictures"]').click();
       await editor.getByTitle(/— addSlideImage$/).click();
       let dialog = editor.getByRole('dialog', { name: 'Insert image', exact: true });
       await dialog
@@ -1052,7 +1053,8 @@ test(
       await editor.locator('.thumb-row').first().click({ button: 'right' });
       await editor.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
       await editor.getByRole('tab', { name: '挿入', exact: true }).click();
-      await editor.locator('button[title$="— addSlideTable"]').click();
+      await editor.locator('#ribbon-panel [data-menu="table"]').click();
+      await editor.locator('[title$="— addSlideTable"]').click();
       const jpDialog = editor.getByRole('dialog', { name: '表を挿入', exact: true });
       await jpDialog.getByLabel('行数', { exact: true }).fill('0');
       assert.equal(
@@ -1061,7 +1063,8 @@ test(
       );
       await jpDialog.getByLabel('行数', { exact: true }).press('Escape');
       assert.equal(await editor.locator('.hit').count(), 0);
-      await editor.locator('button[title$="— addSlideTable"]').click();
+      await editor.locator('#ribbon-panel [data-menu="table"]').click();
+      await editor.locator('[title$="— addSlideTable"]').click();
       await jpDialog.getByLabel('行数', { exact: true }).fill('3');
       await jpDialog.getByLabel('列数', { exact: true }).fill('2');
       await jpDialog.getByLabel('見出し行', { exact: true }).uncheck();
@@ -1082,7 +1085,8 @@ test(
         'true',
       );
       await editor.locator('select').first().selectOption('en');
-      await editor.locator('button[title$="— addSlideTable"]').click();
+      await editor.locator('#ribbon-panel [data-menu="table"]').click();
+      await editor.locator('[title$="— addSlideTable"]').click();
       const dialog = editor.getByRole('dialog', { name: 'Insert table', exact: true });
       await dialog.getByLabel('Number of rows', { exact: true }).fill('4');
       await dialog.getByLabel('Number of columns', { exact: true }).fill('3');
@@ -1149,7 +1153,8 @@ test(
       await saved();
       await editor.locator('select').first().selectOption('ja');
       await editor.getByRole('tab', { name: '挿入', exact: true }).click();
-      await editor.locator('button[title$="— addSlideChart"]').click();
+      await editor.locator('#ribbon-panel [data-menu="chart"]').click();
+      await editor.getByRole('menu').getByRole('menuitem').first().click();
       const jp = editor.getByRole('dialog', { name: 'グラフを挿入', exact: true });
       await jp.getByLabel('グラフのタイトル', { exact: true }).fill('売上 / Revenue');
       await jp.getByLabel('凡例', { exact: true }).selectOption('b');

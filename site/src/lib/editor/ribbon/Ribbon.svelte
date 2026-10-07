@@ -19,6 +19,7 @@
   import ShapeFormatRibbon from './ShapeFormatRibbon.svelte';
   import HomeRibbon from './HomeRibbon.svelte';
   import DesignRibbon from './DesignRibbon.svelte';
+  import InsertRibbon from './InsertRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
   import { downloadPptx } from '../core/download.ts';
@@ -159,6 +160,7 @@
     {#if current?.id === 'transitions'}<TransitionsRibbon />{/if}
     {#if current?.id === 'animations'}<AnimationsRibbon />{/if}
     {#if current?.id === 'home'}<HomeRibbon />{/if}
+    {#if current?.id === 'insert'}<InsertRibbon />{/if}
     {#if current?.id === 'design'}<DesignRibbon />{/if}
     {#if current?.id === 'shape'}<ShapeFormatRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
