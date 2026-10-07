@@ -106,15 +106,15 @@ the saved edited presentation, including after restarting the server.
 
 Saving a slide file, `theme.ts` or `deck.tsx` rebuilds the source. Changes from
 TSX merge with canvas edits, saved or not yet saved: shapes, slide settings,
-media and links changed on only one side are combined, and the editor reloads
-the merged presentation, which starts a new Undo history. The editor asks you
+media and links changed on only one side are combined, and the editor applies
+the merged presentation as one Undo step, "Source changed". The editor asks you
 to choose **Keep my edits** or **Use source** only when the same item was
 changed in both places, such as one shape edited on the canvas and in TSX, a
 shape deleted on one side and changed on the other, or slides added, removed or
 reordered on both sides. The message names each collision, for example
 "Slide 2: Title 1 was changed both here and in the source." Keeping edits keeps
 the entire edited deck without the TSX changes; using source discards the saved
-canvas version. You can download the source version before choosing. CLI export
+canvas version (Undo in the editor brings it back as unsaved edits). You can download the source version before choosing. CLI export
 refuses an unresolved conflict so that it cannot silently export the wrong
 version. Editor files from versions before merging was available cannot merge
 until the conflict is resolved once.

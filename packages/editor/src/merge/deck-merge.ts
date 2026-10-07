@@ -14,7 +14,7 @@ import {
   writeZip,
   type ContentTypes,
   type Relationship,
-} from '../../../src/internal/opc/index.ts';
+} from '../../../../src/internal/opc/index.ts';
 import {
   NS,
   elem,
@@ -24,8 +24,19 @@ import {
   walkElements,
   type XmlAttr,
   type XmlElement,
-} from '../../../src/internal/xml/index.ts';
-import { comparablePart } from './fingerprint.ts';
+} from '../../../../src/internal/xml/index.ts';
+
+const CORE_PROPERTIES = 'docProps/core.xml';
+const CORE_TIMESTAMPS = /<(dcterms:(?:created|modified))\b[^>]*>[\s\S]*?<\/\1>/g;
+
+/**
+ * The part as the merge compares it. Every build stamps fresh creation and
+ * modification times into the core properties, so those are left out.
+ */
+export function comparablePart(name: string, bytes: Uint8Array): Uint8Array {
+  if (name !== CORE_PROPERTIES) return bytes;
+  return strToU8(strFromU8(bytes).replace(CORE_TIMESTAMPS, ''));
+}
 
 export interface DeckConflict {
   /** ZIP part name, e.g. `ppt/slides/slide2.xml`. */
@@ -476,11 +487,24 @@ function unzip(bytes: Uint8Array): Map<string, Uint8Array> {
   return new Map(readZip(bytes).entries.map((entry) => [entry.name, entry.data]));
 }
 
+/** True when both packages have the same parts with the same content, as the merge compares them. */
+export function sameDeck(a: Uint8Array, b: Uint8Array): boolean {
+  const [x, y] = [unzip(a), unzip(b)];
+  if (x.size !== y.size) return false;
+  for (const [name, bytes] of x) {
+    const other = y.get(name);
+    if (!other || !sameBytes(comparablePart(name, bytes), comparablePart(name, other)))
+      return false;
+  }
+  return true;
+}
+
 /**
- * Three-way merge of presentation packages: `base` is the source build the
- * editor's copy was made from, `ours` the editor's copy and `theirs` the new
- * source build. Changes on different parts, shapes or relationships combine;
- * the same item changed differently on both sides is reported as a conflict.
+ * Three-way merge of presentation packages: `base` is the version the other two
+ * were both made from, `ours` the editor's copy and `theirs` the other copy (a
+ * new source build, an agent's version). Changes on different parts, shapes or
+ * relationships combine; the same item changed differently on both sides is
+ * reported as a conflict.
  */
 export function mergeDecks(base: Uint8Array, ours: Uint8Array, theirs: Uint8Array): DeckMerge {
   const [b, o, t] = [unzip(base), unzip(ours), unzip(theirs)] as const;

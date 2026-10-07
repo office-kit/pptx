@@ -3,9 +3,12 @@
 A ribbon-style presentation editing UI built **entirely on the `@office-kit/pptx` public
 API**, in Svelte 5. Hosts embed it with `mountEditor` (`index.ts`; see the
 [package README](../README.md)); the docs site serves it that way at `/editor`.
-`@office-kit/pptx-dev` bundles it into its local development preview through the
-unstable `internal` entry (`internal.ts`, `dev/`), whose host persists edits and
-resolves source conflicts; see [the development-tool README](../../dev/README.md).
+`@office-kit/pptx-dev` mounts it the same way in its local development preview
+(`packages/dev/src/editor-host.ts`), which persists edits and hands source
+rebuilds to `propose`; only the preview frame's `postMessage` protocol goes
+through the unstable `internal` entry (`internal.ts`). See
+[the development-tool README](../../dev/README.md). The three-way merge behind
+`propose` is `merge/deck-merge.ts`, also published as the `merge` entry.
 
 `mountEditor` renders into a shadow root. Code that listens on `window` or
 `document`, reads the focused element or the text selection, or queries the DOM

@@ -1006,23 +1006,6 @@ export const ja: Record<string, string> = {
   Move: '移動',
   Download: 'ダウンロード',
   'Preview unavailable': 'プレビューに接続できません',
-  'Replace editor changes with the current source?':
-    'エディターでの変更を現在のソースで置き換えますか？',
-  'Preview changed. Try again.': 'プレビューが更新されました。もう一度お試しください。',
-  'Reconnecting…': '再接続中…',
-  'Could not access the recovery copy. Try again.':
-    '復元用コピーにアクセスできませんでした。もう一度お試しください。',
-  'Recover unsaved changes': '未保存の変更を復元',
-  'This browser has a recovery copy for this project. Restore it or discard it to continue.':
-    'このプロジェクトの復元用コピーがブラウザーに残っています。復元するか破棄して続行してください。',
-  'Restore changes': '変更を復元',
-  'Discard recovery copy': '復元用コピーを破棄',
-  'Could not save a recovery copy in this browser. Keep this tab open until the project is saved.':
-    'このブラウザーに復元用コピーを保存できませんでした。プロジェクトへの保存が完了するまで、このタブを開いたままにしてください。',
-  'Saving…': '保存中…',
-  'Loading presentation…': 'プレゼンテーションを読み込み中…',
-  'Saved to this project': 'このプロジェクトに保存済み',
-  'Building source…': 'ソースをビルド中…',
   'Use source': 'ソースを使用',
   'The source or saved deck changed. Your edits are still here.':
     'ソースまたは保存済み文書が変更されました。現在の編集内容は保持されています。',
@@ -1040,7 +1023,18 @@ export const ja: Record<string, string> = {
     '{where} は一方で削除され、もう一方で変更されました。',
   'The slide list or presentation settings were changed both here and in the source.':
     'スライドの構成またはプレゼンテーションの設定が、このエディターとソースの両方で変更されました。',
-  Retry: '再試行',
+  "These edits could not be merged with the agent's changes. Your edits are still here.":
+    'この編集内容をエージェントの変更と統合できませんでした。現在の編集内容は保持されています。',
+  'The agent changed this presentation as well. Your edits are still here.':
+    'エージェントもこのプレゼンテーションを変更しました。現在の編集内容は保持されています。',
+  '{where}: {shape} was changed both here and by the agent.':
+    '{where}: {shape} はこのエディターとエージェントの両方で変更されました。',
+  '{where} was changed both here and by the agent.':
+    '{where} はこのエディターとエージェントの両方で変更されました。',
+  'The slide list or presentation settings were changed both here and by the agent.':
+    'スライドの構成またはプレゼンテーションの設定が、このエディターとエージェントの両方で変更されました。',
+  "Use the agent's version": 'エージェントの版を使用',
+  "Download the agent's version": 'エージェントの版をダウンロード',
 
   // TopBar / file
   New: '新規',

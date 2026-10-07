@@ -26,6 +26,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./merge": {
+      "types": "./dist/merge.d.ts",
+      "import": "./dist/merge.js"
+    },
     "./internal": {
       "types": "./dist/internal.d.ts",
       "import": "./dist/internal.js"
@@ -48,12 +52,12 @@
   },
   "dependencies": {
     "@office-kit/pptx": "workspace:^",
-    "@office-kit/pptx-preview": "workspace:^"
+    "@office-kit/pptx-preview": "workspace:^",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
     "esbuild": "^0.28.1",
-    "fflate": "^0.8.3",
     "playwright": "^1.63.0",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",

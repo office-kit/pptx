@@ -37,32 +37,59 @@ The editor fills the element you mount it in, so give that element a size
 
 ### `mountEditor(target, options?)`
 
-| Option   | Type                                          | Default                                                     |
-| -------- | --------------------------------------------- | ----------------------------------------------------------- |
-| `source` | `Uint8Array`                                  | A new presentation with one title slide, as File ▸ New.     |
-| `locale` | `'en' \| 'ja'`                                | The language last picked in the editor, else the browser's. |
-| `onSave` | `(pptx: Uint8Array) => Promise<void> \| void` | Without it, saving downloads the file.                      |
+| Option     | Type                                                                | Default                                                      |
+| ---------- | ------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `source`   | `Uint8Array`                                                        | A new presentation with one title slide, as File ▸ New.      |
+| `fileName` | `string`                                                            | `Untitled.pptx`: shown in the title bar, used for downloads. |
+| `locale`   | `'en' \| 'ja'`                                                      | The language last picked in the editor, else the browser's.  |
+| `onSave`   | `(pptx: Uint8Array) => Promise<boolean \| void> \| boolean \| void` | Without it, saving downloads the file.                       |
+| `autoSave` | `boolean`                                                           | `false`. Shows the AutoSave switch; needs `onSave`.          |
+| `compact`  | `boolean`                                                           | `false`. A slimmer title bar without the product name.       |
+| `status`   | `HTMLElement`                                                       | None. Your own element in the title bar (a save status).     |
+| `isolate`  | `boolean`                                                           | `true`. `false` renders into the page, without shadow root.  |
 
 `onSave` runs when the user saves: the Save button, File ▸ Save, or
-Ctrl/Cmd+S. It receives the complete `.pptx`. If it throws or rejects, the
-editor tells the user the save failed.
+Ctrl/Cmd+S; when you call `save()`; and, with `autoSave` while its switch is
+on, shortly after each edit. It receives the complete `.pptx`. If it throws or
+rejects, the editor tells the user the save failed. Resolve `false` when you
+did not save and have told the user why yourself (you are offline, say): the
+deck stays marked as changed, the editor shows nothing and does not retry, so
+call `save()` once you can. A call never starts before the previous one has
+settled.
+
+`status` stays in your page's DOM, slotted into the editor's title bar, so your
+own styles apply to it. `isolate: false` is only for a page that belongs to the
+editor alone, such as its own `<iframe>`: the page's styles then reach the
+editor and the editor's reach the page.
 
 It returns an `EditorHandle`:
 
-| Member               | Description                                                                                                      |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `ready`              | Resolves once `source` is open and the editor is shown; rejects if `source` is not a readable `.pptx`.           |
-| `snapshot()`         | The presentation as it is now, as `.pptx` bytes. It does not call `onSave` or mark the deck saved.               |
-| `selection()`        | The shapes the user has selected, as `ShapeRef`s (see [Agents in the browser](#agents-in-the-browser)).          |
-| `apply(label, edit)` | Runs `edit(presentation)` with the `@office-kit/pptx` API as one undo step named "Agent: `label`".               |
-| `tools()`            | Every editing capability as tool definitions for a language model (see [Tools for a model](#tools-for-a-model)). |
-| `run(name, input)`   | Runs one of those tools with the model's JSON input, as one undo step named "Agent: `name`".                     |
-| `on(type, listener)` | Calls `listener` on `'change'` (`{ source: 'user' \| 'agent' }`) or `'selectionchange'`; returns `off()`.        |
-| `destroy()`          | Removes the editor and every listener it added, leaving `target` as it was, ready to mount again.                |
+| Member                           | Description                                                                                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ready`                          | Resolves once `source` is open and the editor is shown; rejects if `source` is not a readable `.pptx`.           |
+| `dirty`                          | Whether the deck has changes `onSave` has not saved.                                                             |
+| `locale`                         | The interface language in use.                                                                                   |
+| `snapshot()`                     | The presentation as it is now, as `.pptx` bytes. It does not call `onSave` or mark the deck saved.               |
+| `selection()`                    | The shapes the user has selected, as `ShapeRef`s (see [Agents in the browser](#agents-in-the-browser)).          |
+| `apply(label, edit)`             | Runs `edit(presentation)` with the `@office-kit/pptx` API as one undo step named "Agent: `label`".               |
+| `propose(base, edited, options)` | Merges a version made elsewhere into the deck (see [Long-running agents](#long-running-agents)).                 |
+| `open(pptx, options?)`           | Opens another deck in place of this one, as File ▸ Open does; options `{ fileName, unsaved }`.                   |
+| `save()`                         | Saves as the Save button does: through `onSave`, or as a download without it.                                    |
+| `tools()`                        | Every editing capability as tool definitions for a language model (see [Tools for a model](#tools-for-a-model)). |
+| `run(name, input)`               | Runs one of those tools with the model's JSON input, as one undo step named "Agent: `name`".                     |
+| `on(type, listener)`             | Calls `listener` for each event below until the returned `off()` is called.                                      |
+| `destroy()`                      | Removes the editor and every listener it added, leaving `target` as it was, ready to mount again.                |
+
+| Event               | Payload                                     | Fires when                                        |
+| ------------------- | ------------------------------------------- | ------------------------------------------------- |
+| `'change'`          | `{ source: 'user' \| 'agent' \| 'source' }` | The presentation keeps an edit (see below).       |
+| `'selectionchange'` | `{ selection: ShapeRef[] }`                 | The user selects other shapes.                    |
+| `'dirtychange'`     | `{ dirty: boolean }`                        | The deck gets unsaved changes, or they are saved. |
+| `'localechange'`    | `{ locale: 'en' \| 'ja' }`                  | The user picks another language in the header.    |
 
 `'change'` fires after every edit the presentation keeps: the user's, an
-`apply`, Undo, Redo, and File ▸ New / Open. It does not fire for the source
-you passed, nor while a shape is still being dragged.
+`apply` or `propose`, Undo, Redo, File ▸ New / Open and `open()`. It does not
+fire for the source you passed, nor while a shape is still being dragged.
 
 ### React
 
@@ -258,6 +285,47 @@ async function instruct(instruction: string): Promise<void> {
 }
 ```
 
+## Long-running agents
+
+`apply` edits the live deck at once. An agent that works for longer — on a
+server, in a worker, over many tool calls — takes a copy instead, works on
+that, and hands the result back with `propose`. The user keeps editing
+meanwhile:
+
+```ts
+const base = await editor.snapshot();
+const edited = await agent.revise(base); // minutes later, perhaps
+const result = await editor.propose(base, edited, { label: 'Tighten the wording' });
+```
+
+The editor merges `base`, the deck as it is now (unsaved edits included) and
+`edited`. Changes to different slides, shapes, media and links combine into one
+undo step named "Agent: `label`", and `result` is `{ status: 'applied' }`.
+When the same item changed on both sides, nothing is applied until the user
+chooses in the title bar, which names each collision ("Slide 2: Title 1 was
+changed both here and by the agent."):
+
+- **Keep my edits** resolves `{ status: 'kept-mine', conflicts }`; the proposal
+  is dropped.
+- **Use the agent's version** resolves `{ status: 'took-theirs', conflicts }`;
+  the deck becomes `edited` as one undo step, so Undo brings the user's
+  version back.
+
+The user can download the agent's version before choosing. `conflicts` lists
+`{ part, slide, shape, reason }` for each collision. Pass `base: null` when
+there is no common version: any difference then asks the user. One proposal
+runs at a time.
+
+`from: 'source'` is for a newer version of the file itself (it changed on
+disk, or was rebuilt): the undo step is named `label`, `'change'` reports
+`'source'`, the prompt speaks of "the source", and because `edited` is what you
+have saved, a deck that ends up equal to it has no unsaved changes.
+[`@office-kit/pptx-dev`](../dev) applies its TSX rebuilds this way.
+
+The merge itself is `mergeDecks(base, ours, theirs)` from
+`@office-kit/pptx-editor/merge`. It has no DOM dependency, for hosts that merge
+on a server, and returns `{ ok: true, bytes }` or `{ ok: false, conflicts }`.
+
 ## Behaviour on your page
 
 - **Styles are isolated.** The editor renders inside a shadow root on an
@@ -292,7 +360,9 @@ library's API, is described in [`src/README.md`](src/README.md).
 `@office-kit/pptx-editor/internal` and
 `@office-kit/pptx-editor/internal/animation-player` are **not public API**.
 They exist only for `@office-kit/pptx-dev` and change or disappear in any
-release.
+release: the first is `mountEditor` for the preview's frame, whose page
+presents slide shows and hosts the Agents pane over `postMessage`; the second
+is the slide-show animation player that page loads on its own.
 
 ## Trademarks
 

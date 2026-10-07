@@ -35,14 +35,21 @@ export function mountInShadowRoot<Props extends Record<string, unknown>>(
   };
 }
 
-/** Mounts `component` directly in the page, which then shares the editor's styles. */
+/**
+ * Mounts `component` directly in the page, which then shares the editor's
+ * styles. The returned function removes it and its styles again.
+ */
 export function mountInPage<Props extends Record<string, unknown>>(
   target: HTMLElement,
   component: Component<Props>,
   props: Props,
-): void {
+): () => void {
   const style = target.ownerDocument.createElement('style');
   style.textContent = STYLES;
   target.ownerDocument.head.append(style);
-  mount(component, { target, props });
+  const app = mount(component, { target, props });
+  return () => {
+    void unmount(app);
+    style.remove();
+  };
 }

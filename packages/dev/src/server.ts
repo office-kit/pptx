@@ -9,7 +9,7 @@ import { basename, dirname, resolve, sep } from 'node:path';
 import { renderDeck, type BuildResult } from './build.ts';
 import { editorStore, type SavedEdits } from './editor-store.ts';
 import { sourceFingerprint } from './fingerprint.ts';
-import { mergeDecks, type DeckConflict } from './deck-merge.ts';
+import { mergeDecks, type DeckConflict } from '@office-kit/pptx-editor/merge';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
 import { presenterPage } from './presenter-page.ts';
@@ -77,6 +77,9 @@ function mediaRange(value: string | undefined, length: number) {
 // Documents the editor may still be editing, by revision. An editor that saves
 // edits made on one of these after the source rebuilt gets them merged.
 const REMEMBERED_DOCUMENTS = 32;
+
+// Parts of `editor.js` it loads on demand; the name pattern keeps requests inside that folder.
+const EDITOR_CHUNK = /^\/editor-chunks\/[\w-]+\.js$/;
 
 const BUNDLED_ASSETS: Record<string, string> = {
   '/terminal.js': 'terminal-client.js',
@@ -607,12 +610,35 @@ export async function serveDeck(entry: string, port = 4173) {
         },
         () => response.writeHead(500).end('Preview assets unavailable. Rebuild pptx-dev.'),
       );
+    } else if (request.method === 'GET' && EDITOR_CHUNK.test(request.url ?? '')) {
+      void readFile(new URL(`.${request.url}`, import.meta.url)).then(
+        (bytes) => response.writeHead(200, { 'Content-Type': 'text/javascript' }).end(bytes),
+        () => response.writeHead(404).end(),
+      );
     } else if (request.url?.startsWith('/editor/') && request.method !== 'GET') {
       void edit(request, response);
     } else if (request.method === 'GET' && request.url === '/editor/state') {
       response
         .writeHead(200, { 'Content-Type': 'application/json' })
         .end(JSON.stringify(editorState()));
+    } else if (
+      request.method === 'GET' &&
+      (request.url === '/editor/base' || request.url?.startsWith('/editor/document?revision='))
+    ) {
+      // What the editor merges against: the source build the saved edits were
+      // made from, or a document it loaded earlier.
+      const bytes =
+        request.url === '/editor/base'
+          ? saved?.base
+          : documents.get(
+              new URL(request.url, 'http://localhost').searchParams.get('revision') ?? '',
+            );
+      if (!bytes) {
+        response.writeHead(404).end();
+        return;
+      }
+      response.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+      response.end(bytes);
     } else if (
       request.method === 'GET' &&
       ['/editor/document', '/editor/source'].includes(request.url ?? '')

@@ -23,6 +23,7 @@ import {
   isSlideHidden,
   loadPresentation,
   savePresentation,
+  setShapeText,
 } from '@office-kit/pptx';
 import { ja } from '../../src/i18n/ja.ts';
 
@@ -756,6 +757,279 @@ test('names tool calls in Japanese', async () => {
     `${ja.Undo} エージェント: setSlideHidden`,
   );
   assert.equal(isSlideHidden(getSlides(await handleDeck(page, 'a'))[0]), true);
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+// --- Proposals ----------------------------------------------------------------
+// A long-running agent snapshots the deck, works on its copy and hands it back
+// with `propose`; the user may have edited meanwhile.
+
+/** The deck's bytes with shape `index` of the first slide set to `text`. */
+async function withText(bytes, index, text) {
+  const presentation = await loadPresentation(new Uint8Array(bytes));
+  setShapeText(getSlideShapes(getSlides(presentation)[0])[index], text);
+  return [...(await savePresentation(presentation))];
+}
+const snapshot = (page, id) =>
+  page.evaluate(async (id) => [...(await window.handles[id].snapshot())], id);
+const firstTexts = async (page, id) =>
+  getSlideShapes(getSlides(await handleDeck(page, id))[0]).map(getShapeText);
+
+/** Starts `handle.propose` in the page; `settled(page)` resolves to its result. */
+const propose = (page, id, base, edited, options) =>
+  page.evaluate(
+    ({ id, base, edited, options }) => {
+      window.proposal = window.handles[id]
+        .propose(base && new Uint8Array(base), new Uint8Array(edited), options)
+        .then(
+          (result) => result,
+          (error) => ({ error: error.message }),
+        );
+    },
+    { id, base, edited, options },
+  );
+const settled = (page) => page.evaluate(() => window.proposal);
+const dirty = (page) => page.evaluate(() => window.handles.a.dirty);
+
+/** The user edits the first shape's text on the canvas (not saved). */
+async function userEdits(page, editor, text) {
+  await editor.locator('.hit').first().dblclick();
+  await editor.locator('.canvas-shell .inline-edit').fill(text);
+  await editor.locator('.canvas-shell .inline-edit').press('Control+Enter');
+  await page.waitForFunction(() => window.handles.a.dirty);
+}
+
+test('a proposal merges with unsaved user edits as one undo step', async () => {
+  const { page, errors } = await hostPage();
+  const editor = await mount(page, 'a', await deck('Plan'), { locale: 'en' });
+  await watchEvents(page, 'a');
+  const base = await snapshot(page, 'a');
+  // While the agent works on its copy, the user retitles the slide.
+  await userEdits(page, editor, 'User title');
+  const edited = await withText(base, 1, 'Agent subtitle');
+
+  await propose(page, 'a', base, edited, { label: 'Write the subtitle' });
+  assert.deepEqual(await settled(page), { status: 'applied' });
+  assert.deepEqual(await firstTexts(page, 'a'), ['User title', 'Agent subtitle']);
+  assert.equal((await events(page, 'a')).change.at(-1), 'agent');
+  assert.equal(await dirty(page), true);
+  assert.equal(await undoMenuItem(editor, page), 'Undo Agent: Write the subtitle');
+  // Undo takes back the agent's step only.
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForFunction(() => window.events.a.change.at(-1) === 'user');
+  assert.deepEqual(await firstTexts(page, 'a'), ['User title', '']);
+
+  // Handing back what the deck already has changes nothing.
+  const count = (await events(page, 'a')).change.length;
+  await propose(page, 'a', base, await snapshot(page, 'a'), { label: 'No-op' });
+  assert.deepEqual(await settled(page), { status: 'applied' });
+  assert.equal((await events(page, 'a')).change.length, count);
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+test('a colliding proposal waits for the user, who keeps their edits or takes the agent version', async () => {
+  const { page, errors } = await hostPage();
+  const editor = await mount(page, 'a', await deck('Plan'), { locale: 'en' });
+  const base = await snapshot(page, 'a');
+  await userEdits(page, editor, 'User title');
+  const edited = await withText(base, 0, 'Agent title');
+  const conflicts = [
+    {
+      part: 'ppt/slides/slide1.xml',
+      slide: 1,
+      shape: { id: '2', name: 'Centered Title 1' },
+      reason: 'both-changed',
+    },
+  ];
+
+  await propose(page, 'a', base, edited, { label: 'Retitle' });
+  const bar = editor.getByRole('alert').filter({ hasText: 'Keep my edits' });
+  await bar
+    .getByText('Slide 1: Centered Title 1 was changed both here and by the agent.', {
+      exact: true,
+    })
+    .waitFor();
+  assert.equal(
+    await bar
+      .getByText(
+        "These edits could not be merged with the agent's changes. Your edits are still here.",
+        {
+          exact: true,
+        },
+      )
+      .count(),
+    1,
+  );
+  assert.equal(
+    await bar.getByRole('link', { name: "Download the agent's version" }).getAttribute('download'),
+    'agent.pptx',
+  );
+  // Until the user chooses, nothing of the proposal is applied.
+  assert.deepEqual(await firstTexts(page, 'a'), ['User title', '']);
+  await bar.getByRole('button', { name: 'Keep my edits', exact: true }).click();
+  assert.deepEqual(await settled(page), { status: 'kept-mine', conflicts });
+  assert.equal(await bar.count(), 0);
+  assert.deepEqual(await firstTexts(page, 'a'), ['User title', '']);
+  assert.equal(await dirty(page), true);
+
+  // In Japanese, the user takes the agent's version: one undo step, which Undo takes back.
+  await editor.locator('.lang select').selectOption('ja');
+  await propose(page, 'a', base, edited, { label: '題名を変更' });
+  const jaBar = editor.getByRole('alert').filter({ hasText: ja['Keep my edits'] });
+  await jaBar
+    .getByText(
+      'スライド 1: Centered Title 1 はこのエディターとエージェントの両方で変更されました。',
+      { exact: true },
+    )
+    .waitFor();
+  await jaBar.getByRole('button', { name: ja["Use the agent's version"], exact: true }).click();
+  assert.deepEqual(await settled(page), { status: 'took-theirs', conflicts });
+  assert.deepEqual(await firstTexts(page, 'a'), ['Agent title', '']);
+  assert.equal(
+    await undoMenuItem(editor, page, { edit: ja.Edit, undo: ja.Undo }),
+    `${ja.Undo} エージェント: 題名を変更`,
+  );
+  // The user's version is one Undo away, not lost.
+  await page.keyboard.press('ControlOrMeta+z');
+  await page.waitForFunction(async () => {
+    const { pptx } = window;
+    const presentation = await pptx.loadPresentation(await window.handles.a.snapshot());
+    return (
+      pptx.getShapeText(pptx.getSlideShapes(pptx.getSlides(presentation)[0])[0]) === 'User title'
+    );
+  });
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+test('a newer source merges without leaving unsaved changes, and asks in its own words', async () => {
+  const { page, errors } = await hostPage();
+  const editor = await mount(page, 'a', await deck('Plan'), { locale: 'en' });
+  await watchEvents(page, 'a');
+  const base = await snapshot(page, 'a');
+  // The file changed elsewhere and nothing was edited here: the deck stays as saved.
+  const rebuilt = await withText(base, 1, 'From the source');
+  await propose(page, 'a', base, rebuilt, { label: 'Source changed', from: 'source' });
+  assert.deepEqual(await settled(page), { status: 'applied' });
+  assert.deepEqual(await firstTexts(page, 'a'), ['Plan', 'From the source']);
+  assert.equal((await events(page, 'a')).change.at(-1), 'source');
+  assert.equal(await dirty(page), false);
+  assert.equal(await undoMenuItem(editor, page), 'Undo Source changed');
+
+  // Without a common version, any difference is the user's choice.
+  await userEdits(page, editor, 'User title');
+  await propose(page, 'a', null, rebuilt, { label: 'Source changed', from: 'source' });
+  const bar = editor.getByRole('alert').filter({ hasText: 'Keep my edits' });
+  await bar
+    .getByText('The source or saved deck changed. Your edits are still here.', { exact: true })
+    .waitFor();
+  assert.equal(
+    await bar.getByRole('link', { name: 'Download source' }).getAttribute('download'),
+    'source.pptx',
+  );
+  await bar.getByRole('button', { name: 'Use source', exact: true }).click();
+  assert.deepEqual(await settled(page), { status: 'took-theirs', conflicts: [] });
+  assert.deepEqual(await firstTexts(page, 'a'), ['Plan', 'From the source']);
+  // The deck is the saved source again: nothing is left to save.
+  assert.equal(await dirty(page), false);
+
+  // destroy() ends a proposal that is still waiting for the user.
+  await userEdits(page, editor, 'Mine again');
+  await propose(page, 'a', base, await withText(base, 0, 'Theirs'), { label: 'Late' });
+  await bar.waitFor();
+  await page.evaluate(() => window.handles.a.destroy());
+  assert.deepEqual(await settled(page), { error: 'The editor has been destroyed.' });
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+// --- Host options ---------------------------------------------------------------
+
+test('a host shows its own status, autosaves, defers saves and opens another deck', async () => {
+  const { page, errors } = await hostPage();
+  await page.evaluate(
+    async (bytes) => {
+      window.saves = [];
+      window.accept = false;
+      window.hostEvents = [];
+      const status = document.createElement('span');
+      status.id = 'host-status';
+      status.textContent = 'Host status';
+      const handle = window.mountEditor(document.getElementById('a'), {
+        source: new Uint8Array(bytes),
+        fileName: 'quarterly.pptx',
+        locale: 'en',
+        autoSave: true,
+        compact: true,
+        status,
+        // Refuses until the host can save, as a host does while offline.
+        onSave: (pptx) => {
+          window.saves.push(pptx.length);
+          return window.accept;
+        },
+      });
+      window.handles = { a: handle };
+      handle.on('dirtychange', ({ dirty }) => window.hostEvents.push(['dirty', dirty]));
+      handle.on('localechange', ({ locale }) => window.hostEvents.push(['locale', locale]));
+      await handle.ready;
+    },
+    await deck('Hosted'),
+  );
+  const editor = page.locator('#a');
+  // The host's element is slotted into the title bar, styled by the page.
+  await editor.getByText('Host status', { exact: true }).waitFor();
+  const [bar, own] = await Promise.all([
+    editor.locator('.topbar').boundingBox(),
+    page.locator('#host-status').boundingBox(),
+  ]);
+  assert.ok(own.y >= bar.y && own.y + own.height <= bar.y + bar.height);
+  assert.equal(
+    await page.evaluate(() => document.getElementById('host-status').parentElement.tagName),
+    'OFFICE-KIT-PPTX-EDITOR',
+  );
+  assert.equal(
+    await page.evaluate(() => getComputedStyle(document.getElementById('host-status')).fontSize),
+    '40px',
+  );
+  await editor.getByText('quarterly.pptx').first().waitFor();
+  await editor.getByRole('switch', { name: 'AutoSave' }).waitFor();
+
+  // AutoSave calls onSave; a refusal leaves the deck unsaved and is not retried.
+  await userEdits(page, editor, 'Edited');
+  await page.waitForFunction(() => window.saves.length === 1);
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  assert.equal(await page.evaluate(() => window.saves.length), 1);
+  assert.equal(await dirty(page), true);
+  // The host saves once it can.
+  await page.evaluate(async () => {
+    window.accept = true;
+    await window.handles.a.save();
+  });
+  assert.equal(await dirty(page), false);
+
+  // Opening another deck starts over; a recovered copy counts as unsaved.
+  await page.evaluate(
+    (bytes) =>
+      window.handles.a.open(new Uint8Array(bytes), { fileName: 'recovered.pptx', unsaved: true }),
+    await deck('Recovered'),
+  );
+  assert.equal(titleOf(await handleDeck(page, 'a')), 'Recovered');
+  assert.equal(await dirty(page), true);
+  await editor.getByText('recovered.pptx').first().waitFor();
+
+  await editor.locator('.lang select').selectOption('ja');
+  await page.waitForFunction(() => window.hostEvents.some(([type]) => type === 'locale'));
+  assert.equal(await page.evaluate(() => window.handles.a.locale), 'ja');
+  assert.deepEqual(await page.evaluate(() => window.hostEvents), [
+    ['dirty', true],
+    ['dirty', false],
+    ['dirty', true],
+    ['locale', 'ja'],
+  ]);
+  await page.evaluate(() => window.handles.a.destroy());
+  assert.equal(await page.locator('#host-status').count(), 0);
   assert.deepEqual(errors, []);
   await page.close();
 });
