@@ -74,7 +74,7 @@ for (const language of ['en', 'ja']) {
         }
 
         await editor.locator('.hit').first().click();
-        await editor.locator('.hit').first().press('Control+k');
+        await editor.locator('.hit').first().press('Control+Shift+Slash');
         const palette = editor.getByRole('dialog', { name: 'Command palette', exact: true });
         await palette.locator('input').fill('setShapeTextFormat');
         await palette.getByRole('option').click();

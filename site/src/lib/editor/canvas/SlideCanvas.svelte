@@ -83,6 +83,7 @@
   import { getGridSpacing, getSnapToGrid } from '@office-kit/pptx';
   import { snapTransformedGrid, snapTransformedMove } from './transformed-snapping.ts';
   import MediaInlinePreview from '../ui/MediaInlinePreview.svelte';
+  import { menuKeyLeavesText } from '../ui/menubar-commands.ts';
   import { getShapeMedia, getShapeMediaPlayback } from '@office-kit/pptx';
 
   const editor = getEditor();
@@ -1156,6 +1157,13 @@
       changeCase: changeInlineCase,
       toggle: toggleInlineFormat,
       insertText: (text: string) => { replaceSelectedText(text); void tick().then(() => textInput?.focus()); },
+      hasSelection: textRange.start !== textRange.end,
+      clipboard: (action: 'copy' | 'cut' | 'paste') => { void menuClipboard(action); },
+      pastePlain: () => { void pasteWithoutFormatting(); },
+      hyperlink: editSelectedTextLink,
+      pickUpStyle: copyInlineFormat,
+      applyStyle: pasteInlineFormat,
+      element: () => textInput?.getElement(),
     };
     editor.inlineTextFormat = api;
     return () => { if (editor.inlineTextFormat?.apply === api.apply) editor.inlineTextFormat = null; };
@@ -1390,7 +1398,7 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.ribbon, .font-dialog, .paragraph-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) return;
+    if (target instanceof Element && target.closest('.ribbon, .menubar, .font-dialog, .paragraph-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) return;
     if (target === null) {
       // Some focus transfers briefly report no related target; inspect the settled focus.
       const current = editing;
@@ -1587,22 +1595,13 @@
               onpaste={pasteEditingText}
               oncontextmenu={onTextContext}
               onkeydown={(e) => {
-                if (!e.isComposing && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 't') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  editor.openFontDialog('font', textInput?.getElement());
-                  return;
-                }
-                if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === 'v' || e.code === 'KeyV')) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  void pasteWithoutFormatting();
-                  return;
-                }
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                   commitEditing();
                   return;
                 }
+                // Menu-bar shortcuts (⌘T, ⌘K, ⌘E, the object-style keys …) go on
+                // to the menu bar, which runs them on the selected text.
+                if (!e.isComposing && menuKeyLeavesText(e)) return;
                 e.stopPropagation();
                 if (e.isComposing) return;
                 const formatKey = e.key.toLowerCase();
@@ -1612,16 +1611,8 @@
                   stepInlineFontSize(e.code === 'Comma' || e.key === '<' ? -1 : 1);
                   return;
                 }
-                // Ctrl/Cmd+Alt+C / V, as PowerPoint and Google Slides paint
-                // formatting. `code` because Alt rewrites `key` on macOS.
-                if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
-                  e.preventDefault();
-                  if (e.code === 'KeyC') copyInlineFormat(); else pasteInlineFormat();
-                  return;
-                }
                 if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === '\\') { e.preventDefault(); applyInlineFormat({}, true); }
                 if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u')) { e.preventDefault(); toggleInlineFormat(formatKey === 'b' ? 'bold' : formatKey === 'i' ? 'italic' : 'underline'); }
-                else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
                 else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { e.preventDefault(); changeInlineListLevel(e.code === 'BracketRight' ? 1 : -1, false); }
                 else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey && !editing?.cell && changeInlineListLevel(e.shiftKey ? -1 : 1, true)) e.preventDefault();
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { arrangeShortcut } from '../core/arrange-shortcuts.ts';
+  import { menuItemForKey } from '../core/menubar-shortcuts.ts';
+  import { nativeMenus } from '../ui/menubar-commands.ts';
   import { ALIGN_ITEMS, ROTATE_ITEMS, rotateSelection } from './arrange-actions.ts';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds } from '../core/selection.ts';
@@ -34,7 +35,7 @@
     return { destroy() { window.removeEventListener('resize', position); } };
   }
   function keys(event: KeyboardEvent) {
-    if (!event.isComposing && arrangeShortcut(event)) { close(false); return; }
+    if (!event.isComposing && menuItemForKey(nativeMenus(), event)) { close(false); return; }
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); close(); return; }
     if (event.key === 'Tab') { close(false); return; }

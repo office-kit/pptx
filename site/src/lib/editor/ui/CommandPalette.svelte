@@ -1,8 +1,8 @@
 <script lang="ts">
-  // Ctrl/Cmd+K command palette. Lists every capability (all 147), searchable,
-  // grouped by category, with a live enabled/disabled state from the current
-  // selection. This is the guaranteed-reachable path: whatever the ribbon has
-  // not surfaced, the user can still run from here.
+  // The command palette (⌘?, Help ▸ PowerPoint Help). Lists every capability
+  // (all 147), searchable, grouped by category, with a live enabled/disabled
+  // state from the current selection. This is the guaranteed-reachable path:
+  // whatever the ribbon has not surfaced, the user can still run from here.
   import { getEditor } from '../core/context.ts';
   import { capabilities, CATEGORY_LABELS } from '../manifest/index.ts';
   import { t, capLabel, catLabel } from '../i18n/i18n.svelte.ts';
@@ -41,6 +41,9 @@
       e.preventDefault();
       const item = filtered[activeIndex];
       if (item) pick(item.id);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      editor.togglePalette(false);
     }
   }
 

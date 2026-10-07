@@ -105,14 +105,14 @@ for (const language of ['en', 'ja']) {
           .locator('.hit')
           .first()
           .click({ position: { x: 2, y: 2 } });
-        // PowerPoint copies and pastes object formatting by shortcut, not menu.
-        await page.keyboard.press('Control+Alt+KeyC');
+        // Format ▸ Pick Up Object Style: ⇧⌘C in English PowerPoint, ⌥⌘C in Japanese.
+        await page.keyboard.press(language === 'ja' ? 'Control+Alt+KeyC' : 'Control+Shift+KeyC');
         await editor
           .locator('.hit')
           .nth(1)
           .click({ position: { x: 2, y: 2 } });
-        // PowerPoint copies and pastes object formatting by shortcut, not menu.
-        await page.keyboard.press('Control+Alt+KeyV');
+        // Format ▸ Apply Object Style.
+        await page.keyboard.press('Control+Shift+KeyV');
         await editor.getByText(word('Saved to this project'), { exact: true }).waitFor();
 
         const after = await savedShapes(preview);
@@ -166,7 +166,7 @@ test(
       const input = editor.locator('.canvas-shell .inline-edit');
       await input.waitFor();
       await input.press('ControlOrMeta+a');
-      await input.press('ControlOrMeta+Alt+c');
+      await input.press('ControlOrMeta+Shift+c');
       await page.keyboard.press('Escape');
 
       // …and paste it over the target's text.
@@ -174,7 +174,7 @@ test(
       await input.waitFor();
       await input.press('ControlOrMeta+a');
       const beforePasteRevision = (await waitForState(preview.url, () => true)).revision;
-      await input.press('ControlOrMeta+Alt+v');
+      await input.press('ControlOrMeta+Shift+v');
       await page.keyboard.press('ControlOrMeta+Enter');
       await waitForState(preview.url, (state) => state.revision !== beforePasteRevision);
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
@@ -229,9 +229,10 @@ test(
             new KeyboardEvent('keydown', {
               bubbles: true,
               cancelable: true,
+              // ⇧⌘C / ⇧⌘V: Pick Up and Apply Object Style in English PowerPoint.
               ctrlKey: true,
-              altKey: true,
-              key: keyCode.slice(-1).toLowerCase(),
+              shiftKey: true,
+              key: keyCode.slice(-1),
               code: keyCode,
             }),
           );

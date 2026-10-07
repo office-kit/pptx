@@ -347,7 +347,7 @@ test(
       await editor.locator('.hit.selected').nth(2).waitFor();
       await page.keyboard.press('Control+z');
       await editor.locator('.hit').nth(1).waitFor({ state: 'detached' });
-      await page.keyboard.press('Control+Shift+g');
+      await page.keyboard.press('ControlOrMeta+Alt+Shift+g');
       await editor.locator('.hit.selected').nth(2).waitFor();
       await page.screenshot({ path: '/tmp/pptx-pr287-arrange-ja.png', fullPage: true });
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();

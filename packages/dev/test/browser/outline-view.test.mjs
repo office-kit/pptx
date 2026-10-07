@@ -254,7 +254,7 @@ for (const locale of ['en', 'ja'])
           await title.press('Meta+1');
           await outline.waitFor({ state: 'detached' });
         });
-        await editor.getByRole('button', { name: labels.view, exact: true }).focus();
+        await editor.getByRole('menuitem', { name: labels.view, exact: true }).focus();
         await page.keyboard.press('Meta+4');
         await outline.waitFor();
         let pres = await read();

@@ -35,7 +35,7 @@ test(
         .getByRole('button', { name: 'OK', exact: true })
         .click();
       const normalZoom = '100%';
-      await editor.getByRole('button', { name: 'View', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'View', exact: true }).click();
       await page.keyboard.press('Delete');
       assert.equal(await editor.locator('.nav [data-slide-index]').count(), 8);
       await editor.getByRole('menuitemradio', { name: 'Slide Sorter', exact: true }).click();
@@ -78,7 +78,7 @@ test(
         await editor.locator('.nav [data-slide-index="3"]').getAttribute('aria-current'),
         'true',
       );
-      await editor.getByRole('button', { name: 'View', exact: true }).focus();
+      await editor.getByRole('menuitem', { name: 'View', exact: true }).focus();
       await page.keyboard.press('Meta+2');
       await sorter.waitFor();
       await page.keyboard.press('Meta+1');
@@ -89,7 +89,7 @@ test(
       await page.keyboard.press('Meta+1');
       await outline.waitFor({ state: 'detached' });
       const openZoom = async () => {
-        await editor.getByRole('button', { name: 'View', exact: true }).click();
+        await editor.getByRole('menuitem', { name: 'View', exact: true }).click();
         await editor.getByRole('menuitem', { name: 'Zoom', exact: true }).click();
         const submenuBounds = await editor
           .getByRole('menu', { name: 'Zoom', exact: true })
@@ -208,8 +208,8 @@ test(
       const viewTab = editor.getByRole('tab', { name: 'View', exact: true });
       await viewTab.click();
       const viewPanel = editor.getByRole('tabpanel', { name: 'View', exact: true });
-      const viewMenu = editor.getByRole('button', { name: 'View', exact: true });
-      const thumbnails = editor.getByRole('menuitemcheckbox', { name: 'Thumbnails', exact: true });
+      const viewMenu = editor.getByRole('menuitem', { name: 'View', exact: true });
+      const thumbnails = editor.getByRole('menuitem', { name: 'Show Slides', exact: true });
       await viewMenu.click();
       await thumbnails.click();
       await editor.locator('.nav').waitFor({ state: 'detached' });

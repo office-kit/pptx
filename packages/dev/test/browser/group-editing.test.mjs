@@ -181,7 +181,7 @@ test(
           getShapeId(shape),
           getShapeBounds(shape),
         ]);
-        await page.keyboard.press('ControlOrMeta+g');
+        await page.keyboard.press('ControlOrMeta+Alt+g');
         await saved();
         shapes = await state();
         const outer = shapes.find((shape) => getShapeId(shape) === getShapeId(group));
@@ -190,7 +190,7 @@ test(
         assert.deepEqual(getGroupChildren(inner).map(getShapeId), [id, getShapeId(second)]);
         assert.equal(getShapeRotation(outer), 90);
         assert.equal(await editor.locator('.hit').count(), 1);
-        await page.keyboard.press('ControlOrMeta+Shift+g');
+        await page.keyboard.press('ControlOrMeta+Alt+Shift+g');
         await saved();
         assert.equal(await editor.locator('.hit.selected').count(), 2);
         assert.deepEqual(
