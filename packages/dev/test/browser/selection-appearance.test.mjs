@@ -24,7 +24,6 @@ import {
   getShapeStrokeCompound,
   savePresentation,
   inches,
-  getShapeFlip,
   getShapeFillColor,
   getShapeFillOpacity,
   getShapeStrokeOpacity,
@@ -37,6 +36,7 @@ import {
   getSlideShapes,
   loadPresentation,
 } from '@office-kit/pptx';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 /**
@@ -104,6 +104,7 @@ test(
       await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').dblclick();
       await editor.locator('.hit').first().click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.equal(
         await editor.getByLabel('Fill: More Colors...', { exact: true }).inputValue(),
         '#123456',
@@ -165,7 +166,7 @@ test(
         assert.equal(await input.inputValue(), 'mixed');
       }
       const fillSection = editor
-        .locator('.paint-section')
+        .locator('.pane-section')
         .filter({ has: editor.locator('summary', { hasText: /^Fill$/ }) });
       await fillSection.locator('summary').click();
       assert.equal(await fillSection.getByLabel('Fill', { exact: true }).isVisible(), false);
@@ -212,57 +213,8 @@ test(
       };
       await saved();
       await openFormatPane(editor, 'Format Background...');
-      const initialFlips = await colors(getShapeFlip);
       await editor.locator('.hit').nth(0).click();
-      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
-      await editor.getByRole('checkbox', { name: 'Flip horizontally', exact: true }).check();
-      await saved();
-      await editor
-        .locator('.hit')
-        .nth(1)
-        .click({ modifiers: ['Shift'] });
-      const mixedFlip = editor.getByRole('checkbox', {
-        name: 'Flip horizontally (Mixed)',
-        exact: true,
-      });
-      assert.equal(await mixedFlip.evaluate((node) => node.indeterminate), true);
-      await mixedFlip.check();
-      await saved();
-      assert.deepEqual((await colors(getShapeFlip)).slice(0, 2), [
-        { horizontal: true, vertical: false },
-        { horizontal: true, vertical: false },
-      ]);
-      assert.deepEqual((await colors(getShapeFlip))[2], initialFlips[2]);
-      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
-      await saved();
-      assert.equal(await mixedFlip.evaluate((node) => node.indeterminate), true);
-      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
-      await saved();
-      await editor.locator('.lang select').selectOption('ja');
-      ja = true;
-      await editor.getByRole('checkbox', { name: '上下反転', exact: true }).check();
-      await saved();
-      assert.deepEqual((await colors(getShapeFlip)).slice(0, 2), [
-        { horizontal: true, vertical: true },
-        { horizontal: true, vertical: true },
-      ]);
-      await page.reload();
-      await saved();
-      await openFormatPane(editor, '背景の書式設定...');
-      await editor.locator('.hit').nth(0).click();
-      await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
-      assert.equal(
-        await editor.getByRole('checkbox', { name: '左右反転', exact: true }).isChecked(),
-        true,
-      );
-      assert.equal(
-        await editor.getByRole('checkbox', { name: '上下反転', exact: true }).isChecked(),
-        true,
-      );
-      assert.deepEqual((await colors(getShapeFlip))[2], initialFlips[2]);
-      await editor.locator('.lang select').selectOption('en');
-      ja = false;
-      await editor.getByRole('tab', { name: 'Fill & Line', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       let initialFill = await colors(getShapeFillColor);
       const initialStroke = await colors(getShapeStrokeColor);
       await editor.locator('.hit').nth(0).click();
@@ -345,6 +297,7 @@ test(
       await saved();
       await openFormatPane(editor, '背景の書式設定...');
       await editor.locator('.hit').nth(0).click();
+      await expandFormatSections(editor, '塗りつぶし', '線');
       assert.equal(
         await editor.locator('.bespoke input[type=color]').nth(0).inputValue(),
         '#123456',
@@ -403,6 +356,7 @@ test(
       await saved();
       await openFormatPane(editor, '背景の書式設定...');
       await editor.locator('.hit').nth(0).click();
+      await expandFormatSections(editor, '塗りつぶし', '線');
       await editor
         .locator('.hit')
         .nth(1)
@@ -539,6 +493,7 @@ test(
       await saved();
       await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await editor
         .locator('.hit')
         .nth(1)
@@ -565,7 +520,7 @@ test(
       }
       const dimensions = ['sm', 'med', 'lg'];
       for (let index = 0; index < 9; index++) {
-        await choose('Begin Arrow size', `Arrow Size ${index + 1}`);
+        await choose('Begin Arrow size', `Arrow L Size ${index + 1}`);
         assert.deepEqual(
           await arrows('head'),
           initialHead.map((value) => ({
@@ -580,7 +535,7 @@ test(
         { ...initialTail[0], type: 'stealth' },
         { type: 'stealth' },
       ]);
-      await choose('End Arrow size', 'Arrow Size 2');
+      await choose('End Arrow size', 'Arrow R Size 2');
       assert.deepEqual(await arrows('tail'), [
         { type: 'stealth', width: 'sm', length: 'med' },
         { type: 'stealth', width: 'sm', length: 'med' },
@@ -597,15 +552,16 @@ test(
       await saved();
       await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await editor.getByRole('button', { name: 'End Arrow size', exact: true }).click();
       assert.equal(
         await editor
-          .getByRole('menuitemradio', { name: 'Arrow Size 2', exact: true })
+          .getByRole('menuitemradio', { name: 'Arrow R Size 2', exact: true })
           .getAttribute('aria-checked'),
         'true',
       );
       await editor
-        .getByRole('menuitemradio', { name: 'Arrow Size 2', exact: true })
+        .getByRole('menuitemradio', { name: 'Arrow R Size 2', exact: true })
         .press('Escape');
       await editor.locator('.hit').nth(2).click();
       assert.equal(
@@ -667,6 +623,7 @@ test(
       await saved();
       await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await editor
         .locator('.hit')
         .nth(1)
@@ -708,6 +665,7 @@ test(
       await saved();
       await openFormatPane(editor, 'Format Background...');
       await editor.locator('.hit').nth(0).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.equal(await fill.inputValue(), '25');
       assert.equal(await line.inputValue(), '55.5');
       const slider = editor.getByRole('slider', { name: 'Line transparency', exact: true });

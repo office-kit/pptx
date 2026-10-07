@@ -128,7 +128,7 @@ describe('setShapeText3D / getShapeText3D', () => {
     expect(bodyPr(getShapeXmlString(shape))).toContain('prstTxWarp');
   });
 
-  it('keeps scene and sp3d settings it does not model', () => {
+  it('keeps the backdrop it does not model and replaces the fields it does', () => {
     const { shape } = textBox();
     const txBody = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'txBody', NS.pml))!;
     const body = firstChildElement(txBody, qname('a', 'bodyPr', NS.dml))!;
@@ -138,12 +138,19 @@ describe('setShapeText3D / getShapeText3D', () => {
         `<a:norm dx="0" dy="0" dz="1"/><a:up dx="0" dy="1" dz="0"/></a:backdrop></a:scene3d>`,
       `<a:sp3d xmlns:a="${NS.dml}" z="12700" contourW="6350"><a:bevelB/></a:sp3d>`,
     ].map(parseFragment);
+    expect(getShapeText3D(shape)).toMatchObject({
+      scene: { camera: 'perspectiveFront', fieldOfViewDeg: 45 },
+      bevelBottom: {},
+      contourWidthEmu: 6350,
+      distanceFromGroundEmu: 12700,
+    });
     setShapeText3D(shape, SHARP);
     const xml = bodyPr(getShapeXmlString(shape));
-    expect(xml).toContain('<a:camera fov="2700000" prst="orthographicFront"/>');
+    expect(xml).toContain('<a:camera prst="orthographicFront"/>');
     expect(xml).toContain('<a:backdrop>');
-    expect(xml).toContain('z="12700" contourW="6350"');
-    expect(xml).toMatch(/<a:bevelT [^>]*\/><a:bevelB\/><a:contourClr>/);
+    expect(xml).not.toContain('contourW');
+    expect(xml).not.toContain('bevelB');
+    expect(getShapeText3D(shape)).toEqual(SHARP);
   });
 
   it('rejects tokens outside the schema enums and leaves the body untouched', () => {

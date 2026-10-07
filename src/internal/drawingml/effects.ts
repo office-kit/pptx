@@ -1,6 +1,6 @@
 // Shape effects — `<a:effectLst>` builders.
 //
-// Covers the most-used PowerPoint effects: outer shadow, glow, and reflection. The
+// Covers the PowerPoint effects: outer and inner shadow, glow, reflection and soft edge. The
 // element ordering on `<p:spPr>` is `xfrm → geometry → fill → ln →
 // effectLst → scene3d → sp3d → extLst`. Callers locate the right
 // insertion slot using `effectInsertionIndex`.
@@ -20,6 +20,7 @@ const NAME_OUTER_SHDW = qname('a', 'outerShdw', NS.dml);
 const NAME_INNER_SHDW = qname('a', 'innerShdw', NS.dml);
 const NAME_GLOW = qname('a', 'glow', NS.dml);
 const NAME_REFLECTION = qname('a', 'reflection', NS.dml);
+const NAME_SOFT_EDGE = qname('a', 'softEdge', NS.dml);
 const NAME_ALPHA = qname('a', 'alpha', NS.dml);
 
 const ATTR_BLUR_RAD = qname('', 'blurRad', '');
@@ -72,6 +73,17 @@ export interface ShadowOptions {
   readonly alignment?: 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
   /** Whether the shadow rotates with its shape; defaults to false. */
   readonly rotateWithShape?: boolean;
+  /**
+   * Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets
+   * both scales, and its perspective presets flatten the shadow with `sy`.
+   */
+  readonly scaleX?: number;
+  /** Vertical scale (`sy`); defaults to one. Negative values mirror vertically. */
+  readonly scaleY?: number;
+  /** Horizontal skew (`kx`) in degrees, strictly between -90 and 90. */
+  readonly skewX?: number;
+  /** Vertical skew (`ky`) in degrees, strictly between -90 and 90. */
+  readonly skewY?: number;
 }
 
 /** Character or shape inner-shadow parameters from `<a:innerShdw>`. */
@@ -140,6 +152,28 @@ export interface ReflectionOptions {
   /** Whether the effect rotates with its shape; defaults to true. */
   readonly rotateWithShape?: boolean;
 }
+
+const scalePercentage = (value: number | undefined, field: string): string | undefined => {
+  if (value === undefined) return undefined;
+  if (!Number.isFinite(value)) throw new RangeError(`${field} must be finite`);
+  const units = Math.round(value * PERCENTAGE_UNITS);
+  if (!Number.isSafeInteger(units) || units < SIGNED_INT_MIN || units > SIGNED_INT_MAX)
+    throw new RangeError(`${field} must fit an OOXML percentage integer`);
+  return String(units);
+};
+
+// ST_FixedAngle: strictly between -90 and 90 degrees.
+const fixedAngle = (value: number | undefined, field: string): string | undefined => {
+  if (value === undefined) return undefined;
+  if (!Number.isFinite(value)) throw new RangeError(`${field} must be finite`);
+  const units = Math.round(value * ANGLE_UNITS_PER_DEGREE);
+  if (units <= -RIGHT_ANGLE_UNITS || units >= RIGHT_ANGLE_UNITS)
+    throw new RangeError(`${field} must be strictly between -90 and 90 degrees`);
+  return String(units);
+};
+
+const optionalAttr = (name: ReturnType<typeof qname>, value: string | undefined) =>
+  value === undefined ? [] : [attr(name, value)];
 
 /**
  * Where an `<a:effectLst>` goes inside its host. `<p:spPr>` is the default;
@@ -292,6 +326,10 @@ export const setShadow = (
       attr(ATTR_BLUR_RAD, String(blur)),
       attr(ATTR_DIST, String(dist)),
       attr(ATTR_DIR, dir),
+      ...optionalAttr(ATTR_SX, scalePercentage(options.scaleX, 'setShapeShadow: scaleX')),
+      ...optionalAttr(ATTR_SY, scalePercentage(options.scaleY, 'setShapeShadow: scaleY')),
+      ...optionalAttr(ATTR_KX, fixedAngle(options.skewX, 'setShapeShadow: skewX')),
+      ...optionalAttr(ATTR_KY, fixedAngle(options.skewY, 'setShapeShadow: skewY')),
       attr(ATTR_ALGN, options.alignment ?? 'tl'),
       attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === true ? '1' : '0'),
     ],
@@ -356,22 +394,6 @@ export const setReflection = (
       throw new RangeError(`${field} must be in [0, 1]`);
     return String(Math.round(value * PERCENTAGE_UNITS));
   };
-  const scalePercentage = (value: number | undefined, field: string): string | undefined => {
-    if (value === undefined) return undefined;
-    if (!Number.isFinite(value)) throw new RangeError(`${field} must be finite`);
-    const units = Math.round(value * PERCENTAGE_UNITS);
-    if (!Number.isSafeInteger(units) || units < SIGNED_INT_MIN || units > SIGNED_INT_MAX)
-      throw new RangeError(`${field} must fit an OOXML percentage integer`);
-    return String(units);
-  };
-  const fixedAngle = (value: number | undefined, field: string): string | undefined => {
-    if (value === undefined) return undefined;
-    if (!Number.isFinite(value)) throw new RangeError(`${field} must be finite`);
-    const units = Math.round(value * ANGLE_UNITS_PER_DEGREE);
-    if (units <= -RIGHT_ANGLE_UNITS || units >= RIGHT_ANGLE_UNITS)
-      throw new RangeError(`${field} must be strictly between -90 and 90 degrees`);
-    return String(units);
-  };
   const direction =
     Math.round(
       (((angleDeg % FULL_TURN_DEGREES) + FULL_TURN_DEGREES) % FULL_TURN_DEGREES) *
@@ -387,8 +409,6 @@ export const setReflection = (
       ) % FULL_TURN_UNITS,
     );
   };
-  const optionalAttr = (name: ReturnType<typeof qname>, value: string | undefined) =>
-    value === undefined ? [] : [attr(name, value)];
   const attrs = [
     attr(ATTR_BLUR_RAD, String(blur)),
     attr(ATTR_DIST, String(dist)),
@@ -409,6 +429,12 @@ export const setReflection = (
     ...optionalAttr(ATTR_KY, fixedAngle(options.skewY, 'setReflection: skewY')),
   ];
   putEffect(host, elem(NAME_REFLECTION, { attrs }), place);
+};
+
+/** Sets a soft edge (`<a:softEdge rad>`), replacing only a prior soft edge. */
+export const setSoftEdge = (host: XmlElement, radiusEmu: number, place?: EffectPlacement): void => {
+  const rad = String(emuExtent(radiusEmu, 'setShapeSoftEdge: radiusEmu'));
+  putEffect(host, elem(NAME_SOFT_EDGE, { attrs: [attr(ATTR_RAD, rad)] }), place);
 };
 
 /** Removes any effect list from `host`. */

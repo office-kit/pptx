@@ -1,8 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { isShapeAspectRatioLocked, setShapeAspectRatioLocked, cm, emu, getSlideSize, getShapeBoundsResolved, getShapeId, getShapeRotation, getShapeFlip, setShapeBounds, type ShapeBounds } from '@office-kit/pptx';
+  import { isShapeAspectRatioLocked, setShapeAspectRatioLocked, cm, emu, getSlideSize, getShapeBoundsResolved, getShapeId, getShapeRotation, setShapeBounds, type ShapeBounds } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import PaneSection from './PaneSection.svelte';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -25,8 +26,6 @@
     // Scaling percentages use the dimensions when the objects were selected.
     originals = untrack(() => new Map(geometry.map(item => [getShapeId(item.shape), { ...item.bounds }])));
   });
-  let sizeOpen = $state(true);
-  let positionOpen = $state(true);
   const lockAspectRatio = $derived.by(() => {
     doc.version;
     const values = geometry.map(item => isShapeAspectRatioLocked(item.shape));
@@ -60,7 +59,7 @@
   }
   let rotationInput = $state<HTMLInputElement>();
   $effect(() => {
-    if (editor.rotationFocusRequested && !sizeOpen) { sizeOpen = true; return; }
+    if (editor.rotationFocusRequested && !editor.formatPaneSections.size) { editor.formatPaneSections = { ...editor.formatPaneSections, size: true }; return; }
     if (editor.rotationFocusRequested && rotationInput) {
       rotationInput.scrollIntoView({ block: 'nearest' });
       rotationInput.focus(); rotationInput.select();
@@ -97,15 +96,6 @@
     };
     return { w: limit('w'), h: limit('h') };
   });
-  const flips = $derived.by(() => {
-    doc.version;
-    const values = editor.selectedShapes().map(getShapeFlip);
-    const value = (axis: 'horizontal' | 'vertical') => {
-      const states = new Set(values.map(item => item?.[axis] ?? false));
-      return states.size > 1 ? null : states.has(true);
-    };
-    return { horizontal: value('horizontal'), vertical: value('vertical') };
-  });
 
   function change(field: keyof ShapeBounds, input: HTMLInputElement, scale = false) {
     const restore = () => { const value = scale ? scales[field as 'w' | 'h'] : bounds[field]; input.value = value === null ? '' : String(value); };
@@ -132,9 +122,7 @@
 
 {#if geometry.length}
   <div class="geometry">
-    <details bind:open={sizeOpen}>
-      <summary>{t('Size')}</summary>
-      <div class="fields">
+    <PaneSection id="size" label={t('Size')}>
         {#each [['h', 'Height'], ['w', 'Width']] as [field, label]}
           {@const axis = field as 'h' | 'w'}
           <label><span>{t(label!)}</span><span class="number"><input class="ok-input" type="number" aria-label={t(label!)} disabled={locked} min="0" max={maxDimension} step="any" value={bounds[axis] ?? ''} placeholder={bounds[axis] === null ? t('Mixed') : undefined} onchange={event => change(axis, event.currentTarget)} /><span>cm</span></span></label>
@@ -145,35 +133,20 @@
           <label><span>{t(label!)}</span><span class="number"><input class="ok-input" type="number" aria-label={t(label!)} disabled={locked || geometry.some(item => !originals.get(getShapeId(item.shape))?.[axis])} min="1" max={Number.isFinite(scaleLimits[axis]) ? scaleLimits[axis] : undefined} step="any" value={scales[axis] ?? ''} placeholder={scales[axis] === null ? t('Mixed') : undefined} onchange={event => change(axis, event.currentTarget, true)} /><span>%</span></span></label>
         {/each}
         <label class="check"><input type="checkbox" checked={lockAspectRatio === true} indeterminate={lockAspectRatio === null} onchange={event => changeAspectLock(event.currentTarget)} disabled={locked || !canLockAspectRatio} /><span>{t('Lock aspect ratio')}</span></label>
-      </div>
-    </details>
-    <details bind:open={positionOpen}>
-      <summary>{t('Position')}</summary>
-      <div class="fields">
+    </PaneSection>
+    <PaneSection id="position" label={t('Position')}>
         {#each [['x', 'Horizontal position'], ['y', 'Vertical position']] as [field, label]}
           {@const axis = field as 'x' | 'y'}
           <label><span>{t(label!)}</span><span class="number"><input class="ok-input" type="number" aria-label={t(label!)} disabled={locked} min={-maxDimension - originOffset(axis) / cm(1)} max={maxDimension - originOffset(axis) / cm(1)} step="any" value={bounds[axis] ?? ''} placeholder={bounds[axis] === null ? t('Mixed') : undefined} onchange={event => change(axis, event.currentTarget)} /><span>cm</span></span></label>
           <label><span>{t('From')}</span><select class="ok-input" aria-label={t(axis === 'x' ? 'Horizontal position from' : 'Vertical position from')} disabled={locked} value={origins[axis]} onchange={event => changeOrigin(axis, event.currentTarget)}><option value="corner">{t('Top Left Corner')}</option><option value="center">{t('Center')}</option></select></label>
         {/each}
-      </div>
-    </details>
-    <div class="fields flips">
-      {#each ['horizontal', 'vertical'] as axis}
-        {@const value = axis === 'horizontal' ? flips.horizontal : flips.vertical}
-        <label class="check"><input type="checkbox" disabled={locked} checked={value ?? false} indeterminate={value === null} onchange={event => editor.invoke('setShapeFlip', { options: { [axis]: event.currentTarget.checked } })} /><span>{t(axis === 'horizontal' ? 'Flip horizontally' : 'Flip vertically')}{value === null ? ` (${t('Mixed')})` : ''}</span></label>
-      {/each}
-    </div>
+    </PaneSection>
   </div>
 {/if}
 
 <style>
-  .geometry { font-size: 12px; margin: 0 -10px; }
-  /* Same section header and row metrics as the Fill & Line tab (Mac PowerPoint: 30 pt rows, 26 pt controls). */
-  summary { display: flex; align-items: center; gap: 6px; min-height: 23px; padding: 0 8px; list-style: none; background: var(--ok-hover); cursor: pointer; }
-  summary::-webkit-details-marker { display: none; }
-  summary::before { content: '›'; display: inline-block; width: 10px; text-align: center; font-size: 14px; transition: transform 0.12s; }
-  details[open] > summary::before { transform: rotate(90deg); }
-  .fields { display: flex; flex-direction: column; gap: 4px; padding: 10px 17px 10px 16px; }
+  .geometry { display: flex; flex-direction: column; font-size: 12px; }
+  /* Mac PowerPoint: 30 pt rows, 26 pt controls, 82 pt Size/Position boxes. */
   label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
   .number { display: flex; align-items: center; gap: 3px; width: 82px; flex: 0 0 82px; }
   .number .ok-input { box-sizing: border-box; width: 64px; height: 26px; min-width: 0; padding: 2px 4px; font-size: inherit; }
@@ -181,5 +154,4 @@
   .check { justify-content: flex-start; }
   label > select { box-sizing: border-box; width: 112px; height: 26px; font-size: inherit; }
   .check input { margin: 0; }
-  .flips { padding-top: 6px; }
 </style>

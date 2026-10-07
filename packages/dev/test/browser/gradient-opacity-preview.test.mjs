@@ -10,6 +10,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -44,6 +45,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       const track = editor.getByRole('group', { name: 'Gradient stops', exact: true });
       const paint = () => track.evaluate((element) => getComputedStyle(element).backgroundImage);
       const original = await paint();
@@ -71,6 +73,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.equal(await paint(), translucent);
       await transparency.fill('100');
       await transparency.press('Tab');

@@ -10,6 +10,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -48,6 +49,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       const initialGradient = await gradient();
       const type = editor.getByRole('combobox', { name: 'Gradient type', exact: true });
       const zero = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -98,6 +100,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.deepEqual(await gradient(), last);
       assert.equal(
         await editor.getByRole('button', { name: 'Gradient direction', exact: true }).isDisabled(),
