@@ -165,14 +165,11 @@ test(
       for (const slide of (await slides()).slice(0, 2))
         assert.deepEqual(Buffer.from(getSlideBackgroundImageBytes(slide)), bytes);
       await editor.getByRole('tab', { name: '画面切り替え', exact: true }).click();
+      // The gallery applies the transition to every selected slide at once.
       await editor
         .getByRole('tabpanel', { name: '画面切り替え', exact: true })
-        .getByRole('button', { name: '効果のオプション', exact: true })
+        .getByRole('radio', { name: 'フェード', exact: true })
         .click();
-      const dialog = editor.getByRole('dialog');
-      await dialog.getByText('選択したスライドに適用: 2', { exact: true }).waitFor();
-      await dialog.locator('select').first().selectOption('fade');
-      await dialog.getByRole('button', { name: '適用', exact: true }).click();
       await saved();
       assert.deepEqual(
         (await slides()).map((slide) => getSlideTransition(slide)?.effect ?? null),
