@@ -89,30 +89,42 @@ test(
       await changed(() => item('Remove All Sections').click());
       assert.equal(getSlideSections(await pres()).length, 0);
 
-      // The thumbnail menu is PowerPoint's.
+      // The thumbnail menu is Mac PowerPoint's, with its separators (native
+      // capture 2026-10-07).
       await editor.locator('.thumb-row').nth(1).click({ button: 'right' });
       const thumbMenu = editor.getByRole('menu').first();
-      assert.deepEqual(
-        (
-          await thumbMenu
-            .locator(':scope > .ctx-item, :scope > .branch > .ctx-item')
-            .allTextContents()
-        ).map((text) => text.replace(/(\s+Del|[›⌘✓]).*$/, '').trim()),
-        [
-          'Cut',
-          'Copy',
-          'Paste',
-          'New Slide',
-          'Duplicate Slide',
-          'Delete Slide',
-          'Add Section',
-          'Layout',
-          'Reset Slide',
-          'Format Background...',
-          'New Comment',
-          'Hide Slide',
-        ],
-      );
+      const thumbEntries = () =>
+        thumbMenu
+          .locator(':scope > .ctx-item, :scope > .branch > .ctx-item, :scope > .ctx-sep')
+          .evaluateAll((nodes) =>
+            nodes.map((node) =>
+              node.classList.contains('ctx-sep')
+                ? '----'
+                : node.textContent.replace(/([›⌘⇧✓]).*$/, '').trim(),
+            ),
+          );
+      assert.deepEqual(await thumbEntries(), [
+        'Cut',
+        'Copy',
+        'Paste',
+        'Select All',
+        '----',
+        'New Slide',
+        'Duplicate Slide',
+        'Delete Slide',
+        'Add Section',
+        '----',
+        'Format Background...',
+        '----',
+        'Hide Slide',
+        '----',
+        'Zoom...',
+        'Slide Show',
+        '----',
+        'New Comment',
+      ]);
+      await thumbMenu.getByRole('menuitem', { name: /^Select All/ }).click();
+      assert.equal(await editor.locator('.thumb-row[aria-pressed="true"]').count(), 3);
       await page.keyboard.press('Escape');
 
       // Columns, Text Direction and Align Text act on the selected text box.

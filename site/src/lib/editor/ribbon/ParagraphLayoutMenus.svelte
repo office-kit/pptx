@@ -93,7 +93,8 @@
   button { font: inherit; color: var(--ok-text); background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
-  .tool { display: flex; align-items: center; justify-content: center; gap: 1px; min-width: 28px; height: 26px; padding: 0 2px; font-size: 10px; }
+  .tool { display: flex; align-items: center; justify-content: center; gap: 1px; min-width: 38px; height: 26px; padding: 0 2px; font-size: 10px; }
+  .tool:not(.menu-trigger) { min-width: 26px; }
   .menu { position: fixed; z-index: 400; display: flex; flex-direction: column; min-width: 190px; padding: 4px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { padding: 5px 8px; text-align: left; font-size: 12px; }
   .menu button[aria-checked='true'] { background: var(--ok-selected); }

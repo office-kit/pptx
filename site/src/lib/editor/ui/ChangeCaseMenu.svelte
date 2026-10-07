@@ -50,7 +50,7 @@
 {/if}
 
 <style>
-  .trigger { min-width: 0; padding: 3px 5px; border: 1px solid var(--ok-border); border-radius: var(--ok-radius); background: transparent; color: inherit; font: inherit; font-size: 11px; cursor: pointer; }
+  .trigger { min-width: 38px; height: 26px; padding: 0 4px; border: 1px solid transparent; border-radius: var(--ok-radius); background: transparent; color: inherit; font: inherit; font-size: 11px; cursor: pointer; }
   .trigger:hover:not(:disabled), .trigger:focus-visible { background: var(--ok-hover); outline: none; }
   .trigger:disabled { opacity: .4; cursor: default; }
   .menu { position: fixed; z-index: 400; min-width: 200px; padding: 7px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); color: var(--ok-text); box-shadow: var(--ok-shadow-lg); }

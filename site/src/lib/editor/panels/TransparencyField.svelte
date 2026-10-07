@@ -32,9 +32,11 @@
   </div>
 </div>
 <style>
-  .transparency { display: flex; flex-direction: column; gap: 4px; }
-  .controls { display: flex; gap: 8px; align-items: center; }
+  /* One row as in PowerPoint: an 82 pt label, the slider, then a 66 pt box. */
+  .transparency { display: flex; align-items: center; gap: 4px; min-height: 26px; }
+  .transparency > span { flex: none; width: 82px; }
+  .controls { display: flex; flex: 1; gap: 4px; align-items: center; min-width: 0; }
   input[type=range] { flex: 1; width: 0; min-width: 0; accent-color: var(--ok-accent); }
-  .number { display: flex; align-items: center; gap: 3px; width: 72px; }
-  .number input { width: 52px; min-width: 0; padding: 2px 4px; font-size: inherit; }
+  .number { display: flex; align-items: center; gap: 2px; width: 66px; }
+  .number input { box-sizing: border-box; width: 52px; height: 26px; min-width: 0; padding: 2px 4px; font-size: inherit; }
 </style>

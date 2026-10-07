@@ -50,7 +50,7 @@
   </div>
 {/if}
 <style>
-  .trigger { display: flex; align-items: center; gap: 2px; padding: 3px; }
+  .trigger { display: flex; align-items: center; justify-content: center; gap: 2px; min-width: 38px; height: 26px; padding: 0 3px; }
   .menu { position: fixed; z-index: 400; min-width: 170px; padding: 4px; background: var(--ok-panel); color: var(--ok-text); border: 1px solid var(--ok-border); border-radius: 5px; box-shadow: var(--ok-shadow-lg); }
   .menu button { display: flex; gap: 6px; width: 100%; border: 0; padding: 5px 8px; background: transparent; color: inherit; text-align: left; font: inherit; }
   .check { width: 14px; }

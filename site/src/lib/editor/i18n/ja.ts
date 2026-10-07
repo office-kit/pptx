@@ -1277,7 +1277,6 @@ export const ja: Record<string, string> = {
   'Decrease Font Size': 'フォント サイズを縮小',
   'Text color': '文字色',
   'Character Spacing': '文字間隔',
-  'Font dialog': 'フォントの設定',
   'Latin text font': '英数字用のフォント',
   'Asian text font': '日本語用のフォント',
   'Font style': 'スタイル',
@@ -1705,8 +1704,6 @@ export const ja: Record<string, string> = {
   'Paste failed': '貼り付けに失敗しました',
   'Reset Slide': 'スライドのリセット',
   'Edit Text': 'テキストの編集',
-  'Link...': 'リンク...',
-  'Edit Alt Text...': '代替テキストを編集...',
   'Duplicate Slide': 'スライドを複製',
   'Delete Slide': 'スライドを削除',
   'Format Picture...': '図の書式設定...',
@@ -1749,4 +1746,27 @@ export const ja: Record<string, string> = {
   'Microsoft and PowerPoint are trademarks of the Microsoft group of companies. This editor is an independent project, not affiliated with or endorsed by Microsoft.':
     'Microsoft および PowerPoint は Microsoft グループ各社の商標です。本エディタは独立したプロジェクトであり、Microsoft との提携や承認を受けたものではありません。',
   Agents: 'エージェント',
+  // Mac PowerPoint's object, thumbnail and Format Shape wording (its ja.lproj).
+  Lock: 'ロック',
+  Unlock: 'ロック解除',
+  'Hyperlink...': 'ハイパーリンク...',
+  'Save as Picture...': '図として保存...',
+  'Translate...': '翻訳...',
+  'View Alt Text...': '代替テキストの表示...',
+  'Set as Default Shape Style': '既定の図形に設定',
+  'Action Settings...': 'オブジェクトの動作設定...',
+  'No line': '線なし',
+  'Gradient line': '線 (グラデーション)',
+  'Line type': '線の種類',
+  'Gradient lines are not supported by the library yet.':
+    'グラデーションの線はまだライブラリでサポートされていません。',
+  'The editor has no point editor yet.': 'このエディタにはまだ頂点の編集機能がありません。',
+  'The layered stacking view is not available in this editor.':
+    'このエディタでは重なり順の立体表示を利用できません。',
+  'The editor cannot export objects as pictures yet.':
+    'このエディタはまだオブジェクトを図として書き出せません。',
+  'Translation needs the Microsoft translation service.':
+    '翻訳には Microsoft の翻訳サービスが必要です。',
+  'The editor does not keep a default shape style yet.':
+    'このエディタはまだ既定の図形スタイルを保持しません。',
 };

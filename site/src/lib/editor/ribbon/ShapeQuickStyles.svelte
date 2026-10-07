@@ -98,7 +98,7 @@
     {#if error}<p class="inline-error" role="alert">{error}</p>{/if}
   </div>
 {:else}
-  <button class="trigger" class:compact bind:this={trigger} {disabled} aria-label={t('Quick Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if !compact}<span class="sample" aria-hidden="true">Abc</span>{/if}<span>{t('Quick Styles')} ▾</span></button>
+  <button class="trigger" class:compact bind:this={trigger} {disabled} aria-label={t('Quick Styles')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if compact}<span>{t('Quick Styles')} ▾</span>{:else}<span class="icon-row"><span class="sample" aria-hidden="true">Abc</span><span aria-hidden="true">▾</span></span><span>{t('Quick Styles')}</span>{/if}</button>
 {/if}
 {#if open}
   <div class="menu" role="menu" aria-label={t('Quick Styles')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
@@ -117,7 +117,9 @@
 {/if}
 <style>
   .trigger { display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px; background:transparent; border:1px solid transparent; border-radius:var(--ok-radius); color:var(--ok-text); font:inherit; font-size:11px; cursor:pointer; }
-  .trigger:not(.compact) > span:last-child { max-width:52px; text-align:center; line-height:1.15; }
+  .trigger:not(.compact) > span:last-child { max-width:46px; text-align:center; line-height:1.15; }
+  .trigger:not(.compact) { align-self:stretch; justify-content:flex-start; gap:2px; min-width:50px; padding:4px 2px; }
+  .icon-row { display:flex; align-items:center; gap:1px; font-size:10px; }
   .trigger:hover { background:var(--ok-hover); border-color:var(--ok-border); }
   .trigger:disabled { opacity:.4; }
   .sample { display:flex; align-items:center; justify-content:center; width:34px; height:30px; border:1px solid currentColor; border-radius:3px; font-size:13px; }

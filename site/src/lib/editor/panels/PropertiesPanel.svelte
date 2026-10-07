@@ -232,7 +232,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
+    /* Mac PowerPoint's pane title bar is 27 pt tall. */
+    min-height: 27px;
+    box-sizing: border-box;
+    padding: 3px 12px;
     border-bottom: 1px solid var(--ok-border);
     position: sticky;
     top: 0;
@@ -257,18 +260,18 @@
   }
   .format-tabs {
     display: flex;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 0;
+    padding: 8px 10px 0;
     background: var(--ok-panel);
     position: sticky;
-    top: 37px;
+    top: 27px;
     z-index: 1;
   }
   .format-tabs button {
     display: grid;
     place-items: center;
-    width: 38px;
-    height: 34px;
+    width: 42px;
+    height: 42px;
     border: 1px solid transparent;
     background: none;
     color: var(--ok-text-2);

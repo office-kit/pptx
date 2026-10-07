@@ -106,8 +106,15 @@
     h: (metrics.heightEmu / 914400) * 96,
   }));
 
-  const stageW = $derived(slidePx.w * editor.zoom);
-  const stageH = $derived(slidePx.h * editor.zoom);
+  // Mac PowerPoint's 100% zoom shows one slide point per screen point (72 per
+  // inch). The canvas lays slides out at 96 CSS px per inch, so it draws them at
+  // 72/96 of the zoom percentage.
+  const MAC_ZOOM_SCALE = 72 / 96;
+  // Fit to Window leaves 22 pt around the slide, as Mac PowerPoint does.
+  const FIT_MARGIN = 22;
+  const canvasScale = $derived(editor.zoom * MAC_ZOOM_SCALE);
+  const stageW = $derived(slidePx.w * canvasScale);
+  const stageH = $derived(slidePx.h * canvasScale);
 
   const scope = $derived.by(() => {
     doc.version;
@@ -160,10 +167,10 @@
   // Compute a fit-to-area zoom and adopt it until the user zooms themselves.
   function recomputeFit() {
     if (!areaEl) return;
-    const avail = areaEl.clientWidth - 56;
-    const availH = areaEl.clientHeight - 56;
+    const avail = areaEl.clientWidth - 2 * FIT_MARGIN;
+    const availH = areaEl.clientHeight - 2 * FIT_MARGIN;
     const fit = Math.min(avail / slidePx.w, availH / slidePx.h);
-    editor.fitZoom = fit > 0 ? fit : 1;
+    editor.fitZoom = fit > 0 ? fit / MAC_ZOOM_SCALE : 1;
     if (editor.autoFitZoom) editor.zoom = editor.fitZoom;
   }
   $effect(() => {
@@ -916,7 +923,7 @@
   const textInputStyle = $derived.by(() => {
     const box = editBox;
     if (!box || !scope) return '';
-    const zoom = editor.zoom;
+    const zoom = canvasScale;
     // Lay out glyphs at the same size as the preview's foreignObject, then
     // scale the entire box. Scaling font sizes instead changes font metrics
     // and accumulates baseline differences on wrapped and mixed-font lines.
@@ -1400,7 +1407,7 @@
     <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} onfontsize={stepInlineFontSize} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
   </details>
 {/if}
-{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} ontabs={applyRulerTabs} onpreview={change => rulerPreview = change} />{/if}
+{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={canvasScale} text={rulerText} onindent={applyRulerIndent} ontabs={applyRulerTabs} onpreview={change => rulerPreview = change} />{/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
     class="stage-wrap"
@@ -1601,7 +1608,7 @@
     overflow: auto;
     display: grid;
     place-items: center;
-    padding: 28px;
+    padding: 22px; /* FIT_MARGIN */
     min-height: 0;
     min-width: 0;
     overflow: auto;

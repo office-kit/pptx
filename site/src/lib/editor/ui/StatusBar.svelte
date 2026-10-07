@@ -77,17 +77,19 @@
 </div>
 
 <style>
-  /* Mac PowerPoint's status bar sits on the window chrome color, not the accent. */
+  /* Mac PowerPoint's status bar sits on the window chrome color, not the
+     accent: 28 pt tall, 12 pt text, 36 pt view buttons, a 102 pt zoom slider
+     between 14 pt − / + buttons, a 54 pt percentage and a 38 pt Fit button. */
   .statusbar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 26px;
-    padding: 0 12px;
+    gap: 2px;
+    height: 28px;
+    padding: 0 13px;
     background: var(--ok-ribbon);
     border-top: 1px solid var(--ok-border);
     color: var(--ok-text-2);
-    font-size: 11px;
+    font-size: 12px;
   }
   .spacer { flex: 1; }
   .language { padding: 0 6px; white-space: nowrap; }
@@ -96,8 +98,10 @@
   .issues button { justify-content: space-between; gap: 12px; padding: 4px 8px; text-align: left; }
   .issues p { margin: 4px 8px; }
   .zoom { display: flex; align-items: center; gap: 2px; }
-  .zoom input[type='range'] { width: 110px; height: 12px; accent-color: var(--ok-text-2); margin: 0 4px; }
-  .views { display: flex; gap: 3px; margin: 0 4px; }
+  .zoom input[type='range'] { width: 102px; height: 12px; accent-color: var(--ok-text-2); margin: 0 3px; }
+  .views { display: flex; gap: 0; margin: 0 4px 0 0; }
+  .views button { justify-content: center; width: 36px; height: 24px; padding: 0; }
+  .labelled { padding: 2px 12px; }
   svg { fill: none; stroke: currentColor; stroke-width: 1.1; }
   button {
     display: inline-flex;
@@ -107,7 +111,7 @@
     border: none;
     color: inherit;
     font: inherit;
-    font-size: 11px;
+    font-size: 12px;
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 3px;
@@ -115,6 +119,7 @@
   button:hover:not(:disabled) { background: var(--ok-hover); }
   button:disabled { opacity: 0.45; cursor: default; }
   button[aria-pressed='true'] { background: var(--ok-selected); color: var(--ok-text); }
-  .zbtn { font-size: 15px; line-height: 1; width: 22px; justify-content: center; }
-  .zpct { min-width: 46px; justify-content: center; }
+  .zbtn { font-size: 15px; line-height: 1; width: 14px; padding: 2px 0; justify-content: center; }
+  .zpct { min-width: 54px; justify-content: center; }
+  .zfit { justify-content: center; width: 38px; }
 </style>

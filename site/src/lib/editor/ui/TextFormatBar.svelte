@@ -7,7 +7,6 @@
   import ChangeCaseMenu from './ChangeCaseMenu.svelte';
   import CharacterSpacingMenu from './CharacterSpacingMenu.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getEditor } from '../core/context.ts';
 
   let { formats, displayFormats, selected, typing = false, onformat, oncase, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
     formats: TextFormat[];
@@ -37,7 +36,6 @@
     /** Additional document/theme families to show in the picker. */
     fontFamilies?: readonly string[];
   } = $props();
-  const editor = getEditor();
   function toggle(property: TextFormatToggle) {
     if (ontoggle) ontoggle(property);
     else onformat(toggleTextFormat(formats, property));
@@ -77,18 +75,31 @@
       {#if item.property === 'bold'}<b>B</b>{:else if item.property === 'italic'}<i>I</i>{:else if item.property === 'underline'}<u>U</u>{:else if item.property === 'strike'}<s>S</s>{:else if item.property === 'superscript'}x<sup>2</sup>{:else}x<sub>2</sub>{/if}
     </button>
   {/each}
+  {#snippet textColor()}
   <div class="color-field"><span>{t('Text color')}</span><ColorPicker compact={ribbon} glyph={ribbon ? 'A' : undefined} label={t('Text color')} value={color ?? undefined} resolvedColor={resolvedColor ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
+  {/snippet}
+  {#snippet highlightColor()}
   <label><span>{t('Highlight color')}</span><input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
-  {#if ribbon && oncase}<ChangeCaseMenu disabled={!(selected || typing)} onchange={oncase} />{/if}
-  {#if ribbon}<button class="ok-btn font-dialog-trigger" aria-label={t('Font dialog')} title={t('Font dialog')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => editor.openFontDialog()}>A…</button>{/if}
-  {#if ribbon}<CharacterSpacingMenu {formats} disabled={!(selected || typing)} {onformat} />{/if}
+  {/snippet}
   {#snippet highlightActions()}
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
   {/snippet}
   {#if ribbon}
-    <details class="highlight-menu"><summary aria-label={t('Highlight color options')}>▾</summary><div class="highlight-options">{@render highlightActions()}</div></details>
-  {:else}{@render highlightActions()}{/if}
+    <!-- Mac PowerPoint's second Font row: Character Spacing and Change Case
+         follow the toggles; Text Highlight Color and Font Color come last,
+         after a separator. The Font dialog opens from Character Spacing ▸
+         More Spacing... and Cmd+T, as PowerPoint has no Font button here. -->
+    <CharacterSpacingMenu {formats} disabled={!(selected || typing)} {onformat} />
+    {#if oncase}<ChangeCaseMenu disabled={!(selected || typing)} onchange={oncase} />{/if}
+    <span class="sep" aria-hidden="true"></span>
+    <span class="highlight-split">{@render highlightColor()}<details class="highlight-menu"><summary aria-label={t('Highlight color options')}>▾</summary><div class="highlight-options">{@render highlightActions()}</div></details></span>
+    {@render textColor()}
+  {:else}
+    {@render textColor()}
+    {@render highlightColor()}
+    {@render highlightActions()}
+  {/if}
   </div>
   </div>
   {/if}
@@ -130,11 +141,19 @@
   button[aria-pressed='true'] { background: var(--ok-accent); color: white; }
   .font-controls, .font-fields, .font-buttons { display: contents; }
   .font-ribbon { border: 0; padding: 0; background: transparent; }
-  .font-ribbon .font-controls { display: flex; flex-direction: column; gap: 5px; }
-  .font-ribbon .font-fields, .font-ribbon .font-buttons { display: flex; align-items: center; gap: 2px; }
+  /* Mac PowerPoint's Font group: two 26 pt rows on a 32 pt pitch, starting
+     4 pt below the top of the 72 pt command area. */
+  .font-ribbon { align-self: flex-start; margin-top: 4px; }
+  .font-ribbon .font-controls { display: flex; flex-direction: column; gap: 6px; }
+  .font-ribbon .font-fields, .font-ribbon .font-buttons { display: flex; align-items: center; gap: 0; height: 26px; }
   .font-ribbon label > span, .font-ribbon .color-field > span { display: none; }
-  .font-ribbon .color-field { display: flex; align-items: center; }
-  .font-ribbon .ok-btn { min-width: 23px; padding: 3px; }
+  .font-ribbon .color-field { display: flex; align-items: center; justify-content: center; min-width: 38px; height: 26px; }
+  .font-ribbon .ok-btn { min-width: 26px; height: 26px; padding: 0 3px; }
+  .font-ribbon .font-size-step, .font-ribbon .clear-format, .font-ribbon .font-buttons > .ok-btn { width: 26px; min-width: 26px; padding: 0; }
+  .font-ribbon .clear-format { margin-left: 15px; }
+  .font-ribbon .sep { width: 1px; height: 20px; margin: 0 7px; background: var(--ok-border); }
+  .font-ribbon .highlight-split { display: flex; align-items: center; min-width: 38px; height: 26px; }
+  .font-ribbon .highlight-split input[type='color'] { width: 24px; height: 20px; }
   .font-ribbon .font-size-step { font-size: 12px; }
   .highlight-menu summary { cursor: pointer; list-style: none; }
   .highlight-options { position: fixed; z-index: 50; padding: 6px; display: grid; background: var(--ok-panel); border: 1px solid var(--ok-border); box-shadow: var(--ok-shadow); }

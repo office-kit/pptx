@@ -52,9 +52,10 @@
 
 <style>
   .size-field { display: flex; }
-  input { width: 43px; padding-right: 0; border-radius: 3px 0 0 3px; appearance: textfield; }
+  input { box-sizing: border-box; width: 41px; height: 26px; padding-right: 0; border-radius: 3px 0 0 3px; appearance: textfield; }
   input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance: none; margin: 0; }
-  .size-field button { width: 16px; padding: 0; border-left: 0; border-radius: 0 3px 3px 0; }
+  .size-field { margin-left: 2px; }
+  .size-field button { width: 15px; height: 26px; padding: 0; border-left: 0; border-radius: 0 3px 3px 0; }
   .size-menu { position: fixed; z-index: 400; width: 65px; max-height: min(480px, calc(100vh - 16px)); overflow-y: auto; padding: 3px; background: var(--ok-panel); border: 1px solid var(--ok-border); border-radius: 4px; box-shadow: var(--ok-shadow-lg); }
   .size-menu button { display: block; width: 100%; border: 0; padding: 3px 8px; background: transparent; color: inherit; text-align: left; font: inherit; }
   .size-menu button:hover, .size-menu button:focus-visible, .size-menu button[aria-checked='true'] { background: var(--ok-hover); outline: none; }

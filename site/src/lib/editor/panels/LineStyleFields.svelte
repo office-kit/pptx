@@ -43,6 +43,7 @@
 <ArrowStyleFields />
 
 <style>
-  label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  select { max-width: 145px; font-size: inherit; }
+  label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+  /* PowerPoint's Format pane pop-up buttons are 112 × 26 pt. */
+  select { box-sizing: border-box; width: 112px; height: 26px; font-size: inherit; }
 </style>

@@ -167,14 +167,19 @@
 {/if}
 
 <style>
-  .geometry { font-size: 11px; margin: 0 -10px; }
-  summary { padding: 4px 8px; background: var(--ok-hover); cursor: pointer; }
-  .fields { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
-  label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; }
-  .number { display: flex; align-items: center; gap: 3px; width: 96px; flex: 0 0 96px; }
-  .number .ok-input { width: 72px; min-width: 0; padding: 2px 4px; font-size: inherit; }
+  .geometry { font-size: 12px; margin: 0 -10px; }
+  /* Same section header and row metrics as the Fill & Line tab (Mac PowerPoint: 30 pt rows, 26 pt controls). */
+  summary { display: flex; align-items: center; gap: 6px; min-height: 23px; padding: 0 8px; list-style: none; background: var(--ok-hover); cursor: pointer; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '›'; display: inline-block; width: 10px; text-align: center; font-size: 14px; transition: transform 0.12s; }
+  details[open] > summary::before { transform: rotate(90deg); }
+  .fields { display: flex; flex-direction: column; gap: 4px; padding: 10px 17px 10px 16px; }
+  label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+  .number { display: flex; align-items: center; gap: 3px; width: 82px; flex: 0 0 82px; }
+  .number .ok-input { box-sizing: border-box; width: 64px; height: 26px; min-width: 0; padding: 2px 4px; font-size: inherit; }
   .number > span { color: var(--ok-text-2); }
   .check { justify-content: flex-start; }
+  label > select { box-sizing: border-box; width: 112px; height: 26px; font-size: inherit; }
   .check input { margin: 0; }
   .flips { padding-top: 6px; }
 </style>

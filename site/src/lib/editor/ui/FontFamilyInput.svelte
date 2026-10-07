@@ -64,7 +64,9 @@
 <style>
   .font-field { display: flex; }
   input { width: 110px; border-radius: 3px 0 0 3px; }
-  .font-field.ribbon input { width: 145px; }
+  /* Mac PowerPoint: a 174 pt font box (15 pt arrow) and a 56 pt size box. */
+  .font-field.ribbon input { width: 159px; height: 26px; box-sizing: border-box; }
+  .font-field.ribbon button { width: 15px; height: 26px; }
   .font-field button { width: 16px; padding: 0; border-left: 0; border-radius: 0 3px 3px 0; }
   .font-menu { position: fixed; z-index: 400; width: 210px; max-height: min(480px, calc(100vh - 16px)); overflow-y: auto; padding: 3px; background: var(--ok-panel); border: 1px solid var(--ok-border); border-radius: 4px; box-shadow: var(--ok-shadow-lg); }
   .font-menu button { display: block; width: 100%; border: 0; padding: 3px 8px; background: transparent; color: inherit; text-align: left; font: inherit; }
