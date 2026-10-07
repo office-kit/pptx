@@ -234,15 +234,15 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
     devDependencies:
+      '@office-kit/pptx-editor':
+        specifier: workspace:^
+        version: link:../editor
       '@types/markdown-it':
         specifier: ^14.2.0
         version: 14.2.0
       '@types/node':
         specifier: ^24.13.2
         version: 24.13.2
-      svelte:
-        specifier: ^5.56.3
-        version: 5.56.3
       tsdown:
         specifier: ^0.22.2
         version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)
@@ -252,6 +252,40 @@ importers:
       '@office-kit/pptx':
         specifier: workspace:*
         version: link:../..
+      tsdown:
+        specifier: ^0.22.2
+        version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/editor:
+    dependencies:
+      '@office-kit/pptx':
+        specifier: workspace:^
+        version: link:../..
+      '@office-kit/pptx-preview':
+        specifier: workspace:^
+        version: link:../preview
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.2
+        version: 24.13.2
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      playwright:
+        specifier: ^1.63.0
+        version: 1.63.0
+      svelte:
+        specifier: ^5.56.3
+        version: 5.56.3
+      svelte-check:
+        specifier: ^4.6.0
+        version: 4.6.0(picomatch@4.0.4)(svelte@5.56.3)(typescript@6.0.3)
       tsdown:
         specifier: ^0.22.2
         version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)
@@ -308,6 +342,9 @@ importers:
       '@office-kit/pptx-dsl':
         specifier: workspace:*
         version: link:../packages/dsl
+      '@office-kit/pptx-editor':
+        specifier: workspace:*
+        version: link:../packages/editor
       '@office-kit/pptx-preview':
         specifier: workspace:*
         version: link:../packages/preview

@@ -4,7 +4,7 @@ import {
   editPictureCropGeometry,
   getPictureCropGeometry,
   resetCropGeometry,
-} from '../site/src/lib/editor/core/crop-geometry.ts';
+} from '../packages/editor/src/core/crop-geometry.ts';
 
 const frame = { x: 2.54, y: 2.54, w: 10.16, h: 5.715 };
 const close = (value: number, expected: number) => expect(value).toBeCloseTo(expected, 5);

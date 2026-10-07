@@ -12,7 +12,7 @@ import {
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
-import { textFormatsInRange } from '../site/src/lib/editor/core/text-format-selection.ts';
+import { textFormatsInRange } from '../packages/editor/src/core/text-format-selection.ts';
 
 it.each(['svg', 'foreignObject'] as const)(
   'shape fields inherit paragraph formatting (%s)',

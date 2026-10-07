@@ -13,7 +13,7 @@ const declarations = (block) =>
 
 test('the preview shell copies the editor design tokens for both color schemes', async () => {
   const css = await readFile(
-    new URL('../../../site/src/lib/editor/ui/tokens.css', import.meta.url),
+    new URL('../../../packages/editor/src/ui/tokens.css', import.meta.url),
     'utf8',
   );
   const [light, dark] = css.split('@media (prefers-color-scheme: dark)');

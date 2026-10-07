@@ -276,6 +276,16 @@ pnpm add @office-kit/pptx
 yarn add @office-kit/pptx
 ```
 
+## Packages
+
+| Package                                        | What it does                                                                |
+| ---------------------------------------------- | --------------------------------------------------------------------------- |
+| `@office-kit/pptx` (this directory)            | Read, edit and write `.pptx` files. Node and browser.                       |
+| [`@office-kit/pptx-preview`](packages/preview) | Render a slide to SVG (browser and Node) or PNG (Node).                     |
+| [`@office-kit/pptx-dsl`](packages/dsl)         | Write a presentation as typed TSX.                                          |
+| [`@office-kit/pptx-editor`](packages/editor)   | Embed a PowerPoint-style editor in your web application with `mountEditor`. |
+| [`@office-kit/pptx-dev`](packages/dev)         | Preview, edit and export a TSX presentation locally.                        |
+
 ## One API
 
 @office-kit/pptx exposes a single tree-shakeable free-function API. Every

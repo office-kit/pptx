@@ -773,7 +773,7 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 What a Google Slides user reaches for, and how the editor answers it today.
 Every mutating library export is already reachable through the command palette
-and the properties panel (see the [editor README](../site/src/lib/editor/README.md));
+and the properties panel (see the [editor README](../packages/editor/src/README.md));
 this table is about the everyday paths, and about what is not there at all.
 
 | What a user does                               | Today                                                                                                                       |

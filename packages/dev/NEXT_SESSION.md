@@ -94,7 +94,7 @@
 
 - Character inner shadows now have SVG filters and a foreignObject sibling effect layer. Review caught and fixed default-effect run merging, unresolved theme colors and duplicate glyph fill. Raster regression checks that shadow changes stay inside glyph ink; native geometry remains unverified.
 - Structured text clipboard accepts canonical outline, outer/inner shadow, glow and reflection metadata with boundary checks. Copy/paste/save/load preserves inner shadows. Format painter preserves outer-shadow alignment and rotation.
-- Editing follow-up: `site/src/lib/editor/core/html-text-clipboard.ts` does not emit outline/shadow/glow/inner-shadow/reflection styles for the contenteditable surface. Static foreignObject preview coverage does not establish effect fidelity during active text editing. Add a browser edit-entry regression and implement matching effects without changing text geometry.
+- Editing follow-up: `packages/editor/src/core/html-text-clipboard.ts` does not emit outline/shadow/glow/inner-shadow/reflection styles for the contenteditable surface. Static foreignObject preview coverage does not establish effect fidelity during active text editing. Add a browser edit-entry regression and implement matching effects without changing text geometry.
 - Combined inner/outer shadows, glow and reflection pass the official XML schema test. Do not infer full visual parity from schema validity.
 - Validation: full root format/lint/typecheck/test/build passed (3512 tests, 109 skipped; `/tmp/inner-effects-full.log`) before the final non-interactive overlay attributes. Clipboard and format-painter tests passed (16); preview/DSL build/typecheck and site check passed (`/tmp/inner-effects-packages.log`).
 - Final scoped regression after non-interactive overlay attributes: 75 tests passed, lint and preview typecheck/build passed (`/tmp/inner-effects-final-focused.log`). Chromium static foreignObject screenshots confirm visible inner shadow above HTML: `/tmp/pptx-character-inner-shadow-{plain,shadow,diff}.png`. This verifies static browser painting, not active edit fidelity or native geometry.
@@ -1134,10 +1134,10 @@
 
 主なファイル:
 
-- `site/src/lib/editor/core/inline-text-html.ts`: 有効段落プロパティから編集用 HTML を構築。
-- `site/src/lib/editor/core/editing-tabs.ts`: タブ文字の幅と後続フィールド揃えを計算。
-- `site/src/lib/editor/ui/RichTextInput.svelte`: HTML 再描画後にタブ配置と選択復元。
-- `site/src/lib/editor/core/rich-text-dom.ts`: 編集文字列と選択オフセット。
+- `packages/editor/src/core/inline-text-html.ts`: 有効段落プロパティから編集用 HTML を構築。
+- `packages/editor/src/core/editing-tabs.ts`: タブ文字の幅と後続フィールド揃えを計算。
+- `packages/editor/src/ui/RichTextInput.svelte`: HTML 再描画後にタブ配置と選択復元。
+- `packages/editor/src/core/rich-text-dom.ts`: 編集文字列と選択オフセット。
 - `packages/preview/src/text-layout.ts`: SVG タブ配置。
 - `packages/preview/src/browser-measure.ts`: ブラウザーフォント計測。
 - `packages/dev/test/browser/custom-tab-spacing.test.mjs`: 4 揃えの表示・直接編集・入力・Undo。
@@ -1223,7 +1223,7 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 
 ## 継続実装: 本文の昇格
 
-- `promoteOutlineBody` を `site/src/lib/editor/core/outline.ts` に追加。入れ子段落は一段上げ、選択したルート段落ごとに新しいスライドを作る。Shift+Tab と本文の右クリック Promote が使用する。
+- `promoteOutlineBody` を `packages/editor/src/core/outline.ts` に追加。入れ子段落は一段上げ、選択したルート段落ごとに新しいスライドを作る。Shift+Tab と本文の右クリック Promote が使用する。
 - 現レイアウトにタイトル・本文枠がない場合は挿入前にエラーを表示する。Title Demote、スライドをまたぐ文字選択、書式・階層のアウトライン表示、本文メニューの残りは未完成。
 - コアの既存 API に一括処理を追加: `addSlideAt(pres,index,options[])`、`setShapeParagraphs(targets,{source,ranges})`、`getShapeParagraphElements(shape)`。元の単一対象 API も存続。
 - 実機比較はこの段階では参照ファイルへの追加変更なし。本文単一ルート・複数ルート・入れ子 Promote は前段の実機結果を参照。複数レベルが混在する選択・特殊レイアウトは更に比較が必要。

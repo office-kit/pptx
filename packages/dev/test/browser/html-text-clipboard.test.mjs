@@ -26,12 +26,12 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     const clipboardModule = await build({
       stdin: {
         contents: await readFile(
-          new URL('../../../../site/src/lib/editor/core/html-text-clipboard.ts', import.meta.url),
+          new URL('../../../../packages/editor/src/core/html-text-clipboard.ts', import.meta.url),
           'utf8',
         ),
         loader: 'ts',
         resolveDir: fileURLToPath(
-          new URL('../../../../site/src/lib/editor/core/', import.meta.url),
+          new URL('../../../../packages/editor/src/core/', import.meta.url),
         ),
       },
       bundle: true,

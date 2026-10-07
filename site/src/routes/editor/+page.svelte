@@ -1,6 +1,19 @@
 <script lang="ts">
-  import EditorApp from '$lib/editor/EditorApp.svelte';
-  import { t } from '$lib/editor/i18n/i18n.svelte.ts';
+  import { onMount } from 'svelte';
+
+  let target: HTMLElement;
+  // Mounted on the client only: the editor is a browser UI with nothing to prerender.
+  onMount(() => {
+    let destroy: (() => void) | undefined;
+    let cancelled = false;
+    void import('@office-kit/pptx-editor').then(({ mountEditor }) => {
+      if (!cancelled) destroy = mountEditor(target).destroy;
+    });
+    return () => {
+      cancelled = true;
+      destroy?.();
+    };
+  });
 </script>
 
 <svelte:head>
@@ -11,13 +24,20 @@
   />
 </svelte:head>
 
-<EditorApp />
+<div class="editor" bind:this={target}></div>
 
 <p class="trademark">
-  {t('Microsoft and PowerPoint are trademarks of the Microsoft group of companies. This editor is an independent project, not affiliated with or endorsed by Microsoft.')}
+  Microsoft and PowerPoint are trademarks of the Microsoft group of companies. This editor is an
+  independent project, not affiliated with or endorsed by Microsoft.
 </p>
 
 <style>
+  /* The editor takes the whole window, as a desktop application does. */
+  .editor {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
   .trademark {
     margin: 0;
     padding: 0.5rem 1rem;

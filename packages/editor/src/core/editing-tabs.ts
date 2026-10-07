@@ -1,0 +1,170 @@
+import { rootOf } from './dom-root.ts';
+
+/** Size tab characters without changing the UTF-16 offsets used by editing and clipboard. */
+export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
+  const paragraphs = root.querySelectorAll<HTMLElement>('[data-tab-stops]');
+  if (!paragraphs.length) return;
+  const context = document.createElement('canvas').getContext('2d')!;
+  for (const paragraph of paragraphs) {
+    const paragraphStyle = getComputedStyle(paragraph);
+    const vertical = paragraphStyle.writingMode.startsWith('vertical');
+    // Upright glyph advances differ from horizontal canvas widths. Measure in
+    // an untransformed vertical box so shape rotation and zoom aren't applied twice.
+    const verticalMeasure = vertical ? document.createElement('span') : null;
+    if (verticalMeasure) {
+      verticalMeasure.style.cssText =
+        'position:fixed;visibility:hidden;white-space:pre;width:max-content;height:max-content;';
+      // Beside the editor, so a shadow root's styles rather than the page's apply.
+      const host = rootOf(root);
+      (host instanceof Document ? host.body : host).append(verticalMeasure);
+    }
+    const stops = paragraph.dataset.tabStops!.split(';').map((entry) => {
+      const [position, alignment] = entry.split(':');
+      return { position: Number(position) * zoom, alignment };
+    });
+    paragraph.style.position = 'relative';
+    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node as Text);
+    const parts: {
+      text: string;
+      width: number;
+      decimal: number;
+      separator?: string;
+      measurementKey?: string;
+      chunks?: string[];
+      measure?: (text: string) => number;
+      tab?: HTMLElement;
+    }[] = [];
+    for (const node of nodes) {
+      const style = getComputedStyle(node.parentElement!);
+      const separator =
+        node.parentElement!.closest<HTMLElement>('[data-decimal-separator]')?.dataset
+          .decimalSeparator ?? '.';
+      const variant = style.fontVariantCaps === 'small-caps' ? 'small-caps' : 'normal';
+      const font = `${style.fontStyle} ${variant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const configure = () => {
+        context.font = font;
+        context.fontKerning =
+          style.fontKerning === 'normal' || style.fontKerning === 'none'
+            ? style.fontKerning
+            : 'auto';
+        // Canvas applies tracking to shaped glyphs, including the trailing spacing in CSS layout.
+        context.letterSpacing = `${parseFloat(style.letterSpacing) || 0}px`;
+        if (verticalMeasure) {
+          verticalMeasure.style.font = context.font;
+          verticalMeasure.style.fontKerning = style.fontKerning;
+          verticalMeasure.style.letterSpacing = style.letterSpacing;
+          verticalMeasure.style.writingMode = style.writingMode;
+          verticalMeasure.style.textOrientation = style.textOrientation;
+          verticalMeasure.style.textTransform = style.textTransform;
+        }
+      };
+      const measure = (text: string) => {
+        configure();
+        if (verticalMeasure) {
+          verticalMeasure.textContent = text;
+          return verticalMeasure.getBoundingClientRect().height;
+        }
+        // The model retains original case, but tab alignment follows painted glyphs.
+        const displayed = style.textTransform === 'uppercase' ? text.toUpperCase() : text;
+        return context.measureText(displayed).width;
+      };
+      const measurementKey = JSON.stringify([
+        font,
+        style.fontKerning,
+        style.letterSpacing,
+        style.textTransform,
+        style.writingMode,
+        style.textOrientation,
+        separator,
+      ]);
+      const fragment = document.createDocumentFragment();
+      for (const text of node.data.split(/(\t|\n)/)) {
+        if (text === '\t') {
+          const tab = document.createElement('span');
+          tab.textContent = text;
+          tab.style.display = 'inline-block';
+          tab.style.whiteSpace = 'pre';
+          tab.style.inlineSize = '0px';
+          tab.style.tabSize = '0';
+          fragment.append(tab);
+          parts.push({ text, width: 0, decimal: 0, tab });
+        } else {
+          fragment.append(text);
+          if (!text) continue;
+          const previous = parts.at(-1);
+          // Browsers kern across span boundaries when their font metrics match,
+          // including runs that differ only in color or text decoration.
+          const joined =
+            text !== '\n' && previous?.text !== '\n' && previous?.measurementKey === measurementKey;
+          if (joined) previous.chunks!.push(text);
+          else
+            parts.push({
+              text,
+              chunks: [text],
+              width: 0,
+              decimal: -1,
+              separator,
+              measurementKey,
+              measure,
+            });
+        }
+      }
+      node.replaceWith(fragment);
+    }
+    for (const part of parts) {
+      if (!part.chunks) continue;
+      const text = part.chunks.join('');
+      part.width = part.measure!(text);
+      const decimal = text.indexOf(part.separator!);
+      // Subtract the suffix from the fully shaped run to retain kerning at
+      // the decimal boundary (for example, the V and period in "AV.12").
+      part.decimal = decimal < 0 ? -1 : part.width - part.measure!(text.slice(decimal));
+    }
+    verticalMeasure?.remove();
+    let fieldWidth = 0;
+    let decimalWidth = 0;
+    const fields = new Map<HTMLElement, { width: number; decimal: number }>();
+    for (let index = parts.length - 1; index >= 0; index--) {
+      const part = parts[index]!;
+      if (part.tab || part.text === '\n') {
+        if (part.tab) fields.set(part.tab, { width: fieldWidth, decimal: decimalWidth });
+        fieldWidth = decimalWidth = 0;
+      } else {
+        fieldWidth += part.width;
+        decimalWidth = part.decimal < 0 ? part.width + decimalWidth : part.decimal;
+      }
+    }
+    const style = getComputedStyle(paragraph);
+    const margin = parseFloat(vertical ? style.paddingTop : style.paddingLeft) || 0;
+    const interval = parseFloat(style.tabSize);
+    for (const part of parts) {
+      if (!part.tab) continue;
+      // Offsets are layout coordinates, so rotated shapes need no screen-space correction.
+      const position = (vertical ? part.tab.offsetTop : part.tab.offsetLeft) - margin;
+      let low = 0;
+      let high = stops.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (stops[middle]!.position <= position + 0.01) low = middle + 1;
+        else high = middle;
+      }
+      const stop = stops[low];
+      const next =
+        stop?.position ??
+        (interval > 0 ? (Math.floor(position / interval) + 1) * interval : position);
+      const field = fields.get(part.tab)!;
+      const shift =
+        stop?.alignment === 'center'
+          ? field.width / 2
+          : stop?.alignment === 'right'
+            ? field.width
+            : stop?.alignment === 'decimal'
+              ? field.decimal
+              : 0;
+      part.tab.style.inlineSize = `${Math.max(0, next - position - shift)}px`;
+    }
+  }
+}

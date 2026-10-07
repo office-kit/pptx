@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { textEditDiff } from '../site/src/lib/editor/core/text-edit-diff.ts';
-import { projectTextEdits } from '../site/src/lib/editor/core/text-edit-preview.ts';
+import { textEditDiff } from '../packages/editor/src/core/text-edit-diff.ts';
+import { projectTextEdits } from '../packages/editor/src/core/text-edit-preview.ts';
 import {
   addBlankSlide,
   addSlideTextBox,

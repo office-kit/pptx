@@ -8,7 +8,7 @@ test('HTML paste ignores sub-point sizes that cannot be written to a presentatio
   const module = await build({
     entryPoints: [
       fileURLToPath(
-        new URL('../../../../site/src/lib/editor/core/html-text-clipboard.ts', import.meta.url),
+        new URL('../../../../packages/editor/src/core/html-text-clipboard.ts', import.meta.url),
       ),
     ],
     bundle: true,

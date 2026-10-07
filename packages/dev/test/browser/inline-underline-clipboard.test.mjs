@@ -34,7 +34,7 @@ test('HTML clipboard preserves advanced underline styles on paste', async () => 
         }
       `,
       loader: 'ts',
-      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+      resolveDir: fileURLToPath(new URL('../../../../packages/editor/src/core/', import.meta.url)),
     },
     bundle: true,
     format: 'esm',

@@ -15,8 +15,8 @@ import {
   savePresentation,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
-import { copyTextRange } from '../site/src/lib/editor/core/text-clipboard.ts';
-import { textFormatsInRange } from '../site/src/lib/editor/core/text-format-selection.ts';
+import { copyTextRange } from '../packages/editor/src/core/text-clipboard.ts';
+import { textFormatsInRange } from '../packages/editor/src/core/text-format-selection.ts';
 
 it.each(['shape', 'table'] as const)(
   'line breaks inherit paragraph formatting in %s',

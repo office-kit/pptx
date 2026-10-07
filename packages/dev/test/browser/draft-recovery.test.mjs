@@ -39,7 +39,7 @@ test(
       await saved();
       const storeModule = await transform(
         await readFile(
-          new URL('../../../../site/src/lib/editor/dev/draft-store.ts', import.meta.url),
+          new URL('../../../../packages/editor/src/dev/draft-store.ts', import.meta.url),
           'utf8',
         ),
         { loader: 'ts', format: 'esm' },

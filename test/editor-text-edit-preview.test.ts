@@ -27,8 +27,8 @@ import {
   setTableCellTextFormat,
   toWritableTextFormat,
 } from '../src/api/index.ts';
-import { copyTextRange } from '../site/src/lib/editor/core/text-clipboard.ts';
-import { projectTextEdits } from '../site/src/lib/editor/core/text-edit-preview.ts';
+import { copyTextRange } from '../packages/editor/src/core/text-clipboard.ts';
+import { projectTextEdits } from '../packages/editor/src/core/text-edit-preview.ts';
 
 describe('pending text formatting preview', () => {
   it('preserves sequential edit inheritance without mutating the source shape', () => {

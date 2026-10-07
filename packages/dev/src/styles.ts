@@ -1,5 +1,5 @@
 // The shell and the agent panes sit next to the editor, so they share its
-// design tokens. These values are copied from site/src/lib/editor/ui/tokens.css
+// design tokens. These values are copied from packages/editor/src/ui/tokens.css
 // (the shell is plain HTML and cannot import the editor's stylesheet);
 // test/shell-tokens.test.mjs fails when the two drift apart.
 export const tokenStyles = `:root{

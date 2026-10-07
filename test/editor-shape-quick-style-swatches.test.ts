@@ -12,7 +12,7 @@ import {
 import { SLIDE_DOCUMENT } from '../src/api/_internal-symbols.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { parseXml } from '../src/internal/xml/index.ts';
-import { shapeQuickStyleSwatches } from '../site/src/lib/editor/core/shape-quick-style-swatches.ts';
+import { shapeQuickStyleSwatches } from '../packages/editor/src/core/shape-quick-style-swatches.ts';
 
 const deckFixture = fileURLToPath(new URL('./fixtures/minimal/two-slides.pptx', import.meta.url));
 

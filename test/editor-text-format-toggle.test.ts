@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   textFormatActive,
   toggleTextFormat,
-} from '../site/src/lib/editor/core/text-format-toggle.ts';
+} from '../packages/editor/src/core/text-format-toggle.ts';
 
 describe('text format toggles', () => {
   it('recognizes imported strike styles and turns mixed selections on', () => {

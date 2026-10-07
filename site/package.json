@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "fidelity": "tsx fidelity/run.ts",
-    "test": "node --test test/*.test.mjs"
+    "fidelity": "tsx fidelity/run.ts"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",
@@ -23,6 +22,7 @@
   "devDependencies": {
     "@office-kit/pptx": "workspace:*",
     "@office-kit/pptx-dsl": "workspace:*",
+    "@office-kit/pptx-editor": "workspace:*",
     "@office-kit/pptx-preview": "workspace:*",
     "@office-kit/site-kit": "github:office-kit/office-kit.github.io#site-kit",
     "@sveltejs/adapter-static": "^3.0.10",

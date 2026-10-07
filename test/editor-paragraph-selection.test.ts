@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paragraphsInTextRange } from '../site/src/lib/editor/core/paragraph-selection.ts';
+import { paragraphsInTextRange } from '../packages/editor/src/core/paragraph-selection.ts';
 
 describe('paragraph selection', () => {
   it('targets the caret paragraph including empty and final paragraphs', () => {

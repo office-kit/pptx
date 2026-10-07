@@ -1,0 +1,66 @@
+{
+  "name": "@office-kit/pptx-editor",
+  "version": "0.0.0",
+  "description": "Embeddable browser editor for PowerPoint presentations, built on @office-kit/pptx",
+  "keywords": [
+    "editor",
+    "ooxml",
+    "powerpoint",
+    "pptx",
+    "presentation"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/office-kit/pptx.git",
+    "directory": "packages/editor"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.js"
+    },
+    "./internal/animation-player": {
+      "types": "./dist/internal/animation-player.d.ts",
+      "import": "./dist/internal/animation-player.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "node --test test/*.test.mjs",
+    "test:browser": "node --test --test-timeout=180000 test/browser/*.test.mjs"
+  },
+  "dependencies": {
+    "@office-kit/pptx": "workspace:^",
+    "@office-kit/pptx-preview": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "esbuild": "^0.28.1",
+    "fflate": "^0.8.3",
+    "playwright": "^1.63.0",
+    "svelte": "^5.56.3",
+    "svelte-check": "^4.6.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}
