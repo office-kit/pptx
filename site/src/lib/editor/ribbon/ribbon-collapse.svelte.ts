@@ -1,8 +1,9 @@
 // Collapse steps for the contextual tabs. Mac PowerPoint switches a tab to its
 // compact layout by window width (the 1200 pt captures already show it while
 // the 1512 pt ones do not), the same width at which the Home tab shrinks its
-// Slides/Insert groups. Longer labels (Japanese) can still overflow, so a tab
-// also takes the next step while its content does not fit.
+// Slides/Insert groups. Longer labels (Japanese, or a wider system font) are
+// first absorbed by the narrowing galleries (`.ctx-shrink` in contextual.css);
+// only content that still does not fit takes the next step.
 import { getLocale } from '../i18n/i18n.svelte.ts';
 
 const COMPACT_BELOW = 1300;

@@ -150,7 +150,7 @@
     </div>
   </section>
 
-  <section class="ctx-group" aria-label={t('Table Styles')}>
+  <section class="ctx-group ctx-shrink" aria-label={t('Table Styles')}>
     <div class="ctx-gallery" role="group" aria-label={t('Table Styles')}>
       <span class="ctx-gallery-arrow hidden" aria-hidden="true"></span>
       <div class="ctx-gallery-items table-strip">
@@ -201,7 +201,7 @@
   /* Native check boxes: columns 97 and 114 pt wide. */
   .option { display: flex; align-items: center; gap: 5px; height: 22px; padding: 0 4px 0 0; font-size: 12px; white-space: nowrap; }
   .option input { margin: 0; }
-  .ctx-gallery-items.table-strip { width: 518px; justify-content: flex-start; gap: 0; background: #fff; }
+  .ctx-gallery-items.table-strip { --ctx-gallery-min: 300px; width: 518px; justify-content: flex-start; gap: 0; background: #fff; }
   .table-swatch { width: 76px; height: 56px; margin-right: -2px; padding: 4px 6px; }
   .table-swatch.current { border-color: var(--ok-selected-border); background: var(--ok-selected); }
   .mini { display: flex; flex-direction: column; width: 100%; height: 100%; }

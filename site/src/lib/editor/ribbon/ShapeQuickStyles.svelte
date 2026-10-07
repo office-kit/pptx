@@ -128,8 +128,9 @@
   .compact { flex-direction:row; }
   /* PowerPoint's in-ribbon strip: 18 × 58 pt arrows around three 58 pt
      swatches in a 174 pt frame. */
-  .inline-gallery { display:flex; align-items:flex-start; flex:none; height:60px; }
-  .inline-items { display:flex; align-items:center; justify-content:space-around; width:174px; height:58px; margin-top:1px; box-sizing:border-box; border:1px solid var(--ok-border); border-radius:3px; background:white; }
+  .inline-gallery { display:flex; align-items:flex-start; flex:0 1 auto; min-width:0; height:60px; }
+  /* Narrows with its ribbon group (see contextual.css) down to two swatches. */
+  .inline-items { display:flex; align-items:center; justify-content:space-around; flex:0 1 auto; min-width:120px; overflow:hidden; width:174px; height:58px; margin-top:1px; box-sizing:border-box; border:1px solid var(--ok-border); border-radius:3px; background:white; }
   .inline-item, .inline-more { width:54px; height:50px; padding:0; border:1px solid transparent; border-radius:2px; background:white; color:var(--ok-text); cursor:pointer; }
   .inline-item:hover:not(:disabled), .inline-item:focus-visible, .inline-more:hover:not(:disabled), .inline-more:focus-visible { outline:2px solid var(--ok-accent); outline-offset:-2px; }
   .inline-item:disabled, .inline-more:disabled { opacity:.4; cursor:default; }

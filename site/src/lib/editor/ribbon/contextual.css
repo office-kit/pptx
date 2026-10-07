@@ -225,6 +225,23 @@
 .ctx-ribbon .ctx-gallery-arrow.hidden {
   visibility: hidden;
 }
+/* As in PowerPoint, galleries narrow before a tab switches to its compact
+   layout. Label widths depend on the font (the system fallback on Linux is
+   wider than San Francisco; Japanese captions are longer), so a ribbon that
+   misses by a few points gives them up from its galleries; only an overflow
+   beyond that takes the next collapse step (RibbonCollapse). */
+.ctx-ribbon .ctx-group.ctx-shrink {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ctx-ribbon .ctx-shrink .ctx-gallery {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ctx-ribbon .ctx-shrink .ctx-gallery-items {
+  flex: 0 1 auto;
+  min-width: var(--ctx-gallery-min);
+}
 
 /* Spin boxes (Height, Width, Row, Column): 78 × 24 pt on a 28 pt pitch. */
 .ctx-ribbon .ctx-spins {

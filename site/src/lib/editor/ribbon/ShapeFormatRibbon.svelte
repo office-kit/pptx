@@ -175,7 +175,7 @@
     {/if}
   </section>
 
-  <section class="ctx-group" aria-label={t('Shape Styles')}>
+  <section class="ctx-group ctx-shrink" aria-label={t('Shape Styles')}>
     <ShapeQuickStyles inline />
     <span class="ctx-paint ctx-big" class:disabled={!paintable}><span class="ctx-icon-row"><Icon name="fill" size={32} /></span><span class="ctx-caption">{caption(t('Shape Fill'))}</span><ShapeFillPicker disabled={!paintable} /></span>
     <div class="ctx-rows tools">
@@ -184,7 +184,7 @@
     </div>
   </section>
 
-  <section class="ctx-group" aria-label={t('WordArt Styles')}>
+  <section class="ctx-group ctx-shrink" aria-label={t('WordArt Styles')}>
     <div class="ctx-gallery" role="group" aria-label={t('WordArt Styles')}>
       <span class="ctx-gallery-arrow hidden" aria-hidden="true"></span>
       <div class="ctx-gallery-items wordart-strip">
@@ -222,7 +222,7 @@
 <style>
   .ctx-gallery-items.shape-strip { display: grid; grid-template-columns: repeat(6, 20px); grid-auto-rows: 18px; align-content: center; box-sizing: border-box; background: #fff; }
   .shape-strip button { width: 20px; height: 18px; padding: 1px 2px; border-radius: 2px; background-repeat: no-repeat; background-origin: content-box; box-sizing: border-box; }
-  .ctx-gallery-items.wordart-strip { width: 174px; justify-content: space-around; background: #fff; }
+  .ctx-gallery-items.wordart-strip { --ctx-gallery-min: 120px; width: 174px; justify-content: space-around; background: #fff; }
   .wordart-strip button { display: flex; align-items: center; justify-content: center; width: 56px; height: 54px; padding: 0; overflow: hidden; }
   .wordart-strip button:hover:not(:disabled) { outline: 2px solid var(--ok-accent); outline-offset: -2px; background: none; }
   .letter { font: 34px/1 Calibri, Carlito, Arial, sans-serif; color: transparent; }

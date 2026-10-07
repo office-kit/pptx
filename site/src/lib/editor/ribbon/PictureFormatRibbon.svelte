@@ -126,7 +126,7 @@
     </div>
   </section>
 
-  <section class="ctx-group" aria-label={t('Picture Styles')}>
+  <section class="ctx-group ctx-shrink" aria-label={t('Picture Styles')}>
     <div class="ctx-gallery" role="group" aria-label={t('Quick Styles')}>
       <span class="ctx-gallery-arrow hidden" aria-hidden="true"></span>
       <div class="ctx-gallery-items picture-strip" title={t('Picture styles are not available in this editor yet.')}>
@@ -162,6 +162,6 @@
 </div>
 
 <style>
-  .ctx-gallery-items.picture-strip { width: 212px; justify-content: space-around; opacity: 0.4; }
+  .ctx-gallery-items.picture-strip { --ctx-gallery-min: 150px; width: 212px; justify-content: space-around; opacity: 0.4; }
   .picture-swatch { display: flex; align-items: center; justify-content: center; width: 48px; height: 44px; border: 1px solid var(--ok-border); color: var(--ok-text-3); background: #fff; }
 </style>
