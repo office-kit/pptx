@@ -134,7 +134,10 @@ This is a high-fidelity preview, not a spec-complete PowerPoint renderer.
 Preset and custom geometry, solid/gradient/pattern/image fills (including the
 placeholder layout/master cascade), strokes, rotation, effects (shadow, glow,
 soft edge, reflection), images with adjustments, charts (column, bar, line,
-area, pie, doughnut, scatter, radar, bubble), tables with per-run cell text,
+area, pie, doughnut, scatter, radar, bubble), tables with per-run cell text and
+every part of their table style (PowerPoint's 74 built-in styles included:
+fills, translucent bands, borders, text, the Themed Styles' background, and
+the six style options; the background's shadow is not drawn),
 vertical and multi-column text in both text-layout modes, picture bullets, and
 template (layout/master) decoration all render. EMF pictures containing solid-filled
 line/Bézier paths, including rectangular and path clipping with copy semantics,

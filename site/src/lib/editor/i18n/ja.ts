@@ -1822,11 +1822,7 @@ export const ja: Record<string, string> = {
   'First Column': '最初の列',
   'Last Column': '最後の列',
   'Banded Columns': '縞模様 (列)',
-  'No Style, No Grid': 'スタイルなし、表のグリッド線なし',
-  'No Style, Table Grid': 'スタイルなし、表のグリッド線あり',
-  'Medium Style 2 - Accent 1': '中間スタイル 2 - アクセント 1',
-  'The editor draws only these built-in table styles.':
-    'このエディタで描画できる組み込みの表のスタイルはこれだけです。',
+  'Clear Table': '表のクリア',
   'No Border': '枠なし',
   'All Borders': '格子',
   'Outside Borders': '外枠',

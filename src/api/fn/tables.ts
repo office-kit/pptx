@@ -37,10 +37,13 @@ import {
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import {
+  type BuiltinTableStyleName,
   buildTableCell,
   buildTableRow,
+  builtinTableStyleIdByName,
   getBuiltinTableStyle,
 } from '../../internal/presentationml/index.ts';
+import { ensureBuiltinTableStyleDefinition } from './table-style-part.ts';
 import {
   NS,
   cloneElement,
@@ -84,7 +87,9 @@ import { ALIGN_TOKEN_MAP, resolveTextBodyRunFormatEffective } from './shape-para
 import { getPresentationTheme } from './package.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { getPresentationFonts, themeRootFromPackage } from './theme.ts';
-import { resolveDrawingColor } from './shapes.ts';
+import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
+import { parseGradFill } from './shape-gradient-read.ts';
+import type { ReadGradientFill } from '../../internal/drawingml/index.ts';
 import type { ShapeFill } from './shape-read-paint.ts';
 import { getSlides } from './slide-query.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
@@ -298,16 +303,29 @@ export const getTableStyleId = (table: SlideShapeData): string | null => {
 };
 
 /**
- * Writes `<a:tbl><a:tblPr><a:tableStyleId>` to the given GUID. Pass
- * `null` to remove the element so the table falls back to the slide's
- * default style. The GUID must include its curly braces — e.g.
- * `'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` (PowerPoint's "Medium
- * Style 2 - Accent 1"). Creates `<a:tblPr>` if absent. Throws when the
- * shape isn't a table graphic frame.
+ * Applies a table style by writing `<a:tbl><a:tblPr><a:tableStyleId>`.
+ * `styleId` is a style GUID with its curly braces — e.g.
+ * `'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` — or the English name of one
+ * of PowerPoint's built-in styles (`'Medium Style 2 - Accent 1'`; see
+ * `BUILTIN_TABLE_STYLES`). For a built-in style, PowerPoint's definition is
+ * added to `ppt/tableStyles.xml` (creating the part if needed) unless the
+ * deck already defines that GUID, as PowerPoint does when you pick a style.
+ * Pass `null` to remove the element so the table falls back to the deck's
+ * default style. Creates `<a:tblPr>` if absent. Throws when the shape isn't
+ * a table graphic frame or `styleId` is neither a GUID nor a built-in name.
  */
-export const setTableStyleId = (table: SlideShapeData, styleId: string | null): void => {
+export const setTableStyleId = (
+  table: SlideShapeData,
+  styleId: BuiltinTableStyleName | (string & {}) | null,
+): void => {
   const tbl = findTblElement(table);
   if (!tbl) throw new Error('setTableStyleId: shape is not a table graphic frame');
+  // ST_Guid requires uppercase hex in braces; normalize so a lowercase GUID
+  // (e.g. from crypto.randomUUID) is accepted, and reject non-GUID strings.
+  const guid =
+    styleId === null
+      ? null
+      : (builtinTableStyleIdByName(styleId) ?? normalizeGuid(styleId, 'setTableStyleId: styleId'));
   const tblPr = ensureTblPr(tbl);
   // tableStyleId is the LAST child of <a:tblPr> per CT_TableProperties.
   tblPr.children = tblPr.children.filter(
@@ -318,11 +336,9 @@ export const setTableStyleId = (table: SlideShapeData, styleId: string | null): 
         c.name.localName === 'tableStyleId'
       ),
   );
-  if (styleId !== null) {
-    // ST_Guid requires uppercase hex in braces; normalize so a lowercase GUID
-    // (e.g. from crypto.randomUUID) is accepted, and reject non-GUID strings.
-    const guid = normalizeGuid(styleId, 'setTableStyleId: styleId');
+  if (guid !== null) {
     tblPr.children.push(elem(qname('a', 'tableStyleId', NS.dml), { children: [text(guid)] }));
+    ensureBuiltinTableStyleDefinition(table[SHAPE_SLIDE][INTERNAL_PACKAGE], guid);
   }
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
@@ -465,12 +481,18 @@ const tableStyleTextFormat = (
   return out;
 };
 
-const tableStylePartsForCell = (pres: PresentationData, cell: TableCellData): XmlElement[] => {
+// The table's own style, else the deck default; package definitions win over
+// the built-in ones.
+const tableStyleFor = (pres: PresentationData, table: SlideShapeData): XmlElement | null => {
   const info = tableStyleInfoFor(pres);
-  const table = cell[CELL_TABLE];
   const styleId = (getTableStyleId(table) ?? info?.defaultId)?.trim().toUpperCase();
-  if (!styleId) return [];
-  const style = info?.styles.get(styleId) ?? getBuiltinTableStyle(styleId);
+  if (!styleId) return null;
+  return info?.styles.get(styleId) ?? getBuiltinTableStyle(styleId);
+};
+
+const tableStylePartsForCell = (pres: PresentationData, cell: TableCellData): XmlElement[] => {
+  const table = cell[CELL_TABLE];
+  const style = tableStyleFor(pres, table);
   const tbl = findTblElement(table);
   if (!style || !tbl) return [];
   const { rows: rowCount, cols: colCount } = tableStyleDimensions(tbl);
@@ -1566,6 +1588,8 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
 /** Effective cell appearance after table-style and cell-property inheritance. */
 export interface TableCellAppearanceEffective {
   readonly fill: ShapeFill;
+  /** Opacity (0–1) of a solid `fill` whose color carries an alpha transform. */
+  readonly fillOpacity?: number;
   readonly borders: TableCellBorders;
 }
 
@@ -1650,12 +1674,20 @@ const tableStyleMatrixEntry = (
   return resolved;
 };
 
+// A resolved table fill. `opacity` is present when the color carries an alpha
+// transform; `gradient` when the fill is a gradient.
+type TableFill = {
+  readonly fill: ShapeFill;
+  readonly opacity?: number;
+  readonly gradient?: ReadGradientFill;
+};
+
 const readTableFill = (
   container: XmlElement,
   pres: PresentationData,
   theme: ReturnType<typeof getPresentationTheme>,
   colorMap: Readonly<Record<string, string>> | null,
-): ShapeFill | null => {
+): TableFill | null => {
   for (const child of container.children) {
     if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
     switch (child.name.localName) {
@@ -1663,7 +1695,7 @@ const readTableFill = (
         return readTableFill(child, pres, theme, colorMap);
       case 'fillRef': {
         const index = Number.parseInt(getAttrValue(child, qname('', 'idx', '')) ?? '', 10);
-        if (index === 0) return { kind: 'none' };
+        if (index === 0) return { fill: { kind: 'none' } };
         const resolved = tableStyleMatrixEntry(pres, child, 'fillStyleLst');
         return resolved
           ? readTableFill(
@@ -1675,20 +1707,27 @@ const readTableFill = (
           : null;
       }
       case 'noFill':
-        return { kind: 'none' };
+        return { fill: { kind: 'none' } };
       case 'solidFill': {
         const color = child.children.find(
           (c): c is XmlElement => c.kind === 'element' && c.name.namespaceURI === NS.dml,
         );
         const resolved = color ? resolveDrawingColor(color, theme, colorMap) : null;
-        return resolved === null ? null : { kind: 'solid', color: resolved };
+        if (resolved === null) return null;
+        const opacity = color ? resolveDrawingColorOpacity(color) : null;
+        return {
+          fill: { kind: 'solid', color: resolved },
+          ...(opacity !== null ? { opacity } : {}),
+        };
       }
-      case 'gradFill':
-        return { kind: 'gradient' };
+      case 'gradFill': {
+        const gradient = parseGradFill(child, { theme, colorMap: colorMap ?? {} });
+        return { fill: { kind: 'gradient' }, ...(gradient ? { gradient } : {}) };
+      }
       case 'pattFill':
-        return { kind: 'pattern' };
+        return { fill: { kind: 'pattern' } };
       case 'blipFill':
-        return { kind: 'image' };
+        return { fill: { kind: 'image' } };
     }
   }
   return null;
@@ -1730,7 +1769,7 @@ export const getTableCellAppearanceEffective = (
 ): TableCellAppearanceEffective => {
   const theme = getPresentationTheme(pres);
   const colorMap = getEffectiveColorMap(cell[CELL_TABLE][SHAPE_SLIDE]);
-  let fill: ShapeFill = { kind: 'inherit' };
+  let fill: TableFill = { fill: { kind: 'inherit' } };
   const borders: { -readonly [K in keyof TableCellBorders]: TableCellBorders[K] } = {
     left: null,
     right: null,
@@ -1816,7 +1855,48 @@ export const getTableCellAppearanceEffective = (
       if (line) borders[side] = readTableStyleBorder(line, pres, theme, colorMap);
     }
   }
-  return { fill, borders };
+  return {
+    fill: fill.fill,
+    ...(fill.opacity !== undefined ? { fillOpacity: fill.opacity } : {}),
+    borders,
+  };
+};
+
+/** Effective background drawn behind a table's cells. */
+export interface TableBackgroundEffective {
+  readonly fill: ShapeFill;
+  /** Opacity (0–1) of a solid `fill` whose color carries an alpha transform. */
+  readonly fillOpacity?: number;
+  /** Stops (with theme-resolved colors) and direction of a gradient `fill`. */
+  readonly gradient?: ReadGradientFill;
+}
+
+/**
+ * Resolves the table background: a fill on `<a:tblPr>` itself, else the
+ * table style's `<a:tblBg>` (PowerPoint's Themed Styles use a theme
+ * style-matrix fill there). Cells without a fill of their own show it.
+ * Returns `null` when neither defines one. The `tblBg` effect is not read.
+ */
+export const getTableBackgroundEffective = (
+  pres: PresentationData,
+  table: SlideShapeData,
+): TableBackgroundEffective | null => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('getTableBackgroundEffective: shape is not a table graphic frame');
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(table[SHAPE_SLIDE]);
+  const tblPr = firstChildElement(tbl, qname('a', 'tblPr', NS.dml));
+  const style = tableStyleFor(pres, table);
+  const tblBg = style ? tableStylePart(style, 'tblBg') : null;
+  const resolved =
+    (tblPr ? readTableFill(tblPr, pres, theme, colorMap) : null) ??
+    (tblBg ? readTableFill(tblBg, pres, theme, colorMap) : null);
+  if (!resolved) return null;
+  return {
+    fill: resolved.fill,
+    ...(resolved.opacity !== undefined ? { fillOpacity: resolved.opacity } : {}),
+    ...(resolved.gradient ? { gradient: resolved.gradient } : {}),
+  };
 };
 
 /** Applies a TextFormat to the cell's text, optionally within UTF-16 offsets

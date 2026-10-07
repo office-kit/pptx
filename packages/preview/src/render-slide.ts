@@ -145,6 +145,7 @@ import {
   getTableCellText3D,
   getTableCellMargins,
   getTableCellAppearanceEffective,
+  getTableBackgroundEffective,
   getTableCellParagraphs,
   getTableCellRunFormatEffective,
   getTableCellSpan,
@@ -5742,6 +5743,26 @@ const renderTable = (
   const tableThemeFace = getPresentationFonts(pres)?.minorLatin ?? null;
   const out: string[] = [];
   out.push(`<g${transform}>`);
+  // The table background (`a:tblPr` fill or the style's `a:tblBg`) shows
+  // through every cell without a fill of its own — PowerPoint's Themed Styles
+  // paint their theme gradient this way.
+  const background = getTableBackgroundEffective(pres, shape);
+  const tableW = (colXs[dims.cols] ?? xPx) - xPx;
+  const tableH = (rowYs[dims.rows] ?? yPx) - yPx;
+  if (background?.fill.kind === 'solid') {
+    const opacity =
+      background.fillOpacity !== undefined && background.fillOpacity < 1
+        ? ` fill-opacity="${background.fillOpacity.toFixed(3)}"`
+        : '';
+    out.push(
+      `<rect x="${px(xPx)}" y="${px(yPx)}" width="${px(tableW)}" height="${px(tableH)}" fill="${resolveColor(background.fill.color, theme, '#FFFFFF')}"${opacity}/>`,
+    );
+  } else if (background?.gradient) {
+    const built = gradientDef(background.gradient, theme);
+    out.push(
+      `${built.defs}<rect x="${px(xPx)}" y="${px(yPx)}" width="${px(tableW)}" height="${px(tableH)}" fill="${built.fillAttr}"/>`,
+    );
+  }
   const borderEdges: string[] = [];
   const borderEdgeCandidates = new Map<string, { index: number; width: number }>();
   for (let r = 0; r < dims.rows; r++) {
@@ -5774,8 +5795,14 @@ const renderTable = (
         resolvedFill = 'none';
       }
       const cellTextColor = textColor;
+      // Themed and Light styles band with translucent accents over the
+      // table background.
+      const fillOpacity =
+        fill.kind === 'solid' && appearance.fillOpacity !== undefined && appearance.fillOpacity < 1
+          ? ` fill-opacity="${appearance.fillOpacity.toFixed(3)}"`
+          : '';
       out.push(
-        `<g data-pptx-cell="${r},${c}"><rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
+        `<g data-pptx-cell="${r},${c}"><rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"${fillOpacity}/>`,
       );
       // Draw borders after the fills so they sit on top. Shared edges can
       // receive two candidates; preserve the visually strongest line. Equal

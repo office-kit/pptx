@@ -14,6 +14,7 @@ import {
 } from '../../internal/opc/index.ts';
 import { type ImageFit, fitImageRect } from './shape-image.ts';
 import {
+  DEFAULT_TABLE_STYLE_ID,
   REL_TYPES,
   type PresetShape,
   buildConnector,
@@ -30,6 +31,7 @@ import {
 } from '../_internal-symbols.ts';
 import { appendAndReturnNewShape, nextShapeId } from './_helpers.ts';
 import { resolveDeckBodyTextColor } from './color-map.ts';
+import { ensureBuiltinTableStyleDefinition } from './table-style-part.ts';
 // ---------------------------------------------------------------------------
 // Slide-level shape authoring.
 //
@@ -156,6 +158,7 @@ export const addSlideTable = (
     ...(opts.bandRow !== undefined ? { bandRow: opts.bandRow } : {}),
     ...(textColorHex !== null ? { textColorHex } : {}),
   });
+  ensureBuiltinTableStyleDefinition(slide[INTERNAL_PACKAGE], DEFAULT_TABLE_STYLE_ID);
   return appendAndReturnNewShape(slide, frame);
 };
 

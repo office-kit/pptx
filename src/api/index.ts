@@ -23,6 +23,8 @@ export type {
   SlideComment,
 } from '../internal/presentationml/index.ts';
 export { COMMENT_STATUSES } from '../internal/presentationml/index.ts';
+export type { BuiltinTableStyle, BuiltinTableStyleName } from '../internal/presentationml/index.ts';
+export { BUILTIN_TABLE_STYLES } from '../internal/presentationml/index.ts';
 export type { PresentationInput, PresentationSize, SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
@@ -154,6 +156,7 @@ export type {
   TableCellBorder,
   TableCellBorders,
   TableCellAppearanceEffective,
+  TableBackgroundEffective,
   PresentationThumbnail,
   ShapeBounds,
   Shape3D,
@@ -500,6 +503,7 @@ export {
   getTableCellAnchor,
   getTableCellBorders,
   getTableCellAppearanceEffective,
+  getTableBackgroundEffective,
   getTableCellFill,
   getTableCellMargins,
   getTableCellParagraphs,
