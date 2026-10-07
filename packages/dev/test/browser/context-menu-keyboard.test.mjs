@@ -60,60 +60,65 @@ test(
       const menuFocus = async (label) =>
         assert.equal(
           await editor
-            .getByRole('menuitem', { name: label, exact: false })
+            .getByRole('menuitem', { name: label, exact: true })
             .evaluate((node) => node === document.activeElement),
           true,
         );
+      const press = async (key, times = 1) => {
+        for (let i = 0; i < times; i++) await page.keyboard.press(key);
+      };
       await cell(1, 1).press('Shift+F10');
       await menuFocus('Cut');
-      await page.keyboard.press('ArrowUp');
-      await menuFocus('Format Shape...');
-      await page.keyboard.press('Home');
+      await press('ArrowUp');
+      await menuFocus('New Comment');
+      await press('Home');
       await menuFocus('Cut');
-      await page.keyboard.press('ArrowDown');
+      await press('ArrowDown');
       await menuFocus('Copy');
-      await page.keyboard.press('ArrowDown');
-      await menuFocus('Clear cell text');
       // Disabled Paste is skipped; menu keys must not edit the underlying cell.
-      await page.keyboard.press('Delete');
+      await press('ArrowDown');
+      await menuFocus('Font...');
+      await press('Delete');
       assert.equal((await values())[0][0], 'A');
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 1);
-      await page.keyboard.press('Enter');
-      await saved();
-      assert.equal((await values())[0][0], '');
-      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
-      await saved();
-      await cell(1, 1).click();
-      await cell(1, 1).press('Shift+F10');
-      await page.keyboard.press('End');
-      await menuFocus('Format Shape...');
-      for (const label of ['Size and Position...', 'Select table', 'Select all cells']) {
-        await page.keyboard.press('ArrowUp');
+      // Up from the end through the enabled items to Select ▸, then into it.
+      await press('End');
+      await menuFocus('New Comment');
+      for (const label of ['Hyperlink...', 'Lock', 'Format Shape...', 'Select']) {
+        await press('ArrowUp');
         await menuFocus(label);
       }
-      await page.keyboard.press('Enter');
-      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 9);
+      await press('ArrowRight');
+      await menuFocus('Select Table');
+      await press('ArrowDown', 2);
+      await menuFocus('Select Row');
+      await press('Enter');
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 3);
       await cell(1, 1).press('Shift+F10');
-      await page.keyboard.press('Escape');
+      await press('Escape');
       assert.equal(await editor.getByRole('menu').count(), 0);
       await focused(1, 1);
-      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 9);
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 3);
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
       await cell(2, 2).click();
       await cell(2, 2).press('Shift+F10');
       await menuFocus('切り取り');
-      await page.keyboard.press('ArrowDown');
-      await page.keyboard.press('ArrowDown');
-      await menuFocus('セルの文字列を消去');
-      await page.keyboard.press('Enter');
+      await press('ArrowDown', 2);
+      await menuFocus('フォント...');
+      await press('ArrowDown', 5);
+      await menuFocus('削除');
+      // Enter opens a submenu and moves into it, as ArrowRight does.
+      await press('Enter');
+      await menuFocus('列の削除');
+      await press('ArrowDown');
+      await menuFocus('行の削除');
+      await press('Enter');
       await saved();
-      assert.equal((await values())[1][1], '');
       await page.reload();
       await saved();
       assert.deepEqual(await values(), [
         ['A', 'B', 'C'],
-        ['D', '', 'F'],
         ['G', 'H', 'I'],
       ]);
       assert.deepEqual(errors, []);

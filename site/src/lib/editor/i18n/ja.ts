@@ -1960,4 +1960,55 @@ export const ja: Record<string, string> = {
   Ink: 'インク',
   'Presentation Views': 'プレゼンテーションの表示',
   'Master Views': 'マスター表示',
+  // Text, table-cell, picture and slide-background context menus. Japanese
+  // context menus were not captured natively; these follow Mac PowerPoint's
+  // Japanese ribbon/menu wording and are unverified.
+  'Exit Edit Text': 'テキストの編集を終了',
+  'Font...': 'フォント...',
+  'Paragraph...': '段落...',
+  'Bullets and Numbering...': '箇条書きと段落番号...',
+  'Filled Round Bullets': '塗りつぶし丸の行頭文字',
+  'Hollow Round Bullets': '中抜き丸の行頭文字',
+  'Filled Square Bullets': '塗りつぶし四角の行頭文字',
+  'Hollow Square Bullets': '中抜き四角の行頭文字',
+  'Star Bullets': '星の行頭文字',
+  'Arrow Bullets': '矢印の行頭文字',
+  'Checkmark Bullets': 'チェック マークの行頭文字',
+  'Thesaurus...': '類義語辞典...',
+  'Format Text Effects...': '文字の効果の設定...',
+  Select: '選択',
+  'Insert Columns to the Left': '左に列を挿入',
+  'Insert Columns to the Right': '右に列を挿入',
+  'Insert Rows Above': '上に行を挿入',
+  'Insert Rows Below': '下に行を挿入',
+  'Delete Table': '表の削除',
+  'Select Table': '表の選択',
+  'Select Column': '列の選択',
+  'Select Row': '行の選択',
+  'Split Cells...': 'セルの分割...',
+  'Change Picture': '図の変更',
+  'From a File...': 'ファイルから...',
+  'From Stock Images...': 'ストック画像から...',
+  'From Online Sources...': 'オンライン ソースから...',
+  'From Brand Images...': 'ブランド画像から...',
+  'From Icons...': 'アイコンから...',
+  'From Clipboard...': 'クリップボードから...',
+  'Edit Picture': '図の編集',
+  'Auto Crop': '自動トリミング',
+  'Online pictures need Microsoft 365 services.':
+    'オンラインの画像には Microsoft 365 のサービスが必要です。',
+  'The browser does not expose copied pictures to the editor.':
+    'ブラウザーはコピーされた画像をエディタに渡しません。',
+  'The editor has no picture editor yet.': 'このエディタにはまだ図の編集機能がありません。',
+  'Auto Crop needs the Microsoft image service.':
+    '自動トリミングには Microsoft の画像サービスが必要です。',
+  'The thesaurus needs the Microsoft reference service.':
+    '類義語辞典には Microsoft の参照サービスが必要です。',
+  'The Format pane has no Text Options for table cells yet.':
+    '書式ウィンドウにはまだ表のセルの文字のオプションがありません。',
+  'Select the text to link first.': '先にリンクする文字列を選択してください。',
+  'The editor has no Bullets and Numbering dialog yet.':
+    'このエディタにはまだ [箇条書きと段落番号] ダイアログがありません。',
+  'The editor can split merged cells only.': 'このエディタで分割できるのは結合されたセルだけです。',
+  'Right-click a guide to delete it.': 'ガイドを右クリックして削除してください。',
 };

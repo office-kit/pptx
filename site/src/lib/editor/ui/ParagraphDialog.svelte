@@ -70,7 +70,7 @@
     onclose();
   }
 </script>
-<dialog style:visibility={showTabs ? 'hidden' : undefined} bind:this={dialog} aria-label={t('Paragraph')} {onclose} onkeydown={event => event.stopPropagation()}>
+<dialog class="paragraph-dialog" style:visibility={showTabs ? 'hidden' : undefined} bind:this={dialog} aria-label={t('Paragraph')} {onclose} onkeydown={event => event.stopPropagation()}>
   <form onsubmit={submit}>
     <h2>{t('Paragraph')}</h2>
     <div class="tabs" role="tablist" aria-label={t('Paragraph')}>

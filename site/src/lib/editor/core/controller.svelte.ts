@@ -83,8 +83,29 @@ export interface Toast {
   readonly message: string;
 }
 
+/**
+ * Commands the inline text editor hands to the context menu. They act on the
+ * text range selected when the menu opened; the menu never takes focus from
+ * the editor, so the caret and selection stay where they are.
+ */
+export interface TextContextMenu {
+  /** True for text being edited in a table cell. */
+  readonly cell: boolean;
+  /** True when a non-empty range is selected (Cut, Copy and Hyperlink need one). */
+  readonly hasSelection: boolean;
+  readonly cut: () => void;
+  readonly copy: () => void;
+  readonly paste: () => void;
+  /** Ends editing, keeping the edited shape (or cell) selected. */
+  readonly exit: () => void;
+  readonly hyperlink: () => void;
+  /** The editor element, so dialogs opened from the menu can return focus to it. */
+  readonly element: HTMLElement | undefined;
+}
+
 export interface ContextMenuState {
   readonly source?: 'outline';
+  readonly text?: TextContextMenu;
   readonly outlineText?: {
     readonly moveUp: () => void;
     readonly moveDown: () => void;
@@ -300,6 +321,13 @@ export class EditorController {
       this.formatPaneSections = { ...this.formatPaneSections, size: true, position: true };
   }
 
+  /** Opens the Format pane on Text Options (Format Text Effects... opens Text Effects). */
+  showTextFormat(tab: 'textFill' | 'textEffects' | 'textbox'): void {
+    this.showShapeFormat();
+    this.formatPaneOptions = 'text';
+    this.formatPaneTextTab = tab;
+  }
+
   showRotationOptions(): void {
     this.showShapeFormat('size');
     this.rotationFocusRequested = true;
@@ -348,7 +376,8 @@ export class EditorController {
   activeDialog = $state<string | null>(null);
   /** Initial tab for the shared Font dialog; PowerPoint opens Character Spacing from its ribbon menu. */
   fontDialogTab = $state<'font' | 'character'>('font');
-  fontDialogReturnFocus: HTMLElement | null = null;
+  /** Where focus goes back when the Font or Paragraph dialog closes. */
+  dialogReturnFocus: HTMLElement | null = null;
   linkTableCell = $state<{ row: number; col: number } | null>(null);
   linkTextRange = $state<{ start: number; end: number } | null>(null);
   paletteOpen = $state<boolean>(false);
@@ -535,8 +564,11 @@ export class EditorController {
   pendingPreset: Record<string, unknown> = {};
 
   closeDialog(): void {
-    const returnFocus = this.activeDialog === 'font' ? this.fontDialogReturnFocus : null;
-    this.fontDialogReturnFocus = null;
+    const returnFocus =
+      this.activeDialog === 'font' || this.activeDialog === 'paragraph'
+        ? this.dialogReturnFocus
+        : null;
+    this.dialogReturnFocus = null;
     this.activeDialog = null;
     this.linkTextRange = null;
     this.linkTableCell = null;
@@ -546,8 +578,14 @@ export class EditorController {
 
   openFontDialog(tab: 'font' | 'character' = 'font', returnFocus?: HTMLElement): void {
     this.fontDialogTab = tab;
-    this.fontDialogReturnFocus = returnFocus ?? null;
+    this.dialogReturnFocus = returnFocus ?? null;
     this.activeDialog = 'font';
+  }
+
+  /** Opens the Paragraph dialog for the paragraphs the Home tab would format. */
+  openParagraphDialog(returnFocus?: HTMLElement): void {
+    this.dialogReturnFocus = returnFocus ?? null;
+    this.activeDialog = 'paragraph';
   }
 
   togglePalette(open?: boolean): void {
@@ -608,10 +646,9 @@ export class EditorController {
   openContextMenu(
     x: number,
     y: number,
-    source?: 'outline',
-    outlineText?: ContextMenuState['outlineText'],
+    options: Pick<ContextMenuState, 'source' | 'outlineText' | 'text'> = {},
   ): void {
-    this.contextMenu = { x, y, source, outlineText };
+    this.contextMenu = { x, y, ...options };
   }
   closeContextMenu(): void {
     this.contextMenu = null;

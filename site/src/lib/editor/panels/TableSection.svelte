@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { neighboringTableCell, tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
+  import { canMergeTableBlock } from '../core/table-commands.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
@@ -81,13 +82,7 @@
       });
     });
   }
-  const canMerge = $derived.by(() => {
-    if (!tableState || !block || block.rowSpan * block.colSpan < 2 || block.row + block.rowSpan > tableState.cells.length || block.col + block.colSpan > tableState.widths.length) return false;
-    return tableState.cells.slice(block.row, block.row + block.rowSpan).every(row => row.slice(block.col, block.col + block.colSpan).every(cell => {
-      const span = getTableCellSpan(cell);
-      return !span.hMerge && !span.vMerge && span.rowSpan === 1 && span.gridSpan === 1;
-    }));
-  });
+  const canMerge = $derived(!!tableState && !!block && canMergeTableBlock(tableState.cells, block));
   function select(row: number, col: number, extend: boolean) {
     if (!tableState) return;
     doc.selectCell(doc.selection.slideIndex, tableState.id, row, col, extend);
