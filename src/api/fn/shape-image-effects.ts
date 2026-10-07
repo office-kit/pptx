@@ -1,5 +1,5 @@
 import { readImageCrop } from './_image-crop.ts';
-import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
+import { insertBlipEffect, readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 import { asColor, type Color, buildColorElement } from '../../internal/drawingml/index.ts';
 import {
@@ -539,6 +539,105 @@ const getImageOpacityBlip = (shape: SlideShapeData): XmlElement | null => {
   return fill ? firstChildElement(fill, qname('a', 'blip', NS.dml)) : null;
 };
 
+/** One of PowerPoint's Artistic Effects ([MS-ODRAWXML] CT_PictureEffect, `a14:artistic*`). */
+export type ImageArtisticEffect =
+  | 'marker'
+  | 'pencilGrayscale'
+  | 'pencilSketch'
+  | 'lineDrawing'
+  | 'chalkSketch'
+  | 'paintStrokes'
+  | 'paintBrush'
+  | 'glowDiffused'
+  | 'blur'
+  | 'lightScreen'
+  | 'watercolorSponge'
+  | 'filmGrain'
+  | 'mosaicBubbles'
+  | 'glass'
+  | 'cement'
+  | 'texturizer'
+  | 'crisscrossEtching'
+  | 'pastelsSmooth'
+  | 'plasticWrap'
+  | 'cutout'
+  | 'photocopy'
+  | 'glowEdges';
+
+// The schema spells Mosaic Bubbles' element `artisticMosiaicBubbles`; every
+// other element is `artistic` + the capitalized effect name.
+const ARTISTIC_EFFECT_BY_ELEMENT: ReadonlyMap<string, ImageArtisticEffect> = new Map(
+  (
+    [
+      'marker',
+      'pencilGrayscale',
+      'pencilSketch',
+      'lineDrawing',
+      'chalkSketch',
+      'paintStrokes',
+      'paintBrush',
+      'glowDiffused',
+      'blur',
+      'lightScreen',
+      'watercolorSponge',
+      'filmGrain',
+      'glass',
+      'cement',
+      'texturizer',
+      'crisscrossEtching',
+      'pastelsSmooth',
+      'plasticWrap',
+      'cutout',
+      'photocopy',
+      'glowEdges',
+    ] as const
+  )
+    .map((effect): [string, ImageArtisticEffect] => [
+      `artistic${effect[0]!.toUpperCase()}${effect.slice(1)}`,
+      effect,
+    ])
+    .concat([['artisticMosiaicBubbles', 'mosaicBubbles']]),
+);
+// [MS-ODRAWXML] `imgProps`: the `a:blip` extension that records the original
+// picture and the corrections / artistic effects that produced the embedded one.
+const IMAGE_PROPERTIES_URI = '{BEBA8EAE-BF5A-486C-A8C5-ECC9F3942E4B}';
+
+/**
+ * Reads the Artistic Effect PowerPoint applied to a picture or image fill, or
+ * `null` when there is none.
+ *
+ * PowerPoint stores the effect in the blip's `a14:imgProps` extension next to
+ * a relationship to the original picture (JPEG XR). The embedded picture is
+ * already the effect's result, so renderers draw it as is.
+ */
+export const getShapeImageArtisticEffect = (shape: SlideShapeData): ImageArtisticEffect | null => {
+  const blip = getImageOpacityBlip(shape);
+  const extensions = blip && firstChildElement(blip, qname('a', 'extLst', NS.dml));
+  if (!extensions) return null;
+  for (const ext of extensions.children) {
+    if (ext.kind !== 'element' || ext.name.namespaceURI !== NS.dml || ext.name.localName !== 'ext')
+      continue;
+    // The URI is a GUID; the spec's own example writes it in another case.
+    if (getAttrValue(ext, qname('', 'uri', ''))?.toUpperCase() !== IMAGE_PROPERTIES_URI) continue;
+    const properties = firstChildElement(ext, qname('a14', 'imgProps', NS.a14));
+    const layer = properties && firstChildElement(properties, qname('a14', 'imgLayer', NS.a14));
+    for (const effect of layer?.children ?? []) {
+      if (
+        effect.kind !== 'element' ||
+        effect.name.namespaceURI !== NS.a14 ||
+        effect.name.localName !== 'imgEffect'
+      )
+        continue;
+      for (const child of effect.children) {
+        if (child.kind !== 'element' || child.name.namespaceURI !== NS.a14) continue;
+        const artistic = ARTISTIC_EFFECT_BY_ELEMENT.get(child.name.localName);
+        if (artistic) return artistic;
+      }
+    }
+  }
+  return null;
+};
+
 /**
  * Reads the picture or image fill's opacity (0–1 fraction). Returns `null` when no
  * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
@@ -592,11 +691,9 @@ const setLumAttr = (blip: XmlElement, local: 'bright' | 'contrast', value: numbe
     );
   }
   if (value !== null && value !== 0) {
-    // `<a:lum>` is part of CT_Blip's unbounded effect choice, so its position
-    // among sibling effects (e.g. alphaModFix) is unconstrained — append.
     if (!lum) {
       lum = elem(NAME_LUM);
-      blip.children.push(lum);
+      insertBlipEffect(blip, lum);
     }
     lum.attrs.push(attr(qname('', local, ''), String(Math.round(value * 100000))));
   }
@@ -683,17 +780,6 @@ const removeImageColorEffects = (blip: XmlElement): void => {
   );
 };
 
-const appendImageColorEffect = (blip: XmlElement, effect: XmlElement): void => {
-  const extensionIndex = blip.children.findIndex(
-    (child) =>
-      child.kind === 'element' &&
-      child.name.namespaceURI === NS.dml &&
-      child.name.localName === 'extLst',
-  );
-  if (extensionIndex === -1) blip.children.push(effect);
-  else blip.children.splice(extensionIndex, 0, effect);
-};
-
 /**
  * Clears PowerPoint's image color corrections from a picture or image fill.
  * This removes grayscale (`grayscl`), duotone, bi-level recolor, and
@@ -756,7 +842,7 @@ export const setShapeImageRecolor = (shape: SlideShapeData, recolor: ImageRecolo
   }
 
   removeImageColorEffects(blip);
-  if (replacement !== null) appendImageColorEffect(blip, replacement);
+  if (replacement !== null) insertBlipEffect(blip, replacement);
   commitAndRefresh(shape);
 };
 

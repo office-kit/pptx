@@ -87,7 +87,7 @@ export type {
 } from './fn.ts';
 export type { ImageFillLayout, ImageTileAlignment, ImageTileFlip } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
-export type { ImageRecolor, ImageRecolorColor } from './fn.ts';
+export type { ImageArtisticEffect, ImageRecolor, ImageRecolorColor } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type { ShapeStyleFontReference, ShapeStyleOptions, ShapeStyleReference } from './fn.ts';
 export type {
@@ -360,6 +360,7 @@ export {
   getShapeHyperlink,
   getShapeHyperlinkTooltip,
   getShapeId,
+  getShapeImageArtisticEffect,
   getShapeImageBiLevelThreshold,
   getShapeImageBrightness,
   getShapeImageBytes,

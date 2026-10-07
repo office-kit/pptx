@@ -20,6 +20,7 @@
   import ReorderObjectsDialog from './ui/ReorderObjectsDialog.svelte';
   import ZoomDialog from './ui/ZoomDialog.svelte';
   import GridOptionsDialog from './ui/GridOptionsDialog.svelte';
+  import CompressPicturesDialog from './ui/CompressPicturesDialog.svelte';
   import CropDialog from './ui/CropDialog.svelte';
   import ImageDialog from './ui/ImageDialog.svelte';
   import ChartDialog from './ui/ChartDialog.svelte';
@@ -198,6 +199,8 @@
       <ZoomDialog />
     {:else if editor.activeDialog === 'gridOptions'}
       <GridOptionsDialog />
+    {:else if editor.activeDialog === 'compressPictures'}
+      <CompressPicturesDialog />
     {:else if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
       {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}
     {:else if editor.activeDialog === 'setShapeImageCrop'}

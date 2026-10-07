@@ -177,8 +177,9 @@ test(
         ],
         'Picture Format',
       );
-      for (const name of ['Remove Background', 'Animate as Background', 'Compress Pictures'])
+      for (const name of ['Remove Background', 'Animate as Background'])
         assert.equal(await button(name).isDisabled(), true, `${name} is unavailable`);
+      assert.equal(await button('Compress Pictures').isDisabled(), false);
       for (const name of ['Color', 'Artistic Effects', 'Transparency', 'Picture Effects'])
         await size(button(name), null, 22, name);
       for (const name of ['Picture Quality', 'Change Picture', 'Reset Picture'])
