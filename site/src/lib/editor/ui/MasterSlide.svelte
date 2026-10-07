@@ -1,9 +1,12 @@
 <script lang="ts">
   // A slide master or one of its layouts as Mac PowerPoint's Slide Master view
-  // draws it: the background, and every placeholder as a dashed box holding
-  // its prompt text in the theme fonts at the default master's sizes.
-  import { getPresentationFonts, getSlideSize, type PresentationData, type SlideLayoutData } from '@office-kit/pptx';
-  import { contrastInk, layoutBoxes, MASTER_BOXES, solidBackground, type MasterBox } from '../core/master-geometry.ts';
+  // draws it: the background and decorative shapes (drawn by the preview
+  // renderer), and every placeholder, where the deck's master and layout put
+  // it, as a dashed box holding its prompt text in the theme fonts at the
+  // default master's sizes.
+  import { getPresentationFonts, getSlideMasterPartName, getSlideSize, type PresentationData, type SlideLayoutData } from '@office-kit/pptx';
+  import { renderSlideLayoutToSvg } from '@office-kit/pptx-preview';
+  import { contrastInk, layoutBoxes, masterBoxes, solidBackground, type MasterBox } from '../core/master-geometry.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { pres, layout, master = false, version = 0, pixelWidth, outlines = true }: {
@@ -42,7 +45,13 @@
   const fonts = $derived.by(() => { version; return getPresentationFonts(pres); });
   const background = $derived.by(() => { version; return solidBackground(pres, layout, master); });
   const ink = $derived(contrastInk(background));
-  const boxes = $derived.by<readonly MasterBox[]>(() => { version; return master ? MASTER_BOXES : layoutBoxes(layout, size); });
+  const boxes = $derived.by<readonly MasterBox[]>(() => {
+    version;
+    const name = getSlideMasterPartName(layout);
+    const own = name ? masterBoxes(pres, name, size) : [];
+    return master ? own : layoutBoxes(layout, size, own);
+  });
+  const decoration = $derived.by(() => { version; return renderSlideLayoutToSvg(pres, layout, { master }); });
   const majorFont = $derived(`'${fonts?.majorLatin ?? 'Aptos Display'}', system-ui, sans-serif`);
   const minorFont = $derived(`'${fonts?.minorLatin ?? 'Aptos'}', system-ui, sans-serif`);
   const today = new Date().toLocaleDateString();
@@ -62,8 +71,9 @@
   }
 </script>
 
-<svg class="master-slide" viewBox="0 0 {width} {height}" aria-hidden="true">
-  <rect {width} {height} fill={background} />
+<div class="master-slide">
+<div class="decoration" aria-hidden="true">{@html decoration}</div>
+<svg class="placeholders" viewBox="0 0 {width} {height}" aria-hidden="true">
   {#each boxes as box, i (i)}
     {@const area = rect(box)}
     {#if outlines}<rect class="placeholder" data-role={box.role} x={area.x} y={area.y} width={area.w} height={area.h} fill="none" stroke="#8c8c8c" stroke-width={1 / scale} stroke-dasharray="{4 / scale} {3 / scale}" />{/if}
@@ -84,7 +94,10 @@
     {/if}
   {/each}
 </svg>
+</div>
 
 <style>
-  .master-slide { display: block; width: 100%; height: 100%; }
+  .master-slide { position: relative; width: 100%; height: 100%; }
+  .decoration, .placeholders { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+  .decoration :global(svg) { display: block; width: 100%; height: 100%; }
 </style>

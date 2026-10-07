@@ -13,6 +13,7 @@
 
 export { renderSlideSvg as renderSlideToSvg } from './render-slide.ts';
 export { renderTextEffectsSvg } from './render-slide.ts';
+export { renderSlideLayoutSvg as renderSlideLayoutToSvg } from './render-slide.ts';
 
 // Text-layout audit — overflow (はみ出し) and soft-wrap (段落ち) detection,
 // measured with the same layout engine the preview renders with.

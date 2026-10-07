@@ -22,6 +22,12 @@
   const cells = $derived(groups.flatMap((group) => [{ master: group.partName, layout: null as string | null }, ...group.layouts.map((layout) => ({ master: group.partName, layout: getSlideLayoutPartName(layout) }))]));
   const selectedIndex = $derived(cells.findIndex((cell) => doc.layoutTarget?.partName === cell.layout && (cell.layout !== null || editor.selectedMaster === cell.master)));
 
+  // Undo can take away the selected master or layout (an inserted one);
+  // the selection then falls back to the first master, as the pane would after a delete.
+  $effect(() => {
+    if (selectedIndex === -1 && cells[0]) select(cells[0].master, null);
+  });
+
   function select(master: string, layout: string | null) {
     editor.selectMasterCell(master, layout);
   }

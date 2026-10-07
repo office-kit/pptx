@@ -69,6 +69,45 @@ function propertiesPart(pres: PresentationData) {
     throw new Error('Invalid presentation properties root.');
   return { pkg, rels, rel, part, doc };
 }
+/** The `<p:presentationPr>` root of the presentation properties, or `null` without the part. @internal */
+export const readPresentationProperties = (pres: PresentationData): XmlElement | null =>
+  propertiesPart(pres).doc?.root ?? null;
+
+/**
+ * Edits the presentation properties' `<p:presentationPr>`, creating the part
+ * (and its relationship) when the package has none. @internal
+ */
+export const writePresentationProperties = (
+  pres: PresentationData,
+  edit: (root: XmlElement) => void,
+): void => {
+  const { pkg, rels, rel, part, doc: existing } = propertiesPart(pres);
+  const doc = existing ?? parseXml(`<p:presentationPr xmlns:p="${NS.pml}" xmlns:a="${NS.dml}"/>`);
+  doc.root.prefixDecls.set('p', NS.pml);
+  edit(doc.root);
+  const data = encode(serializeXml(doc));
+  if (part) {
+    part.data = data;
+    return;
+  }
+  let name = rel ? resolveTarget(PRES_PART_NAME, rel.target) : partName('/ppt/presProps.xml');
+  if (!rel) for (let n = 1; pkg.getPart(name); n++) name = partName(`/ppt/presProps${n}.xml`);
+  pkg.addPart(
+    name,
+    'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
+    data,
+  );
+  if (!rel) {
+    rels.items.push({
+      id: nextRelId(rels.items.map((item) => item.id)),
+      type: REL_TYPES.presProps,
+      target: name,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(PRES_PART_NAME, rels);
+  }
+};
+
 /** Reads presentation-wide slideshow settings using the OOXML defaults. */
 export function getSlideShowProperties(pres: PresentationData): SlideShowProperties {
   const { doc } = propertiesPart(pres);
@@ -137,88 +176,67 @@ export function setSlideShowProperties(
     (!unsigned(slides.id) || !getCustomShows(pres).some((show) => show.id === slides.id))
   )
     throw new Error('Custom show destination no longer exists.');
-  const { pkg, rels, rel, part, doc: existing } = propertiesPart(pres);
-  const doc = existing ?? parseXml(`<p:presentationPr xmlns:p="${NS.pml}" xmlns:a="${NS.dml}"/>`);
-  doc.root.prefixDecls.set('p', NS.pml);
-  let show = firstChildElement(doc.root, p('showPr'));
-  if (!show) {
-    show = elem(p('showPr'));
-    const following = doc.root.children.findIndex(
-      (child) =>
-        child.kind === 'element' &&
-        child.name.namespaceURI === NS.pml &&
-        ['clrMru', 'extLst'].includes(child.name.localName),
-    );
-    doc.root.children.splice(following < 0 ? doc.root.children.length : following, 0, show);
-  }
-  const set = (node: XmlElement, key: string, val: string) => {
-    node.attrs = node.attrs.filter(
-      (item) => item.name.namespaceURI !== '' || item.name.localName !== key,
-    );
-    node.attrs.push(attr(qname('', key, ''), val));
-  };
-  for (const key of ['loop', 'showNarration', 'showAnimation', 'useTimings'] as const)
-    set(show, key, settings[key] ? '1' : '0');
-  const mode = firstChildElement(show, p(settings.mode.kind)) ?? elem(p(settings.mode.kind));
-  if (settings.mode.kind === 'browse')
-    set(mode, 'showScrollbar', settings.mode.showScrollbar ? '1' : '0');
-  if (settings.mode.kind === 'kiosk') set(mode, 'restart', String(settings.mode.restart));
-  const selection =
-    slides.kind === 'all' ? 'sldAll' : slides.kind === 'range' ? 'sldRg' : 'custShow';
-  const sequence = firstChildElement(show, p(selection)) ?? elem(p(selection));
-  if (slides.kind === 'range') {
-    set(sequence, 'st', String(slides.start));
-    set(sequence, 'end', String(slides.end));
-  }
-  if (slides.kind === 'customShow') set(sequence, 'id', String(slides.id));
-  show.children = [
-    mode,
-    sequence,
-    ...show.children.filter(
-      (child) =>
-        child.kind !== 'element' ||
-        child.name.namespaceURI !== NS.pml ||
-        !['present', 'browse', 'kiosk', 'sldAll', 'sldRg', 'custShow'].includes(
-          child.name.localName,
-        ),
-    ),
-  ];
-  if (settings.showMediaControls !== undefined) {
-    let list = firstChildElement(show, p('extLst'));
-    if (!list) {
-      list = elem(p('extLst'));
-      show.children.push(list);
+  writePresentationProperties(pres, (root) => {
+    let show = firstChildElement(root, p('showPr'));
+    if (!show) {
+      show = elem(p('showPr'));
+      const following = root.children.findIndex(
+        (child) =>
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.pml &&
+          ['clrMru', 'extLst'].includes(child.name.localName),
+      );
+      root.children.splice(following < 0 ? root.children.length : following, 0, show);
     }
-    let ext = mediaControlsExtension(show);
-    if (!ext) {
-      ext = elem(p('ext'), { attrs: [attr(qname('', 'uri', ''), SHOW_MEDIA_CONTROLS_URI)] });
-      list.children.push(ext);
+    const set = (node: XmlElement, key: string, val: string) => {
+      node.attrs = node.attrs.filter(
+        (item) => item.name.namespaceURI !== '' || item.name.localName !== key,
+      );
+      node.attrs.push(attr(qname('', key, ''), val));
+    };
+    for (const key of ['loop', 'showNarration', 'showAnimation', 'useTimings'] as const)
+      set(show, key, settings[key] ? '1' : '0');
+    const mode = firstChildElement(show, p(settings.mode.kind)) ?? elem(p(settings.mode.kind));
+    if (settings.mode.kind === 'browse')
+      set(mode, 'showScrollbar', settings.mode.showScrollbar ? '1' : '0');
+    if (settings.mode.kind === 'kiosk') set(mode, 'restart', String(settings.mode.restart));
+    const selection =
+      slides.kind === 'all' ? 'sldAll' : slides.kind === 'range' ? 'sldRg' : 'custShow';
+    const sequence = firstChildElement(show, p(selection)) ?? elem(p(selection));
+    if (slides.kind === 'range') {
+      set(sequence, 'st', String(slides.start));
+      set(sequence, 'end', String(slides.end));
     }
-    ext.children = [
-      elem(NAME_SHOW_MEDIA_CONTROLS, {
-        prefixDecls: new Map([['p14', NS.p14]]),
-        attrs: [attr(qname('', 'val', ''), settings.showMediaControls ? '1' : '0')],
-      }),
+    if (slides.kind === 'customShow') set(sequence, 'id', String(slides.id));
+    show.children = [
+      mode,
+      sequence,
+      ...show.children.filter(
+        (child) =>
+          child.kind !== 'element' ||
+          child.name.namespaceURI !== NS.pml ||
+          !['present', 'browse', 'kiosk', 'sldAll', 'sldRg', 'custShow'].includes(
+            child.name.localName,
+          ),
+      ),
     ];
-  }
-  const data = encode(serializeXml(doc));
-  if (part) part.data = data;
-  else {
-    let name = rel ? resolveTarget(PRES_PART_NAME, rel.target) : partName('/ppt/presProps.xml');
-    if (!rel) for (let n = 1; pkg.getPart(name); n++) name = partName(`/ppt/presProps${n}.xml`);
-    pkg.addPart(
-      name,
-      'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
-      data,
-    );
-    if (!rel) {
-      rels.items.push({
-        id: nextRelId(rels.items.map((item) => item.id)),
-        type: REL_TYPES.presProps,
-        target: name,
-        targetMode: 'Internal',
-      });
-      pkg.setRels(PRES_PART_NAME, rels);
+    if (settings.showMediaControls !== undefined) {
+      let list = firstChildElement(show, p('extLst'));
+      if (!list) {
+        list = elem(p('extLst'));
+        show.children.push(list);
+      }
+      let ext = mediaControlsExtension(show);
+      if (!ext) {
+        ext = elem(p('ext'), { attrs: [attr(qname('', 'uri', ''), SHOW_MEDIA_CONTROLS_URI)] });
+        list.children.push(ext);
+      }
+      ext.children = [
+        elem(NAME_SHOW_MEDIA_CONTROLS, {
+          prefixDecls: new Map([['p14', NS.p14]]),
+          attrs: [attr(qname('', 'val', ''), settings.showMediaControls ? '1' : '0')],
+        }),
+      ];
     }
-  }
+  });
 }

@@ -2,8 +2,8 @@
   // A layout drawn the way PowerPoint's New Slide and Layout galleries show it:
   // the layout (or master) background with its title and content placeholders
   // as boxes of prompt lines. Footer placeholders are left out, as natively.
-  import { getSlideLayoutPlaceholders, getSlideSize, type PresentationData, type SlideLayoutData } from '@office-kit/pptx';
-  import { contrastInk, MASTER_AREAS, solidBackground } from '../core/master-geometry.ts';
+  import { getSlideMasterPartName, getSlideSize, type PresentationData, type SlideLayoutData } from '@office-kit/pptx';
+  import { contrastInk, layoutBoxes, masterBoxes, solidBackground } from '../core/master-geometry.ts';
 
   let { pres, layout }: { pres: PresentationData; layout: SlideLayoutData } = $props();
 
@@ -13,13 +13,14 @@
   const background = $derived(solidBackground(pres, layout));
   // Prompt lines contrast with the background, as PowerPoint's do.
   const ink = $derived(contrastInk(background, '#595959', '#d9d9d9'));
-  const boxes = $derived(getSlideLayoutPlaceholders(layout).flatMap((placeholder) => {
-    if (FOOTER_TYPES.has(placeholder.type ?? '')) return [];
-    const title = TITLE_TYPES.has(placeholder.type ?? '');
-    if (placeholder.bounds) return [{ ...placeholder.bounds, title }];
-    const area = title ? MASTER_AREAS.title : MASTER_AREAS.body;
-    return [{ x: area.x * size.width, y: area.y * size.height, w: area.w * size.width, h: area.h * size.height, title }];
-  }));
+  const boxes = $derived.by(() => {
+    const master = getSlideMasterPartName(layout);
+    return layoutBoxes(layout, size, master ? masterBoxes(pres, master, size) : []).flatMap((box) =>
+      FOOTER_TYPES.has(box.type ?? '')
+        ? []
+        : [{ x: box.x * size.width, y: box.y * size.height, w: box.w * size.width, h: box.h * size.height, title: TITLE_TYPES.has(box.type ?? '') }],
+    );
+  });
 </script>
 
 <svg class="layout-thumbnail" viewBox="0 0 {size.width} {size.height}" aria-hidden="true">

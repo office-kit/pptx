@@ -174,6 +174,7 @@ import {
   type ShapeFill,
   type ShapeStroke,
   type SlideData,
+  type SlideLayoutData,
   type SlideShapeData,
   type TableCellParagraph,
   type ReadTextFormat,
@@ -6937,18 +6938,45 @@ const topLevelShapes = (
   return out;
 };
 
+// What `renderSurface` draws: a slide over its layout and master, or a layout
+// (or, with `master`, the master behind it) on its own.
+type Surface =
+  | { readonly slide: SlideData; readonly layout: SlideLayoutData | null; readonly master: false }
+  | { readonly slide: null; readonly layout: SlideLayoutData; readonly master: boolean };
+
 export const renderSlideSvg = (
   pres: PresentationData,
   slide: SlideData,
   opts: RenderSlideOptions = {},
+): string => renderSurface(pres, { slide, layout: getSlideLayout(slide), master: false }, opts);
+
+/**
+ * Draws a slide layout — or, with `master`, its slide master — the way
+ * PowerPoint's Slide Master view shows it behind the placeholders: the
+ * background and the decorative (non-placeholder) shapes of the master and,
+ * for a layout, of the layout itself. A layout that hides background graphics
+ * leaves the master's shapes out. Placeholders are not drawn; an editor draws
+ * them with their prompt text over this.
+ */
+export const renderSlideLayoutSvg = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+  opts: RenderSlideOptions & { readonly master?: boolean } = {},
+): string => renderSurface(pres, { slide: null, layout, master: opts.master ?? false }, opts);
+
+const renderSurface = (
+  pres: PresentationData,
+  surface: Surface,
+  opts: RenderSlideOptions,
 ): string => {
+  const { slide, master } = surface;
   const size = getSlideSize(pres) ?? DEFAULT_SIZE;
   const W = size.width as number;
   const H = size.height as number;
   const theme = getPresentationTheme(pres);
-  activeColorMap = getEffectiveColorMap(slide);
-  activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
-  const position = getSlides(pres).indexOf(slide);
+  activeColorMap = getEffectiveColorMap(slide ?? surface.layout);
+  activeDeckTextColor = resolveDeckBodyTextColor(slide ?? surface.layout) ?? '#000000';
+  const position = slide ? getSlides(pres).indexOf(slide) : 0;
   activeSlideNumber = String(getPresentationFirstSlideNumber(pres) + (position < 0 ? 0 : position));
   const ctx: LayoutCtx = {
     groupScale: { sx: 1, sy: 1 },
@@ -6960,14 +6988,18 @@ export const renderSlideSvg = (
     inverseGroupTransform: '',
   };
 
-  let bg = getSlideBackground(slide);
+  let bg: ReturnType<typeof getSlideBackground> = slide
+    ? getSlideBackground(slide)
+    : { kind: 'inherit' };
   // B10 — when the slide reports inherit, walk to the layout; when the
   // layout also inherits, walk one more step to the master. Real brand
   // templates put the actual background fill on the master only.
   if (bg.kind === 'inherit') {
-    const layout = getSlideLayout(slide);
+    const layout = surface.layout;
     if (layout) {
-      const layoutBg = getSlideLayoutBackground(layout);
+      const layoutBg: ReturnType<typeof getSlideBackground> = master
+        ? { kind: 'inherit' }
+        : getSlideLayoutBackground(layout);
       if (layoutBg.kind !== 'inherit') {
         bg = layoutBg;
       } else {
@@ -6987,11 +7019,11 @@ export const renderSlideSvg = (
     // B11 — gradient slide backgrounds. Use the same projector as
     // shape fills so radial / rect / shape paths all behave.
     // Walk slide → layout → master for the actual gradient definition.
-    let grad = getSlideBackgroundGradientFill(slide);
+    let grad = slide ? getSlideBackgroundGradientFill(slide) : null;
     if (!grad) {
-      const layout = getSlideLayout(slide);
+      const layout = surface.layout;
       if (layout) {
-        grad = getSlideLayoutBackgroundGradientFill(layout);
+        grad = master ? null : getSlideLayoutBackgroundGradientFill(layout);
         if (!grad) grad = getSlideMasterBackgroundGradientFill(pres, layout);
       }
     }
@@ -7001,11 +7033,11 @@ export const renderSlideSvg = (
       bgGradient = `<rect width="${E(W)}" height="${E(H)}" fill="${built.fillAttr}"/>`;
     }
   } else if (bg.kind === 'pattern') {
-    let pat = getSlideBackgroundPatternFill(pres, slide);
+    let pat = slide ? getSlideBackgroundPatternFill(pres, slide) : null;
     if (!pat) {
-      const layout = getSlideLayout(slide);
+      const layout = surface.layout;
       if (layout) {
-        pat = getSlideLayoutBackgroundPatternFill(pres, layout);
+        pat = master ? null : getSlideLayoutBackgroundPatternFill(pres, layout);
         if (!pat) pat = getSlideMasterBackgroundPatternFill(pres, layout);
       }
     }
@@ -7023,11 +7055,11 @@ export const renderSlideSvg = (
   // on top of the image.
   let bgImage = '';
   if (bg.kind === 'image') {
-    let bytes = getSlideBackgroundImageBytes(slide);
+    let bytes = slide ? getSlideBackgroundImageBytes(slide) : null;
     if (!bytes && pres) {
-      const layout = getSlideLayout(slide);
+      const layout = surface.layout;
       if (layout) {
-        bytes = getSlideLayoutBackgroundImageBytes(pres, layout);
+        bytes = master ? null : getSlideLayoutBackgroundImageBytes(pres, layout);
         if (!bytes) bytes = getSlideMasterBackgroundImageBytes(pres, layout);
       }
     }
@@ -7035,15 +7067,15 @@ export const renderSlideSvg = (
       const fmt = detectImageFormatLocal(bytes);
       const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-      const layout = getSlideBackgroundImageFillLayout(slide);
-      const crop = getSlideBackgroundImageCrop(slide);
+      const layout = slide ? getSlideBackgroundImageFillLayout(slide) : null;
+      const crop = slide ? getSlideBackgroundImageCrop(slide) : null;
       const cropLeft = crop?.left ?? 0,
         cropTop = crop?.top ?? 0;
       const cropRight = crop?.right ?? 0,
         cropBottom = crop?.bottom ?? 0;
-      const opacity = getSlideBackgroundImageOpacity(slide) ?? 1;
+      const opacity = (slide && getSlideBackgroundImageOpacity(slide)) ?? 1;
       const intrinsic =
-        layout?.mode === 'tile' ? getSlideBackgroundImageIntrinsicSize(slide) : null;
+        layout?.mode === 'tile' && slide ? getSlideBackgroundImageIntrinsicSize(slide) : null;
       if (layout?.mode === 'tile' && intrinsic) {
         const pattern = imageTilePattern(
           dataUrl,
@@ -7085,18 +7117,18 @@ export const renderSlideSvg = (
   // the slide's own content — so logos (pictures), text and real geometry all
   // appear. Picture bytes resolve because the shapes are bound to their part.
   let layoutBgShapes = '';
-  const layoutForBg = getSlideLayout(slide);
-  if (layoutForBg && !isSlideBackgroundGraphicsHidden(slide)) {
+  const layoutForBg = surface.layout;
+  if (layoutForBg && !(slide && isSlideBackgroundGraphicsHidden(slide))) {
     try {
       const masterShapes = topLevelShapes(
-        isSlideLayoutBackgroundGraphicsHidden(layoutForBg)
+        !master && isSlideLayoutBackgroundGraphicsHidden(layoutForBg)
           ? []
           : getSlideMasterShapes(pres, layoutForBg),
         {
           dropPlaceholders: true,
         },
       );
-      const layoutShapes = topLevelShapes(getSlideLayoutShapes(pres, layoutForBg), {
+      const layoutShapes = topLevelShapes(master ? [] : getSlideLayoutShapes(pres, layoutForBg), {
         dropPlaceholders: true,
       });
       // Drawn as background: these come from the layout and the master, whose
@@ -7110,7 +7142,7 @@ export const renderSlideSvg = (
     }
   }
 
-  const shapesSvg = topLevelShapes(getSlideShapes(slide), { dropPlaceholders: false })
+  const shapesSvg = topLevelShapes(slide ? getSlideShapes(slide) : [], { dropPlaceholders: false })
     .map((s) => renderShape(s, pres, theme, ctx))
     .join('');
 

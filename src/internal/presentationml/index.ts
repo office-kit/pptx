@@ -55,6 +55,30 @@ export {
 } from './table-styles.ts';
 export { buildEmptyNotesSlide } from './notes-slide-builder.ts';
 export type {
+  Box,
+  HandoutMasterPlaceholderType,
+  LayoutPlaceholderKind,
+  MasterPlaceholderType,
+  NotesMasterPlaceholderType,
+} from './default-masters.ts';
+export {
+  HANDOUT_MASTER_PLACEHOLDER_TYPES,
+  MASTER_PLACEHOLDER_TYPES,
+  NOTES_MASTER_PLACEHOLDER_TYPES,
+  customSlideLayoutXml,
+  defaultHandoutMasterXml,
+  defaultNotesMasterXml,
+  defaultSlideLayoutsXml,
+  defaultSlideMasterXml,
+  handoutMasterPlaceholderXml,
+  insertedPlaceholderXml,
+  layoutFooterPlaceholdersXml,
+  layoutTitlePlaceholderXml,
+  masterPlaceholderXml,
+  notesMasterPlaceholderXml,
+} from './default-masters.ts';
+export { buildTransition } from './transition-builder.ts';
+export type {
   MorphOption,
   SlideTransition,
   TransitionEffect,

@@ -13,6 +13,8 @@ export * from './fn/package-io.ts';
 export * from './fn/sections.ts';
 export * from './fn/layout-edit.ts';
 export * from './fn/layouts.ts';
+export * from './fn/slide-masters.ts';
+export * from './fn/page-masters.ts';
 export * from './fn/theme.ts';
 export * from './fn/properties.ts';
 export * from './fn/thumbnail.ts';

@@ -74,3 +74,32 @@ export const expectSchemaValid = (xml: string, kind: SchemaKind): void => {
     rmSync(dir, { recursive: true, force: true });
   }
 };
+
+/**
+ * Like `expectSchemaValid`, for several documents of one kind in a single
+ * xmllint run (loading the OOXML schemas dominates the cost of a run). The
+ * diagnostic names each failing document by its `name`.
+ */
+export const expectSchemaValidAll = (
+  documents: ReadonlyArray<{ readonly name: string; readonly xml: string }>,
+  kind: SchemaKind,
+): void => {
+  const dir = mkdtempSync(join(tmpdir(), 'office-kit-pptx-schema-'));
+  try {
+    const files = documents.map((document, index) => {
+      const file = join(dir, `${index}-${document.name.replace(/[^\w.-]/g, '_')}`);
+      writeFileSync(file, document.xml, 'utf8');
+      return file;
+    });
+    const r = spawnSync('xmllint', ['--noout', '--schema', schemaPath(kind), ...files], {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    });
+    if (r.status !== 0) {
+      const out = `${r.stdout}\n${r.stderr}`.trim();
+      throw new Error(`schema validation failed (${kind}):\n${out}`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
