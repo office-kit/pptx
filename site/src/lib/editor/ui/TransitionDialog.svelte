@@ -4,6 +4,7 @@
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import { transitionSpeed } from '../ribbon/transition-gallery.ts';
   const editor = getEditor();
   const doc = editor.doc;
   const slide = untrack(() => doc.currentSlide);
@@ -19,7 +20,8 @@
   const knownEffect = (value: string | undefined): TransitionEffect =>
     effects.find(([token]) => token === value)?.[0] ?? 'none';
   let effect = $state<TransitionEffect>(knownEffect(original?.effect));
-  let speed = $state<NonNullable<TransitionOptions['speed']>>(original?.speed ?? 'med');
+  // A new transition starts at Medium; an existing one shows the speed it runs at.
+  let speed = $state<NonNullable<TransitionOptions['speed']>>(original === null ? 'med' : transitionSpeed(original));
   let direction = $state(original?.direction ?? '');
   let orientation = $state<NonNullable<TransitionOptions['orientation']>>(original?.orientation ?? 'horz');
   let spokes = $state<number | undefined>(original?.spokes);

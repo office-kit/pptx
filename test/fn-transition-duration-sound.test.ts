@@ -78,14 +78,57 @@ describe('transition duration', () => {
 
   it('replaces an AlternateContent transition with a single plain one', async () => {
     const { slide } = await firstSlide();
+    // PowerPoint leaves out spd when it is the default, fast (Cut at 0.1 s).
     setSlideTransition(slide, { effect: 'fade', durationMs: 400 });
-    expect(getSlideTransition(slide)).toMatchObject({ speed: 'fast' });
+    expect(getSlideTransition(slide)).toEqual({ effect: 'fade', durationMs: 400 });
     setSlideTransition(slide, { effect: 'push', direction: 'l' });
     const xml = getSlideXmlString(slide);
     expect(xml).not.toContain('AlternateContent');
     expect(xml.match(/<p:transition\b/g)).toHaveLength(1);
     clearSlideTransition(slide);
     expect(getSlideTransition(slide)).toBeNull();
+  });
+
+  // Mac PowerPoint saves Push (1 s) as `spd="slow"` alone, Uncover (0.75 s) as
+  // `spd="med"` and Flash (1 s) without p14:dur inside its p14 wrapper.
+  it('writes a duration equal to its speed as the speed alone', async () => {
+    const { slide } = await firstSlide();
+    setSlideTransition(slide, { effect: 'push', direction: 'u', durationMs: 1000 });
+    expect(getSlideXmlString(slide)).toContain(
+      '<p:transition spd="slow"><p:push dir="u"/></p:transition>',
+    );
+    expect(getSlideXmlString(slide)).not.toContain('AlternateContent');
+    expect(getSlideTransition(slide)).toEqual({ effect: 'push', direction: 'u', speed: 'slow' });
+    setSlideTransition(slide, { effect: 'pull', durationMs: 750 });
+    expect(getSlideTransition(slide)).toEqual({ effect: 'pull', speed: 'med' });
+    setSlideTransition(slide, { effect: 'flash', durationMs: 1000 });
+    const xml = getSlideXmlString(slide);
+    expect(xml).toContain('<p:transition spd="slow"><p14:flash/></p:transition>');
+    expect(xml).not.toContain('p14:dur');
+  });
+
+  it('takes the fastest speed at least as long as the duration', async () => {
+    const { slide } = await firstSlide();
+    const speedOf = (durationMs: number) => {
+      setSlideTransition(slide, { effect: 'fade', durationMs });
+      return getSlideTransition(slide)?.speed;
+    };
+    // Fade 700 ms is med and Shape 800 ms slow natively: not the nearest speed.
+    expect([100, 500, 501, 700, 750, 800, 900, 1500].map(speedOf)).toEqual([
+      undefined,
+      undefined,
+      'med',
+      'med',
+      'med',
+      'slow',
+      'slow',
+      'slow',
+    ]);
+    // An explicit speed is kept, and decides whether p14:dur is needed.
+    setSlideTransition(slide, { effect: 'fade', speed: 'fast', durationMs: 500 });
+    expect(getSlideTransition(slide)).toEqual({ effect: 'fade', speed: 'fast' });
+    setSlideTransition(slide, { effect: 'fade', speed: 'fast', durationMs: 700 });
+    expect(getSlideTransition(slide)).toEqual({ effect: 'fade', speed: 'fast', durationMs: 700 });
   });
 
   it('rejects a negative duration without touching the slide', async () => {
@@ -111,7 +154,7 @@ describe('transition sound', () => {
     setSlideTransition(slide, { effect: 'fade' });
     setSlideTransitionSound(slide, { kind: 'play', data: wav(), name: 'chime.wav', loop: true });
     expect(audioRels(slide)).toHaveLength(1);
-    setSlideTransition(slide, { effect: 'cut', durationMs: 1000 });
+    setSlideTransition(slide, { effect: 'cut', durationMs: 1200 });
     // Both the p14 choice and the fallback carry the sound.
     expect(getSlideXmlString(slide).match(/<p:sndAc>/g)).toHaveLength(2);
     const reloaded = getSlides(await loadPresentation(await savePresentation(pres)))[0]!;
@@ -120,7 +163,7 @@ describe('transition sound', () => {
       name: 'chime.wav',
       loop: true,
     });
-    expect(getSlideTransition(reloaded)).toMatchObject({ effect: 'cut', durationMs: 1000 });
+    expect(getSlideTransition(reloaded)).toMatchObject({ effect: 'cut', durationMs: 1200 });
   });
 
   it('adds an effect-less transition for a sound and releases the rel when removed', async () => {

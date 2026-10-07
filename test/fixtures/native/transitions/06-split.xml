@@ -1,0 +1,2 @@
+<!-- Transition "Split" (gallery 0_5), slide 6 (slides/slide6.xml); ribbon Duration after apply: 01.50 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14"><p:transition spd="slow" p14:dur="1500"><p:split orient="vert"/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:split orient="vert"/></p:transition></mc:Fallback></mc:AlternateContent>

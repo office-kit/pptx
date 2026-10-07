@@ -1,0 +1,2 @@
+<!-- Transition "Honeycomb" (gallery 1_16), slide 30 (slides/slide30.xml); ribbon Duration after apply: 04.40 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14"><p:transition spd="slow" p14:dur="4400"><p14:honeycomb/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>

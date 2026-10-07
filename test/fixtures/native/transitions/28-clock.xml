@@ -1,0 +1,2 @@
+<!-- Transition "Clock" (gallery 1_14), slide 28 (slides/slide28.xml); ribbon Duration after apply: 01.00 -->
+<p:transition spd="slow"><p:wheel spokes="1"/></p:transition>

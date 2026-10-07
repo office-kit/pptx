@@ -1,0 +1,2 @@
+<!-- Transition "Random" (gallery 1_28), slide 42 (slides/slide42.xml); ribbon Duration after apply: 01.50 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14"><p:transition spd="slow" p14:dur="1500"><p:random/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:random/></p:transition></mc:Fallback></mc:AlternateContent>

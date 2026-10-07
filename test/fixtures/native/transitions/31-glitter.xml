@@ -1,0 +1,2 @@
+<!-- Transition "Glitter" (gallery 1_17), slide 31 (slides/slide31.xml); ribbon Duration after apply: 03.90 -->
+<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14"><p:transition spd="slow" p14:dur="3900"><p14:glitter pattern="hexagon"/></p:transition></mc:Choice><mc:Fallback><p:transition spd="slow"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>
