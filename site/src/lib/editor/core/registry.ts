@@ -42,11 +42,14 @@ export interface CommandDoc {
   transact<T>(label: string, fn: () => T): T;
   setDocumentSetting(fn: () => void): void;
   /**
-   * Slide Master view's selection: the layout part it shows, or `null` for the
-   * master itself. Absent outside that view, where layout edits follow the
-   * current slide.
+   * Slide Master view's selection: the master (its part name) and the layout
+   * part it shows, or `null` for the master itself. Absent outside that view,
+   * where layout edits follow the current slide.
    */
-  readonly layoutTarget?: { readonly partName: string | null } | null;
+  readonly layoutTarget?: {
+    readonly master: string | null;
+    readonly partName: string | null;
+  } | null;
 }
 
 export interface CommandContext {
@@ -493,6 +496,11 @@ const layoutCommands = new Set([
   'setSlideLayoutBackground',
   'clearSlideLayoutBackground',
   'setSlideLayoutPlaceholderBounds',
+  'setSlideLayoutTitleIncluded',
+  'setSlideLayoutFootersIncluded',
+  'setSlideLayoutBackgroundGraphicsHidden',
+  'addSlideLayoutPlaceholder',
+  'removeSlideLayout',
 ]);
 
 class LayoutCommand extends ManifestCommand {
@@ -519,6 +527,40 @@ class LayoutCommand extends ManifestCommand {
     const fn = lib[this.capability.id]!;
     const positional = this.params.map((param) => args[param.name]);
     return doc.transact(this.capability.labelEn, () => fn(layout, ...positional));
+  }
+}
+
+// Master edits act on the master selected in Slide Master view (its own cell or
+// one of its layouts), and elsewhere on the current slide's master.
+const masterCommands = new Set([
+  'setSlideMasterName',
+  'setSlideMasterPreserved',
+  'setSlideMasterPlaceholderIncluded',
+  'removeSlideMaster',
+  'addSlideLayout',
+]);
+
+class MasterCommand extends ManifestCommand {
+  override get params(): ResolvedCapability['params'] {
+    return super.params.filter((param) => param.name !== 'master');
+  }
+
+  private master(doc: CommandDoc): string | null {
+    if (doc.layoutTarget) return doc.layoutTarget.master;
+    const slide = doc.slideAt(doc.selection.slideIndex);
+    return slide ? pptx.getSlideMasterPartName(slide) : null;
+  }
+
+  override canRun({ doc }: CommandContext): boolean {
+    return this.master(doc) !== null;
+  }
+
+  override run({ doc }: CommandContext, args: Record<string, unknown>): unknown {
+    const master = this.master(doc);
+    if (!master) throw new CommandError('The slide has no slide master.');
+    const fn = lib[this.capability.id]!;
+    const positional = this.params.map((param) => args[param.name]);
+    return doc.transact(this.capability.labelEn, () => fn(doc.pres, master, ...positional));
   }
 }
 
@@ -556,13 +598,15 @@ const registry = new Map<string, Command>(
         ? new SlideCommand(cap)
         : layoutCommands.has(cap.id)
           ? new LayoutCommand(cap)
-          : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
-            ? new GroupCommand(cap)
-            : stackingCommands.has(cap.id)
-              ? new StackingCommand(cap)
-              : cap.id === 'setChartSpec'
-                ? new ChartCommand(cap)
-                : new ManifestCommand(cap),
+          : masterCommands.has(cap.id)
+            ? new MasterCommand(cap)
+            : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
+              ? new GroupCommand(cap)
+              : stackingCommands.has(cap.id)
+                ? new StackingCommand(cap)
+                : cap.id === 'setChartSpec'
+                  ? new ChartCommand(cap)
+                  : new ManifestCommand(cap),
   ]),
 );
 

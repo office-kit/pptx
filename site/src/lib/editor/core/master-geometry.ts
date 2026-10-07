@@ -1,19 +1,23 @@
-// What the master views draw. The library exposes layout placeholders (with
-// their own transforms) and master/layout backgrounds, but not the slide
-// master's placeholders or the notes and handout masters. Where a part is not
-// exposed, the master views fall back to the default Office masters' geometry,
-// which is what PowerPoint creates for a new presentation.
+// What the master views draw: the deck's own slide, notes and handout master
+// placeholders where the deck has them. Where it has none (a deck without a
+// notes or handout master, or a placeholder without a transform), the views
+// fall back to the default Office masters' geometry, which is what PowerPoint
+// creates — and what the library writes when the master is first edited.
 import {
+  getHandoutMasterPlaceholders,
+  getNotesMasterPlaceholders,
+  getNotesPageSize,
   getPresentationTheme,
   getSlideLayoutBackground,
-  getSlideLayoutPartName,
   getSlideLayoutPlaceholders,
-  getSlideLayouts,
   getSlideMasterBackground,
-  getSlideMasterPartName,
+  getSlideMasterLayouts,
   getSlideMasterPartNames,
+  getSlideMasterPlaceholders,
+  type HandoutSlidesPerPage,
   type PresentationData,
   type SlideLayoutData,
+  type SlideLayoutPlaceholder,
 } from '@office-kit/pptx';
 
 /** A rectangle as fractions of the slide or page. */
@@ -49,8 +53,9 @@ export const MASTER_AREAS = {
 } as const satisfies Record<string, Area>;
 
 /** Notes and handout pages are 7.5 × 10 in portrait unless the deck says otherwise. */
-export const PAGE_WIDTH_PT = 540;
-export const PAGE_HEIGHT_PT = 720;
+// The default notes and handout page, 7.5 × 10 in.
+const PAGE_WIDTH_PT = 540;
+const PAGE_HEIGHT_PT = 720;
 
 // The default Office notes master (6858000 × 9144000 EMU).
 const PAGE_W = 6858000;
@@ -64,7 +69,7 @@ const pageArea = (x: number, y: number, w: number, h: number): Area => ({
 export const NOTES_AREAS = {
   hdr: pageArea(0, 0, 2971800, 458788),
   dt: pageArea(3884613, 0, 2971800, 458788),
-  slideImage: pageArea(685800, 1143000, 5486400, 3086100),
+  sldImg: pageArea(685800, 1143000, 5486400, 3086100),
   body: pageArea(685800, 4400550, 5486400, 3600450),
   ftr: pageArea(0, 8685213, 2971800, 458788),
   sldNum: pageArea(3884613, 8685213, 2971800, 458788),
@@ -80,7 +85,7 @@ export const HANDOUT_AREAS = {
   ftr: NOTES_AREAS.ftr,
   sldNum: NOTES_AREAS.sldNum,
 } as const satisfies Record<string, Area>;
-export const HANDOUT_SLIDE_FRAMES: readonly Area[] = [88.5, 297.5, 506].flatMap((y) =>
+const SIX_PER_PAGE: readonly Area[] = [88.5, 297.5, 506].flatMap((y) =>
   [38.5, 281].map((x) => ({
     x: x / PAGE_WIDTH_PT,
     y: y / PAGE_HEIGHT_PT,
@@ -88,6 +93,103 @@ export const HANDOUT_SLIDE_FRAMES: readonly Area[] = [88.5, 297.5, 506].flatMap(
     h: 125 / PAGE_HEIGHT_PT,
   })),
 );
+
+/**
+ * Where the handout master draws its slide frames for `perPage` slides on a
+ * page of `page` (in any unit) with slides of `slideAspect`. Six per page on
+ * the default portrait page is measured from Mac PowerPoint; the other
+ * layouts fill the same area (x 38.5–502 pt, y 88.5–631 pt of the page) on a
+ * grid with the same 21.5 pt gutter, and three per page keeps the left
+ * column, as PowerPoint leaves the right for note lines. The outline layout
+ * is one text area.
+ */
+export function handoutSlideFrames(
+  perPage: HandoutSlidesPerPage,
+  page: { width: number; height: number },
+  slideAspect: number,
+): readonly Area[] {
+  const portrait = page.height >= page.width;
+  if (perPage === 6 && portrait) return SIX_PER_PAGE;
+  // The same margins as page fractions, so a landscape page keeps them.
+  const left = 38.5 / PAGE_WIDTH_PT;
+  const top = 88.5 / PAGE_HEIGHT_PT;
+  const right = 502 / PAGE_WIDTH_PT;
+  const bottom = 631 / PAGE_HEIGHT_PT;
+  if (perPage === 'outline') return [{ x: left, y: top, w: right - left, h: bottom - top }];
+  const grid: Record<Exclude<HandoutSlidesPerPage, 'outline'>, [number, number]> = portrait
+    ? { 1: [1, 1], 2: [1, 2], 3: [2, 3], 4: [2, 2], 6: [2, 3], 9: [3, 3] }
+    : { 1: [1, 1], 2: [2, 1], 3: [3, 1], 4: [2, 2], 6: [3, 2], 9: [3, 3] };
+  const [cols, rows] = grid[perPage];
+  const gutter = 21.5 / PAGE_WIDTH_PT;
+  const ratio = (slideAspect * page.height) / page.width;
+  const cellW = (right - left - gutter * (cols - 1)) / cols;
+  const cellH = (bottom - top) / rows;
+  const w = Math.min(cellW, cellH * 0.9 * ratio);
+  const h = w / ratio;
+  const frames: Area[] = [];
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < (perPage === 3 && portrait ? 1 : cols); col++) {
+      frames.push({
+        x: left + col * (cellW + gutter) + (cellW - w) / 2,
+        y: top + row * cellH + (cellH - h) / 2,
+        w,
+        h,
+      });
+    }
+  }
+  return frames;
+}
+
+/** The notes and handout page in points, from the deck's `<p:notesSz>`. */
+export function pageSizePt(pres: PresentationData): { width: number; height: number } {
+  const size = getNotesPageSize(pres);
+  return { width: size.width / 12700, height: size.height / 12700 };
+}
+
+export type PagePlaceholderRole = 'hdr' | 'dt' | 'sldImg' | 'body' | 'ftr' | 'sldNum';
+
+/** A notes or handout master placeholder as fractions of the page. */
+export interface PageBox extends Area {
+  readonly role: PagePlaceholderRole;
+}
+
+const PAGE_ROLES = new Set<string>(['hdr', 'dt', 'sldImg', 'body', 'ftr', 'sldNum']);
+
+/**
+ * The notes or handout master's placeholders as page fractions: the deck's
+ * own when it has the master, else PowerPoint's default master.
+ */
+export function pageMasterBoxes(
+  pres: PresentationData,
+  kind: 'handoutMaster' | 'notesMaster',
+): PageBox[] {
+  const placeholders =
+    kind === 'handoutMaster'
+      ? getHandoutMasterPlaceholders(pres)
+      : getNotesMasterPlaceholders(pres);
+  const defaults = kind === 'handoutMaster' ? HANDOUT_AREAS : NOTES_AREAS;
+  if (placeholders === null)
+    return Object.entries(defaults).map(([role, area]) => ({
+      role: role as PagePlaceholderRole,
+      ...area,
+    }));
+  const page = getNotesPageSize(pres);
+  return placeholders.flatMap((placeholder) => {
+    const role = placeholder.type ?? '';
+    if (!PAGE_ROLES.has(role)) return [];
+    const bounds = placeholder.bounds;
+    const fallback = (defaults as Record<string, Area>)[role];
+    const area = bounds
+      ? {
+          x: bounds.x / page.width,
+          y: bounds.y / page.height,
+          w: bounds.w / page.width,
+          h: bounds.h / page.height,
+        }
+      : fallback;
+    return area ? [{ role: role as PagePlaceholderRole, ...area }] : [];
+  });
+}
 
 export type PlaceholderRole =
   | 'title'
@@ -110,10 +212,10 @@ export function placeholderRole(type: string | null): PlaceholderRole {
     case 'ftr':
     case 'sldNum':
       return type;
-    // `<p:ph>` without a type is a body placeholder (ECMA-376 §19.3.1.36).
-    case null:
     case 'body':
       return 'body';
+    // `<p:ph>` without a type is an object placeholder (ECMA-376 §19.3.1.36).
+    case null:
     case 'obj':
       return 'object';
     default:
@@ -127,41 +229,55 @@ export interface MasterBox extends Area {
   readonly type: string | null;
 }
 
-const ROLE_AREA: Partial<Record<PlaceholderRole, Area>> = {
-  title: MASTER_AREAS.title,
-  subtitle: MASTER_AREAS.body,
-  body: MASTER_AREAS.body,
-  object: MASTER_AREAS.body,
-  other: MASTER_AREAS.body,
-  dt: MASTER_AREAS.dt,
-  ftr: MASTER_AREAS.ftr,
-  sldNum: MASTER_AREAS.sldNum,
-};
+const toArea = (
+  placeholder: SlideLayoutPlaceholder,
+  size: { width: number; height: number },
+): Area | null =>
+  placeholder.bounds
+    ? {
+        x: placeholder.bounds.x / size.width,
+        y: placeholder.bounds.y / size.height,
+        w: placeholder.bounds.w / size.width,
+        h: placeholder.bounds.h / size.height,
+      }
+    : null;
 
-/** The slide master's own placeholders: title, five-level body and the three footers. */
-export const MASTER_BOXES: readonly MasterBox[] = (
-  ['title', 'body', 'dt', 'ftr', 'sldNum'] as const
-).map((role) => ({ role, type: role, ...MASTER_AREAS[role] }));
+/**
+ * The slide master's own placeholders (title, five-level body, the three
+ * footers) as fractions of the slide, where the deck's master puts them.
+ */
+export function masterBoxes(
+  pres: PresentationData,
+  master: string,
+  size: { width: number; height: number },
+): MasterBox[] {
+  return getSlideMasterPlaceholders(pres, master).flatMap((placeholder) => {
+    const role = placeholderRole(placeholder.type);
+    const area = toArea(placeholder, size) ?? (MASTER_AREAS as Record<string, Area>)[role];
+    return area ? [{ role, type: placeholder.type, ...area }] : [];
+  });
+}
 
-/** A layout's placeholders as fractions of the slide; untransformed ones sit where the master puts them. */
+/**
+ * A layout's placeholders as fractions of the slide; a placeholder without a
+ * transform sits where its master's placeholder of the same kind does.
+ */
 export function layoutBoxes(
   layout: SlideLayoutData,
   size: { width: number; height: number },
+  master: readonly MasterBox[],
 ): MasterBox[] {
+  const inherited = (role: PlaceholderRole): Area =>
+    master.find(
+      (box) =>
+        box.role === (role === 'subtitle' || role === 'object' || role === 'other' ? 'body' : role),
+    ) ??
+    (MASTER_AREAS as Record<string, Area>)[role] ??
+    MASTER_AREAS.body;
   return getSlideLayoutPlaceholders(layout).map((placeholder) => {
     const role = placeholderRole(placeholder.type);
-    const bounds = placeholder.bounds;
-    const type = placeholder.type;
-    return bounds
-      ? {
-          role,
-          type,
-          x: bounds.x / size.width,
-          y: bounds.y / size.height,
-          w: bounds.w / size.width,
-          h: bounds.h / size.height,
-        }
-      : { role, type, ...ROLE_AREA[role]! };
+    const area = toArea(placeholder, size) ?? inherited(role);
+    return { role, type: placeholder.type, x: area.x, y: area.y, w: area.w, h: area.h };
   });
 }
 
@@ -170,20 +286,11 @@ export interface MasterGroup {
   readonly layouts: readonly SlideLayoutData[];
 }
 
-const partNumber = (name: string) => Number(/(\d+)\.xml$/.exec(name)?.[1] ?? 0);
-
-/**
- * Masters in presentation order, each with its layouts. The library lists
- * layouts in package order and does not expose the master's layout list, so
- * layouts follow their part numbers, which PowerPoint assigns in master order.
- */
+/** Masters in presentation order, each with its layouts in the master's order. */
 export function masterGroups(pres: PresentationData): MasterGroup[] {
-  const layouts = [...getSlideLayouts(pres)].sort(
-    (a, b) => partNumber(getSlideLayoutPartName(a)) - partNumber(getSlideLayoutPartName(b)),
-  );
   return getSlideMasterPartNames(pres).map((partName) => ({
     partName,
-    layouts: layouts.filter((layout) => getSlideMasterPartName(layout) === partName),
+    layouts: getSlideMasterLayouts(pres, partName),
   }));
 }
 

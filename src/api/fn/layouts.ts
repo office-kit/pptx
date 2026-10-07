@@ -1,7 +1,5 @@
 // Slide layouts.
 
-import { readPosition, readSize } from '../../internal/drawingml/index.ts';
-import type { Emu } from '../units.ts';
 import {
   type PlaceholderType,
   type SlideLayoutType,
@@ -17,8 +15,8 @@ import {
   type SlideLayoutData,
 } from '../_internal-symbols.ts';
 import { SLIDE_LAYOUT_CONTENT_TYPE, decode } from './_helpers.ts';
+import { type SlideLayoutPlaceholder, placeholderViews } from './_part-placeholders.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
-import type { ShapeBounds } from './shapes.ts';
 import { getSlides } from './slide-query.ts';
 
 // ---------------------------------------------------------------------------
@@ -49,26 +47,7 @@ export const findSlideLayoutByPartName = (
   return null;
 };
 
-/**
- * Read-only view of one placeholder on a slide layout. Surfaces the
- * three fields a slide-author cares about when binding a slide to a
- * layout: which slot is for the title, which is for the body, etc.
- */
-export interface SlideLayoutPlaceholder {
-  /** `<p:ph type="...">`. `null` when omitted — spec default is `body`. */
-  readonly type: string | null;
-  /** `<p:ph idx="...">`. `null` when omitted — spec default is `0`. */
-  readonly idx: number | null;
-  /** `<p:cNvPr name="...">` — what PowerPoint shows in the selection pane. */
-  readonly name: string;
-  /**
-   * Layout-defined position + size in EMU. A slide placeholder with no
-   * `<a:xfrm>` of its own inherits these. `null` when the layout
-   * placeholder also lacks an explicit transform (rare — usually the
-   * master defines it then).
-   */
-  readonly bounds: ShapeBounds | null;
-}
+export type { SlideLayoutPlaceholder } from './_part-placeholders.ts';
 
 /**
  * Enumerates the placeholder shapes on a slide layout. Non-placeholder
@@ -81,28 +60,7 @@ export interface SlideLayoutPlaceholder {
  */
 export const getSlideLayoutPlaceholders = (
   layout: SlideLayoutData,
-): ReadonlyArray<SlideLayoutPlaceholder> => {
-  const out: SlideLayoutPlaceholder[] = [];
-  for (const shape of layout[LAYOUT_PART].shapes) {
-    // Only `p:sp` shapes carry placeholders in real templates; pictures
-    // and connectors can technically have `<p:ph>` per the schema but
-    // PowerPoint never authors that. Filter for safety either way.
-    if (shape.placeholderType === null && shape.placeholderIdx === null) continue;
-    const pos = readPosition(shape.element, shape.kind);
-    const size = readSize(shape.element, shape.kind);
-    const bounds: ShapeBounds | null =
-      pos === null || size === null
-        ? null
-        : { x: pos.x as Emu, y: pos.y as Emu, w: size.w as Emu, h: size.h as Emu };
-    out.push({
-      type: shape.placeholderType,
-      idx: shape.placeholderIdx,
-      name: shape.name,
-      bounds,
-    });
-  }
-  return out;
-};
+): ReadonlyArray<SlideLayoutPlaceholder> => placeholderViews(layout[LAYOUT_PART].shapes);
 
 /**
  * Finds the first slide layout whose user-visible name matches `name`,

@@ -9,6 +9,7 @@ import { setPosition, setSize, setSolidFill } from '../../internal/drawingml/ind
 import { NS, type XmlElement, attr, firstChildElement, qname } from '../../internal/xml/index.ts';
 import { LAYOUT_DOCUMENT, LAYOUT_PART, type SlideLayoutData } from '../_internal-symbols.ts';
 import { NAME_CSLD, commitLayoutData } from './_helpers.ts';
+import { placeholderShapes } from './_part-placeholders.ts';
 import { writeBackgroundPr } from './slide-background.ts';
 import type { ShapeBounds } from './shapes.ts';
 
@@ -60,10 +61,8 @@ export const clearSlideLayoutBackground = (layout: SlideLayoutData): void => {
 
 // Same predicate as `getSlideLayoutPlaceholders`, so index `n` here and
 // index `n` there are the same slot.
-const placeholderShapes = (layout: SlideLayoutData) =>
-  layout[LAYOUT_PART].shapes.filter(
-    (shape) => shape.placeholderType !== null || shape.placeholderIdx !== null,
-  );
+const layoutPlaceholderShapes = (layout: SlideLayoutData) =>
+  placeholderShapes(layout[LAYOUT_PART].shapes);
 
 /**
  * Moves and resizes one of the layout's placeholder slots, identified by
@@ -79,7 +78,7 @@ export const setSlideLayoutPlaceholderBounds = (
   index: number,
   bounds: ShapeBounds,
 ): void => {
-  const shapes = placeholderShapes(layout);
+  const shapes = layoutPlaceholderShapes(layout);
   const shape = shapes[index];
   if (shape === undefined) {
     throw new Error(

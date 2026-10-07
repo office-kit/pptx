@@ -56,8 +56,11 @@ export class EditorDocument {
   selection = $state.raw<Selection>({ kind: 'none', slideIndex: 0 });
   fileName = $state<string>('Untitled.pptx');
   dirty = $state<boolean>(false);
-  /** Slide Master view's selected layout (see `CommandDoc.layoutTarget`). */
-  layoutTarget = $state.raw<{ readonly partName: string | null } | null>(null);
+  /** Slide Master view's selected master and layout (see `CommandDoc.layoutTarget`). */
+  layoutTarget = $state.raw<{
+    readonly master: string | null;
+    readonly partName: string | null;
+  } | null>(null);
 
   // History of committed states as serialized snapshots. `#cursor` is the index
   // of the current state within `#history`.
