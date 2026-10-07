@@ -50,15 +50,24 @@ const tile = (
 /** Duration shown, and written by a Duration edit, while a slide has no transition. */
 export const NO_TRANSITION_DURATION_MS = 2000;
 
-// A transition without p14:dur runs at its speed's duration, and without spd
-// at the schema default `fast` (ECMA-376 pml.xsd, CT_SlideTransition).
-const SPEED_MS = { fast: 500, med: 750, slow: 1000 } as const;
+type TransitionSpeed = NonNullable<SlideTransition['speed']>;
+const SPEED_MS: Readonly<Record<TransitionSpeed, number>> = { fast: 500, med: 750, slow: 1000 };
 
-/** The Duration the ribbon shows for a slide's transition. */
+/**
+ * The speed a transition runs at: without `spd`, the schema default `fast`
+ * (ECMA-376 pml.xsd, CT_SlideTransition).
+ */
+export const transitionSpeed = (transition: SlideTransition): TransitionSpeed =>
+  transition.speed ?? 'fast';
+
+/**
+ * The Duration the ribbon shows for a slide's transition: its p14:dur, or
+ * else its speed's own duration.
+ */
 export const shownDurationMs = (transition: SlideTransition | null): number =>
   transition === null
     ? NO_TRANSITION_DURATION_MS
-    : (transition.durationMs ?? SPEED_MS[transition.speed ?? 'fast']);
+    : (transition.durationMs ?? SPEED_MS[transitionSpeed(transition)]);
 
 export const TRANSITION_TILES: readonly TransitionTile[] = [
   tile('None', 'なし', NO_TRANSITION_DURATION_MS, { effect: 'none' }),

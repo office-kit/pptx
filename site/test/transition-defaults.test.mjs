@@ -8,7 +8,11 @@ import {
   getSlideXmlString,
   setSlideTransition,
 } from '@office-kit/pptx';
-import { shownDurationMs, TRANSITION_TILES } from '../src/lib/editor/ribbon/transition-gallery.ts';
+import {
+  shownDurationMs,
+  TRANSITION_TILES,
+  transitionSpeed,
+} from '../src/lib/editor/ribbon/transition-gallery.ts';
 
 // Mac PowerPoint 16.113.3's own save of each gallery tile, in gallery order,
 // headed by the Duration its ribbon showed after applying it.
@@ -97,4 +101,14 @@ test('a Duration edit writes spd and p14:dur by the rule PowerPoint’s defaults
   assert.equal(written(760).shown, 760);
   assert.match(written(501).xml, /<p:transition spd="med" p14:dur="501">/);
   assert.match(written(250).xml, /<p:transition p14:dur="250">/);
+});
+
+test('a transition without spd runs at the schema default, fast', () => {
+  // Cut as PowerPoint saves it (p14:dur only), and a bare transition.
+  assert.equal(transitionSpeed({ effect: 'cut', durationMs: 100 }), 'fast');
+  assert.equal(transitionSpeed({ effect: 'fade' }), 'fast');
+  assert.equal(shownDurationMs({ effect: 'fade' }), 500);
+  assert.equal(transitionSpeed({ effect: 'pull', speed: 'med' }), 'med');
+  assert.equal(shownDurationMs({ effect: 'pull', speed: 'med' }), 750);
+  assert.equal(shownDurationMs(null), 2000);
 });
