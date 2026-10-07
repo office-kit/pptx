@@ -10,6 +10,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -44,6 +45,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       let initialGradient = await gradient();
       const direction = editor.getByRole('button', { name: 'Gradient direction', exact: true });
       await direction.click();
@@ -118,6 +120,7 @@ test(
       await editor.getByRole('button', { name: 'Close Format Shape', exact: true }).click();
       await editor.locator('.hit').nth(0).click({ button: 'right' });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await gradientFill.check();
       await saved();
       assert.deepEqual(await gradient(), initialGradient);
@@ -215,6 +218,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.equal(await brightness.inputValue(), '-25');
       assert.equal(await opacity.inputValue(), '60');
       await brightness.fill('101');
@@ -304,6 +308,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.deepEqual(await gradient(), radialSaved);
       await direction.click();
       assert.equal(

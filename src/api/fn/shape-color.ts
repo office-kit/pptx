@@ -404,11 +404,28 @@ export const parseEffectList = (
         angleDeg: dir / 60000,
         ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
       };
+      const percentage = (name: string): number | undefined => {
+        const raw = getAttrValue(child, qname('', name, ''));
+        const value = raw === null ? Number.NaN : readColorPercentage(raw);
+        return Number.isFinite(value) ? value : undefined;
+      };
+      const degrees = (name: string): number | undefined => {
+        const raw = getAttrValue(child, qname('', name, ''));
+        return raw === null ? undefined : readColorAngleDegrees(raw);
+      };
+      const scaleX = percentage('sx');
+      const scaleY = percentage('sy');
+      const skewX = degrees('kx');
+      const skewY = degrees('ky');
       out.push(
         local === 'outerShdw'
           ? {
               kind: 'outerShdw',
               ...shadow,
+              ...(scaleX !== undefined ? { scaleX } : {}),
+              ...(scaleY !== undefined ? { scaleY } : {}),
+              ...(skewX !== undefined ? { skewX } : {}),
+              ...(skewY !== undefined ? { skewY } : {}),
               ...(alignment !== undefined ? { alignment } : {}),
               rotateWithShape: rotationRaw !== '0' && rotationRaw !== 'false',
             }
@@ -851,6 +868,10 @@ export const parseRPrLikeElement = (
           offsetEmu: effect.distEmu,
           angleDeg: effect.angleDeg,
           ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+          ...(effect.scaleX !== undefined ? { scaleX: effect.scaleX } : {}),
+          ...(effect.scaleY !== undefined ? { scaleY: effect.scaleY } : {}),
+          ...(effect.skewX !== undefined ? { skewX: effect.skewX } : {}),
+          ...(effect.skewY !== undefined ? { skewY: effect.skewY } : {}),
         };
       } else if (effect.kind === 'innerShdw') {
         out.innerShadow = {

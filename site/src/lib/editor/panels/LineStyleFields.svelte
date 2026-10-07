@@ -27,6 +27,11 @@
   });
 </script>
 
+<!-- PowerPoint's Sketched style sits between Width and Compound type. -->
+<div class="sketch" title={t('Sketched lines are not supported by the library yet.')}>
+  <span>{t('Sketched style')}</span>
+  <button class="ok-input menu-button" aria-label={t('Sketched style')} aria-haspopup="menu" disabled><span class="line" aria-hidden="true"></span><span class="arrow">▾</span></button>
+</div>
 {#each fields as field, index}
   <label>
     <span>{t(field.label)}</span>
@@ -43,6 +48,11 @@
 <ArrowStyleFields />
 
 <style>
+  .sketch { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+  /* PowerPoint's 39 × 26 pt gallery buttons. */
+  .menu-button { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 39px; height: 26px; padding: 0 2px 0 4px; }
+  .menu-button .line { width: 18px; border-top: 2px solid currentColor; }
+  .menu-button .arrow { font-size: 9px; }
   label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
   /* PowerPoint's Format pane pop-up buttons are 112 × 26 pt. */
   select { box-sizing: border-box; width: 112px; height: 26px; font-size: inherit; }

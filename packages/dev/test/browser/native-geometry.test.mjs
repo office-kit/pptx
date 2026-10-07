@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 // Metrics measured from Mac PowerPoint 16 through the accessibility API in a
@@ -124,6 +125,24 @@ test(
       const pane = await box(page.locator('.panel'));
       assert.equal(pane.width, 300);
       assert.equal((await box(page.locator('.panel-head'))).height, 27);
+      // Shape Options / Text Options: a 278 × 26 pt switch, 14 pt below the
+      // title, 11 pt in; every section collapsed, headers on a 25 pt pitch.
+      const options = await box(page.getByRole('radiogroup', { name: 'Format Shape options' }));
+      assert.deepEqual(
+        [options.width, options.height, options.x - pane.x, options.y - (pane.y + 27)],
+        [278, 26, 11, 14],
+      );
+      const headers = await page
+        .locator('details.pane-section:visible > summary')
+        .evaluateAll((nodes) =>
+          nodes.map((node) => [node.parentElement.open, node.getBoundingClientRect().top]),
+        );
+      assert.deepEqual(
+        headers.map(([open]) => open),
+        [false, false],
+      );
+      assert.equal(headers[1][1] - headers[0][1], 25);
+      await expandFormatSections(page, 'Fill', 'Line');
       assert.deepEqual(
         await page
           .getByRole('tablist', { name: 'Format Shape' })

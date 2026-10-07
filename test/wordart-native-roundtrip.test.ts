@@ -57,8 +57,12 @@ const element = (xml: string, tag: string) =>
   compact(xml).match(new RegExp(`<a:${tag}\\b[^>]*?(?:/>|>.*?</a:${tag}>)`))?.[0] ?? '';
 
 const writable = (read: ReadText3D): Text3D => {
-  const { contourColor, ...rest } = read;
-  return contourColor === undefined ? rest : { ...rest, contourColor: asColor(contourColor)! };
+  const { contourColor, extrusionColor, ...rest } = read;
+  return {
+    ...rest,
+    ...(contourColor === undefined ? {} : { contourColor: asColor(contourColor)! }),
+    ...(extrusionColor === undefined ? {} : { extrusionColor: asColor(extrusionColor)! }),
+  };
 };
 
 describe('native WordArt payloads round trip', () => {

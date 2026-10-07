@@ -11,6 +11,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -53,6 +54,7 @@ test(
         .first()
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await editor.getByRole('radio', { name: 'Pattern fill', exact: true }).check();
       await saved();
       assert.deepEqual((await read())[0], {
@@ -82,6 +84,7 @@ test(
         .first()
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await foreground.click();
       assert.equal(
         await palette
@@ -163,6 +166,7 @@ test(
         .first()
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.equal(
         await gallery
           .getByRole('button', { name: 'Wave', exact: true })

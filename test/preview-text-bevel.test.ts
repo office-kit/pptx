@@ -41,7 +41,12 @@ const nativeText3D = (name: string): Text3D => {
   const read = readText3D(
     find(parseXml(readFileSync(new URL(name, NATIVE), 'utf8')).root, 'bodyPr'),
   )!;
-  const { contourColor: _color, contourColorTransforms: _transforms, ...rest } = read;
+  const {
+    contourColor: _color,
+    contourColorTransforms: _transforms,
+    extrusionColor: _extrusion,
+    ...rest
+  } = read;
   return rest;
 };
 const SOFT = 'wordart-accent4-soft-bevel-shape.xml';
