@@ -26,7 +26,7 @@ import * as pptx from '@office-kit/pptx';
 // the library's vitest run would couple the two toolchains. `overrides` never
 // add or remove capabilities (guarded at runtime in `manifest/index.ts`), so
 // the generated id set is exactly the resolved id set for coverage purposes.
-import generated from '../site/src/lib/editor/manifest/capabilities.generated.json';
+import generated from '../packages/editor/src/manifest/capabilities.generated.json';
 
 const capabilities = generated.capabilities as ReadonlyArray<{
   id: string;
@@ -121,7 +121,7 @@ describe('editor capability coverage', () => {
 
 describe('editor command localization', () => {
   it('provides English and Japanese labels for every command', async () => {
-    const { capabilities } = await import('../site/src/lib/editor/manifest/index.ts');
+    const { capabilities } = await import('../packages/editor/src/manifest/index.ts');
     for (const command of capabilities) {
       expect(command.labelEn.trim(), command.id).not.toBe('');
       expect(command.labelJa, command.id).toMatch(

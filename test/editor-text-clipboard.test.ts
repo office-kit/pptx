@@ -11,8 +11,8 @@ import {
   getTableCells,
   getTableCellParagraphs,
 } from '../src/api/index.ts';
-import { copyTextRange, parseTextClipboard } from '../site/src/lib/editor/core/text-clipboard.ts';
-import { projectTextEdits } from '../site/src/lib/editor/core/text-edit-preview.ts';
+import { copyTextRange, parseTextClipboard } from '../packages/editor/src/core/text-clipboard.ts';
+import { projectTextEdits } from '../packages/editor/src/core/text-edit-preview.ts';
 
 function fixture() {
   const slide = addBlankSlide(createPresentation());

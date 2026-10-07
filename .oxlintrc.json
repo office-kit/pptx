@@ -19,6 +19,7 @@
     ".changeset",
     "references",
     "test/fixtures",
-    "site"
+    "site",
+    "packages/editor"
   ]
 }

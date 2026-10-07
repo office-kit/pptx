@@ -165,7 +165,7 @@ test('table editing uses the resolved theme color for text and patterned underli
           return inlineTextHtml(pres,table,undefined,{row:0,col:0});
         }`,
       loader: 'ts',
-      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+      resolveDir: fileURLToPath(new URL('../../../../packages/editor/src/core/', import.meta.url)),
     },
     bundle: true,
     format: 'esm',

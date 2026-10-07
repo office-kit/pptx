@@ -137,7 +137,7 @@ test('editing tab widths follow capitalization and kerning', async () => {
     stdin: {
       contents: `export {layoutEditingTabs} from './editing-tabs.ts';`,
       loader: 'ts',
-      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+      resolveDir: fileURLToPath(new URL('../../../../packages/editor/src/core/', import.meta.url)),
     },
     bundle: true,
     format: 'esm',
@@ -188,7 +188,7 @@ test('vertical editing tabs align along the inline axis', async () => {
     stdin: {
       contents: `export {layoutEditingTabs} from './editing-tabs.ts';`,
       loader: 'ts',
-      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+      resolveDir: fileURLToPath(new URL('../../../../packages/editor/src/core/', import.meta.url)),
     },
     bundle: true,
     format: 'esm',
@@ -302,7 +302,7 @@ test('editing tabs preserve kerning across equally styled runs', async () => {
     stdin: {
       contents: `export {layoutEditingTabs} from './editing-tabs.ts';`,
       loader: 'ts',
-      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+      resolveDir: fileURLToPath(new URL('../../../../packages/editor/src/core/', import.meta.url)),
     },
     bundle: true,
     format: 'esm',

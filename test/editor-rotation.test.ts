@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectionBounds, type RotatedRect } from '../site/src/lib/editor/canvas/rotation.ts';
+import { selectionBounds, type RotatedRect } from '../packages/editor/src/canvas/rotation.ts';
 
 const shapes: RotatedRect[] = [
   { x: 10, y: 20, w: 80, h: 40, rotation: 0 },

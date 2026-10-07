@@ -11,7 +11,7 @@ import {
   TEXTURES,
   TEXTURE_SIZE,
   texturePixels,
-} from '../../../../site/src/lib/editor/core/textures.ts';
+} from '../../../../packages/editor/src/core/textures.ts';
 
 const PNG_HEADER_LENGTH = 8;
 const RGB = 3;

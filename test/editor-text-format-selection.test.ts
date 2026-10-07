@@ -19,9 +19,9 @@ import {
   setShapeParagraphs,
   setTableCellParagraphs,
 } from '../src/api/index.ts';
-import { textFormatsInRange } from '../site/src/lib/editor/core/text-format-selection.ts';
-import { toggleTextFormat } from '../site/src/lib/editor/core/text-format-toggle.ts';
-import { projectTextEdits } from '../site/src/lib/editor/core/text-edit-preview.ts';
+import { textFormatsInRange } from '../packages/editor/src/core/text-format-selection.ts';
+import { toggleTextFormat } from '../packages/editor/src/core/text-format-toggle.ts';
+import { projectTextEdits } from '../packages/editor/src/core/text-edit-preview.ts';
 
 for (const kind of ['shape', 'cell'] as const)
   describe(`${kind} caret formats`, () => {

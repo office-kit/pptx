@@ -45,7 +45,14 @@ const config = {
       // aliases match by prefix, and the package alias would swallow it.
       '@office-kit/pptx-dsl/jsx-runtime': '../packages/dsl/src/jsx-runtime.ts',
       '@office-kit/pptx-dsl': '../packages/dsl/src/index.ts',
+      '@office-kit/pptx-editor': '../packages/editor/src/index.ts',
     },
+  },
+  vitePlugin: {
+    // The editor renders in a shadow root, which page stylesheets do not reach;
+    // its components inject their styles there, as its package build does.
+    dynamicCompileOptions: ({ filename }) =>
+      filename.includes('/packages/editor/src/') ? { css: 'injected' } : undefined,
   },
 };
 

@@ -69,13 +69,20 @@ jobs:
       - name: Type check DSL package
         run: pnpm --filter @office-kit/pptx-dsl typecheck
 
+      - name: Type check editor package
+        run: pnpm --filter @office-kit/pptx-editor typecheck
+
+      # pptx-dev bundles the editor from this build.
+      - name: Build editor package
+        run: pnpm --filter @office-kit/pptx-editor build
+
       - name: Type check authoring tools
         run: pnpm --filter @office-kit/pptx-dev typecheck
 
       - name: Build authoring tools
         run: pnpm --filter @office-kit/pptx-dev build
 
-      - name: Type check shared editor
+      - name: Type check site
         run: pnpm --filter @office-kit/pptx-site check
 
   # Multi-version test matrix. Adapt the matrix to the runtimes the project
@@ -110,8 +117,8 @@ jobs:
         run: pnpm --filter @office-kit/pptx-dev... build
       - name: Test TSX authoring and live preview
         run: pnpm --filter @office-kit/pptx-dev test
-      - name: Test shared editor history
-        run: pnpm --filter @office-kit/pptx-site test
+      - name: Test editor package
+        run: pnpm --filter @office-kit/pptx-editor test
 
   # The browser suite takes ~46 min on one runner, so it is split by file
   # across parallel jobs. Files stay serial within a shard (as in
@@ -146,6 +153,12 @@ jobs:
         env:
           PLAYWRIGHT_CHANNEL: chromium
         run: pnpm exec node --test --test-concurrency=1 --test-timeout=180000 --test-shard=${{ matrix.shard }}/8 test/browser/*.test.mjs
+      # The embedding tests are short; one shard runs them.
+      - name: Test embedding the editor in Chromium
+        if: matrix.shard == 1
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
+        run: pnpm --filter @office-kit/pptx-editor test:browser
 
   # Measures how closely @office-kit/pptx-preview's SVG renderer matches LibreOffice's
   # output for each generated sample slide, and gates on a committed baseline.

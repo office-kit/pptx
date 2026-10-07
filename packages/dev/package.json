@@ -46,9 +46,9 @@
     "typescript": "^6.0.3"
   },
   "devDependencies": {
+    "@office-kit/pptx-editor": "workspace:^",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^24.13.2",
-    "svelte": "^5.56.3",
     "tsdown": "^0.22.2"
   },
   "engines": {

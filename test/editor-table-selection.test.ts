@@ -13,7 +13,7 @@ import {
   neighboringTableCell,
   tableCellsInRange,
   tableSelectionBlock,
-} from '../site/src/lib/editor/core/table-selection.ts';
+} from '../packages/editor/src/core/table-selection.ts';
 
 it('moves in all directions through merged anchors and stops at table edges', async () => {
   const pres = await loadPresentation(

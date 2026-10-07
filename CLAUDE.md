@@ -49,6 +49,21 @@ Use `mode="compose"` only when intentionally replacing the slide sequence.
 Unknown parts must not be discarded or flattened. `Raw` is the escape hatch
 for core APIs, not evidence of typed DSL coverage.
 
+### Package layering
+
+| Package                    | Role                                                                  | Runtime        |
+| -------------------------- | --------------------------------------------------------------------- | -------------- |
+| `@office-kit/pptx`         | Read / write PPTX (the core library below)                            | Node + browser |
+| `@office-kit/pptx-preview` | SVG rendering                                                         | Node + browser |
+| `@office-kit/pptx-dsl`     | TSX → PPTX                                                            | Node + browser |
+| `@office-kit/pptx-editor`  | Embeddable editing UI (`mountEditor`); later the agent write API      | Browser        |
+| `@office-kit/pptx-dev`     | Local host for the editor: TSX watch / rebuild, disk persistence, CLI | Node + browser |
+
+`pptx-dev` is a client of the editor. It should reach the editor only through
+its public API so that gaps in the embedding API surface during dev work.
+`@office-kit/pptx-editor/internal` exists only while that migration is in
+progress; do not add to it without a plan to remove it.
+
 ### Core library
 
 - **Language**: TypeScript (strict mode), targeting ES2022.

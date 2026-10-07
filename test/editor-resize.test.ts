@@ -3,8 +3,8 @@ import {
   resizeRect,
   resizeSelectionRects,
   type ResizeHandle,
-} from '../site/src/lib/editor/canvas/resize.ts';
-import type { Rect } from '../site/src/lib/editor/canvas/snapping.ts';
+} from '../packages/editor/src/canvas/resize.ts';
+import type { Rect } from '../packages/editor/src/canvas/snapping.ts';
 
 const handles: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const original = { x: 100, y: 200, w: 300, h: 100 };

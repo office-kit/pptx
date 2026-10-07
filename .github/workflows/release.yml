@@ -85,6 +85,8 @@ jobs:
       - run: pnpm build
       - run: pnpm --filter @office-kit/pptx-dev... build
       - run: pnpm --filter @office-kit/pptx-dsl typecheck
+      - run: pnpm --filter @office-kit/pptx-editor typecheck
+      - run: pnpm --filter @office-kit/pptx-editor test
       - run: pnpm --filter @office-kit/pptx-dev typecheck
       - run: pnpm --filter @office-kit/pptx-dev test
 

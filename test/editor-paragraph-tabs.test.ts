@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { editTabStops } from '../site/src/lib/editor/core/paragraph-tabs.ts';
+import { editTabStops } from '../packages/editor/src/core/paragraph-tabs.ts';
 
 it('applies tab edits independently to paragraphs with different existing stops', () => {
   const first = [{ positionEmu: 100, alignment: 'left' as const }];

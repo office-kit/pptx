@@ -13,7 +13,7 @@ import {
   applyShapeQuickStyle,
   quickStyleReferences,
   type ShapeQuickStyle,
-} from '../site/src/lib/editor/core/shape-quick-styles.ts';
+} from '../packages/editor/src/core/shape-quick-styles.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/native/${name}`, import.meta.url));

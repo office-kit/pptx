@@ -17,7 +17,7 @@ import {
   copyTableCellValues,
   canPasteTableCells,
   pasteTableCells,
-} from '../site/src/lib/editor/core/table-clipboard.ts';
+} from '../packages/editor/src/core/table-clipboard.ts';
 
 async function table() {
   const pres = await loadPresentation(
