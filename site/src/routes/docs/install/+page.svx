@@ -55,7 +55,7 @@ Types are bundled. `tsconfig.json` should have `"moduleResolution": "bundler"` (
 
 - **New theme / master / layout authoring from scratch** — at 1.0 you can author slides on top of any layout in your template, but constructing a fresh master and theme is post-1.0.
 - **SmartArt authoring** — preserved verbatim on round-trip but not synthesizable.
-- **Complex animation timing-tree authoring** — entrance / exit / emphasis presets (`fadeIn`, `fadeOut`, `appear`, `disappear`) are exposed; deeper timing trees are deferred.
+- **Complex animation timing-tree authoring** — all 95 entrance / exit / emphasis gallery presets (`fadeIn`, `flyIn`, `pulse`, `fadeOut`, …) are exposed; deeper timing trees are deferred.
 - **Document encryption (read + write)** — encrypted `.pptx` files are detected and rejected with a clear error.
 
 Next: <a href="{base}/docs/getting-started">Getting started →</a>

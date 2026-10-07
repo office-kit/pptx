@@ -6,10 +6,11 @@
  * they cannot disagree about what a timing tree means — the preview bundles it
  * over HTTP (`/animation-player.js`), the panel imports it directly.
  *
- * The rule it is built around: **play only what the deck states.** A step this
- * library reads but cannot reproduce is never approximated — not by guessing a
- * moment for it, not by giving it a click of its own, and not by deciding for
- * itself whether the shape should be on the slide before its turn. Such a step
+ * The rule it is built around: **play only what the deck states.** A step whose
+ * moment, target or preset this library cannot read is never guessed at — not
+ * by inventing a moment for it, not by giving it a click of its own, and not
+ * by deciding for itself whether the shape should be on the slide before its
+ * turn. (How a known preset moves is approximated; see `Motion`.) Such a step
  * is reported as unsupported and everything it touches is left exactly as the
  * renderer drew it, which is the only state that cannot lose content.
  *
@@ -43,7 +44,6 @@ const INSTANT_EFFECTS = ['appear', 'disappear'];
 const FILTER_FAMILIES = [
   'blinds',
   'checkerboard',
-  'dissolve',
   'peek',
   'randomBars',
   'shape',
@@ -53,62 +53,126 @@ const FILTER_FAMILIES = [
   'wheel',
   'wipe',
 ];
-const ENTRANCE_EFFECTS = [
-  'fadeIn',
-  'appear',
-  'flyIn',
-  'zoomIn',
-  ...FILTER_FAMILIES.map((family) => `${family}In`),
-];
-const EXIT_EFFECTS = [
-  'fadeOut',
-  'disappear',
-  'flyOut',
-  'zoomOut',
-  ...FILTER_FAMILIES.map((family) => `${family}Out`),
-];
-const EMPHASIS_EFFECTS = ['spin'];
+
+/** The `presetClass` of an effect the library names says which of the three it is. */
+const PRESET_CLASS_KINDS: Readonly<Record<string, AnimationItem['kind']>> = {
+  entr: 'entrance',
+  exit: 'exit',
+  emph: 'emphasis',
+};
 
 /**
  * What an effect does to its target beyond putting it on the slide or taking it
- * off. Each one is reproduced here as the browser's own equivalent of the
- * behaviour the deck states: `style.opacity` as `opacity`, `ppt_x` / `ppt_y` as
- * a translation, `ppt_w` / `ppt_h` as a scale about the shape's centre, and `r`
- * as a rotation about it.
+ * off, reproduced with the browser's own properties: `style.opacity` as
+ * `opacity`, `ppt_x` / `ppt_y` as a translation, `ppt_w` / `ppt_h` as a scale
+ * about the shape's centre, and `r` as a rotation about it.
  *
- * A transition filter (`<p:animEffect>`) has no browser equivalent, so it is
- * approximated with an animated `clip-path` drawing the same reveal — bars,
- * a wedge, an outline growing out of the centre. Dissolve is the one the clip
- * cannot draw; it plays as a fade.
+ * Fly (and Credits, which is a fly from below the slide) travels the distance
+ * the slide gives it. A transition filter (`<p:animEffect>`) has no browser
+ * equivalent, so it is drawn with an animated `clip-path` making the same
+ * reveal — bars, a wedge, an outline growing out of the centre.
+ *
+ * Every other preset is a `pose`, and an approximation: the frames below go
+ * from the pose to the shape's own place (or back, for an exit) evenly over
+ * the effect's whole length, where PowerPoint's own behaviours each have a
+ * timing of their own — a bounce's falls, a boomerang's arc. Dissolve plays as
+ * a fade. Emphasis colour changes are a CSS `filter` over the drawn shape
+ * (darker, lighter, greyer, or its hues turned), since the drawing has already
+ * resolved the colours the deck names; like every emphasis here, they play and
+ * then hand the shape back as drawn.
  */
-type Motion = 'none' | 'fade' | 'fly' | 'zoom' | 'spin' | 'filter' | 'peek';
+type Motion = 'none' | 'fly' | 'filter' | 'peek' | 'pose';
 
-const MOTIONS: Readonly<Record<string, Motion>> = {
-  appear: 'none',
-  disappear: 'none',
-  fadeIn: 'fade',
-  fadeOut: 'fade',
-  dissolveIn: 'fade',
-  dissolveOut: 'fade',
-  flyIn: 'fly',
-  flyOut: 'fly',
-  zoomIn: 'zoom',
-  zoomOut: 'zoom',
-  spin: 'spin',
-  peekIn: 'peek',
-  peekOut: 'peek',
-  ...Object.fromEntries(
-    FILTER_FAMILIES.filter((family) => family !== 'dissolve' && family !== 'peek').flatMap(
-      (family) => [
-        [`${family}In`, 'filter'],
-        [`${family}Out`, 'filter'],
-      ],
-    ),
-  ),
+const motionOf = (effect: string): Motion => {
+  if (INSTANT_EFFECTS.includes(effect)) return 'none';
+  const family = effect.replace(/(In|Out)$/, '');
+  if (family === 'fly' || family === 'credits') return 'fly';
+  if (family === 'peek') return 'peek';
+  return FILTER_FAMILIES.includes(family) ? 'filter' : 'pose';
 };
 
-/** One clockwise turn, which is what the `spin` preset this library reads is. */
-const SPIN_DEGREES = 360;
+/** Where an entrance starts and an exit ends, by preset family. */
+const AWAY: Readonly<Record<string, Keyframe>> = {
+  fade: { opacity: 0 },
+  dissolve: { opacity: 0 },
+  expand: { opacity: 0, scale: '0.7 1' },
+  contract: { opacity: 0, scale: '0.7 1' },
+  swivel: { opacity: 0, scale: '0 1' },
+  zoom: { opacity: 0, scale: '0' },
+  basicZoom: { scale: '0' },
+  centerRevolve: { opacity: 0, scale: '0.5', translate: '0% 50%' },
+  float: { opacity: 0, translate: '0% 50%' },
+  growTurn: { opacity: 0, scale: '0', rotate: '90deg' },
+  shrinkTurn: { opacity: 0, scale: '0', rotate: '90deg' },
+  riseUp: { opacity: 0, translate: '0% 100%' },
+  sinkDown: { opacity: 0, translate: '0% 100%' },
+  spinner: { opacity: 0, scale: '0', rotate: '-90deg' },
+  stretch: { scale: '0 1' },
+  stretchy: { scale: '0 1' },
+  collapse: { scale: '0 1' },
+  boomerang: { opacity: 0, scale: '0.5', rotate: '-90deg', translate: '-150% 0%' },
+  bounce: { translate: '0% -150%' },
+  curveUp: { opacity: 0, scale: '0.5', translate: '50% 100%' },
+  curveDown: { opacity: 0, scale: '0.5', translate: '50% 100%' },
+  drop: { opacity: 0, translate: '0% -100%' },
+  flip: { opacity: 0, rotate: '-90deg' },
+  floating: { opacity: 0, translate: '50% -50%' },
+  pinwheel: { opacity: 0, scale: '0', rotate: '720deg' },
+  spiral: { scale: '0', translate: '-100% 100%' },
+  basicSwivel: { scale: '0 1' },
+  whip: { opacity: 0, scale: '0.5', translate: '-100% 0%' },
+};
+
+/** Each property of a pose at the shape's own place. */
+const AT_REST: Readonly<Record<string, string | number>> = {
+  opacity: 1,
+  scale: '1',
+  rotate: '0deg',
+  translate: '0% 0%',
+};
+
+const restOf = (away: Keyframe): Keyframe =>
+  Object.fromEntries(Object.keys(away).map((name) => [name, AT_REST[name]!]));
+
+const turned = (from: string, to: string): Keyframe[] => [{ filter: from }, { filter: to }];
+const flash = (from: string, to: string): Keyframe[] => [
+  { filter: from },
+  { filter: to },
+  { filter: from },
+];
+const HUE_TURN = turned('hue-rotate(0deg)', 'hue-rotate(180deg)');
+const CONTRAST_FLASH = flash('contrast(1)', 'contrast(1.8)');
+
+/** The frames of each emphasis effect, which starts and ends with the shape as drawn. */
+const EMPHASIS: Readonly<Record<string, Keyframe[]>> = {
+  spin: [{ rotate: '0deg' }, { rotate: '360deg' }],
+  growShrink: [{ scale: '1' }, { scale: '1.5' }],
+  pulse: [{ scale: '1' }, { scale: '1.05' }, { scale: '1' }],
+  teeter: ['0deg', '4deg', '-4deg', '4deg', '-4deg', '0deg'].map((rotate) => ({ rotate })),
+  wave: [{ translate: '0% 0%' }, { translate: '0% -20%' }, { translate: '0% 0%' }],
+  shimmer: [{ scale: '1' }, { scale: '1.05 0.95' }, { scale: '1' }],
+  blink: [{ opacity: 1 }, { opacity: 0 }, { opacity: 1 }],
+  transparency: [{ opacity: 1 }, { opacity: 0.5 }],
+  fillColor: HUE_TURN,
+  lineColor: HUE_TURN,
+  fontColor: HUE_TURN,
+  objectColor: HUE_TURN,
+  brushColor: HUE_TURN,
+  complementaryColor: HUE_TURN,
+  complementaryColor2: HUE_TURN,
+  contrastingColor: HUE_TURN,
+  darken: turned('brightness(1)', 'brightness(0.6)'),
+  lighten: turned('brightness(1)', 'brightness(1.4)'),
+  desaturate: turned('saturate(1)', 'saturate(0)'),
+  colorPulse: flash('brightness(1)', 'brightness(1.4)'),
+  growWithColor: [
+    { scale: '1', filter: 'hue-rotate(0deg)' },
+    { scale: '1.1', filter: 'hue-rotate(180deg)' },
+  ],
+  boldFlash: CONTRAST_FLASH,
+  boldReveal: CONTRAST_FLASH,
+  underline: CONTRAST_FLASH,
+};
 
 /** Why a step is not played. */
 export type UnsupportedReason =
@@ -224,11 +288,8 @@ const styled = (el: Element): StyledElement | null =>
 
 /** Whether a step reveals its target, hides it, or neither; null when we cannot tell. */
 const kindOf = (step: SlideAnimationStep): AnimationItem['kind'] | null => {
-  if (step.effect === null) return null;
-  if (ENTRANCE_EFFECTS.includes(step.effect)) return 'entrance';
-  if (EXIT_EFFECTS.includes(step.effect)) return 'exit';
-  if (EMPHASIS_EFFECTS.includes(step.effect)) return 'emphasis';
-  return null;
+  if (step.effect === null || step.presetClass === null) return null;
+  return PRESET_CLASS_KINDS[step.presetClass] ?? null;
 };
 
 /**
@@ -443,7 +504,7 @@ interface Movement {
  * movement of `null` means "not read yet" rather than "nothing to run".
  */
 const needsGeometry = (item: AnimationItem): boolean =>
-  item.step.effect !== null && MOTIONS[item.step.effect] === 'fly';
+  item.step.effect !== null && motionOf(item.step.effect) === 'fly';
 
 /**
  * The keyframes one step runs on one element, or `null` when there is nothing
@@ -454,26 +515,24 @@ const needsGeometry = (item: AnimationItem): boolean =>
 const movementFor = (item: AnimationItem, el: StyledElement, root: ParentNode): Movement | null => {
   const effect = item.step.effect;
   const entering = item.kind === 'entrance';
-  switch (effect === null ? 'none' : (MOTIONS[effect] ?? 'none')) {
+  if (effect === null) return null;
+  switch (motionOf(effect)) {
     case 'none':
       return null;
-    case 'fade':
-      return {
-        frames: entering ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }],
-        aboutOwnCentre: false,
-      };
-    case 'zoom': {
-      const none = { scale: '0' };
-      const full = { scale: '1' };
-      return { frames: entering ? [none, full] : [full, none], aboutOwnCentre: true };
+    case 'pose': {
+      if (item.kind === 'emphasis') {
+        const frames = EMPHASIS[effect];
+        return frames === undefined ? null : { frames, aboutOwnCentre: true };
+      }
+      const away = AWAY[effect.replace(/(In|Out)$/, '')];
+      if (away === undefined) return null;
+      const rest = restOf(away);
+      return { frames: entering ? [away, rest] : [rest, away], aboutOwnCentre: true };
     }
-    case 'spin':
-      return {
-        frames: [{ rotate: '0deg' }, { rotate: `${SPIN_DEGREES}deg` }],
-        aboutOwnCentre: true,
-      };
     case 'fly': {
-      const direction = item.step.direction;
+      // Credits rolls up from below the slide and away off its top.
+      const direction =
+        effect === 'creditsIn' ? 'bottom' : effect === 'creditsOut' ? 'top' : item.step.direction;
       if (direction === null) return null;
       const offset = flyOffset(el, direction, root);
       if (offset === null) return null;

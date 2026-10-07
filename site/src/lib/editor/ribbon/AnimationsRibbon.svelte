@@ -21,13 +21,15 @@
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import RibbonGallery from './RibbonGallery.svelte';
   import {
+    ALL_TILES,
     EMPHASIS_TILES,
     ENTRANCE_TILES,
     EXIT_TILES,
-    UNSUPPORTED_SEQUENCE,
+    SEQUENCE,
     effectOptionSections,
     optionChecked,
     optionLabel,
+    takesSequence,
     type EffectTile,
   } from './animation-gallery.ts';
 
@@ -53,7 +55,8 @@
     if (!slide || shapeId === null) return null;
     return getSlideAnimations(slide).find((item) => item.id !== null && item.targetShapeIds.includes(shapeId)) ?? null;
   });
-  const checkedTile = $derived([...ENTRANCE_TILES, ...EMPHASIS_TILES, ...EXIT_TILES].find((item) => item.effect !== undefined && item.effect === step?.effect) ?? null);
+  const optionSections = $derived(effectOptionSections(step?.effect ?? null));
+  const checkedTile = $derived(ALL_TILES.find((item) => item.effect === step?.effect) ?? null);
   // Keys are unique within a gallery, not across them: Blinds is both an
   // entrance and an exit.
   const checkedIn = (kind: EffectTile['kind']) => (checkedTile?.kind === kind ? checkedTile.key : null);
@@ -100,7 +103,7 @@
   const toggle = (name: Menu) => (menu = menu === name ? null : name);
   function chooseFromMenu(item: EffectTile) {
     menu = null;
-    if (item.effect) choose(item.effect);
+    choose(item.effect);
   }
 
   // Preview plays the current slide's effects over the editor.
@@ -120,6 +123,7 @@
         ...(step.inOut ? { inOut: step.inOut } : {}),
         ...(step.shape ? { shape: step.shape } : {}),
         ...(step.spokes ? { spokes: step.spokes } : {}),
+        ...(step.build !== 'custom' ? { build: step.build } : {}),
         ...(step.durationMs != null ? { durationMs: step.durationMs } : {}),
         ...(step.delayMs != null ? { delayMs: step.delayMs } : {}),
         ...(step.start !== 'unknown' ? { start: step.start } : {}),
@@ -160,7 +164,7 @@
 {#snippet effectMenu(name: Menu, items: readonly EffectTile[])}
   <div class="menu" role="menu" use:placeBelowTrigger aria-label={t(name === 'exit' ? 'Exit Effects' : 'Emphasis Effects')}>
     {#each items as item (item.key)}
-      <button role="menuitemradio" aria-checked={checkedIn(item.kind) === item.key} disabled={item.unavailable !== undefined} title={item.unavailable ? t(item.unavailable) : undefined} onclick={() => chooseFromMenu(item)}>{@render star(item.kind)}{label(item)}</button>
+      <button role="menuitemradio" aria-checked={checkedIn(item.kind) === item.key} onclick={() => chooseFromMenu(item)}>{@render star(item.kind)}{label(item)}</button>
     {/each}
   </div>
 {/snippet}
@@ -174,13 +178,13 @@
   </section>
   {#if previewing && doc.currentSlide}<AnimationPlayback svg={doc.currentSvg} {steps} onclose={() => (previewing = false)} />{/if}
   <section class="cluster" role="group" aria-label={t('Entrance Effects')}>
-    <RibbonGallery label={t('Entrance Effects')} items={ENTRANCE_TILES} checked={checkedIn('entrance')} visible={expanded ? 5 : 6} tileWidth={TILE_WIDTH} disabled={shapeId === null} name={label} choose={(item) => item.effect && choose(item.effect)}>
+    <RibbonGallery label={t('Entrance Effects')} items={ENTRANCE_TILES} checked={checkedIn('entrance')} visible={expanded ? 5 : 6} tileWidth={TILE_WIDTH} disabled={shapeId === null} name={label} choose={(item) => choose(item.effect)}>
       {#snippet tile(item)}{@render star(item.kind)}{/snippet}
     </RibbonGallery>
   </section>
   <section class="cluster" role="group" aria-label={t('Emphasis Effects')}>
     {#if expanded}
-      <RibbonGallery label={t('Emphasis Effects')} items={EMPHASIS_TILES} checked={checkedIn('emphasis')} visible={5} tileWidth={TILE_WIDTH} disabled={shapeId === null} name={label} choose={(item) => item.effect && choose(item.effect)}>
+      <RibbonGallery label={t('Emphasis Effects')} items={EMPHASIS_TILES} checked={checkedIn('emphasis')} visible={5} tileWidth={TILE_WIDTH} disabled={shapeId === null} name={label} choose={(item) => choose(item.effect)}>
         {#snippet tile(item)}{@render star(item.kind)}{/snippet}
       </RibbonGallery>
     {:else}
@@ -210,7 +214,7 @@
   </section>
   <section class="cluster" role="group" aria-label={t('Advanced Animation')}>
     <div class="anchor">
-      <button class="big" style:--w="50px" aria-haspopup="menu" aria-expanded={menu === 'options'} disabled={step?.id == null} onclick={() => toggle('options')}>
+      <button class="big" style:--w="50px" aria-haspopup="menu" aria-expanded={menu === 'options'} disabled={step?.id == null || (optionSections.length === 0 && !takesSequence(step.effect))} onclick={() => toggle('options')}>
         <span class="icon-row"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3l2 4.4 4.7.5-3.5 3.2.9 4.6L10 13.4l-4.1 2.3.9-4.6-3.5-3.2 4.7-.5z" /><circle cx="17" cy="17" r="3" /></svg><span class="arrow" aria-hidden="true">⌄</span></span>
         <span>{t('Effect Options')}</span>
       </button>
@@ -218,7 +222,8 @@
         <!-- PowerPoint's Effect Options menu: the effect's own sections
              (Direction, Shapes, Spokes), then Sequence. -->
         <div class="menu options" role="menu" use:placeBelowTrigger aria-label={t('Effect Options')}>
-          {#each effectOptionSections(step.effect) as group (group.heading)}
+          {#each optionSections as group, at (group.heading)}
+            {#if at > 0}<hr />{/if}
             <div class="heading" role="presentation">{t(group.heading)}</div>
             {#each group.items as item (item.en)}
               {@const exit = step.presetClass === 'exit'}
@@ -228,12 +233,14 @@
                 {label(optionLabel(item, exit))}
               </button>
             {/each}
-            <hr />
           {/each}
-          <div class="heading" role="presentation">{t('Sequence')}</div>
-          <button role="menuitemradio" aria-checked={!step.buildByParagraph} onclick={() => { menu = null; patch({ byParagraph: false }); }}><span class="check" aria-hidden="true">✓</span>{t('As One Object')}</button>
-          <button role="menuitemradio" aria-checked="false" disabled title={t(UNSUPPORTED_SEQUENCE)}><span class="check" aria-hidden="true">✓</span>{t('All at Once')}</button>
-          <button role="menuitemradio" aria-checked={step.buildByParagraph} onclick={() => { menu = null; patch({ byParagraph: true }); }}><span class="check" aria-hidden="true">✓</span>{t('By Paragraph')}</button>
+          {#if takesSequence(step.effect)}
+            {#if optionSections.length > 0}<hr />{/if}
+            <div class="heading" role="presentation">{t('Sequence')}</div>
+            {#each SEQUENCE as item (item.build)}
+              <button role="menuitemradio" aria-checked={step.build === item.build} onclick={() => { menu = null; patch({ build: item.build }); }}><span class="check" aria-hidden="true">✓</span>{t(item.en)}</button>
+            {/each}
+          {/if}
         </div>
       {/if}
     </div>

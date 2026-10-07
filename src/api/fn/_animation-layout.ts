@@ -24,6 +24,7 @@ import {
 import {
   type AnimationEffect,
   type AnimationStartCondition,
+  type AnimationTextBuild,
   effectBehaviourNames,
 } from '../../internal/presentationml/index.ts';
 import { groupEndMs } from './_animation-timing.ts';
@@ -96,7 +97,13 @@ export const isPlainWrapper = (par: XmlElement): boolean => {
   // The wrapper is re-emitted with `fill="hold"`; any other fill would be
   // changed by that, so it is not a wrapper we can reproduce.
   if (getAttrValue(cTn, ATTR_FILL) !== 'hold') return false;
-  if (!elementChildren(cTn).every((c) => isPml(c, 'stCondLst') || isPml(c, 'childTnLst'))) {
+  // `<p:iterate>` is how PowerPoint writes the by-letter effects (Drop, Flip,
+  // Whip, Underline …), and comes with the preset.
+  if (
+    !elementChildren(cTn).every(
+      (c) => isPml(c, 'stCondLst') || isPml(c, 'childTnLst') || isPml(c, 'iterate'),
+    )
+  ) {
     return false;
   }
   const stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
@@ -417,22 +424,93 @@ export const buildKeyOf = (effectCTn: XmlElement, spid: number): string =>
   buildKey(String(spid), getAttrValue(effectCTn, ATTR_GRP_ID));
 
 /**
- * Turns a build entry's paragraph-by-paragraph reveal on or off.
- * `ST_TLParaBuildType` defaults to `whole`, so turning it off is the absence of
- * the attribute rather than a token of its own.
+ * Writes the build entry for one shape's build group: how it reveals the text,
+ * and whether the shape's fill and outline animate with it. A group with no
+ * entry yet gets one. `ST_TLParaBuildType` defaults to `whole`, so as one
+ * object is the absence of `build` rather than a token of its own; `animBg` is
+ * what PowerPoint writes for a shape that draws a background and animates as
+ * one object, and leaves off a paragraph build.
  */
-export const setBuildByParagraph = (timing: XmlElement, key: string, on: boolean): void => {
-  const bldLst = firstChildElement(timing, NAME_BLD_LST);
-  if (bldLst === null) return;
-  for (const child of elementChildren(bldLst)) {
-    if (!isPml(child, 'bldP')) continue;
-    if (buildKey(getAttrValue(child, ATTR_SPID), getAttrValue(child, ATTR_GRP_ID)) !== key)
-      continue;
-    const without = child.attrs.filter(
-      (a) => !(a.name.namespaceURI === '' && a.name.localName === 'build'),
-    );
-    child.attrs = on ? [...without, attr(qname('', 'build', ''), 'p')] : without;
+export const writeBuildEntry = (
+  timing: XmlElement,
+  spid: number,
+  grpId: string,
+  build: AnimationTextBuild,
+  animBg: boolean,
+): void => {
+  let bldLst = firstChildElement(timing, NAME_BLD_LST);
+  if (bldLst === null) {
+    bldLst = elem(NAME_BLD_LST);
+    // CT_SlideTiming orders its children tnLst, bldLst, extLst.
+    const extLst = firstChildElement(timing, qname('p', 'extLst', NS.pml));
+    if (extLst === null) timing.children.push(bldLst);
+    else timing.children.splice(timing.children.indexOf(extLst), 0, bldLst);
   }
+  const key = buildKey(String(spid), grpId);
+  let entry = elementChildren(bldLst).find(
+    (c) =>
+      isPml(c, 'bldP') &&
+      buildKey(getAttrValue(c, ATTR_SPID), getAttrValue(c, ATTR_GRP_ID)) === key,
+  );
+  if (entry === undefined) {
+    entry = elem(qname('p', 'bldP', NS.pml), {
+      attrs: [attr(ATTR_SPID, String(spid)), attr(ATTR_GRP_ID, grpId)],
+    });
+    bldLst.children.push(entry);
+  }
+  const kept = entry.attrs.filter(
+    (a) =>
+      !(
+        a.name.namespaceURI === '' &&
+        (a.name.localName === 'build' || a.name.localName === 'animBg')
+      ),
+  );
+  if (build === 'byParagraph') kept.push(attr(qname('', 'build', ''), 'p'));
+  else if (build === 'allAtOnce') kept.push(attr(qname('', 'build', ''), 'allAtOnce'));
+  else if (animBg) kept.push(attr(qname('', 'animBg', ''), '1'));
+  entry.attrs = kept;
+};
+
+/** The largest numeric `grpId` in the tree, -1 when there is none. */
+export const largestGrpId = (el: XmlElement): number => {
+  let max = -1;
+  const walk = (e: XmlElement): void => {
+    const raw = getAttrValue(e, ATTR_GRP_ID);
+    const n = raw === null ? Number.NaN : Number.parseInt(raw, 10);
+    if (Number.isFinite(n) && n > max) max = n;
+    for (const c of e.children) if (c.kind === 'element') walk(c);
+  };
+  walk(el);
+  return max;
+};
+
+const FILLS = new Set(['noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill']);
+
+const fillOf = (parent: XmlElement | null): XmlElement | undefined =>
+  parent?.children.find(
+    (c): c is XmlElement =>
+      c.kind === 'element' && c.name.namespaceURI === NS.dml && FILLS.has(c.name.localName),
+  );
+
+/**
+ * Whether a shape draws a background its text sits on — a fill or an outline,
+ * stated on the shape or taken from its style. PowerPoint animates that
+ * background with the text (`<p:bldP animBg="1">`) and writes nothing for a
+ * text box that draws none.
+ */
+export const drawsBackground = (shape: XmlElement): boolean => {
+  if (!isPml(shape, 'sp')) return false;
+  const spPr = firstChildElement(shape, qname('p', 'spPr', NS.pml));
+  const style = firstChildElement(shape, qname('p', 'style', NS.pml));
+  const styled = (ref: string): boolean => {
+    const el = style === null ? null : firstChildElement(style, qname('a', ref, NS.dml));
+    const idx = el === null ? null : getAttrValue(el, qname('', 'idx', ''));
+    return idx !== null && idx !== '0';
+  };
+  const fill = fillOf(spPr);
+  if (fill === undefined ? styled('fillRef') : fill.name.localName !== 'noFill') return true;
+  const line = fillOf(spPr === null ? null : firstChildElement(spPr, qname('a', 'ln', NS.dml)));
+  return line === undefined ? styled('lnRef') : line.name.localName !== 'noFill';
 };
 
 /**
@@ -446,6 +524,8 @@ const EFFECT_ATTRS = new Set([
   'presetID',
   'presetClass',
   'presetSubtype',
+  'accel',
+  'decel',
   'fill',
   'grpId',
   'nodeType',
@@ -467,7 +547,13 @@ export const isPlainEffect = (par: XmlElement, effect: AnimationEffect | null): 
   if (!cTn.attrs.every((a) => a.name.namespaceURI === '' && EFFECT_ATTRS.has(a.name.localName))) {
     return false;
   }
-  if (!elementChildren(cTn).every((c) => isPml(c, 'stCondLst') || isPml(c, 'childTnLst'))) {
+  // `<p:iterate>` is how PowerPoint writes the by-letter effects (Drop, Flip,
+  // Whip, Underline …), and comes with the preset.
+  if (
+    !elementChildren(cTn).every(
+      (c) => isPml(c, 'stCondLst') || isPml(c, 'childTnLst') || isPml(c, 'iterate'),
+    )
+  ) {
     return false;
   }
   const allowed = effect === null ? UNNAMED_EFFECT_BEHAVIOURS : effectBehaviourNames(effect);

@@ -18,53 +18,36 @@
     type AnimationDirection,
     type AnimationEffect,
     type AnimationStartCondition,
+    type AnimationTextBuild,
     type SlideAnimationStep,
     type SlideData,
     type SlideShapeData,
   } from '@office-kit/pptx';
   import { untrack } from 'svelte';
   import { getEditor } from '../core/context.ts';
-  import { t } from '../i18n/i18n.svelte.ts';
+  import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import AnimationPlayback from '../ui/AnimationPlayback.svelte';
-  import { effectDirections } from '../ribbon/animation-gallery.ts';
+  import {
+    EMPHASIS_TILES,
+    ENTRANCE_TILES,
+    EXIT_TILES,
+    SEQUENCE,
+    effectDirections,
+    takesSequence,
+    type EffectTile,
+  } from '../ribbon/animation-gallery.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
 
-  const EFFECTS: { value: AnimationEffect; label: string }[] = [
-    { value: 'fadeIn', label: 'Fade in' },
-    { value: 'appear', label: 'Appear' },
-    { value: 'flyIn', label: 'Fly in' },
-    { value: 'zoomIn', label: 'Zoom in' },
-    { value: 'wipeIn', label: 'Wipe in' },
-    { value: 'splitIn', label: 'Split in' },
-    { value: 'shapeIn', label: 'Shape in' },
-    { value: 'wheelIn', label: 'Wheel in' },
-    { value: 'blindsIn', label: 'Blinds in' },
-    { value: 'checkerboardIn', label: 'Checkerboard in' },
-    { value: 'dissolveIn', label: 'Dissolve in' },
-    { value: 'peekIn', label: 'Peek in' },
-    { value: 'randomBarsIn', label: 'Random bars in' },
-    { value: 'stripsIn', label: 'Strips in' },
-    { value: 'wedgeIn', label: 'Wedge in' },
-    { value: 'spin', label: 'Spin' },
-    { value: 'fadeOut', label: 'Fade out' },
-    { value: 'disappear', label: 'Disappear' },
-    { value: 'flyOut', label: 'Fly out' },
-    { value: 'zoomOut', label: 'Zoom out' },
-    { value: 'wipeOut', label: 'Wipe out' },
-    { value: 'splitOut', label: 'Split out' },
-    { value: 'shapeOut', label: 'Shape out' },
-    { value: 'wheelOut', label: 'Wheel out' },
-    { value: 'blindsOut', label: 'Blinds out' },
-    { value: 'checkerboardOut', label: 'Checkerboard out' },
-    { value: 'dissolveOut', label: 'Dissolve out' },
-    { value: 'peekOut', label: 'Peek out' },
-    { value: 'randomBarsOut', label: 'Random bars out' },
-    { value: 'stripsOut', label: 'Strips out' },
-    { value: 'wedgeOut', label: 'Wedge out' },
+  // The galleries' presets under their PowerPoint names, one group per gallery.
+  const EFFECT_GROUPS: ReadonlyArray<readonly [string, readonly EffectTile[]]> = [
+    ['Entrance Effects', ENTRANCE_TILES],
+    ['Emphasis Effects', EMPHASIS_TILES],
+    ['Exit Effects', EXIT_TILES],
   ];
+  const tileName = (tile: EffectTile): string => (getLocale() === 'ja' ? tile.ja : tile.en);
   // What the file records is an edge (or corner) of the slide, and the same
   // edge means "from there" for an entrance and "out through there" for an
   // exit. The labels name the edge, so the effect beside them says which of
@@ -203,9 +186,10 @@
   let addEffect = $state<AnimationEffect>('fadeIn');
   let addDirection = $state<AnimationDirection>('bottom');
   let addStart = $state<AnimationStartCondition>('click');
-  let addDuration = $state(500);
+  // Left empty, the effect runs the preset's own length, as PowerPoint's do.
+  let addDuration = $state<number | null>(null);
   let addDelay = $state(0);
-  let addByParagraph = $state(false);
+  let addBuild = $state<AnimationTextBuild>('asOneObject');
 
   function add(): void {
     const shape = shapes.find((item) => getShapeId(item) === addTarget);
@@ -214,10 +198,10 @@
       setShapeAnimation(shape, {
         effect: addEffect,
         ...(effectDirections(addEffect).includes(addDirection) ? { direction: addDirection } : {}),
-        durationMs: addDuration,
+        ...(typeof addDuration === 'number' && addDuration > 0 ? { durationMs: addDuration } : {}),
         start: addStart,
         delayMs: addDelay,
-        byParagraph: addByParagraph,
+        ...(takesSequence(addEffect) ? { build: addBuild } : {}),
       }),
     );
   }
@@ -245,6 +229,14 @@
     });
   });
 </script>
+
+{#snippet effectOptions()}
+  {#each EFFECT_GROUPS as [heading, tiles] (heading)}
+    <optgroup label={t(heading)}>
+      {#each tiles as tile (tile.effect)}<option value={tile.effect}>{tileName(tile)}</option>{/each}
+    </optgroup>
+  {/each}
+{/snippet}
 
 {#if slide}
   <section aria-label={t('Animations')} data-animation-pane tabindex="-1">
@@ -275,7 +267,7 @@
                       patch(step, { effect: event.currentTarget.value as AnimationEffect });
                     }}
                   >
-                    {#each EFFECTS as item}<option value={item.value}>{t(item.label)}</option>{/each}
+                    {@render effectOptions()}
                   </select>
                 </label>
                 {#if step.direction !== null}
@@ -319,7 +311,7 @@
                     min="0"
                     step="100"
                     aria-label="{t('Duration (ms)')} {place + 1}"
-                    value={step.durationMs ?? 500}
+                    value={step.durationMs ?? ''}
                     onchange={(event) =>
                       patch(step, { durationMs: Number(event.currentTarget.value) })}
                   />
@@ -338,16 +330,20 @@
                 </label>
               </div>
               <div class="row">
-                <label class="check"
-                  ><input
-                    type="checkbox"
-                    aria-label="{t('By paragraph')} {place + 1}"
-                    checked={step.buildByParagraph}
-                    onchange={(event) =>
-                      patch(step, { byParagraph: event.currentTarget.checked })} />{t(
-                    'By paragraph',
-                  )}</label
-                >
+                {#if takesSequence(step.effect) && step.build !== 'custom'}
+                  <label
+                    >{t('Sequence')}
+                    <select
+                      class="ok-input"
+                      aria-label="{t('Sequence')} {place + 1}"
+                      value={step.build}
+                      onchange={(event) =>
+                        patch(step, { build: event.currentTarget.value as AnimationTextBuild })}
+                    >
+                      {#each SEQUENCE as item}<option value={item.build}>{t(item.en)}</option>{/each}
+                    </select>
+                  </label>
+                {/if}
                 <span class="spacer"></span>
                 <button
                   class="ok-btn"
@@ -397,7 +393,7 @@
         <label
           >{t('Effect')}
           <select class="ok-input" aria-label={t('New effect')} bind:value={addEffect}>
-            {#each EFFECTS as item}<option value={item.value}>{t(item.label)}</option>{/each}
+            {@render effectOptions()}
           </select>
           {#if directionsOf(addEffect).length > 0}
             <select class="ok-input" aria-label={t('New direction')} bind:value={addDirection}>
@@ -421,6 +417,7 @@
             min="0"
             step="100"
             aria-label={t('New duration (ms)')}
+            placeholder={t('Default')}
             bind:value={addDuration}
           />
         </label>
@@ -436,11 +433,14 @@
           />
         </label>
       </div>
-      <label class="check"
-        ><input type="checkbox" aria-label={t('New by paragraph')} bind:checked={addByParagraph} />{t(
-          'By paragraph',
-        )}</label
-      >
+      {#if takesSequence(addEffect)}
+        <label
+          >{t('Sequence')}
+          <select class="ok-input" aria-label={t('New sequence')} bind:value={addBuild}>
+            {#each SEQUENCE as item}<option value={item.build}>{t(item.en)}</option>{/each}
+          </select>
+        </label>
+      {/if}
       <button class="ok-btn" disabled={addTarget === null} onclick={add}>{t('Add animation')}</button
       >
     </div>
@@ -520,11 +520,6 @@
     display: grid;
     gap: 6px;
     font-size: 11px;
-  }
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 4px;
   }
   .add {
     display: grid;

@@ -293,7 +293,7 @@ test(
         { name: 'From Right', checked: false, disabled: false },
         { name: 'From Bottom-Right', checked: false, disabled: false },
         { name: 'As One Object', checked: true, disabled: false },
-        { name: 'All at Once', checked: false, disabled: true },
+        { name: 'All at Once', checked: false, disabled: false },
         { name: 'By Paragraph', checked: false, disabled: false },
       ]);
       await page.getByRole('menuitemradio', { name: 'From Left', exact: true }).click();

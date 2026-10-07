@@ -66,7 +66,7 @@ test(
           start: step.start,
           durationMs: step.durationMs,
           delayMs: step.delayMs,
-          byParagraph: step.buildByParagraph,
+          build: step.build,
         }));
       const pane = () =>
         editor.getByRole('region', { name: label('Animations', 'アニメーション') });
@@ -149,12 +149,12 @@ test(
       // --- Paragraph builds ------------------------------------------------
       await objects.selectOption({ label: 'TextBox 4 — One Two' });
       await pane().getByLabel(label('New effect', '追加する効果')).selectOption('fadeIn');
-      await pane().getByLabel(label('New by paragraph', '追加時に段落ごと')).check();
+      await pane().getByLabel(label('New sequence', '追加する連続')).selectOption('byParagraph');
       await add().click();
       await saved();
       const built = await stored();
       assert.equal(built.length, 4, 'a paragraph build is one effect per paragraph');
-      assert.ok(built.slice(2).every((step) => step.byParagraph));
+      assert.ok(built.slice(2).every((step) => step.build === 'byParagraph'));
 
       // --- Undo, redo, reload ----------------------------------------------
       await editor.getByTitle(label('Undo (Ctrl+Z)', '元に戻す (Ctrl+Z)'), { exact: true }).click();

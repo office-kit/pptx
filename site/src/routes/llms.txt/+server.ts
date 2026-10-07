@@ -327,8 +327,10 @@ addSlideComment(slide, {
 });
 \`\`\`
 
-Animation presets: \`fadeIn\` / \`fadeOut\` / \`appear\` / \`disappear\`. Deeper
-timing-tree authoring is post-1.0.
+Animation presets: all 95 of PowerPoint's entrance, emphasis and exit gallery
+presets (\`fadeIn\`, \`flyIn\`, \`basicZoomIn\`, \`pulse\`, \`fadeOut\`, …), with
+\`build\` (\`'asOneObject'\` / \`'allAtOnce'\` / \`'byParagraph'\`) for text.
+Deeper timing-tree authoring is post-1.0.
 
 Transition effects: \`none\` / \`fade\` / \`push\` / \`cover\` / \`wipe\` /
 \`split\` / \`cut\` / \`dissolve\` / \`checker\` / \`blinds\` / \`randomBar\` /

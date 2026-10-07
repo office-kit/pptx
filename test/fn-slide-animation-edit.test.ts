@@ -492,7 +492,7 @@ describe('fn API: updateSlideAnimation — turning a paragraph build on and off'
     setShapeAnimation(shape, { effect: 'fadeIn' });
     const id = getSlideAnimations(slide)[0]!.id!;
 
-    updateSlideAnimation(slide, id, { byParagraph: true });
+    updateSlideAnimation(slide, id, { build: 'byParagraph' });
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(3);
     expect(steps[0]!.id).toBe(id);
@@ -501,7 +501,7 @@ describe('fn API: updateSlideAnimation — turning a paragraph build on and off'
       { kind: 'paragraphs', shapeId: getShapeId(shape), firstParagraph: 1, lastParagraph: 1 },
       { kind: 'paragraphs', shapeId: getShapeId(shape), firstParagraph: 2, lastParagraph: 2 },
     ]);
-    expect(steps.every((s) => s.buildByParagraph)).toBe(true);
+    expect(steps.every((s) => s.build === 'byParagraph')).toBe(true);
     expect(new Set(steps.map((s) => s.id)).size).toBe(3);
     // Still one build entry, now saying the body builds a paragraph at a time.
     expect(slideXml(pres).match(/<p:bldP\b/g)).toHaveLength(1);
@@ -510,16 +510,16 @@ describe('fn API: updateSlideAnimation — turning a paragraph build on and off'
 
   it('collapses a build back into one effect on the shape', () => {
     const { pres, slide, shape } = textDeck(['One', 'Two', 'Three']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     const ids = getSlideAnimations(slide).map((s) => s.id!);
 
-    updateSlideAnimation(slide, ids[1]!, { byParagraph: false });
+    updateSlideAnimation(slide, ids[1]!, { build: 'asOneObject' });
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(1);
     // The handle passed in survives; the other paragraphs' handles are gone.
     expect(steps[0]!.id).toBe(ids[1]);
     expect(steps[0]!.target).toEqual({ kind: 'shape', shapeId: getShapeId(shape) });
-    expect(steps[0]!.buildByParagraph).toBe(false);
+    expect(steps[0]!.build).toBe('asOneObject');
     expect(slideXml(pres)).toContain(`<p:bldP spid="${getShapeId(shape)}" grpId="0"/>`);
     expect(slideXml(pres)).not.toContain('build="p"');
   });
@@ -528,9 +528,9 @@ describe('fn API: updateSlideAnimation — turning a paragraph build on and off'
     const { pres, slide, shape } = textDeck(['One', 'Two']);
     setShapeAnimation(shape, { effect: 'fadeIn' });
     const id = getSlideAnimations(slide)[0]!.id!;
-    updateSlideAnimation(slide, id, { byParagraph: true });
+    updateSlideAnimation(slide, id, { build: 'byParagraph' });
     expectSchemaValid(slideXml(pres), 'pml');
-    updateSlideAnimation(slide, id, { byParagraph: false });
+    updateSlideAnimation(slide, id, { build: 'asOneObject' });
     expectSchemaValid(slideXml(pres), 'pml');
   });
 
@@ -540,8 +540,8 @@ describe('fn API: updateSlideAnimation — turning a paragraph build on and off'
     setShapeAnimation(shape, { effect: 'fadeIn' });
     const id = getSlideAnimations(slide)[0]!.id!;
     const before = slideXml(pres);
-    expect(() => updateSlideAnimation(slide, id, { byParagraph: true })).toThrow(
-      /byParagraph needs a shape with text/,
+    expect(() => updateSlideAnimation(slide, id, { build: 'byParagraph' })).toThrow(
+      /needs a shape with text/,
     );
     expect(slideXml(pres)).toBe(before);
   });
@@ -550,13 +550,13 @@ describe('fn API: updateSlideAnimation — turning a paragraph build on and off'
   // out must leave the entry the others still need.
   it('keeps the build entry while other paragraphs still use it', () => {
     const { pres, slide, shape } = textDeck(['One', 'Two', 'Three']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     const ids = getSlideAnimations(slide).map((s) => s.id!);
 
     removeSlideAnimation(slide, ids[1]!);
     expect(getSlideAnimations(slide).map((s) => s.id)).toEqual([ids[0], ids[2]]);
     expect(slideXml(pres).match(/<p:bldP\b/g)).toHaveLength(1);
-    expect(getSlideAnimations(slide).every((s) => s.buildByParagraph)).toBe(true);
+    expect(getSlideAnimations(slide).every((s) => s.build === 'byParagraph')).toBe(true);
 
     removeSlideAnimation(slide, ids[0]!);
     expect(slideXml(pres).match(/<p:bldP\b/g)).toHaveLength(1);
@@ -565,7 +565,7 @@ describe('fn API: updateSlideAnimation — turning a paragraph build on and off'
   it('drops the build entry with the last paragraph that used it', () => {
     const { pres, slide, shape } = textDeck(['One', 'Two']);
     const other = rect(slide);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     setShapeAnimation(other, { effect: 'fadeIn' });
     const ids = getSlideAnimations(slide).map((s) => s.id!);
     expect(slideXml(pres).match(/<p:bldP\b/g)).toHaveLength(2);
@@ -658,7 +658,7 @@ describe('fn API: removing a shape takes its animations with it', () => {
     const slide = addBlankSlide(pres);
     const text = addSlideTextBox(slide, { ...box, text: 'One\nTwo\nThree' });
     const other = rect(slide);
-    setShapeAnimation(text, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(text, { effect: 'fadeIn', build: 'byParagraph' });
     setShapeAnimation(other, { effect: 'fadeIn' });
 
     removeShape(text);
@@ -805,7 +805,7 @@ describe('fn API: copying a shape copies its animations', () => {
     const pres = createPresentation();
     const slide = addBlankSlide(pres);
     const text = addSlideTextBox(slide, { ...box, text: 'One\nTwo\nThree' });
-    setShapeAnimation(text, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(text, { effect: 'fadeIn', build: 'byParagraph' });
 
     const copy = copyShape(slide, text);
     const steps = getSlideAnimations(slide);
@@ -864,7 +864,7 @@ describe('fn API: copying a shape copies its animations', () => {
     const pres = createPresentation();
     const slide = addBlankSlide(pres);
     const text = addSlideTextBox(slide, { ...box, text: 'One\nTwo\nThree' });
-    setShapeAnimation(text, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(text, { effect: 'fadeIn', build: 'byParagraph' });
     const ids = getSlideAnimations(slide).map((s) => s.id!);
     updateSlideAnimation(slide, ids[1]!, { durationMs: 900, delayMs: 120 });
     updateSlideAnimation(slide, ids[2]!, { effect: 'appear' });
@@ -890,7 +890,7 @@ describe('fn API: copying a shape copies its animations', () => {
     const pres = createPresentation();
     const slide = addBlankSlide(pres);
     const text = addSlideTextBox(slide, { ...box, text: 'One\nTwo\nThree' });
-    setShapeAnimation(text, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(text, { effect: 'fadeIn', build: 'byParagraph' });
     removeSlideAnimation(slide, getSlideAnimations(slide)[1]!.id!);
 
     const copy = copyShape(slide, text);
