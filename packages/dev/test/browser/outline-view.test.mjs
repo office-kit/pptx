@@ -86,13 +86,15 @@ for (const locale of ['en', 'ja'])
           body.evaluate((node) =>
             [...node.querySelectorAll('[data-outline-paragraph]')].map((paragraph) => ({
               top: paragraph.getBoundingClientRect().top,
+              height: paragraph.getBoundingClientRect().height,
               padding: parseFloat(getComputedStyle(paragraph).paddingLeft),
               marker: paragraph.dataset.outlineMarker,
             })),
           );
         const initialLayout = await paragraphLayout();
         assert.equal(initialLayout.length, 2);
-        assert.equal(initialLayout[1].top - initialLayout[0].top, 24);
+        // Paragraphs stack with no gap; Show Formatting (on by default) sizes each line.
+        assert.equal(initialLayout[1].top - initialLayout[0].top, initialLayout[0].height);
         assert.deepEqual(
           initialLayout.map((paragraph) => paragraph.marker),
           ['•', '•'],
@@ -116,7 +118,17 @@ for (const locale of ['en', 'ja'])
           assert.equal(await body.textContent(), 'First point\nSecond point');
         }
         const moveParagraph = async (up) => {
-          await body.click({ button: 'right', position: { x: 30, y: up ? 30 : 10 } });
+          // Right-click the second paragraph to move it up, the first to move it down.
+          const y = await body.evaluate(
+            (node, index) => {
+              const paragraph = node
+                .querySelectorAll('[data-outline-paragraph]')
+                [index].getBoundingClientRect();
+              return paragraph.top + paragraph.height / 2 - node.getBoundingClientRect().top;
+            },
+            up ? 1 : 0,
+          );
+          await body.click({ button: 'right', position: { x: 30, y } });
           await change(() =>
             editor
               .getByRole('menuitem', {
@@ -176,8 +188,9 @@ for (const locale of ['en', 'ja'])
         assert.equal(getParagraphLevel(bodyShape, 0), 0);
         assert.equal(getParagraphLevel(bodyShape, 1), 1);
         const indentedLayout = await paragraphLayout();
-        assert.equal(indentedLayout[1].padding - indentedLayout[0].padding, 10);
-        assert.equal(indentedLayout[1].top - indentedLayout[0].top, 24);
+        // Mac PowerPoint's outline steps 11.5 pt per level.
+        assert.equal(indentedLayout[1].padding - indentedLayout[0].padding, 11.5);
+        assert.equal(indentedLayout[1].top - indentedLayout[0].top, indentedLayout[0].height);
         assert.equal(getShapeText(bodyShape), 'First point\nSecond point');
         assert.equal(getShapeParagraphElements(bodyShape, 1)[0].format.italic, true);
         assert.equal(

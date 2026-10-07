@@ -10,6 +10,8 @@
   import { capabilityById } from '../manifest/index.ts';
   import Icon from '../ui/Icon.svelte';
   import ViewRibbon from './ViewRibbon.svelte';
+  import SlideMasterRibbon from './SlideMasterRibbon.svelte';
+  import PageMasterRibbon from './PageMasterRibbon.svelte';
   import SlideShowRibbon from './SlideShowRibbon.svelte';
   import TransitionsRibbon from './TransitionsRibbon.svelte';
   import DrawRibbon from './DrawRibbon.svelte';
@@ -68,9 +70,20 @@
     const table = sel.kind === 'cell' || (shapes.length === 1 && isTableShape(shapes[0]!));
     // A picture gets Picture Format instead of Shape Format.
     const picture = shapes.length === 1 && getShapeKind(shapes[0]!) === 'picture' && !kind;
+    const mode = editor.viewMode;
+    // Mac PowerPoint's master views drop the tabs that act on slides: Slide
+    // Master keeps Transitions and Animations; the handout and notes masters
+    // keep only Home, Insert, Draw, Review and View.
+    if (editor.masterView)
+      return RIBBON.filter((tab) =>
+        tab.contextual
+          ? tab.contextual === mode
+          : !['design', 'slideShow', 'record'].includes(tab.id) &&
+            (mode === 'slideMaster' || !['transitions', 'animations'].includes(tab.id)),
+      );
     return RIBBON.filter((t) => {
       if (!t.contextual) return true;
-      if (t.contextual === 'master') return editor.masterView;
+      if (t.contextual === 'slideMaster' || t.contextual === 'handoutMaster' || t.contextual === 'notesMaster') return false;
       if (t.contextual === 'media') return media;
       if (t.contextual === 'chart') return chart;
       if (t.contextual === 'shape') return sel.kind === 'shape' && !table && !picture;
@@ -80,9 +93,9 @@
     }).map(tab => tab.id !== 'shape' ? tab : kind === 'video' ? { ...tab, title: 'Video Format' } : chart ? { ...tab, title: 'Format' } : tab);
   });
 
-  // Entering Slide Master view opens its tab, as PowerPoint does.
+  // Entering a master view opens its tab, as PowerPoint does.
   $effect(() => {
-    if (editor.masterView) activeTab = 'slideMaster';
+    if (editor.masterView) activeTab = editor.viewMode;
   });
 
   // If the active tab disappears (selection changed), fall back to Home.
@@ -159,6 +172,8 @@
     {:else}
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
+    {#if current?.id === 'slideMaster'}<SlideMasterRibbon />{/if}
+    {#if current?.id === 'handoutMaster' || current?.id === 'notesMaster'}<PageMasterRibbon kind={current.id} />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
     {#if current?.id === 'draw'}<DrawRibbon />{/if}
     {#if current?.id === 'record'}<RecordRibbon />{/if}

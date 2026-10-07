@@ -49,76 +49,25 @@ export interface RibbonTab {
   readonly id: string;
   readonly title: string;
   /** When set, the tab only shows for this selection kind (contextual tab). */
-  readonly contextual?: 'shape' | 'cell' | 'image' | 'table' | 'chart' | 'media' | 'master';
+  readonly contextual?:
+    | 'shape'
+    | 'cell'
+    | 'image'
+    | 'table'
+    | 'chart'
+    | 'media'
+    | 'slideMaster'
+    | 'handoutMaster'
+    | 'notesMaster';
   readonly groups: readonly RibbonGroup[];
 }
 
 export const RIBBON: readonly RibbonTab[] = [
-  {
-    id: 'slideMaster',
-    title: 'Slide Master',
-    contextual: 'master',
-    // Mac PowerPoint's Slide Master tab. Edits act on the layout behind the
-    // current slide, so every slide sharing it follows.
-    groups: [
-      {
-        title: 'Edit Master',
-        items: [
-          {
-            id: 'insertSlideMaster',
-            icon: 'new-slide',
-            label: 'Insert Slide Master',
-            unavailable: 'Adding masters and layouts is not supported by the library yet.',
-          },
-          {
-            id: 'insertLayout',
-            icon: 'slide-content',
-            label: 'Insert Layout',
-            unavailable: 'Adding masters and layouts is not supported by the library yet.',
-          },
-          {
-            id: 'deleteLayout',
-            icon: 'trash',
-            label: 'Delete',
-            unavailable: 'Deleting layouts is not supported by the library yet.',
-          },
-          { id: 'setSlideLayoutName', icon: 'rename', label: 'Rename' },
-        ],
-      },
-      {
-        title: 'Master Layout',
-        items: [{ id: 'setSlideLayoutPlaceholderBounds', icon: 'align', label: 'Master Layout' }],
-      },
-      {
-        title: 'Edit Theme',
-        items: [
-          { id: 'setPresentationTheme', icon: 'theme', label: 'Colors' },
-          { id: 'setPresentationFonts', icon: 'font', label: 'Fonts' },
-        ],
-      },
-      {
-        title: 'Background',
-        items: [
-          { id: 'setSlideMasterBackgroundStyle', icon: 'background', label: 'Background Styles' },
-          { id: 'setSlideLayoutBackground', icon: 'background', label: 'Format Background' },
-          { id: 'clearSlideLayoutBackground', icon: 'trash', label: 'Reset Background' },
-        ],
-      },
-      { title: 'Size', items: [{ id: 'setSlideSize', icon: 'resize', label: 'Slide Size' }] },
-      {
-        title: 'Close',
-        items: [
-          {
-            id: 'closeMasterView',
-            icon: 'close-master',
-            label: 'Close Master',
-            run: (editor) => (editor.masterView = false),
-            enabled: () => true,
-          },
-        ],
-      },
-    ],
-  },
+  // The master views lead the tab row with their own tab, laid out by
+  // SlideMasterRibbon.svelte and PageMasterRibbon.svelte.
+  { id: 'slideMaster', title: 'Slide Master', contextual: 'slideMaster', groups: [] },
+  { id: 'handoutMaster', title: 'Handout Master', contextual: 'handoutMaster', groups: [] },
+  { id: 'notesMaster', title: 'Notes Master', contextual: 'notesMaster', groups: [] },
   {
     id: 'home',
     title: 'Home',

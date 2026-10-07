@@ -1404,7 +1404,7 @@ export const ja: Record<string, string> = {
   'Increase List Level': 'インデントを増やす',
   'Reset the position, size, and formatting of the slide placeholders to their default settings.':
     'スライド プレースホルダーの位置、サイズ、書式を既定の設定にリセットします。',
-  'Slide {n} of {count}': 'スライド {n}/{count}',
+  'Slide {n} of {count}': 'スライド {n} / {count}',
   'Fit slide to current window': 'スライドを現在のウィンドウ サイズに合わせる',
   Pictures: '画像',
   Chart: 'グラフ',
@@ -1534,10 +1534,6 @@ export const ja: Record<string, string> = {
   'Slide Master': 'スライド マスター',
   'Handout Master': '配布資料マスター',
   'Notes Master': 'ノート マスター',
-  'Handouts are not supported by the library yet.':
-    '配布資料はまだライブラリでサポートされていません。',
-  'Notes master editing is not supported by the library yet.':
-    'ノート マスターの編集はまだライブラリでサポートされていません。',
   Macros: 'マクロ',
   'Macros (VBA) do not run outside PowerPoint.':
     'マクロ (VBA) は PowerPoint 以外では実行できません。',
@@ -1550,7 +1546,7 @@ export const ja: Record<string, string> = {
   Rename: '名前の変更',
   'Master Layout': 'マスターのレイアウト',
   'Reset Background': '背景のリセット',
-  'Close Master': 'マスター表示を閉じる',
+  'Close Master': 'マスターを閉じる',
   'Rehearse with Coach': 'スピーカー コーチでリハーサル',
   'Rehearse with Coach needs Microsoft 365 online services.':
     'スピーカー コーチには Microsoft 365 のオンライン サービスが必要です。',
@@ -2171,4 +2167,56 @@ export const ja: Record<string, string> = {
     '動作設定ボタンはまだエディタの図形ギャラリーにありません。',
   'macOS provides this to native apps, not to web pages.':
     'これは macOS がネイティブ アプリに提供する機能で、Web ページでは使えません。',
+  // View ▸ masters, Notes Page and the status bar (Mac PowerPoint 16, Japanese UI).
+  'Notes {n} of {count}': 'ノート {n} / {count}',
+  'Currently in Slide Master View.': '現在のモード: スライド マスター表示',
+  'Currently in Handout Master View.': '現在のモード: 配布資料マスター表示',
+  'Currently in Notes Master View.': '現在のモード: ノート マスター表示',
+  'Slide Master Pane': 'スライド マスター ウィンドウ',
+  'Slide Editor Pane': 'スライド エディター ウィンドウ',
+  'Click to edit Master title style': 'マスター タイトルの書式設定',
+  'Click to edit Master subtitle style': 'マスター サブタイトルの書式設定',
+  'Click to edit Master text styles': 'マスター テキストの書式設定',
+  'Second level': '第 2 レベル',
+  'Third level': '第 3 レベル',
+  'Fourth level': '第 4 レベル',
+  'Fifth level': '第 5 レベル',
+  Header: 'ヘッダー',
+  'Edit Master': 'マスターの編集',
+  Preserve: '保持',
+  'Insert Placeholder': 'プレースホルダーの挿入',
+  Title: 'タイトル',
+  Footers: 'フッター',
+  'Edit Theme': 'テーマの編集',
+  'Handout Orientation': '配布資料の方向',
+  'Notes Page Orientation': 'ノートのページの向き',
+  Date: '日付',
+  'Page Number': 'ページ番号',
+  '2 Slides': '2 枚',
+  '3 Slides': '3 枚',
+  '4 Slides': '4 枚',
+  '6 Slides': '6 枚',
+  '9 Slides': '9 枚',
+  'Slide Outline': 'スライドのアウトライン',
+  'Slide Image': 'スライド イメージ',
+  Body: '本文',
+  Placeholders: 'プレースホルダー',
+  'Slides Per Page': '1 ページあたりのスライド数',
+  'Page Setup': 'ページ設定',
+  'Deleting masters and layouts is not supported by the library yet.':
+    'マスターとレイアウトの削除はライブラリがまだ対応していません。',
+  'Renaming a slide master is not supported by the library yet.':
+    'スライド マスターの名前の変更はライブラリがまだ対応していません。',
+  'Preserving masters is not supported by the library yet.':
+    'マスターの保持はライブラリがまだ対応していません。',
+  'Choosing the master placeholders is not supported by the library yet.':
+    'マスターのプレースホルダーの選択はライブラリがまだ対応していません。',
+  'Adding or removing layout placeholders is not supported by the library yet.':
+    'レイアウトのプレースホルダーの追加と削除はライブラリがまだ対応していません。',
+  'Hiding background graphics on a layout is not supported by the library yet.':
+    'レイアウトの背景グラフィックの非表示はライブラリがまだ対応していません。',
+  'Handout masters are not supported by the library yet.':
+    '配布資料マスターはライブラリがまだ対応していません。',
+  'Notes masters are not supported by the library yet.':
+    'ノート マスターはライブラリがまだ対応していません。',
 };

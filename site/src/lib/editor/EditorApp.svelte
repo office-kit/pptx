@@ -37,6 +37,11 @@
   import WordArtGallery from './ui/WordArtGallery.svelte';
   import { insertWordArt } from './core/insert-objects.ts';
   import NotesPageView from './ui/NotesPageView.svelte';
+  import SlideMasterPane from './ui/SlideMasterPane.svelte';
+  import MasterCanvas from './canvas/MasterCanvas.svelte';
+  import PageMasterView from './ui/PageMasterView.svelte';
+  import ReadingView from './ui/ReadingView.svelte';
+  import { isSlideEditingView } from './core/view-modes.ts';
   import RehearsalDialog from './ui/RehearsalDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
   import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
@@ -61,6 +66,7 @@
     doc.selection;
     untrack(() => editor.completeFormatPainter());
   });
+  const slideEditing = $derived(isSlideEditingView(editor.viewMode));
   const navigationWidth = $derived(editor.viewMode === 'outline' ? editor.outlineWidth ?? 360 : editor.thumbnailWidth);
 
   const NUDGE = 18288; // 0.02in in EMU
@@ -170,9 +176,15 @@
 <div class="ok-editor ok-shell" class:compact-host={compactHost} style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
   <TopBar {onsave} {status} compact={compactHost} />
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
-  <div class="ok-body" class:sorter={editor.viewMode === 'sorter' || editor.viewMode === 'notesPage'} class:thumbnails-hidden={editor.viewMode !== 'sorter' && !editor.thumbnailsVisible} class:panel-hidden={!commentsOpen && !editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
-    {#if editor.viewMode === 'notesPage'}<NotesPageView />{:else if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
-    {#if editor.viewMode !== 'sorter' && editor.viewMode !== 'notesPage'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if commentsOpen}<CommentsDialog />{:else if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
+  <div class="ok-body" class:sorter={!slideEditing && editor.viewMode !== 'slideMaster'} class:master={editor.viewMode === 'slideMaster'} class:thumbnails-hidden={slideEditing && !editor.thumbnailsVisible} class:panel-hidden={!commentsOpen && !editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
+    {#if editor.viewMode === 'notesPage'}<NotesPageView />
+    {:else if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />
+    {:else if editor.viewMode === 'slideMaster'}<SlideMasterPane /><MasterCanvas />
+    {:else if editor.viewMode === 'handoutMaster' || editor.viewMode === 'notesMaster'}{#key editor.viewMode}<PageMasterView kind={editor.viewMode} />{/key}
+    {:else}
+      {#if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
+      <div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if commentsOpen}<CommentsDialog />{:else if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}
+    {/if}
   </div>
   <StatusBar />
 
@@ -198,7 +210,7 @@
       <LinkDialog />
     {:else if commentsOpen}
       <!-- Docked in the right pane; views without one float it instead. -->
-      {#if editor.viewMode === 'sorter' || editor.viewMode === 'notesPage'}<CommentsDialog floating />{/if}
+      {#if !slideEditing}<CommentsDialog floating />{/if}
     {:else if editor.activeDialog === 'addSlide'}
       <NewSlideDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}
@@ -239,6 +251,7 @@
       }}
     />
   {/if}
+  {#if editor.readingView}<ReadingView />{/if}
   <ToastStack />
 </div>
 
@@ -261,6 +274,8 @@
   .ok-body.panel-hidden { grid-template-columns: var(--ok-nav-w) minmax(0, 1fr); }
   .ok-body.thumbnails-hidden.panel-hidden { grid-template-columns: minmax(0, 1fr); }
   .ok-body.sorter { grid-template-columns: minmax(0, 1fr); }
+  /* Slide Master view: the 249 pt master pane beside the editing area. */
+  .ok-body.master { grid-template-columns: 249px minmax(0, 1fr); }
   .ok-body {
     display: grid;
     grid-template-columns: var(--ok-nav-w) minmax(0, 1fr) var(--ok-panel-w);

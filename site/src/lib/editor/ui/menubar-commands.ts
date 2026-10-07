@@ -126,6 +126,9 @@ const VIEWS: Readonly<Record<string, EditorController['viewMode']>> = {
   'view/slide-sorter': 'sorter',
   'view/notes-page': 'notesPage',
   'view/outline-view': 'outline',
+  'view/master/slide-master': 'slideMaster',
+  'view/master/handout-master': 'handoutMaster',
+  'view/master/notes-master': 'notesMaster',
 };
 
 const PARAGRAPH_ALIGN: Readonly<Record<string, string>> = {
@@ -171,11 +174,8 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     const mode = VIEWS[id]!;
     return {
       radio: true,
-      checked: editor.viewMode === mode && !editor.masterView,
-      run: () => {
-        editor.masterView = false;
-        editor.setViewMode(mode);
-      },
+      checked: editor.viewMode === mode,
+      run: () => editor.setViewMode(mode),
     };
   }
   if (id in ORDER) return { ...run(ORDER[id]!), run: () => editor.invoke(ORDER[id]!) };
@@ -358,8 +358,9 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       return unavailable(OS_TEXT_SERVICE);
 
     // View
+    // Without a host viewer, Reading View is the editor's own full-window mode.
     case 'view/reading-view':
-      return present('reading');
+      return { run: () => editor.openReadingView() };
     case 'view/presenter-view':
       return present('presenter');
     case 'view/slide-show':
@@ -371,12 +372,6 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       };
     case 'view/master':
       return {};
-    case 'view/master/slide-master':
-      return { checked: editor.masterView, run: () => (editor.masterView = !editor.masterView) };
-    case 'view/master/handout-master':
-      return unavailable('Handouts are not supported by the library yet.');
-    case 'view/master/notes-master':
-      return unavailable('Notes master editing is not supported by the library yet.');
     case 'view/ribbon':
       return {
         checked: editor.ribbonVisible,

@@ -12,6 +12,12 @@
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { mode = 'normal' }: { mode?: 'normal' | 'sorter' } = $props();
+  // Mac PowerPoint's Slide Sorter at its default 80%: 200 pt thumbnails
+  // (border included) in 206 × 147 pt cells, a 39 pt gutter (245 pt pitch), and
+  // as many columns as fit the list — floor((width + 39) / 245), six in a
+  // 1512 pt window — centred. The thumbnail scales with the zoom; the gutter
+  // and the slide number's 31 pt line below do not.
+  const SORTER_THUMB_AT_100 = 250;
   const editor = getEditor();
   const doc = editor.doc;
   const sectionStarts = $derived.by(() => { doc.version; return new Map(sectionRanges(doc.pres).map(range => [range.start, range.name])); });
@@ -98,7 +104,7 @@
 
 <svelte:window onpointerup={() => pointerSelecting = false} onpointercancel={() => pointerSelecting = false} />
 
-<div class="nav ok-scroll" class:sorter={mode === 'sorter'} style:--sorter-thumb={`${Math.round(230 * editor.sorterZoom)}px`} bind:this={rail}>
+<div class="nav ok-scroll" class:sorter={mode === 'sorter'} style:--sorter-thumb={`${Math.round(SORTER_THUMB_AT_100 * editor.sorterZoom)}px`} bind:this={rail}>
   {#if doc.selection.kind === 'slide' && selected.length > 1}<div class="selection-count" aria-live="polite">{t('Selected slides')}: {selected.length}</div>{/if}
 
   {#each doc.slides as _slide, i (i)}
@@ -154,8 +160,10 @@
 </div>
 
 <style>
-  .sorter { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sorter-thumb)), 1fr)); align-content: start; gap: 20px; padding: 24px; border-right: 0; }
-  .sorter .thumb-row { min-width: 0; }
+  .nav.sorter { display: grid; grid-template-columns: repeat(auto-fill, calc(var(--sorter-thumb) + 6px)); justify-content: center; align-content: start; column-gap: 39px; row-gap: 24px; padding: 5px 0 24px; border-right: 0; background: var(--ok-canvas-bg); scrollbar-gutter: stable; }
+  .sorter .thumb-row { flex-direction: column; gap: 0; min-width: 0; padding: 3px 3px 0; }
+  .sorter .thumb { flex: none; box-sizing: border-box; width: var(--sorter-thumb); }
+  .sorter .num { order: 1; box-sizing: border-box; width: auto; height: 31px; padding-top: 11px; font-size: 13px; line-height: 16px; text-align: left; }
   .sorter .selection-count { grid-column: 1 / -1; }
   .selection-count { padding: 6px 4px; font-size: 11px; color: var(--ok-muted); }
   .skipped .num { text-decoration: line-through; }

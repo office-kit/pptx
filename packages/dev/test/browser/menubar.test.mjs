@@ -864,6 +864,14 @@ const STATES = [
   ['Arrange ▸ Align or Distribute ▸ Distribute Horizontally', 'off', 'on', 'on'],
   ['Arrange ▸ Align or Distribute ▸ Distribute Vertically', 'off', 'on', 'on'],
   ['Arrange ▸ Align or Distribute ▸ Align to Slide', 'off ✓', 'on ✓', 'on ✓'],
+  ['View ▸ Normal', 'on ✓', 'on ✓', 'on ✓'],
+  ['View ▸ Slide Sorter', 'on', 'on', 'on'],
+  ['View ▸ Notes Page', 'on', 'on', 'on'],
+  ['View ▸ Outline View', 'on', 'on', 'on'],
+  ['View ▸ Reading View', 'on', 'on', 'on'],
+  ['View ▸ Master ▸ Slide Master', 'on', 'on', 'on'],
+  ['View ▸ Master ▸ Handout Master', 'on', 'on', 'on'],
+  ['View ▸ Master ▸ Notes Master', 'on', 'on', 'on'],
 ];
 // The editor cannot run these yet; they stay disabled with the reason.
 const UNSUPPORTED = new Map([

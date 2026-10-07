@@ -10,7 +10,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>One</Text></Slide></Presentation>`;
 
 test(
-  'View tab: Notes Page, Slide Master tab and unavailable masters',
+  'View tab: Notes Page, Slide Master tab and the master views',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-view-tab-'));
@@ -38,8 +38,9 @@ test(
       const button = (name) => panel.getByRole('button', { name, exact: true });
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.getByRole('tab', { name: 'View', exact: true }).click();
-      for (const name of ['Handout Master', 'Notes Master', 'Macros'])
-        assert.equal(await button(name).isDisabled(), true, name);
+      for (const name of ['Handout Master', 'Notes Master'])
+        assert.equal(await button(name).isDisabled(), false, name);
+      assert.equal(await button('Macros').isDisabled(), true);
 
       // Notes Page shows the slide above its editable notes.
       await button('Notes Page').click();

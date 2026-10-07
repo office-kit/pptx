@@ -2,8 +2,10 @@
   import { onMount, untrack } from 'svelte';
   import { layoutEditingTabs } from '../core/editing-tabs.ts';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
-  let { value, html, label, style, textZoom, busy = false, layout = 'canvas', autofocus = layout === 'canvas', onfocus, onblur, oncontextmenu, onpointerdown, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
+  let { value, html, label, style, textZoom, busy = false, layout = 'canvas', formatted = false, autofocus = layout === 'canvas', onfocus, onblur, oncontextmenu, onpointerdown, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
     value: string; html: string; label: string; style: string; textZoom: number; busy?: boolean; layout?: 'canvas' | 'outline';
+    /** Outline text drawn with its run formatting (Show Formatting). */
+    formatted?: boolean;
     /** Focus with the caret at the end when mounted (the canvas editor opens this way). */
     autofocus?: boolean;
     onfocus?: () => void; onblur?: () => void; oncontextmenu?: (event: MouseEvent) => void;
@@ -92,7 +94,7 @@
   });
 </script>
 
-<div class="inline-edit" class:outline={layout === 'outline'} bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-busy={busy} aria-label={label} style={`${style}; --text-zoom: ${textZoom};`}
+<div class="inline-edit" class:outline={layout === 'outline'} class:formatted bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-busy={busy} aria-label={label} style={`${style}; --text-zoom: ${textZoom};`}
   onfocus={() => { if (element) selectRichText(element, selection.start, selection.end); onfocus?.(); }}
   {onblur} {oncontextmenu}
   onbeforeinput={event => {
@@ -128,9 +130,12 @@
   .inline-edit { position: absolute; pointer-events: auto; border: 0; background: transparent; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: 1px solid var(--ok-selected-border); }
 
   .inline-edit.outline { position: static; width: 100%; box-sizing: border-box; min-height: 24px; padding: 0 4px; background: transparent; color: var(--ok-text); font: 13px/24px Arial, sans-serif; outline: none; overflow: visible; }
-  .outline :global([data-outline-paragraph]) { position: relative; display: inline-block; box-sizing: border-box; width: 100%; padding-left: calc(10px + var(--outline-level) * 10px); vertical-align: top; }
-  .outline :global([data-outline-paragraph][data-outline-title]) { padding-left: 0; font-weight: bold; }
-  .outline :global([data-outline-marker]::before) { content: attr(data-outline-marker); position: absolute; left: calc(var(--outline-level) * 10px); user-select: none; }
+  /* Mac PowerPoint's outline steps 11.5 pt per level, with the text 6 pt after
+     its bullet. Unformatted titles are bold; formatted ones show their own weight. */
+  .outline :global([data-outline-paragraph]) { position: relative; display: inline-block; box-sizing: border-box; width: 100%; padding-left: calc(6px + var(--outline-level) * 11.5px); vertical-align: top; }
+  .outline :global([data-outline-paragraph][data-outline-title]) { padding-left: 0; }
+  .outline:not(.formatted) :global([data-outline-paragraph][data-outline-title]) { font-weight: bold; }
+  .outline :global([data-outline-marker]::before) { content: attr(data-outline-marker); position: absolute; left: calc(var(--outline-level) * 11.5px); user-select: none; }
 
   .inline-edit :global([data-list-marker]::before) {
     content: attr(data-list-marker);
