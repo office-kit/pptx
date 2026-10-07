@@ -21,8 +21,8 @@
 - Updated dependencies [089140c]
 - Updated dependencies [8db2360]
   - @office-kit/pptx@0.23.0
-  - @office-kit/pptx-preview@1.0.0
-  - @office-kit/pptx-dsl@1.0.0
+  - @office-kit/pptx-preview@0.14.0
+  - @office-kit/pptx-dsl@0.10.0
 
 ## 0.10.0
 
