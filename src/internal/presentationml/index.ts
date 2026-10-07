@@ -77,7 +77,6 @@ export {
   masterPlaceholderXml,
   notesMasterPlaceholderXml,
 } from './default-masters.ts';
-export { buildTransition } from './transition-builder.ts';
 export type {
   MorphOption,
   SlideTransition,
