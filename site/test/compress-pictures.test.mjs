@@ -13,6 +13,7 @@ import {
 } from '@office-kit/pptx';
 import {
   collectPictures,
+  keepsResampledBytes,
   PICTURE_QUALITIES,
   planCompression,
 } from '../src/lib/editor/core/compress-pictures.ts';
@@ -21,17 +22,42 @@ const INCH = 914400;
 const plan = (input) => planCompression({ crop: null, ppi: null, deleteCropped: false, ...input });
 
 test('quality choices follow Mac PowerPoint’s Compress Pictures sheet', () => {
+  // cstate: what PowerPoint 16.113 wrote on the blip for each choice
+  // (test/fixtures/native/compress-pictures/).
   assert.deepEqual(
-    PICTURE_QUALITIES.map((quality) => [quality.label, quality.ppi]),
+    PICTURE_QUALITIES.map((quality) => [quality.label, quality.ppi, quality.cstate]),
     [
-      ['High Fidelity (Maximum ppi)', null],
-      ['HD (330 ppi)', 330],
-      ['Print (220 ppi)', 220],
-      ['On-screen (150 ppi)', 150],
-      ['Email (96 ppi)', 96],
-      ['Use Original Quality', null],
+      ['High Fidelity (Maximum ppi)', null, null],
+      ['HD (330 ppi)', 330, null],
+      ['Print (220 ppi)', 220, 'print'],
+      ['On-screen (150 ppi)', 150, 'screen'],
+      ['Email (96 ppi)', 96, 'email'],
+      ['Use Original Quality', null, null],
     ],
   );
+});
+
+test('keeps resampled pixels only when they shrink the file or drop cropped areas', () => {
+  // PowerPoint's capture: a 1200 × 630 PNG shown 5 in wide (240 ppi).
+  const frame = {
+    pixelWidth: 1200,
+    pixelHeight: 630,
+    frameWidth: 5 * INCH,
+    frameHeight: 2.625 * INCH,
+  };
+  const email = plan({ ...frame, ppi: 96 });
+  assert.deepEqual([email.width, email.height], [480, 252]);
+  assert.equal(keepsResampledBytes(email, 1200, 630, 55978, 50079), true);
+  const print = plan({ ...frame, ppi: 220 });
+  assert.equal(print.width, 1100);
+  assert.equal(keepsResampledBytes(print, 1200, 630, 55978, 61000), false);
+  const cut = plan({
+    ...frame,
+    ppi: null,
+    deleteCropped: true,
+    crop: { left: 0.5, top: 0, right: 0, bottom: 0 },
+  });
+  assert.equal(keepsResampledBytes(cut, 1200, 630, 1000, 5000), true);
 });
 
 test('downsamples to the target resolution of the frame and never upsamples', () => {

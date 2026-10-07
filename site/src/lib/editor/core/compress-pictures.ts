@@ -13,21 +13,32 @@ import {
   getSlideShapes,
   getSlides,
   getShapeXmlString,
+  type ImageCompressionState,
   type ImageCrop,
   type PresentationData,
   type SlideData,
   type SlideShapeData,
 } from '@office-kit/pptx';
 
-/** Mac PowerPoint's Compress Pictures ▸ Picture Quality choices, in menu order. */
+/**
+ * Mac PowerPoint's Compress Pictures ▸ Picture Quality choices, in menu order,
+ * with the `a:blip/@cstate` each one writes. PowerPoint 16.113 labels a
+ * picture only for Print, On-screen and Email; High Fidelity, HD and Use
+ * Original Quality leave its blip as it was.
+ */
 export const PICTURE_QUALITIES = [
-  { id: 'highFidelity', label: 'High Fidelity (Maximum ppi)', ppi: null },
-  { id: 'hd', label: 'HD (330 ppi)', ppi: 330 },
-  { id: 'print', label: 'Print (220 ppi)', ppi: 220 },
-  { id: 'screen', label: 'On-screen (150 ppi)', ppi: 150 },
-  { id: 'email', label: 'Email (96 ppi)', ppi: 96 },
-  { id: 'original', label: 'Use Original Quality', ppi: null },
-] as const;
+  { id: 'highFidelity', label: 'High Fidelity (Maximum ppi)', ppi: null, cstate: null },
+  { id: 'hd', label: 'HD (330 ppi)', ppi: 330, cstate: null },
+  { id: 'print', label: 'Print (220 ppi)', ppi: 220, cstate: 'print' },
+  { id: 'screen', label: 'On-screen (150 ppi)', ppi: 150, cstate: 'screen' },
+  { id: 'email', label: 'Email (96 ppi)', ppi: 96, cstate: 'email' },
+  { id: 'original', label: 'Use Original Quality', ppi: null, cstate: null },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  ppi: number | null;
+  cstate: ImageCompressionState | null;
+}[];
 export type PictureQuality = (typeof PICTURE_QUALITIES)[number]['id'];
 
 const EMU_PER_INCH = 914400;
@@ -175,6 +186,28 @@ export interface CompressedPicture {
 }
 
 /**
+ * Whether resampled bytes replace the picture. A crop deletion always does.
+ * A resolution change alone only does when the result is smaller: PowerPoint
+ * 16.113 resampled a 1200 px PNG shown at 240 ppi for Email (to 480 px, the
+ * frame's 5 in × 96 ppi, and only 11% fewer bytes: 55978 → 50079) but left it
+ * untouched for Print (220 ppi) and On-screen (150 ppi), although both are
+ * below 240 ppi. Its 480 px re-encode kept 89% of the bytes for 16% of the
+ * pixels, so a 1100 or 750 px one would almost certainly have outgrown the
+ * original. PowerPoint does not document its rule; keeping whichever is
+ * smaller is the simplest one that matches every captured case.
+ */
+export const keepsResampledBytes = (
+  plan: CompressionPlan,
+  pixelWidth: number,
+  pixelHeight: number,
+  originalBytes: number,
+  resampledBytes: number,
+): boolean =>
+  plan.source.width !== pixelWidth ||
+  plan.source.height !== pixelHeight ||
+  resampledBytes < originalBytes;
+
+/**
  * Resamples each PNG or JPEG picture whose plan changes it. Other formats
  * (vector, GIF, TIFF …) are left alone. A picture carrying PowerPoint's
  * picture-editing data keeps its crop: its JPEG XR original cannot be cropped
@@ -214,7 +247,8 @@ export async function compressPictures(
       const blob = await canvas.convertToBlob(
         type === 'image/jpeg' ? { type, quality: JPEG_QUALITY } : { type },
       );
-      out.push({ target, bytes: new Uint8Array(await blob.arrayBuffer()), crop: plan.crop });
+      if (keepsResampledBytes(plan, bitmap.width, bitmap.height, bytes.byteLength, blob.size))
+        out.push({ target, bytes: new Uint8Array(await blob.arrayBuffer()), crop: plan.crop });
     } finally {
       bitmap.close();
     }

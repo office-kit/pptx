@@ -229,7 +229,9 @@
    layout. Label widths depend on the font (the system fallback on Linux is
    wider than San Francisco; Japanese captions are longer), so a ribbon that
    misses by a few points gives them up from its galleries; only an overflow
-   beyond that takes the next collapse step (RibbonCollapse). */
+   beyond that takes the next collapse step (RibbonCollapse). The item strip
+   itself has no floor: a floor made the shrunken gallery overflow its group,
+   and its next arrow slid under the group's buttons. */
 .ctx-ribbon .ctx-group.ctx-shrink {
   flex: 0 1 auto;
   min-width: 0;
@@ -240,7 +242,7 @@
 }
 .ctx-ribbon .ctx-shrink .ctx-gallery-items {
   flex: 0 1 auto;
-  min-width: var(--ctx-gallery-min);
+  min-width: 0;
 }
 
 /* Spin boxes (Height, Width, Row, Column): 78 × 24 pt on a 28 pt pitch. */
