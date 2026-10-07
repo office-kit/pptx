@@ -6,21 +6,35 @@ import { getSlideLayout } from './shape-slide-read.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import {
   type GlowOptions,
+  type InnerShadowOptions,
+  type ReadText3D,
+  type ReflectionOptions,
   type ShadowOptions,
+  type Text3D,
+  applyShape3D,
   clearEffects as clearEffectsImpl,
+  readText3D,
+  removeEffect,
   setGlow,
+  setInnerShadow,
+  setReflection,
   setShadow,
+  setSoftEdge,
 } from '../../internal/drawingml/index.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
+  elem,
   firstChildElement,
   getAttrValue,
   parseXml,
   qname,
 } from '../../internal/xml/index.ts';
+
+/** A shape's 3-D (`setShape3D`): the same DrawingML vocabulary as text 3-D. */
+export type Shape3D = Text3D;
 import {
   INTERNAL_PACKAGE,
   LAYOUT_PART,
@@ -90,6 +104,10 @@ export type ShapeEffectAny =
       readonly blurEmu: number;
       readonly distEmu: number;
       readonly angleDeg: number;
+      readonly scaleX?: number;
+      readonly scaleY?: number;
+      readonly skewX?: number;
+      readonly skewY?: number;
     }
   | {
       readonly kind: 'innerShdw';
@@ -298,24 +316,105 @@ export const getShapeEffectsEffective = (
   return own;
 };
 
+// Removing a shape's last effect drops its `<a:effectLst>`, except when the
+// shape style references a theme effect: there an empty list is what keeps
+// that effect from coming back.
+const removeShapeEffect = (shape: SlideShapeData, localName: string): void => {
+  const spPr = requireSpPr(shape);
+  removeEffect(spPr, localName);
+  const style = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'style', NS.pml));
+  const effectRef = style && firstChildElement(style, qname('a', 'effectRef', NS.dml));
+  const themed = effectRef !== null && getAttrValue(effectRef, qname('', 'idx', '')) !== '0';
+  if (themed && firstChildElement(spPr, qname('a', 'effectLst', NS.dml)) === null) {
+    // effectLst precedes scene3d, sp3d and extLst in CT_ShapeProperties.
+    const at = spPr.children.findIndex(
+      (c) =>
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        ['scene3d', 'sp3d', 'extLst'].includes(c.name.localName),
+    );
+    const list = elem(qname('a', 'effectLst', NS.dml), { children: [] });
+    if (at === -1) spPr.children.push(list);
+    else spPr.children.splice(at, 0, list);
+  }
+  commitAndRefresh(shape);
+};
+
 /**
  * Sets an outer drop shadow on the shape. Defaults: black, 4pt blur,
  * 3pt offset, 45° (down-right). Pass `opacity` (0–1) to soften the
  * shadow. Replaces an existing drop shadow and leaves the shape's other
- * effects in place; `clearShapeEffects` is the way to remove them all.
+ * effects in place; `null` removes only the drop shadow and
+ * `clearShapeEffects` removes every effect.
  */
-export const setShapeShadow = (shape: SlideShapeData, options: ShadowOptions = {}): void => {
+export const setShapeShadow = (shape: SlideShapeData, options: ShadowOptions | null = {}): void => {
+  if (options === null) {
+    removeShapeEffect(shape, 'outerShdw');
+    return;
+  }
   setShadow(requireSpPr(shape), options);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets an inner shadow (`<a:innerShdw>`) on the shape, replacing only a
+ * prior inner shadow. Defaults: black, 4pt blur, 3pt offset, 45°. `null`
+ * removes it.
+ */
+export const setShapeInnerShadow = (
+  shape: SlideShapeData,
+  options: InnerShadowOptions | null,
+): void => {
+  if (options === null) {
+    removeShapeEffect(shape, 'innerShdw');
+    return;
+  }
+  setInnerShadow(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
 
 /**
  * Sets a glow around the shape. The radius is in EMU (default 5pt =
  * 63500). Replaces an existing glow and composes with a shadow, in the
- * order `CT_EffectList` states.
+ * order `CT_EffectList` states. `null` removes only the glow.
  */
-export const setShapeGlow = (shape: SlideShapeData, options: GlowOptions): void => {
+export const setShapeGlow = (shape: SlideShapeData, options: GlowOptions | null): void => {
+  if (options === null) {
+    removeShapeEffect(shape, 'glow');
+    return;
+  }
   setGlow(requireSpPr(shape), options);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets a reflection (`<a:reflection>`) of the shape, replacing only a prior
+ * reflection. A mirrored reflection below the shape is `scaleY: -1` with
+ * `alignment: 'bl'`, fading from `startOpacity` to `opacity` by
+ * `endPosition`. `null` removes it.
+ */
+export const setShapeReflection = (
+  shape: SlideShapeData,
+  options: ReflectionOptions | null,
+): void => {
+  if (options === null) {
+    removeShapeEffect(shape, 'reflection');
+    return;
+  }
+  setReflection(requireSpPr(shape), options);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Softens the shape's edges (`<a:softEdge>`) by `radiusEmu`, replacing a
+ * prior soft edge. `null` removes it.
+ */
+export const setShapeSoftEdge = (shape: SlideShapeData, radiusEmu: number | null): void => {
+  if (radiusEmu === null) {
+    removeShapeEffect(shape, 'softEdge');
+    return;
+  }
+  setSoftEdge(requireSpPr(shape), radiusEmu);
   commitAndRefresh(shape);
 };
 
@@ -323,4 +422,28 @@ export const setShapeGlow = (shape: SlideShapeData, options: GlowOptions): void 
 export const clearShapeEffects = (shape: SlideShapeData): void => {
   clearEffectsImpl(requireSpPr(shape));
   commitAndRefresh(shape);
+};
+
+/**
+ * Sets the shape's own 3-D — `<a:scene3d>` (camera, rotation, lighting) and
+ * `<a:sp3d>` (bevels, depth, contour, material, distance from ground) in
+ * `<p:spPr>`, what PowerPoint's 3-D Format and 3-D Rotation write. Same
+ * vocabulary as `setShapeText3D`, which puts it on the text body instead. A
+ * field left out removes what it describes; settings this API does not model
+ * (camera zoom, backdrop, ...) are kept while their element remains. `null`
+ * removes both elements.
+ */
+export const setShape3D = (shape: SlideShapeData, value: Shape3D | null): void => {
+  applyShape3D(requireSpPr(shape), value, 'setShape3D');
+  commitAndRefresh(shape);
+};
+
+/**
+ * Reads the 3-D on the shape's own `<p:spPr>` (see `setShape3D`), or `null`
+ * when it has neither `<a:scene3d>` nor `<a:sp3d>`. A theme's effect style
+ * is not consulted.
+ */
+export const getShape3D = (shape: SlideShapeData): ReadText3D | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  return spPr ? readText3D(spPr) : null;
 };

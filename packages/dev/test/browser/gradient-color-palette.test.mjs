@@ -10,6 +10,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -44,6 +45,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       const color = editor.getByRole('button', { name: 'Gradient stop color', exact: true });
       await color.click();
       const menu = editor.getByRole('menu', { name: 'Gradient stop color', exact: true });
@@ -71,6 +73,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await color.click();
       assert.equal(
         await menu

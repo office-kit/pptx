@@ -29,6 +29,9 @@
   import PatternFillSection from './PatternFillSection.svelte';
   import PictureFillSection from './PictureFillSection.svelte';
   import TransparencyField from './TransparencyField.svelte';
+  import PaneSection from './PaneSection.svelte';
+  import EffectSections from './EffectSections.svelte';
+  import { shapeEffects } from './effects-model.ts';
   import LineStyleFields from './LineStyleFields.svelte';
   import SizePositionSection from './SizePositionSection.svelte';
   import TextBoxSection from './TextBoxSection.svelte';
@@ -47,6 +50,12 @@
     if (sel.kind !== 'shape') return null;
     const id = selectedShapeId(sel);
     return id == null ? null : doc.shapeById(sel.slideIndex, id);
+  });
+
+  const effectsApplicable = $derived.by(() => {
+    doc.version;
+    const shapes = editor.selectedShapes();
+    return shapes.length > 0 && shapes.every(target => ['shape', 'connector', 'picture'].includes(getShapeKind(target)));
   });
 
   const textShape = $derived.by(() => {
@@ -217,9 +226,7 @@
 {#if shape}
   <div class="bespoke">
     <div hidden={tab !== 'paint' && tab !== 'all'} class="paint-controls">
-      <details class="paint-section" open>
-        <summary>{t('Fill')}</summary>
-        <div class="paint-fields">
+      <PaneSection id="fill" label={t('Fill')}>
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Fill type')}>
             {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['image', 'Picture or texture fill'], ['pattern', 'Pattern fill'], ['background', 'Slide background fill']] as [kind, label]}
               <label><input type="radio" name="shape-fill-type" checked={fillKind === kind} disabled={(kind === 'background' || kind === 'image') && editor.selectedShapes().some(target => getShapeKind(target) !== 'shape')}
@@ -243,12 +250,9 @@
           </div>
           <TransparencyField paint="fill" />
           {/if}
-        </div>
-      </details>
+      </PaneSection>
 
-      <details class="paint-section" open>
-        <summary>{t('Line')}</summary>
-        <div class="paint-fields">
+      <PaneSection id="line" label={t('Line')}>
           <!-- PowerPoint's Line section opens with the line type, like Fill. -->
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Line type')}>
             <label><input type="radio" name="shape-line-type" checked={lineKind === 'none'} onchange={() => changeLine('none')} />{t('No line')}</label>
@@ -273,9 +277,11 @@
           </label>
           <LineStyleFields />
           {/if}
-        </div>
-      </details>
+      </PaneSection>
 
+    </div>
+    <div hidden={tab !== 'effects' && !(tab === 'all' && effectsApplicable)} class="effect-controls">
+      <EffectSections target={shapeEffects} />
     </div>
     <div hidden={tab !== 'size' && tab !== 'all'} class="size-controls">
       <SizePositionSection />
@@ -316,7 +322,8 @@
   .fill-types label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
   .fill-types input { margin: 0; accent-color: var(--ok-accent); }
 
-  .paint-controls, .size-controls {
+  .paint-controls, .effect-controls { display: flex; flex-direction: column; }
+  .size-controls {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -331,33 +338,7 @@
     flex-direction: column;
     gap: 10px;
   }
-  .paint-section {
-    margin: 0 -10px;
-    font-size: 12px;
-  }
-  /* PowerPoint's section headers: a chevron (› closed, ⌄ open) on a band. */
-  .paint-section summary {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 23px;
-    padding: 0 8px;
-    list-style: none;
-    background: var(--ok-hover);
-    cursor: pointer;
-  }
-  .paint-section summary::-webkit-details-marker { display: none; }
-  .paint-section summary::before { content: '›'; display: inline-block; width: 10px; text-align: center; font-size: 14px; transition: transform 0.12s; }
-  .paint-section[open] > summary::before { transform: rotate(90deg); }
-  /* Mac PowerPoint's Format pane rows: radio options on a 20 pt pitch, then a
-     rule, then label-left / control-right rows on a 30 pt pitch with 26 pt
-     controls ending 17 pt from the pane edge. */
-  .paint-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 17px 10px 16px;
-  }
+  /* Label-left / control-right rows (Mac PowerPoint: 30 pt pitch, 26 pt controls). */
   .paint-field {
     display: flex;
     align-items: center;

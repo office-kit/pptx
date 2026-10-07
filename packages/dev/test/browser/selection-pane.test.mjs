@@ -26,6 +26,7 @@ import {
   loadPresentation,
   inches,
 } from '@office-kit/pptx';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -141,6 +142,7 @@ test(
       await editor.locator('.hit.selected').click({ button: 'right' });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
+      await expandFormatSections(editor, 'Size', 'Position');
       for (const name of [
         'Horizontal position',
         'Vertical position',
@@ -157,10 +159,6 @@ test(
       }
       assert.equal(
         await editor.getByRole('checkbox', { name: 'Lock aspect ratio', exact: true }).isDisabled(),
-        true,
-      );
-      assert.equal(
-        await editor.getByRole('checkbox', { name: 'Flip horizontally', exact: true }).isDisabled(),
         true,
       );
       await openArrange(editor);

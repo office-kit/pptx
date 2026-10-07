@@ -8,6 +8,11 @@
   import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import TextColumnsDialog from '../ui/TextColumnsDialog.svelte';
+  import PaneSection from './PaneSection.svelte';
+
+  // Shape Options ▸ Size & Properties and Text Options ▸ Textbox both carry
+  // this section; each remembers its own expanded state.
+  let { sectionId = 'textBox' }: { sectionId?: string } = $props();
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -62,9 +67,8 @@
 </script>
 
 {#if shapes.length}
-  <details class="text-box">
-    <summary>{t('Text Box')}</summary>
-    <div class="fields">
+  <div class="text-box">
+  <PaneSection id={sectionId} label={t('Text Box')}>
       <label><span>{t('Vertical alignment')}</span><select class="ok-input" value={anchor ?? ''} onchange={e => changeAnchor(e.currentTarget.value)}>
         <option value="" disabled>{t('Mixed')}</option>
         {#each anchors as [value, label]}<option {value}>{t(label)}</option>{/each}
@@ -76,7 +80,7 @@
       </select></label>
       <div role="radiogroup" aria-label={t('Autofit')}>
         {#each fits as [value, label]}
-          <label class="check"><input type="radio" name="text-autofit" checked={autoFit === value} onchange={() => apply(label, shape => setShapeTextAutoFit(shape, value))} /><span>{t(label)}</span></label>
+          <label class="check"><input type="radio" name="{sectionId}-autofit" checked={autoFit === value} onchange={() => apply(label, shape => setShapeTextAutoFit(shape, value))} /><span>{t(label)}</span></label>
         {/each}
       </div>
       {#each sides as [side, label]}
@@ -84,19 +88,13 @@
       {/each}
       <label class="check"><input type="checkbox" checked={wrap ?? false} indeterminate={wrap === undefined} onchange={e => { const value = e.currentTarget.checked ? 'square' : 'none'; apply('Wrap text in shape', shape => setShapeTextWrap(shape, value)); }} /><span>{t('Wrap text in shape')}</span></label>
       <button class="ok-btn columns" onclick={() => columnsOpen = true}>{t('Columns...')}</button>
-    </div>
-  </details>
+  </PaneSection>
+  </div>
 {/if}
 {#if columnsOpen}<TextColumnsDialog onclose={() => columnsOpen = false} />{/if}
 
 <style>
-  .text-box { font-size: 12px; margin: 0 -10px; }
-  /* Same section header and row metrics as the Fill & Line tab (Mac PowerPoint: 30 pt rows, 26 pt controls). */
-  summary { display: flex; align-items: center; gap: 6px; min-height: 23px; padding: 0 8px; list-style: none; background: var(--ok-hover); cursor: pointer; }
-  summary::-webkit-details-marker { display: none; }
-  summary::before { content: '›'; display: inline-block; width: 10px; text-align: center; font-size: 14px; transition: transform 0.12s; }
-  details[open] > summary::before { transform: rotate(90deg); }
-  .fields { display: flex; flex-direction: column; gap: 4px; padding: 10px 17px 10px 16px; }
+  .text-box { display: flex; flex-direction: column; font-size: 12px; }
   label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
   select { box-sizing: border-box; width: 112px; height: 26px; font-size: inherit; }
   .number { display: flex; align-items: center; gap: 3px; width: 82px; flex: 0 0 82px; }

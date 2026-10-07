@@ -113,12 +113,16 @@ test(
       assert.equal(transition?.effect, 'fade');
       assert.equal(transition?.advanceAfterMs, 3000);
 
-      // Animations: one gallery effect per shape, replaced in place, None removes it.
+      // Animations: one gallery effect per shape, replaced in place.
       await editor.locator('.thumb').first().click();
       await editor.locator('.hit').first().click();
       await tab('Animations');
       await changed(() => panel.getByRole('radio', { name: 'Fly In', exact: true }).click());
-      await changed(() => panel.getByRole('radio', { name: 'Zoom', exact: true }).click());
+      // Zoom is on the gallery's fourth page, as in PowerPoint.
+      const zoom = panel.getByRole('radio', { name: 'Zoom', exact: true });
+      while ((await zoom.count()) === 0)
+        await panel.getByRole('button', { name: 'Next Entrance Effects gallery' }).click();
+      await changed(() => zoom.click());
       let steps = getSlideAnimations(getSlides(await deck())[0]);
       assert.deepEqual(
         steps.map((step) => step.effect),
@@ -129,7 +133,11 @@ test(
       );
       steps = getSlideAnimations(getSlides(await deck())[0]);
       assert.equal(steps[0].start, 'afterPrevious');
-      await changed(() => panel.getByRole('radio', { name: 'None', exact: true }).click());
+      // PowerPoint's galleries have no None; the Animation Pane removes it.
+      await panel.getByRole('button', { name: 'Animation Pane', exact: true }).click();
+      await changed(() =>
+        editor.getByRole('button', { name: 'Delete animation 1', exact: true }).click(),
+      );
       assert.deepEqual(getSlideAnimations(getSlides(await deck())[0]), []);
 
       // Slide Show: Hide Slide toggles the selected slide, and Play from

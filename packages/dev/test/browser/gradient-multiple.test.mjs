@@ -10,6 +10,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -48,6 +49,7 @@ test(
         .nth(1)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.equal(
         await editor.getByRole('spinbutton', { name: 'Gradient angle', exact: true }).inputValue(),
         '',
@@ -80,6 +82,7 @@ test(
         .nth(0)
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       await editor.getByRole('button', { name: 'Add gradient stop', exact: true }).click();
       await saved();
       const differing = await read();

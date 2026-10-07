@@ -152,6 +152,14 @@ export class EditorController {
   alignmentReference = $state<'selection' | 'slide'>('selection');
   rotationFocusRequested = $state(false);
   formatPaneTab = $state<'paint' | 'effects' | 'size' | 'video'>('paint');
+  /** The Format Shape pane's Shape Options / Text Options switch. */
+  formatPaneOptions = $state<'shape' | 'text'>('shape');
+  formatPaneTextTab = $state<'textFill' | 'textEffects' | 'textbox'>('textFill');
+  /**
+   * Expanded Format pane sections by id. Like PowerPoint, every section
+   * starts collapsed and keeps what the user opened for the session.
+   */
+  formatPaneSections = $state<Record<string, boolean>>({});
   thumbnailWidth = $state<number | null>(null);
   outlineWidth = $state<number | null>(null);
   outlineShowFormatting = $state(false);
@@ -285,7 +293,11 @@ export class EditorController {
     this.selectionPaneVisible = false;
     this.propertiesPaneVisible = true;
     this.propertiesPaneMode = 'selection';
+    this.formatPaneOptions = 'shape';
     this.formatPaneTab = tab;
+    // Size and Position... lands on the Size and Position sections, open.
+    if (tab === 'size')
+      this.formatPaneSections = { ...this.formatPaneSections, size: true, position: true };
   }
 
   showRotationOptions(): void {
