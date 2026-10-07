@@ -17,10 +17,15 @@ import {
   type AnimationOrientation,
   type AnimationShape,
   type AnimationStartCondition,
+  type AnimationTextBuild,
+  type EffectContext,
+  animationBuildKind,
   animationOptionDomains,
   buildSingleEffectTiming,
+  defaultAnimationDurationMs,
   isMediaTimingNode,
   resolveAnimationOptions,
+  setEffectDurationMs,
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -37,17 +42,19 @@ import {
   type MainSeqLayout,
   buildKeyOf,
   cTnIdsUnder,
+  drawsBackground,
   dropShapesFromTiming,
   idsAfter,
   isEmptyTiming,
   isPlainEffect,
   largestCTnId,
+  largestGrpId,
   pruneBuildEntries,
   readMainSeqLayout,
   referencedNodeIds,
   targetedSpids,
-  setBuildByParagraph,
   shiftCTnIds,
+  writeBuildEntry,
   writeMainSeqLayout,
 } from './_animation-layout.ts';
 import {
@@ -55,7 +62,6 @@ import {
   findSlideTimingElement,
   readTimingSteps,
   setEffectDelayMs,
-  setEffectDurationMs,
 } from './_animation-timing.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
 import { rootChildTnLst } from './_media-timing.ts';
@@ -64,12 +70,14 @@ import { rootChildTnLst } from './_media-timing.ts';
  * What to change about an effect. Every field is optional; the ones left out
  * keep what the slide already says.
  *
- * `byParagraph` is not an attribute flip: turning it on replaces the effect
- * with one per paragraph of the shape's text, and turning it off replaces the
- * whole build with a single effect on the shape. In both directions the id you
- * passed stays on the effect that takes the original's place in the click
- * order, and the other effects of a build are new — so a caller holding several
- * handles into one build keeps only the one it addressed.
+ * `build` is not an attribute flip: a paragraph build (`'allAtOnce'`,
+ * `'byParagraph'`) replaces the effect with one per paragraph of the shape's
+ * text, and `'asOneObject'` replaces the whole build with a single effect on
+ * the shape; switching between the two paragraph builds replaces every
+ * paragraph's effect. In every direction the id you passed stays on the effect
+ * that takes the original's place in the click order, and the other effects of
+ * a build are new — so a caller holding several handles into one build keeps
+ * only the one it addressed.
  */
 export interface AnimationPatch {
   readonly effect?: AnimationEffect;
@@ -90,7 +98,7 @@ export interface AnimationPatch {
   readonly durationMs?: number;
   readonly start?: AnimationStartCondition;
   readonly delayMs?: number;
-  readonly byParagraph?: boolean;
+  readonly build?: AnimationTextBuild;
 }
 
 const ATTR_GRP_ID = qname('', 'grpId', '');
@@ -232,13 +240,13 @@ const paragraphOf = (node: AnimationStepNode, fn: string): number | null => {
 const rebuiltStep = (
   node: AnimationStepNode,
   opts: AnimationOptions,
-  paragraph: number | null,
+  ctx: EffectContext,
   keepId: number | null,
-  fn: string,
+  grpId: string | null,
   ids: CTnIds,
 ): LayoutStep => {
   const spid = node.step.target.shapeId;
-  const fresh = buildSingleEffectTiming(spid!, opts, { paragraph, label: fn });
+  const fresh = buildSingleEffectTiming(spid!, opts, ctx);
   const step = readMainSeqLayout(fresh)!.steps[0]!;
   // The builder numbers a standalone effect 5. None of these effects is in the
   // tree yet, so they take their ids from the edit's own counter rather than
@@ -247,7 +255,6 @@ const rebuiltStep = (
   shiftCTnIds(step.par, ids.next - 5);
   ids.next = largestCTnId(step.par) + 1;
   if (keepId !== null) setAttr(step.cTn, 'id', String(keepId));
-  const grpId = getAttrValue(node.cTn, ATTR_GRP_ID);
   if (grpId !== null) setAttr(step.cTn, 'grpId', grpId);
   return step;
 };
@@ -275,9 +282,11 @@ const buildSiblings = (
   );
 };
 
+const TEXT_BUILDS: readonly AnimationTextBuild[] = ['asOneObject', 'allAtOnce', 'byParagraph'];
+
 /**
- * Changes one effect: its preset, how long it runs, when it starts, and whether
- * the shape's text is revealed a paragraph at a time.
+ * Changes one effect: its preset, its options, how long it runs, when it
+ * starts, and how the shape's text is built.
  *
  * The effect keeps the id it was addressed by. Everything after it in the click
  * order is laid out again, because a longer effect moves what follows it and a
@@ -292,16 +301,28 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
     const { layout, index, node, parByCTn } = locate(timing, id, fn);
     const current = layout.steps[index]!;
     const paragraph = paragraphOf(node, fn);
-    const wasBuild = paragraph !== null;
-    const nowBuild = patch.byParagraph ?? wasBuild;
+    const wasBuild: AnimationTextBuild =
+      paragraph === null ? 'asOneObject' : node.step.build === 'allAtOnce' ? 'allAtOnce' : 'byParagraph';
+    const nowBuild = patch.build ?? wasBuild;
+    if (!TEXT_BUILDS.includes(nowBuild)) {
+      throw new RangeError(
+        `${fn}: build ${JSON.stringify(nowBuild)} is not one of ${TEXT_BUILDS.join(', ')}.`,
+      );
+    }
     const start = patch.start ?? current.start;
     const spid = node.step.target.shapeId!;
     const ids = idsAfter(timing);
 
-    // Changing the preset or the paragraph build means writing a new effect
-    // node; anything else is set on the one that is there, so an effect this
-    // library did not author keeps whatever else it carries.
+    // Changing the preset or the text build means writing a new effect node;
+    // anything else is set on the one that is there, so an effect this library
+    // did not author keeps whatever else it carries.
     const effect = patch.effect ?? node.step.effect!;
+    const kind = animationBuildKind(effect);
+    if (kind === 'none' && nowBuild !== 'asOneObject') {
+      throw new RangeError(
+        `${fn}: ${JSON.stringify(effect)} animates the shape itself, so it has no text build.`,
+      );
+    }
     // The options are part of the preset, so changing one writes a new effect
     // node just as changing the preset itself does. An option the new effect
     // shares with the old one keeps what the slide already says unless the
@@ -331,6 +352,8 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
 
     let replaced: ReadonlySet<XmlElement> = new Set([node.cTn]);
     let replacements: LayoutStep[];
+    // The build entry a rewritten Fill Color or Line Color no longer needs.
+    let orphanedBuild: string | null = null;
 
     if (!rebuild) {
       if (
@@ -350,41 +373,31 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
       if (!isPlainEffect(current.par, node.step.effect)) {
         throw new Error(`${fn}: animation ${id} ${NOT_REPLACEABLE}.`);
       }
-      // The effect node keeps its id, but its behaviours are written anew.
-      refuseIfReferenced(
-        timing,
-        cTnIdsUnder(current.par),
-        new Set([String(id)]),
-        `a behaviour of animation ${id}`,
-        fn,
-      );
       const durationMs = patch.durationMs ?? node.step.durationMs;
       const delayMs = patch.delayMs ?? node.step.delayMs;
-      const opts: AnimationOptions = {
+      // An effect that holds until the slide ends has no duration to carry
+      // over to one that does, and the other way round.
+      const carriedDuration =
+        durationMs === null || defaultAnimationDurationMs(effect) === null ? {} : { durationMs };
+      const opts = (startAs: AnimationStartCondition): AnimationOptions => ({
         effect,
         ...presentOptions(options),
-        ...(durationMs === null ? {} : { durationMs }),
+        ...carriedDuration,
         ...(delayMs === null ? {} : { delayMs }),
-        start,
-      };
-      if (nowBuild === wasBuild) {
-        replacements = [rebuiltStep(node, opts, paragraph, id, fn, ids)];
-      } else if (nowBuild) {
-        const count = paragraphCount(slide, spid);
-        if (count === 0) {
-          throw new Error(
-            `${fn}: byParagraph needs a shape with text. Shape ${spid} has no paragraphs to build.`,
-          );
-        }
-        // The addressed effect becomes the first paragraph and keeps its id;
-        // the rest are new effects, so only that one handle stays valid.
-        replacements = Array.from({ length: count }, (_, i) =>
-          rebuiltStep(node, opts, i, i === 0 ? id : null, fn, ids),
-        );
-      } else {
-        // Collapsing a build: every paragraph of it goes, and the single effect
-        // that replaces them takes the addressed step's place in the order.
-        const siblings = buildSiblings(timing, layout, node);
+        start: startAs,
+      });
+      const shape = findShapeElement(slide[SLIDE_DOCUMENT].root, String(spid));
+      const background = shape !== null && drawsBackground(shape);
+      // Fill Color and Line Color join no build group; any other effect taking
+      // the place of one opens a group of its own.
+      const oldGrpId = getAttrValue(node.cTn, ATTR_GRP_ID);
+      const grpId = kind === 'none' ? null : (oldGrpId ?? String(largestGrpId(timing) + 1));
+      const ctx = (at: number | null): EffectContext => ({ paragraph: at, build: nowBuild, background });
+
+      // The whole build goes when a paragraph build is rewritten as another
+      // build; a single paragraph is rewritten on its own otherwise.
+      const siblings = wasBuild === 'asOneObject' ? [node] : buildSiblings(timing, layout, node);
+      if (nowBuild !== wasBuild && siblings.length > 1) {
         const pars = siblings.map((n) => parByCTn.get(n.cTn)!);
         if (!siblings.every((n, at) => isPlainEffect(pars[at]!, n.step.effect))) {
           throw new Error(`${fn}: animation ${id} ${NOT_REPLACEABLE}.`);
@@ -392,15 +405,54 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
         const going = new Set(pars.flatMap((par) => [...cTnIdsUnder(par)]));
         refuseIfReferenced(timing, going, new Set([String(id)]), `a paragraph of this build`, fn);
         replaced = new Set(siblings.map((n) => n.cTn));
-        replacements = [rebuiltStep(node, opts, null, id, fn, ids)];
+      } else {
+        // The effect node keeps its id, but its behaviours are written anew.
+        refuseIfReferenced(
+          timing,
+          cTnIdsUnder(current.par),
+          new Set([String(id)]),
+          `a behaviour of animation ${id}`,
+          fn,
+        );
       }
+
+      if (nowBuild === wasBuild) {
+        replacements = [rebuiltStep(node, opts(start), ctx(paragraph), id, grpId, ids)];
+      } else if (nowBuild === 'asOneObject') {
+        // Collapsing a build: the single effect that replaces it takes the
+        // addressed step's place in the order.
+        replacements = [rebuiltStep(node, opts(start), ctx(null), id, grpId, ids)];
+      } else {
+        const count = paragraphCount(slide, spid);
+        if (count === 0) {
+          throw new Error(
+            `${fn}: build ${JSON.stringify(nowBuild)} needs a shape with text. Shape ${spid} has ` +
+              'no paragraphs to build.',
+          );
+        }
+        // The addressed effect becomes the first paragraph and keeps its id;
+        // the rest are new effects, so only that one handle stays valid. All
+        // at once runs them together, the way PowerPoint writes it.
+        replacements = Array.from({ length: count }, (_, at) =>
+          rebuiltStep(
+            node,
+            opts(at > 0 && nowBuild === 'allAtOnce' ? 'withPrevious' : start),
+            ctx(at),
+            at === 0 ? id : null,
+            grpId,
+            ids,
+          ),
+        );
+      }
+      if (grpId === null) orphanedBuild = buildKeyOf(node.cTn, spid);
+      else writeBuildEntry(timing, spid, grpId, nowBuild, kind === 'shape' && background);
     }
 
     const steps = layout.steps.flatMap((step) =>
       step.cTn === node.cTn ? replacements : replaced.has(step.cTn) ? [] : [step],
     );
     if (!writeMainSeqLayout(timing, layout, steps, ids)) throw new Error(`${fn}: ${CANNOT_CHAIN}`);
-    if (nowBuild !== wasBuild) setBuildByParagraph(timing, buildKeyOf(node.cTn, spid), nowBuild);
+    if (orphanedBuild !== null) pruneBuildEntries(timing, new Set([orphanedBuild]));
   });
 };
 
@@ -412,8 +464,8 @@ const NOT_PLAIN_START =
   'does not start at a plain offset — its start condition ties it to something else, so a delay ' +
   'would not mean what you asked for';
 const NOT_ONE_DURATION =
-  'animates through more than one timed behaviour, so it has no single length to set. Change the ' +
-  'effect instead, or leave its timing as it is';
+  'has no length to scale — it holds until the end of the slide, or one of its behaviours runs ' +
+  'for a length this library cannot read. Change the effect instead, or leave its timing as it is';
 const NOT_REPLACEABLE =
   'carries timing this library did not author, and changing its preset or its paragraph build ' +
   'would replace the effect and lose that. Remove it and add the effect you want instead';

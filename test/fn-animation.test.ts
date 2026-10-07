@@ -38,7 +38,8 @@ describe('fn API: animations (v1 — single click-effect)', () => {
     expect(xml).toContain('presetClass="entr"');
     expect(xml).toContain('nodeType="clickEffect"');
     expect(xml).toContain('<p:bldLst>');
-    expect(xml).toContain('style.opacity');
+    // PowerPoint's Fade is the fade filter, not an opacity animation.
+    expect(xml).toContain('<p:animEffect transition="in" filter="fade">');
   });
 
   it('setShapeAnimation appear emits the entrance preset without opacity anim', async () => {

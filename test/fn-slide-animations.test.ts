@@ -491,7 +491,7 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
       firstParagraph: 1,
       lastParagraph: 2,
     });
-    expect(steps[0]!.buildByParagraph).toBe(true);
+    expect(steps[0]!.build).toBe('byParagraph');
     expect(steps[0]!.buildLevel).toBe(2);
     expect(steps[0]!.editable).toBe(true);
   });
@@ -891,7 +891,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
 
   it('writes one effect per paragraph, each over its own paragraph range', () => {
     const { slide, shape } = deck(['One', 'Two', 'Three']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
 
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(3);
@@ -900,7 +900,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
       { kind: 'paragraphs', shapeId: getShapeId(shape), firstParagraph: 1, lastParagraph: 1 },
       { kind: 'paragraphs', shapeId: getShapeId(shape), firstParagraph: 2, lastParagraph: 2 },
     ]);
-    expect(steps.every((s) => s.buildByParagraph)).toBe(true);
+    expect(steps.every((s) => s.build === 'byParagraph')).toBe(true);
     expect(steps.every((s) => s.playable)).toBe(true);
     expect(new Set(steps.map((s) => s.id)).size).toBe(3);
   });
@@ -910,7 +910,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
   // per paragraph, or the later ones would each re-declare the same build.
   it('gives the whole build a single `<p:bldP build="p">`', () => {
     const { pres, shape } = deck(['One', 'Two', 'Three']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     const xml = slideXml(pres);
     expect(xml.match(/<p:bldP\b/g)).toHaveLength(1);
     expect(xml).toContain(`<p:bldP spid="${getShapeId(shape)}" grpId="0" build="p"/>`);
@@ -918,7 +918,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
 
   it('advances a paragraph per click by default', () => {
     const { pres, slide, shape } = deck(['One', 'Two', 'Three']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     expect(wrapperDelays(slideXml(pres))).toEqual([
       'indefinite',
       '0',
@@ -935,7 +935,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
     setShapeAnimation(shape, {
       effect: 'fadeIn',
       durationMs: 400,
-      byParagraph: true,
+      build: 'byParagraph',
       start: 'afterPrevious',
     });
     // One stop; each paragraph's group waits out the 400ms before it.
@@ -949,14 +949,14 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
 
   it('runs every paragraph together when they share the previous start', () => {
     const { pres, shape } = deck(['One', 'Two', 'Three']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true, start: 'withPrevious' });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph', start: 'withPrevious' });
     expect(wrapperDelays(slideXml(pres))).toEqual(['0', '0']);
   });
 
   it('builds a Japanese bulleted body the same way', () => {
     const { pres, slide, shape } = deck(['一つ目', '二つ目', '三つ目']);
     setShapeBulletStyle(shape, 'bullet');
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
 
     const steps = getSlideAnimations(slide);
     expect(steps.map((s) => s.target.kind)).toEqual(['paragraphs', 'paragraphs', 'paragraphs']);
@@ -965,13 +965,13 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
 
   skipIfNoXmllint('emits a schema-valid paragraph build', () => {
     const { pres, shape } = deck(['One', 'Two', 'Three']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     expectSchemaValid(slideXml(pres), 'pml');
   });
 
   it('keeps the build through save and reload', async () => {
     const { pres, slide, shape } = deck(['One', 'Two']);
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     const before = slideXml(pres);
     const steps = getSlideAnimations(slide);
 
@@ -985,7 +985,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
   it('keeps a build and a whole-shape effect in separate groups', () => {
     const { pres, slide, shape } = deck(['One', 'Two']);
     const other = addSlideShape(slide, { preset: 'rect', ...box });
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     setShapeAnimation(other, { effect: 'fadeIn' });
 
     const xml = slideXml(pres);
@@ -999,8 +999,8 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
     const pres = createPresentation();
     const slide = addBlankSlide(pres);
     const shape = addSlideShape(slide, { preset: 'rect', ...box });
-    expect(() => setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true })).toThrow(
-      /byParagraph needs a shape with text/,
+    expect(() => setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' })).toThrow(
+      /needs a shape with text/,
     );
     expect(getSlideAnimations(slide)).toEqual([]);
     expect(slideHasAnimations(slide)).toBe(false);
@@ -1010,7 +1010,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
     const { pres, slide, shape } = deck(['One', 'Two', 'Three']);
     const first = addSlideShape(slide, { preset: 'rect', ...box });
     setShapeAnimation(first, { effect: 'fadeIn' });
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
 
     const steps = getSlideAnimations(slide);
     expect(steps.map((s) => s.target.shapeId)).toEqual([
@@ -1019,7 +1019,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
       getShapeId(shape),
       getShapeId(shape),
     ]);
-    expect(steps.map((s) => s.buildByParagraph)).toEqual([false, true, true, true]);
+    expect(steps.map((s) => s.build)).toEqual(['asOneObject', 'byParagraph', 'byParagraph', 'byParagraph']);
     expect(new Set(steps.map((s) => s.id)).size).toBe(4);
     expect(slideXml(pres).match(/<p:bldP\b/g)).toHaveLength(2);
   });
@@ -1033,7 +1033,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
       ),
     );
     const target = getSlideShapes(slide)[0]!;
-    setShapeAnimation(target, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(target, { effect: 'fadeIn', build: 'byParagraph' });
 
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(1 + getShapeParagraphCount(target));
@@ -1050,13 +1050,13 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
     const before = slideXml(pres);
 
     expect(() =>
-      setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true, durationMs: -1 }),
+      setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph', durationMs: -1 }),
     ).toThrow(/durationMs/);
     expect(slideXml(pres)).toBe(before);
     expect(getSlideAnimations(slide)).toEqual([]);
     expect(slideHasAnimations(slide)).toBe(false);
 
-    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(shape, { effect: 'fadeIn', build: 'byParagraph' });
     const reloaded = await loadPresentation(await savePresentation(pres));
     const steps = getSlideAnimations(getSlides(reloaded)[0]!);
     expect(steps).toHaveLength(3);
@@ -1080,14 +1080,14 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
     const target = getSlideShapes(slide)[0]!;
 
     expect(() =>
-      setShapeAnimation(target, { effect: 'fadeIn', byParagraph: true, start: 'afterPrevious' }),
+      setShapeAnimation(target, { effect: 'fadeIn', build: 'byParagraph', start: 'afterPrevious' }),
     ).toThrow(/cannot start an effect after one whose length this library cannot measure/);
     expect(slideXml(pres)).toBe(before);
     expect(getSlideAnimations(slide)).toHaveLength(1);
 
     // The refusal is about the start condition, not the build: a click build
     // still lands, and lands whole.
-    setShapeAnimation(target, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(target, { effect: 'fadeIn', build: 'byParagraph' });
     expect(getSlideAnimations(slide)).toHaveLength(1 + getShapeParagraphCount(target));
   });
 });
@@ -1138,9 +1138,10 @@ describe('fn API: setShapeAnimation — timing an after-previous effect cannot m
     await refuses(behaviour(6, '{spid}', ' dur="500" repeatCount="3000" fill="hold"'));
   });
 
-  it('refuses when a behaviour is rescaled by speed or auto-reverse', async () => {
+  // `autoRev` is not here: it runs a behaviour once forwards and once back,
+  // which is a length the tree states (PowerPoint's Pulse is written that way).
+  it('refuses when a behaviour is rescaled by speed', async () => {
     await refuses(behaviour(6, '{spid}', ' dur="500" spd="50%" fill="hold"'));
-    await refuses(behaviour(6, '{spid}', ' dur="500" autoRev="1" fill="hold"'));
   });
 
   // `accel` and `decel` are shares of `dur`, so they leave the total alone.

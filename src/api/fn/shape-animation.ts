@@ -8,6 +8,8 @@ import {
   type AnimationOrientation,
   type AnimationShape,
   type AnimationStartCondition,
+  type AnimationTextBuild,
+  animationBuildKind,
   buildSingleEffectTiming,
 } from '../../internal/presentationml/index.ts';
 import {
@@ -22,6 +24,7 @@ import {
   qname,
 } from '../../internal/xml/index.ts';
 import {
+  SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
   SLIDE_DOCUMENT,
@@ -33,6 +36,7 @@ import {
   buildEntryKey,
   cTnIdsUnder,
   delayOf,
+  drawsBackground,
   isPlainWrapper,
   readBuildEntries,
   remapSpids,
@@ -56,18 +60,19 @@ import { maxCTnId, rootChildTnLst } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
 // Animations (one effect per call).
 //
-// Current scope: each call adds one entrance, exit or emphasis effect — or,
-// for a by-paragraph build, one per paragraph — and merges it into whatever
-// timing tree the slide already has, so a slide can carry several effects
-// across several shapes and click stops. Motion-path presets, and the rest of
-// the emphasis family, are not modelled.
+// Each call adds one entrance, exit or emphasis effect — or, for a paragraph
+// build, one per paragraph — and merges it into whatever timing tree the slide
+// already has, so a slide can carry several effects across several shapes and
+// click stops. Motion-path presets are not modelled.
 
 export type { AnimationDirection, AnimationEffect, AnimationOptions, AnimationStartCondition };
+export type { AnimationTextBuild };
 export type { AnimationInOut, AnimationOrientation, AnimationShape };
 export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
 export type { AnimationValueAfterEnd };
 
 const ATTR_ID_FN = qname('', 'id', '');
+const ATTR_GRP_ID_FN = qname('', 'grpId', '');
 
 const removeExistingTiming = (slide: SlideData): void => {
   slide[SLIDE_DOCUMENT].root.children = slide[SLIDE_DOCUMENT].root.children.filter(
@@ -339,7 +344,8 @@ const addBuildEntry = (
 /** The pieces of a freshly-built single-effect tree the merge paths need. */
 interface FreshEffect {
   readonly par: XmlElement;
-  readonly bldP: XmlElement;
+  /** `null` for Fill Color and Line Color, which PowerPoint writes no build entry for. */
+  readonly bldP: XmlElement | null;
   readonly cTn: XmlElement | null;
 }
 
@@ -350,7 +356,7 @@ const openFreshEffect = (fresh: XmlElement): FreshEffect | null => {
     (c): c is XmlElement => c.kind === 'element' && isPml(c, 'par'),
   );
   const bldP = findDescendant(fresh, (e) => isPml(e, 'bldP'));
-  if (par === undefined || bldP === null) return null;
+  if (par === undefined) return null;
   return {
     par,
     bldP,
@@ -382,7 +388,7 @@ const adoptMainSeq = (
   rootList.children.unshift(freshSeq);
 
   if (effect.cTn) setGrpId(effect.cTn, group.grpId);
-  if (group.addBuild) {
+  if (group.addBuild && effect.bldP !== null) {
     setGrpId(effect.bldP, group.grpId);
     addBuildEntry(
       timing,
@@ -405,7 +411,8 @@ const mergeEffectInto = (
   start: AnimationStartCondition,
   group: BuildGroup,
 ): boolean => {
-  renumberCTnIds(effect.par, cursor);
+  // Only what lands in the tree is numbered, so the ids run on without the gaps
+  // the discarded wrappers would leave — the way PowerPoint numbers them.
 
   // A click effect becomes its own stop. A with/after effect joins the stop
   // already there: `withPrevious` alongside the effects that run together,
@@ -414,6 +421,7 @@ const mergeEffectInto = (
   // effect is the slide's first — the fresh wrapper is kept, and the builder
   // has already given it a zero delay so it runs as the slide appears.
   if (start === 'click' || cursor.lastStop === undefined) {
+    renumberCTnIds(effect.par, cursor);
     cursor.mainSeqChildTnLst.children.push(effect.par);
     cursor.lastStop = effect.par;
     cursor.lastGroup = innerPars(effect.par).at(-1);
@@ -428,11 +436,13 @@ const mergeEffectInto = (
     if (previousEnd === null) {
       throw new Error(
         'setShapeAnimation: cannot start an effect after one whose length this library cannot ' +
-          'measure. The effect before it runs indefinitely, states no duration, repeats, or ' +
-          'starts from another node rather than at a fixed offset. Use start: "click" or ' +
+          'measure. The effect before it runs indefinitely, states no duration, repeats, runs ' +
+          'letter by letter, or starts from another node rather than at a fixed offset. Use ' +
+          'start: "click" or ' +
           '"withPrevious".',
       );
     }
+    renumberCTnIds(group_, cursor);
     if (!setGroupStartOffset(group_, previousEnd) || !appendPar(cursor.lastStop, group_)) {
       return false;
     }
@@ -440,11 +450,12 @@ const mergeEffectInto = (
   } else {
     const effectPar = innerPars(innerPars(effect.par)[0] ?? effect.par)[0];
     if (effectPar === undefined || cursor.lastGroup === undefined) return false;
+    renumberCTnIds(effectPar, cursor);
     if (!appendPar(cursor.lastGroup, effectPar)) return false;
   }
 
   if (effect.cTn) setGrpId(effect.cTn, group.grpId);
-  if (group.addBuild) {
+  if (group.addBuild && effect.bldP !== null) {
     setGrpId(effect.bldP, group.grpId);
     cursor.bldLst = addBuildEntry(cursor.timing, effect.bldP, cursor.bldLst);
   }
@@ -465,8 +476,8 @@ const timingWithEffects = (
   spid: number,
   opts: AnimationOptions,
   targets: readonly (number | null)[],
+  background: boolean,
 ): XmlElement | null => {
-  const start = opts.start ?? 'click';
   let timing = existing === null ? null : cloneElement(existing);
   let cursor = timing === null ? null : openMergeCursor(timing);
   // Every paragraph of one build joins the group the first of them opened. A
@@ -476,8 +487,17 @@ const timingWithEffects = (
   // collide with an existing group.
   let buildGrpId: string | null = null;
 
-  for (const paragraph of targets) {
-    const fresh = buildSingleEffectTiming(spid, opts, { paragraph });
+  for (const [at, paragraph] of targets.entries()) {
+    // All at once: the first paragraph starts the way the caller said and the
+    // rest run with it, in the same group — which is how PowerPoint writes it.
+    const start: AnimationStartCondition =
+      opts.build === 'allAtOnce' && at > 0 ? 'withPrevious' : (opts.start ?? 'click');
+    const fresh = buildSingleEffectTiming(spid, opts, {
+      paragraph,
+      build: opts.build ?? 'asOneObject',
+      background,
+      start,
+    });
     if (timing === null) {
       // No timing on the slide at all, so the builder's standalone tree is the
       // draft — effect, click stop and build entry already in place, with the
@@ -505,17 +525,31 @@ const timingWithEffects = (
   return timing;
 };
 
+const TEXT_BUILDS: readonly AnimationTextBuild[] = ['asOneObject', 'allAtOnce', 'byParagraph'];
+
 /**
  * The paragraphs each effect of this call targets, in order. `null` is the
- * whole shape — one effect, the way every call worked before builds existed.
+ * whole shape — one effect, the way PowerPoint animates a shape as one object.
  */
 const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number | null)[] => {
-  if (opts.byParagraph !== true) return [null];
+  const build = opts.build ?? 'asOneObject';
+  if (!TEXT_BUILDS.includes(build)) {
+    throw new RangeError(
+      `setShapeAnimation: build ${JSON.stringify(build)} is not one of ${TEXT_BUILDS.join(', ')}.`,
+    );
+  }
+  if (build === 'asOneObject') return [null];
+  if (animationBuildKind(opts.effect) === 'none') {
+    throw new RangeError(
+      `setShapeAnimation: ${JSON.stringify(opts.effect)} animates the shape itself, so it has no ` +
+        'text build. Leave build out.',
+    );
+  }
   const count = getShapeParagraphCount(shape);
   if (count === 0) {
     throw new Error(
-      'setShapeAnimation: byParagraph needs a shape with text. This shape has no paragraphs to ' +
-        'build, so animate it as a whole instead.',
+      `setShapeAnimation: build ${JSON.stringify(build)} needs a shape with text. This shape has ` +
+        'no paragraphs to build, so animate it as one object instead.',
     );
   }
   return Array.from({ length: count }, (_, i) => i);
@@ -530,45 +564,32 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  * renumbered to stay unique. To clear every animation first, call
  * `clearSlideAnimations`.
  *
- * Supported `effect` tokens:
+ * `effect` is any entry of PowerPoint's Entrance, Emphasis and Exit
+ * galleries (see `AnimationEffect`), written exactly as PowerPoint writes it:
+ * the same preset numbers and the same behaviours, so the deck plays the same
+ * in PowerPoint as an effect picked from its gallery.
  *
- *   - `'appear'` / `'disappear'` — instant entrance and exit
- *   - `'fadeIn'` / `'fadeOut'` — entrance and exit fade
- *   - `'flyIn'` / `'flyOut'` — entrance and exit that travel in from, or out
- *     to, one edge or corner of the slide. `direction` picks it: `'top'`,
- *     `'right'`, `'bottom'` (the default), `'left'`, `'topLeft'`,
- *     `'topRight'`, `'bottomLeft'` or `'bottomRight'`.
- *   - `'zoomIn'` / `'zoomOut'` — entrance that grows from nothing, exit that
- *     shrinks back to it, both about the shape's centre
- *   - `'wipeIn'` / `'wipeOut'` — uncovered, or covered, from one edge
- *     (`direction`, one of the four edges; default `'bottom'`)
- *   - `'peekIn'` / `'peekOut'` — slides in from, or out to, one edge while it
- *     is uncovered or covered (`direction`, one of the four edges)
- *   - `'splitIn'` / `'splitOut'` — opens out of, or closes in on, the centre
- *     line (`orientation`, default `'vertical'`; `inOut`, default `'in'`)
- *   - `'blindsIn'` / `'blindsOut'`, `'randomBarsIn'` / `'randomBarsOut'` and
- *     `'checkerboardIn'` / `'checkerboardOut'` — bars or squares
- *     (`orientation`, default `'horizontal'`)
- *   - `'shapeIn'` / `'shapeOut'` — through a growing or shrinking outline
- *     (`shape`: `'circle'` — the default — `'box'`, `'diamond'` or `'plus'`;
- *     `inOut`, default `'in'`)
- *   - `'stripsIn'` / `'stripsOut'` — diagonal strips from a corner
- *     (`direction`, one of the four corners; default `'bottomLeft'`)
- *   - `'wheelIn'` / `'wheelOut'` — clock-hand sweep (`spokes`: 1 — the
- *     default — 2, 3, 4 or 8)
- *   - `'dissolveIn'` / `'dissolveOut'` and `'wedgeIn'` / `'wedgeOut'`
- *   - `'spin'` — emphasis: one clockwise turn about the shape's centre,
- *     leaving it exactly where it was. It never puts the shape on the slide or
- *     takes it off, so a shape that is not already shown stays unshown.
+ * Effect Options are the options PowerPoint offers for the preset:
  *
- * Each writes the preset id, subtype and behaviours PowerPoint itself writes
- * for that gallery entry. An option passed for an effect that does not take
- * it is an error rather than a no-op.
+ *   - `direction` — `'flyIn'` / `'flyOut'` take any edge or corner of the
+ *     slide (`'bottom'` by default); `'wipe…'` and `'peek…'` one of the four
+ *     edges; `'strips…'` one of the four corners (`'bottomLeft'` by default).
+ *   - `orientation` — blinds, random bars and checkerboard (`'horizontal'`)
+ *     and split (`'vertical'`).
+ *   - `inOut` — shape and split: close in on the centre (`'in'`) or open out
+ *     of it (`'out'`). PowerPoint's Shape exit defaults to `'out'`.
+ *   - `shape` — `'circle'` (the default), `'box'`, `'diamond'` or `'plus'`.
+ *   - `spokes` — wheel: 1 (the default), 2, 3, 4 or 8.
  *
- * `durationMs` defaults to PowerPoint's default for the preset: 2000ms for
- * shape, wedge and wheel, 500ms for everything else. `appear` and `disappear`
- * are instantaneous by definition of the preset and write no timed behaviour
- * at all.
+ * An option passed for an effect that does not take it is an error rather
+ * than a no-op.
+ *
+ * `durationMs` defaults to PowerPoint's default for the preset
+ * (`defaultAnimationDurationMs`). An effect made of several behaviours — a
+ * Bounce, a Teeter — is scaled as a whole, the way PowerPoint's Duration box
+ * scales it. `appear` and `disappear` are instantaneous and write no timed
+ * behaviour; `transparency` and `boldReveal` hold until the slide ends and
+ * take no duration.
  *
  * `start` decides where the effect lands. The default `'click'` gives it a
  * click stop of its own, so the viewer sees it on the next click.
@@ -578,16 +599,19 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  * slide appears. `delayMs` waits that long once the start condition is met.
  *
  * `'afterPrevious'` throws when the slide's timing does not say when the effect
- * before it ends — it runs indefinitely, states no duration, repeats, or starts
- * from another node rather than at a fixed offset. The slide is left untouched;
- * `'click'` and `'withPrevious'` need no such measurement.
+ * before it ends — it runs indefinitely, states no duration, repeats, runs
+ * letter by letter, or starts from another node rather than at a fixed offset.
+ * The slide is left untouched; `'click'` and `'withPrevious'` need no such
+ * measurement.
  *
- * `byParagraph` reveals the shape's text one paragraph at a time rather than
- * animating the shape as a whole: one effect per paragraph, each with the same
- * `start`, so the default `'click'` advances a paragraph per click. They share
- * a single `<p:bldP build="p">`, which is how PowerPoint and Google Slides both
- * present the build as one animation. `getSlideAnimations` reports each
- * paragraph as its own step, targeting a paragraph range.
+ * `build` is PowerPoint's Effect Options "Sequence". `'asOneObject'` (the
+ * default) animates the shape with its text as one effect. `'allAtOnce'` and
+ * `'byParagraph'` give every paragraph its own effect: all of them starting
+ * together, or each on its own `start` — so the default `'click'` advances a
+ * paragraph per click. They share a single `<p:bldP>`, which is how PowerPoint
+ * and Google Slides both present the build as one animation.
+ * `getSlideAnimations` reports each paragraph as its own step, targeting a
+ * paragraph range.
  *
  * Reading the result back, including the order and start condition of every
  * effect on the slide, is `getSlideAnimations`.
@@ -596,7 +620,13 @@ export const setShapeAnimation = (shape: SlideShapeData, opts: AnimationOptions)
   const slide = shape[SHAPE_SLIDE];
   const spid = shape[SHAPE_SNAPSHOT].id;
   const existing = findTiming(slide);
-  const draft = timingWithEffects(existing, spid, opts, effectTargets(shape, opts));
+  const draft = timingWithEffects(
+    existing,
+    spid,
+    opts,
+    effectTargets(shape, opts),
+    drawsBackground(shape[SHAPE_ELEMENT]),
+  );
   if (draft === null) {
     // A timing tree we don't know how to extend. Leave it intact rather than
     // silently destroying authored animations.
@@ -617,8 +647,7 @@ export const setShapeAnimation = (shape: SlideShapeData, opts: AnimationOptions)
  * Returns the animation effect bound to this shape via the slide's
  * `<p:timing>` tree, or `null` when the shape has none. A shape carrying
  * several effects reports the first one in document order. Presets outside
- * the four `AnimationEffect` tokens are reported as `null` rather than
- * guessed at.
+ * the `AnimationEffect` tokens are reported as `null` rather than guessed at.
  */
 export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null =>
   firstEffectByShape(shape[SHAPE_SLIDE]).get(shape[SHAPE_SNAPSHOT].id) ?? null;
@@ -633,25 +662,31 @@ const namesAPreset = (cTn: XmlElement): boolean => {
   return presetId !== null && presetId !== '' && presetClass !== null && presetClass !== '';
 };
 
-// PowerPoint needs a `<p:bldLst><p:bldP spid="...">` entry for an effect to
-// render, so a shape without one has no animation as far as the read API is
-// concerned. Built once per call and shared by the two shape-level readers,
-// which would otherwise re-walk the whole tree for every shape on the slide.
+// PowerPoint needs a `<p:bldLst><p:bldP spid="...">` entry for an effect that
+// belongs to a build group to render, so a shape whose effect names a group
+// with no entry has no animation as far as the read API is concerned. Fill
+// Color and Line Color join no group and need none. Built once per call and
+// shared by the two shape-level readers, which would otherwise re-walk the
+// whole tree for every shape on the slide.
 const firstEffectByShape = (slide: SlideData): Map<number, AnimationEffect | null> => {
   const out = new Map<number, AnimationEffect | null>();
   const timing = findSlideTimingElement(slide);
   if (timing === null) return out;
   const bldLst = firstChildElement(timing, qname('p', 'bldLst', NS.pml));
-  if (bldLst === null) return out;
   const built = new Set(
-    allChildElements(bldLst, qname('p', 'bldP', NS.pml)).map((b) =>
-      getAttrValue(b, qname('', 'spid', '')),
-    ),
+    bldLst === null
+      ? []
+      : allChildElements(bldLst, qname('p', 'bldP', NS.pml)).map((b) =>
+          getAttrValue(b, qname('', 'spid', '')),
+        ),
   );
   for (const { step, cTn } of readSlideTiming(slide)) {
     if (!namesAPreset(cTn)) continue;
+    const grouped = getAttrValue(cTn, ATTR_GRP_ID_FN) !== null;
     for (const shapeId of step.targetShapeIds) {
-      if (!out.has(shapeId) && built.has(String(shapeId))) out.set(shapeId, step.effect);
+      if (!out.has(shapeId) && (!grouped || built.has(String(shapeId)))) {
+        out.set(shapeId, step.effect);
+      }
     }
   }
   return out;
@@ -710,7 +745,6 @@ export const clearSlideAnimations = (slide: SlideData): void => {
 
 const COPY = 'copyShape: ';
 
-const ATTR_GRP_ID_FN = qname('', 'grpId', '');
 const ATTR_VAL_FN = qname('', 'val', '');
 const ATTR_SPID_FN = qname('', 'spid', '');
 

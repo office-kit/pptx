@@ -21,9 +21,11 @@ import {
   type AnimationInOut,
   type AnimationOrientation,
   type AnimationShape,
+  type AnimationTextBuild,
   FULL_TURN,
+  effectDurationMs,
   isMediaTimingNode,
-  trailingHideDelayMs,
+  lastBehaviourEndMs,
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -47,9 +49,6 @@ const NAME_TGT_EL = qname('p', 'tgtEl', NS.pml);
 const NAME_SP_TGT = qname('p', 'spTgt', NS.pml);
 const NAME_TX_EL = qname('p', 'txEl', NS.pml);
 const NAME_P_RG = qname('p', 'pRg', NS.pml);
-const NAME_C_BHVR = qname('p', 'cBhvr', NS.pml);
-const NAME_TO = qname('p', 'to', NS.pml);
-const NAME_STR_VAL = qname('p', 'strVal', NS.pml);
 
 const ATTR_ID = qname('', 'id', '');
 const ATTR_DUR = qname('', 'dur', '');
@@ -69,7 +68,6 @@ const ATTR_FILL = qname('', 'fill', '');
 const ATTR_BY = qname('', 'by', '');
 const ATTR_FROM = qname('', 'from', '');
 const ATTR_TO = qname('', 'to', '');
-const ATTR_VAL = qname('', 'val', '');
 
 /** `fill` values that leave a timing node's value in place after it has run. */
 const HOLDING_FILLS = new Set(['hold', 'freeze']);
@@ -171,8 +169,13 @@ export interface SlideAnimationStep {
    * player that finds `'unstated'` there must not choose for the file.
    */
   readonly valueAfterEnd: AnimationValueAfterEnd;
-  /** `<p:bldP build="p">` — the text body is revealed paragraph by paragraph. */
-  readonly buildByParagraph: boolean;
+  /**
+   * How the effect's build entry reveals the shape's text (`<p:bldP build>`):
+   * as one object (`whole`, or no entry), all paragraphs at once
+   * (`allAtOnce`), one paragraph at a time (`p`), or `'custom'` (`cust`) — a
+   * build PowerPoint's own Effect Options do not offer.
+   */
+  readonly build: AnimationTextBuild | 'custom';
   readonly buildLevel: number | null;
   /**
    * Which `<p:seq>` the step lives in, named after its `nodeType`. Only
@@ -282,16 +285,25 @@ const collectStepNodes = (el: XmlElement, into: XmlElement[]): void => {
   for (const child of el.children) if (child.kind === 'element') collectStepNodes(child, into);
 };
 
-const behavioursOf = (step: XmlElement): XmlElement[] => {
-  const out: XmlElement[] = [];
+/** A behaviour's `<p:cBhvr>`, and the element (`<p:set>`, `<p:anim>` …) that owns it. */
+interface BehaviourNode {
+  readonly owner: XmlElement;
+  readonly cBhvr: XmlElement;
+}
+
+const behavioursOf = (step: XmlElement): BehaviourNode[] => {
+  const out: BehaviourNode[] = [];
   const walk = (el: XmlElement): void => {
-    if (isPml(el, 'cBhvr')) {
-      out.push(el);
-      return;
+    for (const child of el.children) {
+      if (child.kind !== 'element') continue;
+      if (isPml(child, 'cBhvr')) {
+        out.push({ owner: el, cBhvr: child });
+        continue;
+      }
+      walk(child);
     }
-    for (const child of el.children) if (child.kind === 'element') walk(child);
   };
-  for (const child of step.children) if (child.kind === 'element') walk(child);
+  walk(step);
   return out;
 };
 
@@ -328,7 +340,7 @@ const targetKey = (target: AnimationTarget): string =>
 const readTargets = (
   step: XmlElement,
 ): { target: AnimationTarget; targetShapeIds: readonly number[] } => {
-  const targets = behavioursOf(step).flatMap((cBhvr) => {
+  const targets = behavioursOf(step).flatMap(({ cBhvr }) => {
     const tgtEl = firstChildElement(cBhvr, NAME_TGT_EL);
     if (tgtEl === null) return [];
     const spTgt = firstChildElement(tgtEl, NAME_SP_TGT);
@@ -356,26 +368,20 @@ const readStartDelay = (step: XmlElement): number | null => {
 };
 
 // The `<p:set>` that flips visibility is scaffolding around every preset, not
-// the effect's own length, so it is not what a duration change should touch.
-const isVisibilityKick = (cBhvr: XmlElement): boolean => {
+// the effect's own length. Blink animates `style.visibility` too, but through a
+// `<p:anim>` that is the whole of the effect, so only a `<p:set>` counts.
+const isVisibilityKick = ({ owner, cBhvr }: BehaviourNode): boolean => {
+  if (!isPml(owner, 'set')) return false;
   const attrNameLst = firstChildElement(cBhvr, NAME_ATTR_NAME_LST);
   const attrName = attrNameLst === null ? null : firstChildElement(attrNameLst, NAME_ATTR_NAME);
   return (attrName?.children.find((c) => c.kind === 'text')?.data ?? '') === VISIBILITY_ATTR_NAME;
 };
 
-// The duration lives on the behaviour's own cTn, not on the effect node, so we
-// read the first behaviour that is not the visibility kick.
-const readDuration = (step: XmlElement): number | null => {
-  const own = intAttr(step, ATTR_DUR);
-  if (own !== null) return own;
-  for (const cBhvr of behavioursOf(step)) {
-    if (isVisibilityKick(cBhvr)) continue;
-    const cTn = firstChildElement(cBhvr, NAME_C_TN);
-    const dur = cTn === null ? null : intAttr(cTn, ATTR_DUR);
-    if (dur !== null) return dur;
-  }
-  return null;
-};
+// PowerPoint's Duration: the effect node's own `dur` when it states one,
+// otherwise when the last of its behaviours ends — so a Bounce reports the two
+// seconds its eighteen behaviours take together, as PowerPoint's box does.
+const readDuration = (step: XmlElement): number | null =>
+  intAttr(step, ATTR_DUR) ?? effectDurationMs(step);
 
 /**
  * Whether the shape is left where the effect put it once the effect has run.
@@ -403,7 +409,7 @@ const holdsValue = (step: XmlElement): boolean => {
   if (!HOLDING_FILLS.has(getAttrValue(step, ATTR_FILL) ?? '')) return false;
   const behaviours = behavioursOf(step);
   const visibility = behaviours.filter(isVisibilityKick);
-  for (const cBhvr of visibility.length > 0 ? visibility : behaviours) {
+  for (const { cBhvr } of visibility.length > 0 ? visibility : behaviours) {
     const cTn = firstChildElement(cBhvr, NAME_C_TN);
     if (cTn === null || !HOLDING_FILLS.has(getAttrValue(cTn, ATTR_FILL) ?? '')) return false;
   }
@@ -420,14 +426,22 @@ const holdsValue = (step: XmlElement): boolean => {
  */
 const readValueAfterEnd = (step: XmlElement): AnimationValueAfterEnd => {
   let stated = true;
-  for (const cBhvr of behavioursOf(step)) {
-    if (isVisibilityKick(cBhvr)) continue;
-    const cTn = firstChildElement(cBhvr, NAME_C_TN);
+  for (const behaviour of behavioursOf(step)) {
+    if (isVisibilityKick(behaviour)) continue;
+    const cTn = firstChildElement(behaviour.cBhvr, NAME_C_TN);
     const fill = cTn === null ? null : getAttrValue(cTn, ATTR_FILL);
     if (fill === null) stated = false;
     else if (!HOLDING_FILLS.has(fill)) return 'removed';
   }
   return stated ? 'held' : 'unstated';
+};
+
+// ST_TLParaBuildType tokens. `whole`, the default, is PowerPoint's "As One Object".
+const BUILD_TYPES: Readonly<Record<string, AnimationTextBuild | 'custom'>> = {
+  whole: 'asOneObject',
+  allAtOnce: 'allAtOnce',
+  p: 'byParagraph',
+  cust: 'custom',
 };
 
 interface PresetEffect {
@@ -549,12 +563,16 @@ const toStep = (
   // behaviour that does.
   const preset = named?.effect === 'spin' && !isFullClockwiseTurn(node) ? null : named;
   const effect = preset?.effect ?? null;
+  // An emphasis effect hands its target back on the slide whatever its `fill`
+  // says — PowerPoint's own Color Pulse takes its colour away again
+  // (`fill="remove"`) and Transparency states none — so only effects that put
+  // the shape on the slide or take it off have to say that they hold.
   const playable =
     sequence === 'mainSeq' &&
     start !== 'unknown' &&
     target.kind !== 'unsupported' &&
     effect !== null &&
-    holdsValue(node);
+    (presetClass === 'emph' || holdsValue(node));
 
   return {
     id,
@@ -572,7 +590,7 @@ const toStep = (
     durationMs: readDuration(node),
     delayMs: readStartDelay(node),
     valueAfterEnd: readValueAfterEnd(node),
-    buildByParagraph: bldP !== undefined && getAttrValue(bldP, ATTR_BUILD) === 'p',
+    build: BUILD_TYPES[(bldP === undefined ? null : getAttrValue(bldP, ATTR_BUILD)) ?? 'whole'] ?? 'asOneObject',
     buildLevel: bldP === undefined ? null : intAttr(bldP, ATTR_BLD_LVL),
     sequence,
     // A preset we cannot name may animate anything at all, and a step outside
@@ -683,20 +701,13 @@ const startOffsetMs = (cTn: XmlElement): number | null => {
  * Attributes that repeat or rescale a time node (CT_TLCommonTimeNodeData).
  * We measure a node by its `dur`, so any of these means the number we computed
  * is not how long PowerPoint runs it. `accel` / `decel` are shares of `dur`
- * and leave the total alone, so they are not here.
+ * and leave the total alone, so they are not here; `autoRev` on a behaviour
+ * runs it once forwards and once back, which `lastBehaviourEndMs` counts.
  */
 const RESCALING_ATTRS = new Set(['repeatCount', 'repeatDur', 'spd', 'autoRev']);
 
 const isRescaled = (cTn: XmlElement): boolean =>
   cTn.attrs.some((a) => a.name.namespaceURI === '' && RESCALING_ATTRS.has(a.name.localName));
-
-/**
- * Time nodes nested inside an effect. Their children start when *they* do
- * rather than when the effect does, and `<p:iterate>` staggers them further
- * per letter or paragraph, so measuring the behaviours underneath as if they
- * were the effect's own would misplace every one of them.
- */
-const NESTED_TIMELINES = new Set(['par', 'seq', 'excl', 'iterate']);
 
 /**
  * How long after its own start an effect is still running, or `null` when the
@@ -707,35 +718,17 @@ const NESTED_TIMELINES = new Set(['par', 'seq', 'excl', 'iterate']);
  * length, repeats, or hangs off a nested timeline decides the answer on its
  * own: falling back to the readable siblings' maximum would report an effect
  * as shorter than it plays, and everything placed after it would start early.
+ * An effect that runs letter by letter (`<p:iterate>`) staggers its behaviours
+ * by the length of the text, which the timing does not state either.
  */
 const effectSpanMs = (effectPar: XmlElement): number | null => {
   const effectCTn = firstChildElement(effectPar, NAME_C_TN);
   if (effectCTn === null || isRescaled(effectCTn)) return null;
+  if (firstChildElement(effectCTn, qname('p', 'iterate', NS.pml)) !== null) return null;
   const start = startOffsetMs(effectCTn);
   if (start === null) return null;
-
-  let longest: number | null = null;
-  const walk = (el: XmlElement): boolean => {
-    if (isPml(el, 'cBhvr')) {
-      const cTn = firstChildElement(el, NAME_C_TN);
-      if (cTn === null || isRescaled(cTn)) return false;
-      const dur = wholeMs(getAttrValue(cTn, ATTR_DUR));
-      const delay = startOffsetMs(cTn);
-      if (dur === null || delay === null) return false;
-      longest = Math.max(longest ?? 0, delay + dur);
-      return true;
-    }
-    for (const child of el.children) {
-      if (child.kind !== 'element') continue;
-      if (child.name.namespaceURI === NS.pml && NESTED_TIMELINES.has(child.name.localName)) {
-        return false;
-      }
-      if (!walk(child)) return false;
-    }
-    return true;
-  };
-  if (!walk(effectCTn) || longest === null) return null;
-  return start + longest;
+  const end = lastBehaviourEndMs(effectCTn, true);
+  return end === null ? null : start + end;
 };
 
 /**
@@ -802,78 +795,4 @@ export const setEffectDelayMs = (effectCTn: XmlElement, delayMs: number): boolea
   if (cond === null) return false;
   setTimeAttr(cond, 'delay', String(delayMs));
   return true;
-};
-
-/**
- * Sets how long an effect runs, in place, leaving everything else about it
- * alone.
- *
- * An effect may animate through several behaviours at once — a fly drives both
- * axes, a zoom both sides — and they run together, so one length covers all of
- * them. `false` when they do not already agree on one: an effect whose
- * behaviours run for different lengths has no single length to set, and picking
- * one would silently retime the rest of it.
- *
- * An effect with no timed behaviour — `appear` and `disappear` write only the
- * visibility kick — has no duration to change and is left as it is.
- */
-export const setEffectDurationMs = (effectCTn: XmlElement, durationMs: number): boolean => {
-  const behaviours = behavioursOf(effectCTn);
-  const timed = behaviours.filter((b) => !isVisibilityKick(b));
-  const cTns = timed.map((b) => firstChildElement(b, NAME_C_TN));
-  if (cTns.some((cTn) => cTn === null)) return false;
-  const durations = new Set(cTns.map((cTn) => getAttrValue(cTn!, ATTR_DUR)));
-  if (durations.size > 1) return false;
-  // Nothing timed to set — `appear` and `disappear` write only the visibility
-  // kick, and it is the whole of the effect rather than something trailing it.
-  if (cTns.length === 0) return true;
-  const was = wholeMs([...durations][0] ?? null);
-  for (const cTn of cTns) setTimeAttr(cTn!, 'dur', String(durationMs));
-  // An exit stays on the slide until its motion is over, so the `<p:set>` that
-  // hides the shape trails that motion by the millisecond it takes itself, and
-  // has to move when the end does.
-  //
-  // It is found by where it stands rather than by standing anywhere but zero:
-  // an exit written at a duration of one millisecond or less already hides at
-  // zero, so "not at zero" would strand it there on the next change. A kick
-  // somewhere else entirely belongs to timing this library did not write, and
-  // moving it would say something about the effect the file never did.
-  const trailing = was === null ? null : String(trailingHideDelayMs(was));
-  if (trailing === null) return true;
-  for (const hide of hideSets(effectCTn)) {
-    const cTn = firstChildElement(hide, NAME_C_TN);
-    const cond = cTn === null ? null : offsetCond(cTn);
-    if (cond === null || getAttrValue(cond, ATTR_DELAY) !== trailing) continue;
-    setTimeAttr(cond, 'delay', String(trailingHideDelayMs(durationMs)));
-  }
-  return true;
-};
-
-/**
- * The `<p:cBhvr>` of every `<p:set>` in the effect that takes its target off the
- * slide. A `<p:set>` putting it *on* is an entrance's opening kick and never
- * trails anything.
- */
-const hideSets = (step: XmlElement): XmlElement[] => {
-  const out: XmlElement[] = [];
-  const walk = (el: XmlElement): void => {
-    if (isPml(el, 'cBhvr')) return;
-    if (isPml(el, 'set')) {
-      const cBhvr = firstChildElement(el, NAME_C_BHVR);
-      const to = firstChildElement(el, NAME_TO);
-      const strVal = to === null ? null : firstChildElement(to, NAME_STR_VAL);
-      if (
-        cBhvr !== null &&
-        isVisibilityKick(cBhvr) &&
-        strVal !== null &&
-        getAttrValue(strVal, ATTR_VAL) === 'hidden'
-      ) {
-        out.push(cBhvr);
-      }
-      return;
-    }
-    for (const child of el.children) if (child.kind === 'element') walk(child);
-  };
-  for (const child of step.children) if (child.kind === 'element') walk(child);
-  return out;
 };

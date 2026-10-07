@@ -89,11 +89,14 @@ const ROWS: readonly Row[] = [
   ...both('strips', { direction: 'topLeft' }, 18, 9, 'strips(upLeft)'),
   ...both('strips', { direction: 'topRight' }, 18, 3, 'strips(upRight)'),
   ...both('strips', { direction: 'bottomRight' }, 18, 6, 'strips(downRight)'),
-  ...both('shape', {}, 6, 16, 'circle(in)', 2000),
+  ...both('shape', { inOut: 'in' }, 6, 16, 'circle(in)', 2000),
+  // PowerPoint's Shape exit closes onto the centre unless told otherwise.
+  { opts: { effect: 'shapeIn' }, presetId: 6, subtype: 16, filter: 'circle(in)', durationMs: 2000 },
+  { opts: { effect: 'shapeOut' }, presetId: 6, subtype: 32, filter: 'circle(out)', durationMs: 2000 },
   ...both('shape', { inOut: 'out' }, 6, 32, 'circle(out)', 2000),
-  ...both('shape', { shape: 'box' }, 4, 16, 'box(in)', 2000),
+  ...both('shape', { shape: 'box', inOut: 'in' }, 4, 16, 'box(in)', 2000),
   ...both('shape', { shape: 'diamond', inOut: 'out' }, 8, 32, 'diamond(out)', 2000),
-  ...both('shape', { shape: 'plus' }, 13, 16, 'plus(in)', 2000),
+  ...both('shape', { shape: 'plus', inOut: 'in' }, 13, 16, 'plus(in)', 2000),
   ...both('dissolve', {}, 9, 0, 'dissolve'),
   ...both('wedge', {}, 20, 0, 'wedge', 2000),
   ...both('wheel', {}, 21, 1, 'wheel(1)', 2000),
@@ -158,7 +161,7 @@ describe('fn API: filter entrance and exit effects', () => {
       Object.fromEntries(OPTION_FIELDS.map((f) => [f, s[f]]));
     expect(steps.map(options)).toEqual([
       { direction: null, orientation: 'vertical', inOut: 'in', shape: null, spokes: null },
-      { direction: null, orientation: null, inOut: 'in', shape: 'circle', spokes: null },
+      { direction: null, orientation: null, inOut: 'out', shape: 'circle', spokes: null },
       { direction: null, orientation: null, inOut: null, shape: null, spokes: null },
     ]);
   });
