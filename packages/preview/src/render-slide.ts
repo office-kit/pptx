@@ -47,6 +47,7 @@ import {
   resolveDeckBodyTextColor,
   getShapeBoundsResolved,
   getShapeEffectsEffective,
+  getShape3D,
   getShapeFillEffective,
   getShapeFillOpacity,
   getShapeFillColorResolved,
@@ -202,6 +203,7 @@ import {
 } from './text-layout.ts';
 import { browserTextMeasurer } from './browser-measure.ts';
 import { textBevelOf } from './text-bevel.ts';
+import { bevelFilterPrimitives, cameraTransform } from './shape-3d.ts';
 
 export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from './text-layout.ts';
 
@@ -506,6 +508,12 @@ const renderPicture = (
       outline.stroke !== 'none' && outline.strokeWidth > 0
         ? `<g${transform} fill="none" stroke="${outline.stroke}" stroke-width="${E(outline.strokeWidth)}"${outline.strokeAttrs ? ` ${outline.strokeAttrs}` : ''}>${pictureClipGeometry(shape, preset, x, y, w, h)}</g>`
         : '';
+    // A picture's own `<p:spPr>` fill (Picture Styles write one) shows
+    // wherever the picture is transparent.
+    const under =
+      outline.fill !== 'none'
+        ? `${outline.defs}<g${transform} fill="${outline.fill}"${outline.fillAttrs}>${pictureClipGeometry(shape, preset, x, y, w, h)}</g>`
+        : '';
     if (layout?.mode === 'tile') {
       const intrinsic = getShapeImageIntrinsicSize(shape);
       if (intrinsic) {
@@ -523,10 +531,10 @@ const renderPicture = (
           cropB,
         );
         const geometry = pictureClipGeometry(shape, preset, x, y, w, h);
-        return `${clipDef}${pattern.defs}<g${transform} fill="${pattern.fill}"${filterAttr}${opacityAttr}>${geometry}</g>${border}<g${transform}>${textOverlay}</g>`;
+        return `${clipDef}${pattern.defs}${pictureEffects(pres, shape, { x, y, w, h }, `${under}<g${transform} fill="${pattern.fill}"${filterAttr}${opacityAttr}>${geometry}</g>${border}`)}<g${transform}>${textOverlay}</g>`;
       }
     }
-    return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g>${border}<g${transform}>${textOverlay}</g>`;
+    return `${clipDef}${pictureEffects(pres, shape, { x, y, w, h }, `${under}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g>${border}`)}<g${transform}>${textOverlay}</g>`;
   }
   // B14 — external r:link pictures don't ship bytes in the package.
   // Surface the URL in the placeholder so users can see where the
@@ -538,6 +546,51 @@ const renderPicture = (
       : 'picture (no bytes)'
     : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
   return `<g data-pptx-fallback="image"${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
+};
+
+/**
+ * Wraps a picture's markup in its 3-D approximation (bevel lighting, then the
+ * camera rotation) and its `<a:effectLst>` (shadows, glow, soft edge and the
+ * reflection), the same effects a shape gets.
+ */
+const pictureEffects = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  box: { x: number; y: number; w: number; h: number },
+  markup: string,
+): string => {
+  const shape3d = getShape3D(shape);
+  let defs = '';
+  let content = markup;
+  // The mirrored copy skips the bevel: lighting filters under the mirror's
+  // negative scale paint the whole filter region in Chromium.
+  let mirrored = markup;
+  const bevel = bevelFilterPrimitives(shape3d);
+  if (bevel) {
+    const id = mintId();
+    defs += `<defs><filter id="${id}" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">${bevel}</filter></defs>`;
+    content = `<g filter="url(#${id})">${content}</g>`;
+  }
+  const camera = cameraTransform(
+    shape3d,
+    (box.x + box.w / 2) / EMU_PER_PX,
+    (box.y + box.h / 2) / EMU_PER_PX,
+  );
+  if (camera) {
+    content = `<g transform="${camera}">${content}</g>`;
+    mirrored = `<g transform="${camera}">${mirrored}</g>`;
+  }
+  const reflection = buildReflection(pres, shape, mirrored, box);
+  const fx = buildEffectsFilter(pres, shape);
+  if (fx) {
+    defs += fx.defs;
+    content = `<g filter="url(#${fx.id})">${content}</g>`;
+  }
+  if (reflection) {
+    defs += reflection.defs;
+    content = reflection.svg + content;
+  }
+  return defs + content;
 };
 
 const imageTilePattern = (
@@ -6758,6 +6811,10 @@ const buildReflection = (
   const f = refl.scaleY ?? -1;
   const startA = refl.startOpacity ?? 1;
   const endA = refl.opacity ?? 0;
+  // stA / endA hold at stPos / endPos (fractions of the reflection's height
+  // from the contact edge); past endPos the reflection keeps endA.
+  const startPos = refl.startPosition ?? 0;
+  const endPos = Math.max(startPos, refl.endPosition ?? 1);
   // Geometry coords are emitted in px (see `E`), so the transform math
   // works in px too: contact edge at the shape's bottom, gap pushed down.
   const contactPx = (box.y + box.h) / EMU_PER_PX;
@@ -6767,12 +6824,14 @@ const buildReflection = (
 
   const maskId = mintId();
   const gradId = mintId();
-  // objectBoundingBox: y=0 is the contact edge (top of the mirrored copy),
-  // y=1 the far edge. White luminance × stop-opacity becomes the alpha.
+  // The mask lives in the copy's own coordinates, before the mirror: there
+  // the contact edge is the bottom (y=1) of the bounding box when the copy is
+  // flipped. White luminance × stop-opacity becomes the alpha.
+  const [y1, y2] = f < 0 ? [1, 0] : [0, 1];
   const defs =
-    `<defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">` +
-    `<stop offset="0" stop-color="#fff" stop-opacity="${startA.toFixed(3)}"/>` +
-    `<stop offset="1" stop-color="#fff" stop-opacity="${endA.toFixed(3)}"/>` +
+    `<defs><linearGradient id="${gradId}" x1="0" y1="${y1}" x2="0" y2="${y2}">` +
+    `<stop offset="${startPos.toFixed(3)}" stop-color="#fff" stop-opacity="${startA.toFixed(3)}"/>` +
+    `<stop offset="${endPos.toFixed(3)}" stop-color="#fff" stop-opacity="${endA.toFixed(3)}"/>` +
     `</linearGradient>` +
     `<mask id="${maskId}" maskContentUnits="objectBoundingBox">` +
     `<rect width="1" height="1" fill="url(#${gradId})"/></mask></defs>`;
@@ -6853,12 +6912,15 @@ const buildEffectsFilter = (
       );
       layers.push(`glowOut${i}`);
     } else if (e.kind === 'softEdge') {
-      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
-      // Soft-edge feathers the shape's mask. Replace the source by a
-      // blurred version of itself.
+      // Soft edge fades the shape's outline inward over `rad` while its
+      // content stays sharp: shrink the alpha by half the radius, feather it
+      // across the rest, and keep the source only where that mask allows.
+      const radiusPx = e.radiusEmu / EMU_PER_PX;
       const i = primitives.length;
       primitives.push(
-        `<feGaussianBlur in="SourceGraphic" stdDeviation="${blurPx.toFixed(2)}" result="softOut${i}"/>`,
+        `<feMorphology in="SourceAlpha" operator="erode" radius="${(radiusPx / 2).toFixed(2)}" result="softCore${i}"/>`,
+        `<feGaussianBlur in="softCore${i}" stdDeviation="${(radiusPx / 4).toFixed(2)}" result="softMask${i}"/>`,
+        `<feComposite in="SourceGraphic" in2="softMask${i}" operator="in" result="softOut${i}"/>`,
       );
       // softEdge replaces the source; we drop earlier layers and the
       // unmodified source is no longer painted on top.

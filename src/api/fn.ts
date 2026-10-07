@@ -47,6 +47,7 @@ export * from './fn/shape-image.ts';
 export * from './fn/media.ts';
 export * from './fn/shape-click-action.ts';
 export * from './fn/shape-image-effects.ts';
+export * from './fn/shape-picture-style.ts';
 export * from './fn/shape-video.ts';
 export * from './fn/shape-animation.ts';
 export * from './fn/slide-animation-edit.ts';

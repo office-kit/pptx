@@ -25,6 +25,8 @@ export type {
 export { COMMENT_STATUSES } from '../internal/presentationml/index.ts';
 export type { BuiltinTableStyle, BuiltinTableStyleName } from '../internal/presentationml/index.ts';
 export { BUILTIN_TABLE_STYLES } from '../internal/presentationml/index.ts';
+export type { BuiltinPictureStyleName } from '../internal/drawingml/index.ts';
+export { BUILTIN_PICTURE_STYLES } from '../internal/drawingml/index.ts';
 export type { PresentationInput, PresentationSize, SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
@@ -91,6 +93,7 @@ export type {
 export type { ImageFillLayout, ImageTileAlignment, ImageTileFlip } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type { ImageArtisticEffect, ImageRecolor, ImageRecolorColor } from './fn.ts';
+export type { ImageCompressionState } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type { ShapeStyleFontReference, ShapeStyleOptions, ShapeStyleReference } from './fn.ts';
 export type {
@@ -367,6 +370,7 @@ export {
   getShapeImageBiLevelThreshold,
   getShapeImageBrightness,
   getShapeImageBytes,
+  getShapeImageCompressionState,
   getShapeImageContrast,
   getShapeImageCrop,
   getShapeImageDuotone,
@@ -378,6 +382,7 @@ export {
   getShapeImageOpacity,
   getShapeImagePartName,
   getShapeIndex,
+  getShapePictureStyle,
   getShapeKind,
   getShapeMedia,
   getShapeMediaPlayback,
@@ -631,12 +636,14 @@ export {
   setShapeHyperlink,
   setShapeImage,
   setShapeImageBrightness,
+  setShapeImageCompressionState,
   setShapeImageContrast,
   setShapeImageCrop,
   setShapeImageFill,
   setShapeImageFillLayout,
   setShapeImageOpacity,
   setShapeImageRecolor,
+  setShapePictureStyle,
   resetShapeImageColorEffects,
   resetShapeVideoFormatting,
   setShapeClickAction,

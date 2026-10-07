@@ -2,7 +2,7 @@
   // Mac PowerPoint's Compress Pictures sheet (OfficeArt CompressPictDlg):
   // Picture Quality, Delete cropped areas of pictures, Apply to.
   import { onMount, untrack } from 'svelte';
-  import { getShapeId, setShapeImage, setShapeImageCrop } from '@office-kit/pptx';
+  import { getShapeId, getShapeImageFormat, setShapeImage, setShapeImageCompressionState, setShapeImageCrop } from '@office-kit/pptx';
   import { collectPictures, compressPictures, PICTURE_QUALITIES, type PictureQuality } from '../core/compress-pictures.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -27,15 +27,19 @@
     if (busy) return;
     busy = true;
     try {
-      const ppi = PICTURE_QUALITIES.find((item) => item.id === quality)!.ppi;
-      const results = await compressPictures(scope === 'selected' ? selected : all, ppi, deleteCropped);
+      const { ppi, cstate } = PICTURE_QUALITIES.find((item) => item.id === quality)!;
+      const targets = scope === 'selected' ? selected : all;
+      const results = await compressPictures(targets, ppi, deleteCropped);
       if (doc.pres !== presentation) { error = t('The presentation changed. Reopen Compress Pictures.'); return; }
-      if (results.length) {
+      // PowerPoint labels every bitmap it compressed, resampled or not.
+      const labelled = cstate ? targets.filter((target) => ['png', 'jpeg'].includes(getShapeImageFormat(target.shape) ?? '')) : [];
+      if (results.length || labelled.length) {
         doc.transact(t('Compress Pictures'), () => {
           for (const result of results) {
             setShapeImage(result.target.shape, result.bytes);
             setShapeImageCrop(result.target.shape, result.crop);
           }
+          for (const target of labelled) setShapeImageCompressionState(target.shape, cstate);
         });
       }
       editor.closeDialog();

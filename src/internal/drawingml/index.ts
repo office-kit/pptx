@@ -123,6 +123,13 @@ export { parseCustomGeometry } from './custom-geometry.ts';
 export { evaluatePresetGeometry } from './preset-geometry.ts';
 export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
+export {
+  applyPictureStyle,
+  BUILTIN_PICTURE_STYLES,
+  type BuiltinPictureStyleName,
+  detectPictureStyle,
+  isBuiltinPictureStyleName,
+} from './picture-styles.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';
 export { readFlip, readPosition, readRotation, readSize } from './geometry.ts';
 export {
