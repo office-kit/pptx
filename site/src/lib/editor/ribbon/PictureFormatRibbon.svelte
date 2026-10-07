@@ -6,7 +6,7 @@
   // Height, Width); Format Pane; Animate as Background. Below 1300 pt the
   // labelled rows become icon menus and Arrange collapses into one button.
   import './contextual.css';
-  import { getShapeKind, getShapeMedia, getShapeStrokeEffective, resetShapeImageColorEffects, setShapeImageBrightness, setShapeImageContrast, setShapeImageOpacity, setShapePreset, setShapeStroke, type Color, type PresetShape } from '@office-kit/pptx';
+  import { getShapeBounds, getShapeImageArtisticEffect, getShapeImageIntrinsicSize, getShapeKind, getShapeMedia, getShapeStrokeEffective, resetShapeImageColorEffects, setShapeBounds, setShapeImageBrightness, setShapeImageContrast, setShapeImageCrop, setShapeImageOpacity, setShapePreset, type Color, type ImageArtisticEffect, type PresetShape, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
@@ -55,14 +55,64 @@
     const visible = getShapeStrokeEffective(doc.pres, shape)?.kind === 'solid';
     editor.invoke('setShapeStroke', { options: visible ? { color } : { color, widthEmu: BORDER_EMU } });
   }
+  // Mac PowerPoint's Artistic Effects gallery, in order (menus/picture-artistic-effect).
+  const ARTISTIC_EFFECTS: readonly [ImageArtisticEffect | null, string][] = [
+    [null, 'None'],
+    ['marker', 'Marker'],
+    ['pencilGrayscale', 'Pencil Grayscale'],
+    ['pencilSketch', 'Pencil Sketch'],
+    ['lineDrawing', 'Line Drawing'],
+    ['chalkSketch', 'Chalk Sketch'],
+    ['paintStrokes', 'Paint Strokes'],
+    ['paintBrush', 'Paint Brush'],
+    ['glowDiffused', 'Glow Diffused'],
+    ['blur', 'Blur'],
+    ['lightScreen', 'Light Screen'],
+    ['watercolorSponge', 'Watercolor Sponge'],
+    ['filmGrain', 'Film Grain'],
+    ['mosaicBubbles', 'Mosaic Bubbles'],
+    ['glass', 'Glass'],
+    ['cement', 'Cement'],
+    ['texturizer', 'Texturizer'],
+    ['crisscrossEtching', 'Crisscross Etching'],
+    ['pastelsSmooth', 'Pastels Smooth'],
+    ['plasticWrap', 'Plastic Wrap'],
+    ['cutout', 'Cutout'],
+    ['photocopy', 'Photocopy'],
+    ['glowEdges', 'Glow Edges'],
+  ];
+  const ARTISTIC_UNAVAILABLE = "PowerPoint saves an artistic effect as its own rendering of the picture plus a JPEG XR copy of the original; the editor can show an existing effect but cannot produce either.";
+  const artisticEffect = $derived.by(() => {
+    doc.version;
+    return picture ? getShapeImageArtisticEffect(picture) : null;
+  });
+  // The picture's natural size at its own resolution, which Reset Picture & Size restores.
+  const originalSize = $derived.by(() => {
+    doc.version;
+    return picture ? getShapeImageIntrinsicSize(picture) : null;
+  });
+
+  function resetImage(shape: SlideShapeData) {
+    resetShapeImageColorEffects(shape);
+    setShapeImageBrightness(shape, null);
+    setShapeImageContrast(shape, null);
+    setShapeImageOpacity(shape, null);
+  }
   function resetPicture() {
     const shape = picture;
     if (!shape || !editable) return;
-    doc.transact(t('Reset Picture'), () => {
-      resetShapeImageColorEffects(shape);
-      setShapeImageBrightness(shape, null);
-      setShapeImageContrast(shape, null);
-      setShapeImageOpacity(shape, null);
+    doc.transact(t('Reset Picture'), () => resetImage(shape));
+  }
+  function resetPictureAndSize() {
+    const shape = picture;
+    const size = originalSize;
+    const bounds = shape && getShapeBounds(shape);
+    if (!shape || !editable || !size || !bounds) return;
+    // The top-left corner stays put, as when the Size group's boxes change.
+    doc.transact(t('Reset Picture & Size'), () => {
+      resetImage(shape);
+      setShapeImageCrop(shape, null);
+      setShapeBounds(shape, { ...bounds, w: size.width, h: size.height });
     });
   }
   function cropToShape(preset: PresetShape) {
@@ -78,7 +128,11 @@
   <button role="menuitem" onclick={() => editor.showShapeFormat()}>{t('Picture Transparency Options...')}</button>
 {/snippet}
 
-{#snippet artisticItems()}<button role="menuitem" disabled>{t('Artistic Effects')}</button>{/snippet}
+{#snippet artisticItems()}
+  <div class="artistic-grid" role="group" aria-label={t('Artistic Effect')}>
+    {#each ARTISTIC_EFFECTS as [effect, label] (label)}<button role="menuitemradio" aria-checked={artisticEffect === effect} title={t(ARTISTIC_UNAVAILABLE)} disabled>{t(label)}</button>{/each}
+  </div>
+{/snippet}
 
 {#snippet qualityItems()}<button role="menuitem" disabled>{t('Picture Quality')}</button>{/snippet}
 
@@ -88,7 +142,7 @@
 
 {#snippet resetItems()}
   <button role="menuitem" onclick={resetPicture}>{t('Reset Picture')}</button>
-  <button role="menuitem" title={t("The picture's original size is not stored in the presentation.")} disabled>{t('Reset Picture & Size')}</button>
+  <button role="menuitem" title={originalSize ? undefined : t("The picture's format does not record its original size.")} disabled={!originalSize} onclick={resetPictureAndSize}>{t('Reset Picture & Size')}</button>
 {/snippet}
 
 {#snippet effectItems()}
@@ -113,12 +167,12 @@
     <VideoCorrectionsMenu target="picture" variant="big" />
     <div class="ctx-rows">
       <VideoRecolorMenu target="picture" variant={compact ? 'icon' : 'row'} />
-      <MenuButton look={compact ? 'icon' : 'row'} icon="artistic-effects" label={t('Artistic Effects')} title={t('Artistic effects are not supported by the library yet.')} disabled>{@render artisticItems()}</MenuButton>
+      <MenuButton look={compact ? 'icon' : 'row'} icon="artistic-effects" label={t('Artistic Effects')} disabled={!picture}>{@render artisticItems()}</MenuButton>
       <MenuButton look={compact ? 'icon' : 'row'} icon="transparency" label={t('Transparency')} disabled={!editable}>{@render transparencyItems()}</MenuButton>
     </div>
     <div class="ctx-rows">
-      <button class="ctx-icon" aria-label={t('Compress Pictures')} title={t('Compressing pictures is not available in this editor.')} disabled><Icon name="compress" size={18} /></button>
-      <MenuButton look="icon" icon="picture" label={t('Picture Quality')} title={t('Picture quality settings are not available in this editor.')} disabled>{@render qualityItems()}</MenuButton>
+      <button class="ctx-icon" aria-label={t('Compress Pictures')} title={t('Compress Pictures')} disabled={!editable} onclick={() => (editor.activeDialog = 'compressPictures')}><Icon name="compress" size={18} /></button>
+      <MenuButton look="icon" icon="picture" label={t('Picture Quality')} title={t("Mac PowerPoint's Picture Quality menu has not been captured; Compress Pictures offers the same resolutions.")} disabled>{@render qualityItems()}</MenuButton>
       <MenuButton look="icon" icon="replace" label={t('Change Picture')} disabled={!editable}>{@render changeItems()}</MenuButton>
     </div>
     <div class="ctx-rows">
@@ -129,10 +183,10 @@
   <section class="ctx-group ctx-shrink" aria-label={t('Picture Styles')}>
     <div class="ctx-gallery" role="group" aria-label={t('Quick Styles')}>
       <span class="ctx-gallery-arrow hidden" aria-hidden="true"></span>
-      <div class="ctx-gallery-items picture-strip" title={t('Picture styles are not available in this editor yet.')}>
+      <div class="ctx-gallery-items picture-strip" title={t("PowerPoint's picture style definitions are compiled into the application, so their exact formatting is not available.")}>
         {#each [0, 1, 2, 3] as index (index)}<span class="picture-swatch" aria-hidden="true"><Icon name="picture" size={30} /></span>{/each}
       </div>
-      <button class="ctx-gallery-arrow" aria-label={t('Next Quick Styles gallery')} title={t('Picture styles are not available in this editor yet.')} disabled>›</button>
+      <button class="ctx-gallery-arrow" aria-label={t('Next Quick Styles gallery')} title={t("PowerPoint's picture style definitions are compiled into the application, so their exact formatting is not available.")} disabled>›</button>
     </div>
     <div class="ctx-rows">
       <span class="ctx-paint {compact ? 'ctx-icon' : 'ctx-row'}" class:disabled={!editable}><Icon name="outline" size={16} />{#if !compact}<span>{t('Picture Border')}</span>{/if}<ColorPicker compact label={t('Picture Border')} disabled={!editable} choose={border} /></span>
@@ -163,5 +217,7 @@
 
 <style>
   .ctx-gallery-items.picture-strip { --ctx-gallery-min: 150px; width: 212px; justify-content: space-around; opacity: 0.4; }
+  .artistic-grid { display: grid; grid-template-columns: repeat(5, 76px); }
+  .artistic-grid button { height: 40px; white-space: normal; text-align: center; justify-content: center; }
   .picture-swatch { display: flex; align-items: center; justify-content: center; width: 48px; height: 44px; border: 1px solid var(--ok-border); color: var(--ok-text-3); background: #fff; }
 </style>
