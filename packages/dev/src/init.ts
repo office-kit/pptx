@@ -75,7 +75,7 @@ for shared design values. The JSX runtime is
   new URL('./image.png', import.meta.url) when loading local assets.
 - Preserve existing slides and formatting unless the request calls for changes.
   Never rasterize a chart/table as a shortcut. Raw-only features are not DSL coverage.
-- Preview is a rendering aid, not a guarantee of identical PowerPoint rendering.
+- Preview is a rendering aid, not a guarantee of identical rendering in other apps.
   Check the exported file in the target application for final delivery.
 
 VSCode uses tsconfig.json for completion and diagnostics. Start the

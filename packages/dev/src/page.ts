@@ -4,7 +4,7 @@ import { previewStyles } from './styles.ts';
 export const page = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Office Kit — PowerPoint preview</title>
+<title>Presentation preview</title>
 <link rel="stylesheet" href="/terminal.css">
 <style>
 ${previewStyles}

@@ -66,12 +66,6 @@
 <svelte:window onpointerdown={(event) => { if (moreOpen && !(eventTarget(event) as Element).closest?.('.more-anchor')) moreOpen = false; }} onkeydown={(event) => { if (moreOpen && event.key === 'Escape') moreOpen = false; }} />
 
 <div class="topbar" class:compact>
-  <div class="brand">
-    <span class="mark">◈</span>
-    <span class="name">@office-kit/pptx</span>
-    <span class="tag">{t('Editor')}</span>
-  </div>
-
   <MenuBar file={{ save: () => void (onsave ?? onSave)(), download: () => void onSave(), open: () => fileInput?.click(), newPresentation }} />
 
   <div class="quick">
@@ -146,28 +140,10 @@
     overflow-x: auto;
   }
   .topbar:has(:global(.conflict)) { flex-wrap: wrap; overflow-x: hidden; }
-  .topbar.compact .tag { display: none; }
-  .topbar.compact .brand { display: none; }
   .topbar.compact .quick { flex: none; }
   .topbar.compact .quick :global(.ok-btn),
   .topbar.compact .right :global(.palette-btn) { font-size: 11px; padding: 3px 6px; }
   .topbar.compact .right { flex: none; }
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-  .mark {
-    font-size: 16px;
-  }
-  .name {
-    font-weight: 600;
-    font-size: 13px;
-  }
-  .tag {
-    font-size: 11px;
-    opacity: 0.85;
-  }
   .quick {
     display: flex;
     align-items: center;

@@ -1044,7 +1044,6 @@ export const ja: Record<string, string> = {
   'Save as .pptx': '.pptx として保存',
   'Undo (Ctrl+Z)': '元に戻す (Ctrl+Z)',
   'Redo (Ctrl+Y)': 'やり直し (Ctrl+Y)',
-  Editor: 'エディター',
   'Unsaved changes': '未保存の変更',
   'All capabilities': 'すべての機能',
   Opened: '開きました:',
@@ -1476,8 +1475,7 @@ export const ja: Record<string, string> = {
   Equation: '数式',
   Symbol: '記号と特殊文字',
   Audio: 'オーディオ',
-  'The Office icon library is not available here.':
-    'Office のアイコン ライブラリはここでは使用できません。',
+  'The icon library is not available here.': 'アイコン ライブラリはここでは使用できません。',
   '3D models are not supported by the library yet.':
     '3D モデルはまだライブラリでサポートされていません。',
   'SmartArt is not supported by the library yet.':
@@ -1527,8 +1525,7 @@ export const ja: Record<string, string> = {
   'Handout Master': '配布資料マスター',
   'Notes Master': 'ノート マスター',
   Macros: 'マクロ',
-  'Macros (VBA) do not run outside PowerPoint.':
-    'マクロ (VBA) は PowerPoint 以外では実行できません。',
+  'Macros (VBA) do not run in this editor.': 'このエディターではマクロ (VBA) を実行できません。',
   'Insert Slide Master': 'スライド マスターの挿入',
   'Insert Layout': 'レイアウトの挿入',
   Rename: '名前の変更',
@@ -1536,8 +1533,8 @@ export const ja: Record<string, string> = {
   'Reset Background': '背景のリセット',
   'Close Master': 'マスターを閉じる',
   'Rehearse with Coach': 'スピーカー コーチでリハーサル',
-  'Rehearse with Coach needs Microsoft 365 online services.':
-    'スピーカー コーチには Microsoft 365 のオンライン サービスが必要です。',
+  'Rehearse with Coach needs an online service.':
+    'スピーカー コーチにはオンライン サービスが必要です。',
   'Rehearse Timings': 'リハーサル',
   'Keep Slides Updated': 'スライドを最新の状態に保つ',
   'Use Timings': 'タイミングを使用',
@@ -1545,8 +1542,7 @@ export const ja: Record<string, string> = {
   'Show Media Controls': 'メディア コントロールの表示',
   'Always Use Subtitles': '常に字幕を使用する',
   'Subtitle Settings': '字幕の設定',
-  'Live subtitles need Microsoft 365 online services.':
-    'ライブ字幕には Microsoft 365 のオンライン サービスが必要です。',
+  'Live subtitles need an online service.': 'ライブ字幕にはオンライン サービスが必要です。',
   'The total time for the slide show was {time}. Do you want to save the new slide timings?':
     'スライド ショーの所要時間は {time} でした。新しいタイミングを保存しますか?',
   'Exit Effects': '終了効果',
@@ -1573,18 +1569,16 @@ export const ja: Record<string, string> = {
   'Align Text': '文字の配置',
   'Convert to SmartArt': 'SmartArt グラフィックに変換',
   'Add-ins': 'アドイン',
-  'Office Add-ins are not available in this editor.':
-    'このエディターでは Office アドインを使用できません。',
+  'Add-ins are not available in this editor.': 'このエディターではアドインを使用できません。',
   Designer: 'デザイナー',
-  'Designer needs the Microsoft 365 design service.':
-    'デザイナーには Microsoft 365 のデザイン サービスが必要です。',
+  'Designer needs an online design service.':
+    'デザイナーにはオンラインのデザイン サービスが必要です。',
   AutoSave: '自動保存',
   Share: '共有',
   'Share with People...': 'ユーザーと共有...',
   'Copy Link': 'リンクのコピー',
-  'Sharing with people needs OneDrive or SharePoint.':
-    'ユーザーとの共有には OneDrive または SharePoint が必要です。',
-  'Send a Copy (PowerPoint Presentation)': 'コピーを送信 (PowerPoint プレゼンテーション)',
+  'Sharing with people needs cloud storage.': 'ユーザーとの共有にはクラウド ストレージが必要です。',
+  'Send a Copy (PPTX Presentation)': 'コピーを送信 (PPTX プレゼンテーション)',
   'The comments changed elsewhere. Close and reopen Comments.':
     'コメントが別の操作で変更されました。コメント ウィンドウを閉じて開き直してください。',
   'Insert Shapes': '図形の挿入',
@@ -1742,8 +1736,8 @@ export const ja: Record<string, string> = {
     'このエディタでは重なり順の立体表示を利用できません。',
   'The editor cannot export objects as pictures yet.':
     'このエディタはまだオブジェクトを図として書き出せません。',
-  'Translation needs the Microsoft translation service.':
-    '翻訳には Microsoft の翻訳サービスが必要です。',
+  'Translation needs an online translation service.':
+    '翻訳にはオンラインの翻訳サービスが必要です。',
   'The editor does not keep a default shape style yet.':
     'このエディタはまだ既定の図形スタイルを保持しません。',
   // Contextual tabs (Shape Format, Picture Format, Table Design, Table
@@ -1799,8 +1793,8 @@ export const ja: Record<string, string> = {
   Cutout: 'カットアウト',
   Photocopy: '白黒コピー',
   'Glow Edges': '光彩: 輪郭',
-  'PowerPoint saves an artistic effect as its own rendering of the picture plus a JPEG XR copy of the original; the editor can show an existing effect but cannot produce either.':
-    'PowerPoint はアート効果を、図を独自に描画した結果と元の図の JPEG XR コピーとして保存します。エディタは既存の効果を表示できますが、どちらも作成できません。',
+  'An artistic effect is saved as a rendering of the picture plus a JPEG XR copy of the original; the editor can show an existing effect but cannot produce either.':
+    'アート効果は、図を描画した結果と元の図の JPEG XR コピーとして保存されます。エディターは既存の効果を表示できますが、どちらも作成できません。',
   "The picture's format does not record its original size.":
     'この図の形式には元のサイズが記録されていません。',
   // Mac PowerPoint's Picture Styles gallery tooltips (ja names captured from its UI).
@@ -1835,8 +1829,8 @@ export const ja: Record<string, string> = {
   'Previous Quick Styles gallery': '前のクイック スタイル ギャラリー',
   'Compress Pictures...': '図の圧縮...',
   'Upscale Picture': '画像のアップスケール',
-  'Upscale Picture enlarges a picture with a Microsoft cloud AI service, which the editor does not have.':
-    '[画像のアップスケール] は Microsoft のクラウド AI サービスで図を拡大します。このエディタにはその機能がありません。',
+  'Upscale Picture enlarges a picture with a cloud AI service, which the editor does not have.':
+    '[画像のアップスケール] はクラウド AI サービスで図を拡大します。このエディターにはその機能がありません。',
   'Compress pictures to reduce the size of this file.':
     '画像を圧縮して、このファイルのサイズを小さくします。',
   'Picture Quality:': '画像の品質:',
@@ -1935,10 +1929,9 @@ export const ja: Record<string, string> = {
   'Online Pictures...': 'オンライン画像...',
   'The Photos library is not available in the browser.':
     '写真ライブラリはブラウザーでは使用できません。',
-  'Stock images need the Microsoft 365 service.':
-    'ストック画像には Microsoft 365 のサービスが必要です。',
-  'Online pictures need the Microsoft 365 service.':
-    'オンライン画像には Microsoft 365 のサービスが必要です。',
+  'Stock images need an online service.': 'ストック画像にはオンライン サービスが必要です。',
+  'Online pictures need an online image service.':
+    'オンライン画像にはオンラインの画像サービスが必要です。',
   'Available Windows': '使用できるウィンドウ',
   'Choose a Window or Screen...': 'ウィンドウまたは画面を選択...',
   'Screen Clipping': '画面の領域',
@@ -2033,7 +2026,7 @@ export const ja: Record<string, string> = {
   'Glow transparency': '光彩の透明度',
   'No Soft Edges': 'ぼかしなし',
   'Soft edge size': 'ぼかしのサイズ',
-  'PowerPoint does not offer soft edges for text.': 'PowerPoint では文字にぼかしを設定できません。',
+  'Soft edges are not available for text.': '文字にはぼかしを設定できません。',
   'Top bevel': '面取り: 上',
   'Bottom bevel': '面取り: 下',
   'Top bevel width': '面取り (上) の幅',
@@ -2087,8 +2080,8 @@ export const ja: Record<string, string> = {
   'Start Slide Show': 'スライド ショーの開始',
   'Captions & Subtitles': 'キャプションと字幕',
   'Custom Slide Show...': 'カスタム スライド ショー...',
-  'Keep Slides Updated needs a presentation shared from OneDrive or SharePoint.':
-    'スライドを最新の状態に保つには、OneDrive または SharePoint で共有されたプレゼンテーションが必要です。',
+  'Keep Slides Updated needs a presentation shared from cloud storage.':
+    'スライドを最新の状態に保つには、クラウド ストレージで共有されたプレゼンテーションが必要です。',
   Help: 'ヘルプ',
   Proofing: '文章校正',
   Activity: 'アクティビティ',
@@ -2131,15 +2124,13 @@ export const ja: Record<string, string> = {
   'From Clipboard...': 'クリップボードから...',
   'Edit Picture': '図の編集',
   'Auto Crop': '自動トリミング',
-  'Online pictures need Microsoft 365 services.':
-    'オンラインの画像には Microsoft 365 のサービスが必要です。',
   'The browser does not expose copied pictures to the editor.':
     'ブラウザーはコピーされた画像をエディタに渡しません。',
   'The editor has no picture editor yet.': 'このエディタにはまだ図の編集機能がありません。',
-  'Auto Crop needs the Microsoft image service.':
-    '自動トリミングには Microsoft の画像サービスが必要です。',
-  'The thesaurus needs the Microsoft reference service.':
-    '類義語辞典には Microsoft の参照サービスが必要です。',
+  'Auto Crop needs an online image service.':
+    '自動トリミングにはオンラインの画像サービスが必要です。',
+  'The thesaurus needs an online reference service.':
+    '類義語辞典にはオンラインの参照サービスが必要です。',
   'The Format pane has no Text Options for table cells yet.':
     '書式ウィンドウにはまだ表のセルの文字のオプションがありません。',
   'Select the text to link first.': '先にリンクする文字列を選択してください。',
@@ -2163,8 +2154,8 @@ export const ja: Record<string, string> = {
     'このエディタでは他の形式へのエクスポートを利用できません。',
   'The editor cannot mark a file read-only.':
     'このエディタではファイルを読み取り専用に設定できません。',
-  'Restricting permissions needs Microsoft 365 rights management.':
-    'アクセスの制限には Microsoft 365 の権利管理が必要です。',
+  'Restricting permissions needs a rights management service.':
+    'アクセスの制限には権利管理サービスが必要です。',
   'Password protection is not available in this editor.':
     'このエディタではパスワード保護を利用できません。',
   'Printing is not available in this editor.': 'このエディタでは印刷を利用できません。',
@@ -2192,15 +2183,13 @@ export const ja: Record<string, string> = {
     '校正言語は [校閲] ▸ [言語] から選んでください。',
   'AutoCorrect is not available in this editor.':
     'このエディタではオートコレクトを利用できません。',
-  'Office add-ins are not available in this editor.':
-    'このエディタでは Office アドインを利用できません。',
   'The presentation has no custom shows.':
     'このプレゼンテーションには目的別スライド ショーがありません。',
   'The editor keeps no application data to clear.':
     'このエディタには消去するアプリケーション データがありません。',
   'The editor updates with its npm package.': 'このエディタは npm パッケージと一緒に更新されます。',
-  'Needs a presentation saved to OneDrive or SharePoint.':
-    'OneDrive または SharePoint に保存されたプレゼンテーションが必要です。',
+  'Needs a presentation saved to cloud storage.':
+    'クラウド ストレージに保存されたプレゼンテーションが必要です。',
   'The browser manages its own windows.': 'ウインドウはブラウザーが管理します。',
   'The slide show runs in the preview page around the editor.':
     'スライド ショーはエディタを囲むプレビュー ページで実行されます。',

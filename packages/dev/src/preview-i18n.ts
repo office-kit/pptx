@@ -14,7 +14,7 @@ const previewJapanese={
  'Changes appear automatically · Text can be selected and copied':'変更は自動的に反映されます・文字を選択してコピーできます',
  'Skipped during presentation':'プレゼンテーションでスキップされます',
  'Allow popups to open presenter view.':'発表者ビューを開くにはポップアップを許可してください。',
- 'Office Kit — PowerPoint preview':'Office Kit — PowerPoint プレビュー'
+ 'Presentation preview':'プレゼンテーションのプレビュー'
 };
 const pt=key=>previewLocale==='ja'?(previewJapanese[key]??key):key;
 const slideLabel=i=>previewLocale==='ja'?'スライド '+(i+1):'Slide '+(i+1);
@@ -23,7 +23,7 @@ function updatePreviewStatus(){
  byId('status').textContent=connectionLost?pt('Reconnecting…'):state.error?pt('Build failed · showing last successful output'):state.building?pt('Updating…'):previewLocale==='ja'?state.slides.length+' スライド・ライブ':state.slides.length+' slides · Live';
 }
 function updatePreviewLabels(){
- document.documentElement.lang=previewLocale;document.title=pt('Office Kit — PowerPoint preview');
+ document.documentElement.lang=previewLocale;document.title=pt('Presentation preview');
  const labels={'#present':'Present','#presenter':'Presenter view','.download':'Download PPTX','#toggle-chat span':'Agents','#agents-title':'Agents','.filmstrip h2':'Slides','#empty':'Waiting for slides…','footer .hint':'Changes appear automatically · Text can be selected and copied','label[for="zoom"]':'Zoom','#zoom option[value="fit"]':'Fit'};
  for(const [selector,key] of Object.entries(labels))document.querySelector(selector).textContent=pt(key);
  for(const [selector,key] of Object.entries({'.filmstrip':'Slides','main':'Slide viewer','#chat-resizer':'Chat width','#close-chat':'Close Agents','#toggle-editor':'Normal','.status-views':'Presentation views','#prev':'Previous slide','#present-prev':'Previous slide','#next':'Next slide','#present-next':'Next slide'}))document.querySelector(selector).setAttribute('aria-label',pt(key));

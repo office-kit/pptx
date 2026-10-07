@@ -309,7 +309,7 @@ const NATIVE = {
       'Check Accessibility',
       '----',
       'Macro ▸',
-      'PowerPoint Add-ins...',
+      'Add-ins...',
     ],
     'Tools ▸ Macro': ['Macros...', 'Visual Basic Editor'],
     'Slide Show': [
@@ -392,7 +392,7 @@ const NATIVE = {
       'Return to Previous Size 🌐⌃R',
     ],
     Help: [
-      'PowerPoint Help ⌘?',
+      'Editor Help ⌘?',
       '----',
       'Feedback',
       '----',
@@ -694,7 +694,7 @@ const NATIVE = {
       'アクセシビリティ チェック',
       '----',
       'マクロ ▸',
-      'PowerPoint アドイン',
+      'アドイン',
     ],
     'ツール ▸ マクロ': ['マクロ...', 'Visual Basic Editor'],
     'スライド ショー': [
@@ -775,7 +775,7 @@ const NATIVE = {
       '前のサイズに戻す 🌐⌃R',
     ],
     ヘルプ: [
-      'PowerPoint ヘルプ ⌘?',
+      'エディター ヘルプ ⌘?',
       '----',
       'フィードバック',
       '----',
@@ -876,7 +876,7 @@ const STATES = [
 // The editor cannot run these yet; they stay disabled with the reason.
 const UNSUPPORTED = new Map([
   ['Format ▸ Bullets and Numbering...', 'The editor has no Bullets and Numbering dialog yet.'],
-  ['Tools ▸ Thesaurus...', 'The thesaurus needs the Microsoft reference service.'],
+  ['Tools ▸ Thesaurus...', 'The thesaurus needs an online reference service.'],
 ]);
 
 async function open(file) {
@@ -998,7 +998,7 @@ test(
         await tools
           .getByRole('menuitem', { name: '類義語辞典...', exact: true })
           .getAttribute('title'),
-        '類義語辞典には Microsoft の参照サービスが必要です。',
+        '類義語辞典にはオンラインの参照サービスが必要です。',
       );
       await closeMenus(editor);
       assert.deepEqual(errors, []);
@@ -1182,7 +1182,7 @@ test('PowerPoint’s keyboard shortcuts run their menu commands', { timeout: 300
     await page.keyboard.press('Meta+Alt+r');
     await home.waitFor();
 
-    // ⌘? (Help ▸ PowerPoint Help) opens the command search.
+    // ⌘? (Help ▸ Editor Help) opens the command search.
     await page.keyboard.press('Meta+Shift+Slash');
     await editor.getByRole('dialog', { name: 'Command palette', exact: true }).waitFor();
     await page.keyboard.press('Escape');

@@ -67,7 +67,7 @@ test(
       const menu = page.getByRole('menu', { name: 'Share' });
       assert.equal(await menu.getByRole('menuitem', { name: 'Copy Link' }).isDisabled(), true);
       const download = page.waitForEvent('download');
-      await menu.getByRole('menuitem', { name: 'Send a Copy (PowerPoint Presentation)' }).click();
+      await menu.getByRole('menuitem', { name: 'Send a Copy (PPTX Presentation)' }).click();
       assert.match((await download).suggestedFilename(), /\.pptx$/);
 
       // The window chrome follows the system's dark appearance, as PowerPoint does.

@@ -1,7 +1,7 @@
 /** Separate window so speaker notes never appear on the audience surface. */
 export const presenterPage = `<!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Presenter view — Office Kit</title>
+<title>Presenter view</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#141929;color:#e4e8f0;font:15px system-ui,sans-serif;height:100vh;display:flex;flex-direction:column}header,footer{display:flex;align-items:center;gap:14px;padding:16px;flex-wrap:wrap}h1{font-size:18px;margin:0;flex:1}h2{font-size:13px;color:#b9c2d8;margin:0 0 10px}button{font:inherit;color:inherit;background:#29243e;border:1px solid #675487;border-radius:6px;padding:8px 12px;cursor:pointer}button:disabled{opacity:.4;cursor:default}button:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}main{display:grid;grid-template-columns:minmax(0,3fr) minmax(240px,2fr);gap:20px;padding:0 20px;flex:1;min-height:0;overflow:auto}section{min-width:0}#current{position:relative}#current [hidden]{display:none!important}#current,#next{background:#090c14;aspect-ratio:16/9}#current svg,#next svg{width:100%;height:100%}#notes{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;max-height:40vh;overflow:auto;padding:14px;background:#1e2538;border-radius:8px}#notes-title{margin-top:20px}#count{flex:1}#message{padding:0 20px;color:#ffc9bd}#elapsed{font-variant-numeric:tabular-nums}footer{justify-content:flex-end}@media(max-width:640px){main{grid-template-columns:1fr}#notes{max-height:none}}
 </style>
@@ -95,7 +95,7 @@ for(const canvas of Object.values(canvases))canvas.addEventListener('click',even
 function update(data){
  connected=true;locale=data.locale;document.documentElement.lang=locale;
  for(const [id,en,ja] of [['title','Presenter view','発表者ビュー'],['timer-label','Elapsed','経過時間'],['reset','Reset timer','タイマーをリセット'],['current-title','Current slide','現在のスライド'],['notes-title','Speaker notes','発表者ノート'],['next-title','Next slide','次のスライド'],['prev','Previous','前へ'],['next-button','Next','次へ'],['exit','Exit presentation','プレゼンテーションを終了']])byId(id).textContent=text(en,ja);
- document.title=text('Presenter view — Office Kit','発表者ビュー — Office Kit');
+ document.title=text('Presenter view','発表者ビュー');
  byId('message').textContent=data.presenting?'':text('Presentation is stopped.','プレゼンテーションは停止中です。');
  const animation=data.animation&&data.animation.stops>0
   ? ' · '+text('Click '+data.animation.cursor+' of '+data.animation.stops,'クリック '+data.animation.cursor+' / '+data.animation.stops)

@@ -93,7 +93,7 @@ export function createChat(
       ...message,
       text: message.text.slice(-12000),
     }));
-    const prompt = `You are editing a local PowerPoint TSX project in ${dirname(resolve(entry))}.
+    const prompt = `You are editing a local presentation TSX project in ${dirname(resolve(entry))}.
 Read the project's authoring instructions. Make focused patches to the TSX source, preserving unrelated work.
 The preview rebuilds automatically on save; do not start another dev server.
 ${authoringGuidance}

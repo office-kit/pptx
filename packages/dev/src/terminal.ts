@@ -134,7 +134,7 @@ export function createTerminal(
       json(200, {
         hookSpecificOutput: {
           hookEventName: 'UserPromptSubmit',
-          additionalContext: `You are editing the local PowerPoint TSX project at ${resolve(entry)}.
+          additionalContext: `You are editing the local presentation TSX project at ${resolve(entry)}.
 Read the project's authoring instructions. Make focused source patches and preserve unrelated work.
 The preview rebuilds on save; do not start another dev server. A Stop hook checks the actual build and returns errors for repair.
 ${authoringGuidance}

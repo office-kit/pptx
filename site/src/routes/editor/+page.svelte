@@ -26,22 +26,11 @@
 
 <div class="editor" bind:this={target}></div>
 
-<p class="trademark">
-  Microsoft and PowerPoint are trademarks of the Microsoft group of companies. This editor is an
-  independent project, not affiliated with or endorsed by Microsoft.
-</p>
-
 <style>
   /* The editor takes the whole window, as a desktop application does. */
   .editor {
     position: fixed;
     inset: 0;
     z-index: 50;
-  }
-  .trademark {
-    margin: 0;
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
-    color: var(--ink-3);
   }
 </style>

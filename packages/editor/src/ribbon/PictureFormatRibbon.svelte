@@ -81,7 +81,7 @@
     ['photocopy', 'Photocopy'],
     ['glowEdges', 'Glow Edges'],
   ];
-  const ARTISTIC_UNAVAILABLE = "PowerPoint saves an artistic effect as its own rendering of the picture plus a JPEG XR copy of the original; the editor can show an existing effect but cannot produce either.";
+  const ARTISTIC_UNAVAILABLE = "An artistic effect is saved as a rendering of the picture plus a JPEG XR copy of the original; the editor can show an existing effect but cannot produce either.";
   const artisticEffect = $derived.by(() => {
     doc.version;
     return picture ? getShapeImageArtisticEffect(picture) : null;
@@ -136,7 +136,7 @@
 
 {#snippet qualityItems()}
   <button role="menuitem" onclick={() => (editor.activeDialog = 'compressPictures')}>{t('Compress Pictures...')}</button>
-  <button role="menuitem" title={t('Upscale Picture enlarges a picture with a Microsoft cloud AI service, which the editor does not have.')} disabled>{t('Upscale Picture')}</button>
+  <button role="menuitem" title={t('Upscale Picture enlarges a picture with a cloud AI service, which the editor does not have.')} disabled>{t('Upscale Picture')}</button>
 {/snippet}
 
 {#snippet changeItems()}

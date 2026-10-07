@@ -198,8 +198,8 @@
         <div class="menu" role="menu" aria-label={t('Pictures')} use:placeBelowTrigger>
           {@render menuItem('Photo Browser...', null, 'The Photos library is not available in the browser.')}
           {@render menuItem('Picture from File...', () => editor.runOrPrompt('addSlideImage'), undefined, 'addSlideImage')}
-          {@render menuItem('Stock Images...', null, 'Stock images need the Microsoft 365 service.')}
-          {@render menuItem('Online Pictures...', null, 'Online pictures need the Microsoft 365 service.')}
+          {@render menuItem('Stock Images...', null, 'Stock images need an online service.')}
+          {@render menuItem('Online Pictures...', null, 'Online pictures need an online image service.')}
         </div>
       {/if}
     </div>
@@ -223,7 +223,7 @@
 
   <section class="cluster" aria-label={t('Illustrations')}>
     {@render big('Shapes', 'shapes', { gallery: true, disabled: !editor.canRun('addSlideShape'), onclick: (button) => editor.openShapeGallery(button) })}
-    {@render big('Icons', 'icons', { disabled: true, tip: 'The Office icon library is not available here.' })}
+    {@render big('Icons', 'icons', { disabled: true, tip: 'The icon library is not available here.' })}
     {#if small}
       <div class="stack">
         {@render row('3D Models', 'cube', { disabled: true, tip: '3D models are not supported by the library yet.' })}

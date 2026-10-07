@@ -219,7 +219,7 @@
     </section>
 
     <section class="cluster" aria-label={t('Designer')}>
-      <button class="big suggestions" aria-label={t('Design Suggestions')} aria-pressed="false" title={t('Designer needs the Microsoft 365 design service.')} disabled><Icon name="designer" size={32} /><span class="caption">{captionLines(t('Design Suggestions'))}</span></button>
+      <button class="big suggestions" aria-label={t('Design Suggestions')} aria-pressed="false" title={t('Designer needs an online design service.')} disabled><Icon name="designer" size={32} /><span class="caption">{captionLines(t('Design Suggestions'))}</span></button>
     </section>
   </div>
 </div>
