@@ -41,6 +41,8 @@
   import TableDialog from './ui/TableDialog.svelte';
   import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
   import FontDialog from './ui/FontDialog.svelte';
+  import ParagraphDialog from './ui/ParagraphDialog.svelte';
+  import { editTargetParagraphs, targetParagraphProperties } from './core/paragraph-targets.ts';
   import ContextMenu from './ui/ContextMenu.svelte';
   import ToastStack from './ui/ToastStack.svelte';
 
@@ -264,6 +266,8 @@
       <CustomShowsDialog />
     {:else if editor.activeDialog === 'font'}
       <FontDialog />
+    {:else if editor.activeDialog === 'paragraph'}
+      <ParagraphDialog properties={targetParagraphProperties(editor)} apply={(edit) => editTargetParagraphs(editor, edit)} onclose={() => editor.closeDialog()} />
     {:else}
       <CommandDialog id={editor.activeDialog} />
     {/if}

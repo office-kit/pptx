@@ -809,6 +809,62 @@
     }
   }
 
+  // The menu's clipboard commands go through the async Clipboard API, reusing
+  // the copy and paste handlers so text converts the same way as with ⌘C/⌘V.
+  // Cut changes the text only after the clipboard write succeeded.
+  async function menuClipboard(action: 'copy' | 'cut' | 'paste') {
+    const current = editing;
+    const range = textInput?.getSelection();
+    if (!current || !range) return;
+    const unchanged = () => {
+      const now = textInput?.getSelection();
+      return editing === current && now?.start === range.start && now.end === range.end;
+    };
+    try {
+      if (action === 'paste') {
+        const item = (await navigator.clipboard.read()).find(item => item.types.includes('text/plain') || item.types.includes('text/html'));
+        if (!item) return;
+        const data = new DataTransfer();
+        for (const type of ['text/plain', 'text/html']) {
+          if (item.types.includes(type)) data.setData(type, await (await item.getType(type)).text());
+        }
+        if (unchanged()) pasteEditingText(new ClipboardEvent('paste', { clipboardData: data }));
+        return;
+      }
+      const data = new DataTransfer();
+      copyEditingText(new ClipboardEvent('copy', { clipboardData: data }));
+      const text = data.getData('text/plain');
+      if (!text) return;
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/plain': new Blob([text], { type: 'text/plain' }),
+        'text/html': new Blob([data.getData('text/html')], { type: 'text/html' }),
+      })]);
+      if (action === 'cut' && unchanged()) replaceSelectedText('');
+    } catch (error) {
+      editor.toast('error', error instanceof Error ? error.message : String(error));
+    }
+  }
+  // The editor's own menu replaces the browser's while text is edited. It opens
+  // without taking focus, so the caret and selection stay in the text.
+  function onTextContext(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!editing) return;
+    const range = textInput?.getSelection() ?? textRange;
+    editor.openContextMenu(event.clientX, event.clientY, {
+      text: {
+        cell: editing.cell !== undefined,
+        hasSelection: range.start !== range.end,
+        cut: () => { void menuClipboard('cut'); },
+        copy: () => { void menuClipboard('copy'); },
+        paste: () => { void menuClipboard('paste'); },
+        exit: commitEditing,
+        hyperlink: editSelectedTextLink,
+        element: textInput?.getElement(),
+      },
+    });
+  }
+
   function pasteCells(event: ClipboardEvent) {
     const cur = editing;
     if (!cur?.cell || !event.clipboardData) return;
@@ -1331,12 +1387,12 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) return;
+    if (target instanceof Element && target.closest('.ribbon, .font-dialog, .paragraph-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) return;
     if (target === null) {
       // Some focus transfers briefly report no related target; inspect the settled focus.
       const current = editing;
       queueMicrotask(() => {
-        if (editing === current && !document.activeElement?.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) commitEditing();
+        if (editing === current && !document.activeElement?.closest('.ribbon, .font-dialog, .paragraph-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .canvas-shell .inline-edit')) commitEditing();
       });
       return;
     }
@@ -1344,7 +1400,7 @@
   }
 
   function onContext(e: MouseEvent, box?: Box) {
-    // Keep the browser's native text-selection menu while typing.
+    // Form fields keep the browser's menu; the inline text editor opens its own.
     if (e.target instanceof Element && e.target.closest('textarea, input, [contenteditable="true"]')) return;
     e.preventDefault();
     e.stopPropagation();
@@ -1526,6 +1582,7 @@
               oncopy={(event) => copyEditingText(event)}
               oncut={(event) => copyEditingText(event, true)}
               onpaste={pasteEditingText}
+              oncontextmenu={onTextContext}
               onkeydown={(e) => {
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 't') {
                   e.preventDefault();
