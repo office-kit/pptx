@@ -108,6 +108,8 @@ import {
   getShapeStrokeArrow,
   getShapeStrokeCap,
   getShapeStrokeColorResolved,
+  getShapeStrokeGradient,
+  getShapeStrokeSketch,
   getShapeStrokeCompound,
   getShapeStrokeDash,
   getShapeStrokeJoin,
@@ -162,7 +164,10 @@ import {
   type ReadChartSpec,
   type ChartTextStyle,
   type CustomGeometry,
+  type GeomCommand,
   type GeomPath,
+  type GeomPoint,
+  type LineSketch,
   type PathFillMode,
   type ReadGradientFill,
   type ShapeFill,
@@ -984,12 +989,22 @@ const patternDef = (pat: {
 
 type ReadTextFill = NonNullable<ReadTextFormat['textFill']>;
 
-// A run's `<a:gradFill>` / `<a:pattFill>` as an SVG paint server, built by
-// the same helpers that paint shape fills. The text engine supplies the
-// laid-out block's bounds (see resolveFillPaints in text-layout.ts).
+// A run's `<a:gradFill>` / `<a:pattFill>` / `<a:blipFill>` / `<a:noFill>` as
+// an SVG paint, built by the same helpers that paint shape fills. The text
+// engine supplies the laid-out block's bounds (see resolveFillPaints in
+// text-layout.ts).
 const textFillPaint =
-  (fill: ReadTextFill, theme: PresentationTheme | null): TextFillPaint =>
+  (fill: ReadTextFill, theme: PresentationTheme | null, solid: string): TextFillPaint =>
   (box) => {
+    if (fill.kind === 'none') return { defs: '', fill: 'none' };
+    if (fill.kind === 'image') {
+      // PowerPoint stretches a text picture fill over the whole text block,
+      // like a gradient. A picture the reader could not reach paints solid.
+      if (!fill.bytes) return { defs: '', fill: solid };
+      const id = mintId();
+      const defs = `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" x="${box.x.toFixed(2)}" y="${box.y.toFixed(2)}" width="${box.w.toFixed(2)}" height="${box.h.toFixed(2)}"><image href="${bytesToDataUrl(fill.bytes)}" width="${box.w.toFixed(2)}" height="${box.h.toFixed(2)}" preserveAspectRatio="none"/></pattern></defs>`;
+      return { defs, fill: `url(#${id})` };
+    }
     if (fill.kind === 'pattern') {
       const built = patternDef({
         preset: fill.preset,
@@ -1070,6 +1085,38 @@ const buildArrowMarker = (
   return { id, def };
 };
 
+// `gradientTransform` for a `rotWithShape="0"` gradient painted in the shape's
+// object bounding box; '' when the gradient turns with the shape.
+const unrotatedGradientTransform = (
+  grad: ReadGradientFill,
+  shape: SlideShapeData | null,
+  pres: PresentationData | undefined,
+): string => {
+  const bounds = shape && (pres ? getShapeBoundsResolved(pres, shape) : getShapeBounds(shape));
+  if (grad.rotateWithShape !== false || !shape || !bounds || bounds.w <= 0 || bounds.h <= 0) {
+    return '';
+  }
+  // Mac PowerPoint anchors a non-rotating gradient to the rotated shape's
+  // axis-aligned bounding box. Undo the shape transform in physical space;
+  // rotating the unit square alone distorts wide or tall shapes.
+  const angle = (getShapeRotation(shape) * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const w = bounds.w;
+  const h = bounds.h;
+  const rotatedW = Math.abs(cos) * w + Math.abs(sin) * h;
+  const rotatedH = Math.abs(sin) * w + Math.abs(cos) * h;
+  const flip = getShapeFlip(shape);
+  const sx = flip?.horizontal ? -1 : 1;
+  const sy = flip?.vertical ? -1 : 1;
+  const a = (sx * cos * rotatedW) / w;
+  const b = (-sy * sin * rotatedW) / h;
+  const c = (sx * sin * rotatedH) / w;
+  const d = (sy * cos * rotatedH) / h;
+  const matrix = [a, b, c, d, (1 - a - c) / 2, (1 - b - d) / 2];
+  return ` gradientTransform="matrix(${matrix.map((value) => value.toFixed(6)).join(' ')})"`;
+};
+
 const paint = (
   shape: SlideShapeData | null,
   fill: ShapeFill,
@@ -1106,29 +1153,7 @@ const paint = (
         : getShapeGradientFill(shape)
       : null;
     if (grad) {
-      let transform = '';
-      const bounds = shape && (pres ? getShapeBoundsResolved(pres, shape) : getShapeBounds(shape));
-      if (grad.rotateWithShape === false && shape && bounds && bounds.w > 0 && bounds.h > 0) {
-        // Mac PowerPoint anchors a non-rotating gradient to the rotated shape's
-        // axis-aligned bounding box. Undo the shape transform in physical space;
-        // rotating the unit square alone distorts wide or tall shapes.
-        const angle = (getShapeRotation(shape) * Math.PI) / 180;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const w = bounds.w;
-        const h = bounds.h;
-        const rotatedW = Math.abs(cos) * w + Math.abs(sin) * h;
-        const rotatedH = Math.abs(sin) * w + Math.abs(cos) * h;
-        const flip = getShapeFlip(shape);
-        const sx = flip?.horizontal ? -1 : 1;
-        const sy = flip?.vertical ? -1 : 1;
-        const a = (sx * cos * rotatedW) / w;
-        const b = (-sy * sin * rotatedW) / h;
-        const c = (sx * sin * rotatedH) / w;
-        const d = (sy * cos * rotatedH) / h;
-        const matrix = [a, b, c, d, (1 - a - c) / 2, (1 - b - d) / 2];
-        transform = ` gradientTransform="matrix(${matrix.map((value) => value.toFixed(6)).join(' ')})"`;
-      }
+      const transform = unrotatedGradientTransform(grad, shape, pres);
       const built = gradientDef(grad, theme, transform);
       defs = built.defs;
       fillColor = built.fillAttr;
@@ -1166,10 +1191,42 @@ const paint = (
   let strokeWidth = 0;
   const strokeAttrParts: string[] = [];
   let markerAttrs = '';
+  // Arrowheads are solid; a gradient line's ends take its end stops' colors.
+  let headColor = strokeColor;
+  let tailColor = strokeColor;
   if (stroke.kind === 'solid') {
     let resolved: string | null = null;
     if (shape && pres) resolved = getShapeStrokeColorResolved(pres, shape);
     strokeColor = resolved ?? resolveColor(stroke.color, theme, '#9CA3AF');
+    headColor = strokeColor;
+    tailColor = strokeColor;
+  } else if (stroke.kind === 'gradient') {
+    const grad = shape ? getShapeStrokeGradient(shape, pres) : null;
+    const bounds = shape && (pres ? getShapeBoundsResolved(pres, shape) : getShapeBounds(shape));
+    if (grad && bounds) {
+      const stopColor = (stop: ReadGradientFill['stops'][number] | undefined): string =>
+        stop ? (stop.resolvedColor ?? resolveColor(stop.color, theme, '#9CA3AF')) : '#9CA3AF';
+      const ordered = [...grad.stops].sort((a, b) => a.offset - b.offset);
+      headColor = stopColor(ordered[0]);
+      tailColor = stopColor(ordered[ordered.length - 1]);
+      const widthEmu = stroke.widthEmu ?? 9_525;
+      // A straight connector has a zero-width or zero-height bounding box,
+      // which an objectBoundingBox paint server cannot span (SVG then drops
+      // the stroke), so such lines paint against a box one line wide.
+      const built =
+        bounds.w > 0 && bounds.h > 0
+          ? gradientDef(grad, theme, unrotatedGradientTransform(grad, shape, pres))
+          : gradientDef(grad, theme, '', {
+              x: (bounds.w > 0 ? bounds.x : bounds.x - widthEmu / 2) / EMU_PER_PX,
+              y: (bounds.h > 0 ? bounds.y : bounds.y - widthEmu / 2) / EMU_PER_PX,
+              w: Math.max(bounds.w, widthEmu) / EMU_PER_PX,
+              h: Math.max(bounds.h, widthEmu) / EMU_PER_PX,
+            });
+      defs += built.defs;
+      strokeColor = built.fillAttr;
+    }
+  }
+  if (strokeColor !== 'none' && (stroke.kind === 'solid' || stroke.kind === 'gradient')) {
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
     if (shape) {
       const opacity = getShapeStrokeOpacity(shape, pres);
@@ -1210,14 +1267,14 @@ const paint = (
           head.type,
           head.width,
           head.length,
-          strokeColor,
+          headColor,
           'auto-start-reverse',
         );
         defs += m.def;
         markerAttrs += ` marker-start="url(#${m.id})"`;
       }
       if (tail && tail.type !== 'none') {
-        const m = buildArrowMarker(tail.type, tail.width, tail.length, strokeColor, 'auto');
+        const m = buildArrowMarker(tail.type, tail.width, tail.length, tailColor, 'auto');
         defs += m.def;
         markerAttrs += ` marker-end="url(#${m.id})"`;
       }
@@ -1292,7 +1349,7 @@ const renderRun = (
   // block, so the sibling SVG fill layer draws these glyphs — outline, shadow,
   // glow and decorations included, so nothing sits misaligned beside them.
   // The HTML glyphs stay for layout, selection and the caret.
-  if (format?.textFill) {
+  if (format?.textFill || format?.outline?.fill) {
     const {
       textFill: _fill,
       outline: _outline,
@@ -1534,9 +1591,11 @@ export interface SvgTextArgs {
   readonly resolveFamily?: (family: string | null) => string;
 }
 
-// Runs whose glyphs the SVG fill layer paints; a hyperlink's theme color
+// Runs whose glyphs the SVG fill layer paints — a non-solid fill or a
+// gradient outline, which HTML text cannot draw; a hyperlink's theme color
 // replaces the run's own fill.
-const hasPaintedTextFill = (run: RunData): boolean => !!run.fmt?.textFill && !run.href;
+const hasPaintedTextFill = (run: RunData): boolean =>
+  !!(run.fmt?.textFill || run.fmt?.outline?.fill) && !run.href;
 
 const alignOf = (a: string): ParaInput['align'] =>
   a === 'center' || a === 'right' || a === 'justify' ? a : 'left';
@@ -1665,7 +1724,15 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         kerning,
         fillHex,
         // A hyperlink's theme color replaces the run's own fill (see above).
-        ...(fmt?.textFill && !run.href ? { fillPaint: textFillPaint(fmt.textFill, a.theme) } : {}),
+        // A gradient outline also needs the SVG glyph layer, so its run's
+        // solid fill travels there as a paint too.
+        ...(hasPaintedTextFill(run)
+          ? {
+              fillPaint: fmt?.textFill
+                ? textFillPaint(fmt.textFill, a.theme, fillHex)
+                : () => ({ defs: '', fill: fillHex }),
+            }
+          : {}),
         ...(fmt?.underlineColor !== undefined && fmt.underlineColor !== null
           ? { underlineHex: resolveColor(fmt.underlineColor, a.theme, fillHex) }
           : {}),
@@ -1679,6 +1746,22 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
               outlineHex: resolveColor(fmt.outline.color, a.theme, '#000000'),
               outlineWidthPx: (fmt.outline.widthEmu ?? 9525) / EMU_PER_PX,
             }
+          : {}),
+        ...(fmt?.outline?.fill && !run.href
+          ? (() => {
+              const fill = fmt.outline.fill;
+              const first = fill.stops[0];
+              return {
+                outlineHex: first
+                  ? (first.resolvedColor ?? resolveColor(first.color, a.theme, '#000000'))
+                  : '#000000',
+                outlinePaint: (box: TextBlockBounds) => {
+                  const built = gradientDef(fill, a.theme, '', box);
+                  return { defs: built.defs, fill: built.fillAttr };
+                },
+                outlineWidthPx: (fmt.outline.widthEmu ?? 9525) / EMU_PER_PX,
+              };
+            })()
           : {}),
         ...(fmt?.shadow
           ? {
@@ -2329,9 +2412,21 @@ const renderHtmlParagraphs = (
       let runFmt = run.fmt;
       if (run.href) {
         const hlinkColor = theme ? normalizeHex(theme.hyperlink) : '#0563C1';
-        const { textFill: _linkFill, ...linkFmt } = runFmt ?? {};
+        const { textFill: _linkFill, outline: linkOutline, ...linkFmt } = runFmt ?? {};
+        // The SVG paint layer skips links, so a gradient outline falls back
+        // to its first stop as a solid HTML text stroke.
+        const { fill: outlineFill, ...solidOutline } = linkOutline ?? {};
+        const outlineColor = outlineFill?.stops[0]?.color ?? solidOutline.color;
         runFmt = {
           ...linkFmt,
+          ...(linkOutline
+            ? {
+                outline: {
+                  ...solidOutline,
+                  ...(outlineColor !== undefined ? { color: outlineColor } : {}),
+                },
+              }
+            : {}),
           // Theme hlink color overrides a hyperlink run's direct fill (see
           // the SVG path above) — match PowerPoint / LibreOffice.
           color: hlinkColor,
@@ -5933,6 +6028,134 @@ const PATH_SHADE: Readonly<Record<Exclude<PathFillMode, 'none' | 'norm'>, string
   lightenLess: 'fill="#fff" fill-opacity="0.2"',
 };
 
+// How far a sketched outline strays from the true geometry, as a fraction of
+// the shape's size. PowerPoint generates its hand-drawn path itself and does
+// not document the algorithm; these only approximate how far each style
+// wanders.
+const SKETCH_AMPLITUDE: Record<LineSketch, number> = {
+  curved: 0.008,
+  freehand: 0.014,
+  scribble: 0.022,
+};
+// Straight edges are split into wobbles about this fraction of the shape long.
+const SKETCH_STEP = 0.12;
+
+// mulberry32: a small seeded PRNG, so a sketched shape draws the same wobble
+// on every render.
+const seededRandom = (seed: number): (() => number) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+};
+
+/**
+ * An approximation of a sketched outline (`ask:lineSketchStyleProps`): every
+ * edge of `geom` is redrawn as a seeded hand-drawn wobble. Only used for a
+ * preset geometry the writer left crisp; Office-written sketches already
+ * carry their hand-drawn path as custom geometry.
+ */
+const sketchGeometry = (
+  geom: CustomGeometry,
+  sketch: LineSketch,
+  w: number,
+  h: number,
+  seed: number,
+): CustomGeometry => {
+  const random = seededRandom(seed);
+  const jitter = (amp: number): number => (random() * 2 - 1) * amp;
+  const paths = geom.paths.map((path): GeomPath => {
+    const cw = path.w ?? w;
+    const ch = path.h ?? h;
+    const size = Math.max(Math.min(cw, ch), Math.max(cw, ch) / 4);
+    const amp = SKETCH_AMPLITUDE[sketch] * size;
+    const step = SKETCH_STEP * Math.max(cw, ch);
+    const nudge = (pt: GeomPoint): GeomPoint => ({ x: pt.x + jitter(amp), y: pt.y + jitter(amp) });
+    const commands: GeomCommand[] = [];
+    let curX = 0;
+    let curY = 0;
+    let startX = 0;
+    let startY = 0;
+    const wobbleTo = (x: number, y: number): void => {
+      const dx = x - curX;
+      const dy = y - curY;
+      const len = Math.hypot(dx, dy);
+      const count = step > 0 ? Math.max(1, Math.round(len / step)) : 1;
+      // Unit normal of the edge; the wobble bends each piece sideways.
+      const nx = len > 0 ? -dy / len : 0;
+      const ny = len > 0 ? dx / len : 0;
+      let px = curX;
+      let py = curY;
+      for (let i = 1; i <= count; i++) {
+        const last = i === count;
+        const ex = curX + (dx * i) / count + (last ? 0 : jitter(amp / 2));
+        const ey = curY + (dy * i) / count + (last ? 0 : jitter(amp / 2));
+        const bend = jitter(amp);
+        const control = { x: (px + ex) / 2 + nx * bend, y: (py + ey) / 2 + ny * bend };
+        commands.push({ kind: 'quadBezTo', pts: [control, { x: ex, y: ey }] });
+        px = ex;
+        py = ey;
+      }
+      curX = x;
+      curY = y;
+    };
+    for (const cmd of path.commands) {
+      switch (cmd.kind) {
+        case 'moveTo':
+          curX = cmd.pt.x;
+          curY = cmd.pt.y;
+          startX = curX;
+          startY = curY;
+          commands.push(cmd);
+          break;
+        case 'lnTo':
+          wobbleTo(cmd.pt.x, cmd.pt.y);
+          break;
+        case 'quadBezTo':
+          commands.push({ kind: 'quadBezTo', pts: [nudge(cmd.pts[0]), cmd.pts[1]] });
+          curX = cmd.pts[1].x;
+          curY = cmd.pts[1].y;
+          break;
+        case 'cubicBezTo':
+          commands.push({
+            kind: 'cubicBezTo',
+            pts: [nudge(cmd.pts[0]), nudge(cmd.pts[1]), cmd.pts[2]],
+          });
+          curX = cmd.pts[2].x;
+          curY = cmd.pts[2].y;
+          break;
+        case 'arcTo':
+          for (const s of arcToCubicSegments(curX, curY, cmd.wR, cmd.hR, cmd.stAng, cmd.swAng)) {
+            commands.push({
+              kind: 'cubicBezTo',
+              pts: [
+                nudge({ x: s.c1x, y: s.c1y }),
+                nudge({ x: s.c2x, y: s.c2y }),
+                { x: s.ex, y: s.ey },
+              ],
+            });
+            curX = s.ex;
+            curY = s.ey;
+          }
+          break;
+        case 'close':
+          // The closing edge is a straight line too, so it wobbles as well.
+          if (curX !== startX || curY !== startY) wobbleTo(startX, startY);
+          commands.push(cmd);
+          curX = startX;
+          curY = startY;
+          break;
+      }
+    }
+    return { ...path, commands };
+  });
+  return { ...geom, paths };
+};
+
 /**
  * Renders an evaluated {@link CustomGeometry} (a `<a:custGeom>` or a preset
  * from `getPresetGeometry`) as `<path>`s in the shape's slide box. Returns
@@ -6316,8 +6539,29 @@ const renderShapeContent = (
   const isCustGeom =
     geomSvg === '' && rawPreset === null && getShapeXmlString(shape).includes('custGeom');
 
+  const sketch = rawPreset !== null ? getShapeStrokeSketch(shape) : null;
   if (geomSvg !== '') {
     // geomSvg already holds the rendered custom geometry.
+  } else if (sketch !== null && p.stroke !== 'none') {
+    const geometry = getPresetGeometry(preset, bounds, getShapeAdjustValues(shape));
+    if (geometry !== null) {
+      geomSvg = customGeometryToSvg(
+        sketchGeometry(geometry, sketch, w, h, getShapeId(shape)),
+        x,
+        y,
+        w,
+        h,
+        p.fill,
+        fa,
+        p.stroke,
+        p.strokeWidth,
+        sa,
+        ma,
+      );
+    }
+  }
+  if (geomSvg !== '') {
+    // geomSvg already holds the rendered geometry.
   } else if (preset === 'rect') {
     geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else {

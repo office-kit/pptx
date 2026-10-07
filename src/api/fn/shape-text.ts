@@ -69,9 +69,11 @@ import {
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
+  SLIDE_PART_NAME,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, createTxBody, decode, ensureTxBody, requireTxBody } from './_helpers.ts';
+import { createImageEmbedder } from './_image-embed.ts';
 const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
 // ---------------------------------------------------------------------------
@@ -305,6 +307,34 @@ export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): v
 export const setShapeText3D = (shape: SlideShapeData, value: Text3D | null): void => {
   applyText3D(requireBodyPr(shape), value, 'setShapeText3D');
   commitAndRefresh(shape);
+};
+
+/**
+ * Sets PowerPoint's Keep text flat (`<a:bodyPr><a:flatTx/>`): the text stays
+ * flat, out of the shape's 3-D scene, when the shape is rotated in 3-D.
+ * `<a:flatTx>` and the text body's own `<a:sp3d>` are one schema choice, so
+ * keeping text flat removes a text bevel or extrusion set by
+ * `setShapeText3D`. Throws for non-text-bearing shape kinds.
+ */
+export const setShapeTextFlat = (shape: SlideShapeData, flat: boolean): void => {
+  const bodyPr = requireBodyPr(shape);
+  bodyPr.children = bodyPr.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        (c.name.localName === 'flatTx' || (flat && c.name.localName === 'sp3d'))
+      ),
+  );
+  if (flat) insertChildByRank(bodyPr, elem(qname('a', 'flatTx', NS.dml)), bodyPrChildRank);
+  commitAndRefresh(shape);
+};
+
+/** Reads Keep text flat (see `setShapeTextFlat`) from the shape's own text body. */
+export const getShapeTextFlat = (shape: SlideShapeData): boolean => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  const bodyPr = txBody && firstChildElement(txBody, NAME_A_BODY_PR);
+  return Boolean(bodyPr && firstChildElement(bodyPr, qname('a', 'flatTx', NS.dml)));
 };
 
 /**
@@ -880,10 +910,16 @@ export const setShapeTextFormat = (
   if (shape[SHAPE_SNAPSHOT].kind !== 'shape') requireTxBody(shape);
   const existing = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
   const body = existing ?? createTxBody();
+  const slide = shape[SHAPE_SLIDE];
+  const images = createImageEmbedder(
+    slide[INTERNAL_PACKAGE],
+    slide[SLIDE_PART_NAME],
+    'setShapeTextFormat',
+  );
   if (options?.paragraphEnd !== undefined)
-    formatTextBodyParagraphEnd(body, options.paragraphEnd, format, options.reset);
-  else if (options?.range) formatTextBodyRange(body, format, options.range, options.reset);
-  else applyFormatToAllRuns(body, format, 'setShapeTextFormat', options?.reset);
+    formatTextBodyParagraphEnd(body, options.paragraphEnd, format, options.reset, images);
+  else if (options?.range) formatTextBodyRange(body, format, options.range, options.reset, images);
+  else applyFormatToAllRuns(body, format, 'setShapeTextFormat', options?.reset, images);
   if (!existing) {
     if (options?.range) return;
     shape[SHAPE_ELEMENT].children.push(body);
@@ -1007,7 +1043,16 @@ export function setShapeParagraphs(
       'setShapeParagraphs',
     );
     replaceParagraphChildren(target, copied.children);
-  } else setTextBodyParagraphs(target, paragraphs);
+  } else
+    setTextBodyParagraphs(
+      target,
+      paragraphs,
+      createImageEmbedder(
+        shape[SHAPE_SLIDE][INTERNAL_PACKAGE],
+        shape[SHAPE_SLIDE][SLIDE_PART_NAME],
+        'setShapeParagraphs',
+      ),
+    );
   commitAndRefresh(shape);
 }
 

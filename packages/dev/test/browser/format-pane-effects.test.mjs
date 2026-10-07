@@ -322,7 +322,7 @@ test(
         .getByRole('radio', { name: 'Solid line' })
         .check();
       const sketch = editor.getByRole('button', { name: 'Sketched style', exact: true });
-      assert.equal(await sketch.isDisabled(), true);
+      assert.equal(await sketch.isDisabled(), false);
       const labels = await editor
         .locator('[data-section="line"] .pane-fields')
         .evaluate((node) =>

@@ -17,7 +17,8 @@ import {
   requireRun,
   runsOf,
 } from './shape-runs.ts';
-import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
+import { parseRPrLikeElement, type RelatedImageBytes, resolveDrawingColor } from './shape-color.ts';
+import { createImageEmbedder, relatedImageBytes } from './_image-embed.ts';
 import {
   getShapePlaceholderIdx,
   getShapePlaceholderType,
@@ -164,6 +165,8 @@ export const resolveTextBodyRunFormatEffective = (
   context: {
     readonly theme: ReturnType<typeof getPresentationTheme>;
     readonly colorMap?: Readonly<Record<string, string>> | null;
+    /** Resolves picture fills against the part holding `textBody`. */
+    readonly images?: RelatedImageBytes;
   },
   textBody: XmlElement,
   paragraphIndex: number,
@@ -216,20 +219,20 @@ export const resolveTextBodyRunFormatEffective = (
   }
 
   const runRPr = run ? firstChildElement(run, NAME_A_RPR) : null;
-  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
+  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx, context.images));
   // ECMA-376 §21.1.2.2.3: endParaRPr formats newly inserted text,
   // not the existing final run (or the final field).
   if (runIndex === null) {
     const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
-    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
+    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx, context.images));
   }
   if (pPr) {
     const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
-    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr, ctx));
+    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr, ctx, context.images));
   }
   const lstStyle = firstChildElement(textBody, NAME_A_LST_STYLE);
   const lstDefRPr = lstStyleLevelDefRPr(lstStyle, level);
-  if (lstDefRPr) mergeRPrLayer(result, parseRPrLikeElement(lstDefRPr, ctx));
+  if (lstDefRPr) mergeRPrLayer(result, parseRPrLikeElement(lstDefRPr, ctx, context.images));
 
   return result as ReadTextFormat;
 };
@@ -339,7 +342,19 @@ export const getShapeRunFormatEffective = (
   const theme = getPresentationTheme(pres);
   const colorMap = getEffectiveColorMap(inheritanceSource[SHAPE_SLIDE]);
   const result: Partial<ReadTextFormat> = {
-    ...resolveTextBodyRunFormatEffective({ theme, colorMap }, txBody, paragraphIndex, runIndex),
+    ...resolveTextBodyRunFormatEffective(
+      {
+        theme,
+        colorMap,
+        images: relatedImageBytes(
+          inheritanceSource[SHAPE_SLIDE][INTERNAL_PACKAGE],
+          inheritanceSource[SHAPE_SLIDE][SLIDE_PART_NAME],
+        ),
+      },
+      txBody,
+      paragraphIndex,
+      runIndex,
+    ),
   };
 
   // Mac PowerPoint's Colored Fill Quick Style changes a title placeholder
@@ -896,7 +911,13 @@ export const setShapeRunFormat = (
 ): void => {
   const run = requireRun(shape, paragraphIndex, runIndex);
   const rPr = ensureRPr(run);
-  applyRunFormatInternal(rPr, format);
+  const slide = shape[SHAPE_SLIDE];
+  applyRunFormatInternal(
+    rPr,
+    format,
+    'setShapeRunFormat',
+    createImageEmbedder(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME], 'setShapeRunFormat'),
+  );
   commitAndRefresh(shape);
 };
 

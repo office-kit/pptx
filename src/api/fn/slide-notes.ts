@@ -30,6 +30,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { NAME_CSLD, NAME_SP_TREE, decode, encode } from './_helpers.ts';
+import { createImageEmbedder } from './_image-embed.ts';
 import { setTextBody, textBodyText, type TextFormat } from '../../internal/drawingml/index.ts';
 import {
   formatTextBodyParagraphEnd,
@@ -1040,10 +1041,15 @@ export const setSlideNotesFormat = (
       setSlideNotes(slide, '');
     }
   }
+  const notesPartName = findNotesPartName(slide);
+  const images =
+    notesPartName === null
+      ? undefined
+      : createImageEmbedder(slide[INTERNAL_PACKAGE], notesPartName, 'setSlideNotesFormat');
   editExistingNotesBody(slide, (body) =>
     options.paragraphEnd === undefined
-      ? formatTextBodyRange(body, format, options.range, options.reset)
-      : formatTextBodyParagraphEnd(body, options.paragraphEnd, format, options.reset),
+      ? formatTextBodyRange(body, format, options.range, options.reset, images)
+      : formatTextBodyParagraphEnd(body, options.paragraphEnd, format, options.reset, images),
   );
 };
 

@@ -3,8 +3,9 @@
 // `<a:ln>` sits inside `<p:spPr>` after the fill choice. ECMA-376 §20.1.2
 // surface: width (EMU), cap, dash, fill choice (solid/no/grad), join
 // (round/bevel/miter), and head/tail arrow markers. We expose width, solid
-// color, noFill, preset dash, join, and head/tail arrowheads — each inserted at
-// its CT_LineProperties slot via LN_CHILD_RANK below.
+// and gradient paint, noFill, preset dash, join, head/tail arrowheads and the
+// Office 2021 sketched style — each inserted at its CT_LineProperties slot via
+// LN_CHILD_RANK below.
 
 import type { Color } from './color.ts';
 import { LINE_DASHES } from '../enum-values.ts';
@@ -12,6 +13,7 @@ import { oneOf, lineWidthEmu } from '../bounds.ts';
 import {
   NS,
   type XmlElement,
+  type XmlNode,
   attr,
   elem,
   firstChildElement,
@@ -19,6 +21,12 @@ import {
   qname,
 } from '../xml/index.ts';
 import { editSolidColor } from './color.ts';
+import {
+  buildGradientFill,
+  type GradientFillOptions,
+  type ReadGradientFill,
+  validateGradientFillOptions,
+} from './fill.ts';
 
 const NAME_LN = qname('a', 'ln', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
@@ -75,6 +83,16 @@ const insertLn = (spPr: XmlElement, ln: XmlElement): XmlElement => {
   return ln;
 };
 
+/**
+ * A non-solid line paint — the fill choice of `CT_LineProperties` other than
+ * `<a:solidFill>` (which `color` spells) and `<a:noFill>`. Only gradients are
+ * modelled; PowerPoint's Format pane offers no other kind for a line.
+ */
+export type LineFill = { readonly kind: 'gradient' } & GradientFillOptions;
+
+/** A line paint read back from a deck; stop colors widen to `string`. */
+export type ReadLineFill = { readonly kind: 'gradient' } & ReadGradientFill;
+
 export interface StrokeOptions {
   /** Line color. Same accepted forms as `setFill`. */
   color?: Color;
@@ -82,37 +100,62 @@ export interface StrokeOptions {
   widthEmu?: number;
   /** Solid outline opacity, from 0 (transparent) to 1 (opaque). */
   opacity?: number;
+  /**
+   * Gradient paint (`<a:gradFill>` inside `<a:ln>`), PowerPoint's Gradient
+   * line. It is the same fill choice as `color`, so passing both, or `fill`
+   * with `opacity`, is rejected; stop opacities carry a gradient's alpha.
+   */
+  fill?: LineFill;
 }
 
 /** Updates the supplied outline properties, preserving omitted properties. */
 export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void => {
   const existing = firstChildElement(spPr, NAME_LN);
   const ln = existing ?? elem(NAME_LN);
-  applySolidStroke(ln, options);
+  applyStroke(ln, options);
   if (!existing) insertLn(spPr, ln);
+};
+
+/** Rejects a stroke edit that would write two fill choices. */
+export const validateStrokeFill = (
+  options: { readonly color?: unknown; readonly opacity?: unknown; readonly fill?: LineFill },
+  caller: string,
+): void => {
+  if (options.fill === undefined) return;
+  if (options.color !== undefined || options.opacity !== undefined)
+    throw new Error(`${caller}: fill is exclusive with color and opacity; pass one`);
+  oneOf(options.fill.kind, ['gradient'], `${caller}: fill.kind`);
+  validateGradientFillOptions(options.fill, `${caller}: fill`);
 };
 
 /**
  * The same edit on an `<a:ln>` the caller located — a run's outline lives in
  * `<a:rPr>`, whose child order is its own, so it cannot go through `ensureLn`.
  */
-export const applySolidStroke = (ln: XmlElement, options: StrokeOptions): void => {
+export const applyStroke = (
+  ln: XmlElement,
+  options: StrokeOptions,
+  caller = 'setShapeStroke',
+): void => {
+  validateStrokeFill(options, caller);
   const previous = firstChildElement(ln, NAME_SOLID_FILL)?.children.find(
     (child) => child.kind === 'element',
   );
-  const color =
-    options.color !== undefined || options.opacity !== undefined
-      ? editSolidColor(previous, options)
-      : undefined;
+  const paint =
+    options.fill !== undefined
+      ? buildGradientFill(options.fill, `${caller}: fill`)
+      : options.color !== undefined || options.opacity !== undefined
+        ? elem(NAME_SOLID_FILL, { children: [editSolidColor(previous, options)] })
+        : undefined;
   if (options.widthEmu !== undefined) {
-    const width = lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu');
+    const width = lineWidthEmu(options.widthEmu, `${caller}: widthEmu`);
     ln.attrs = ln.attrs.filter((a) => a.name.localName !== 'w');
     ln.attrs.push(attr(ATTR_W, String(width)));
   }
   // Width-only edits preserve theme references, color transforms and noFill.
-  if (color) {
+  if (paint) {
     removeChildrenIn(ln, FILL_LOCALS);
-    insertLnChild(ln, elem(NAME_SOLID_FILL, { children: [color] }));
+    insertLnChild(ln, paint);
   }
 };
 
@@ -252,4 +295,131 @@ export const setStrokeCompound = (spPr: XmlElement, cmpd: LineCompound | null): 
   const ln = ensureLn(spPr);
   ln.attrs = ln.attrs.filter((a) => !(a.name.namespaceURI === '' && a.name.localName === 'cmpd'));
   if (cmpd !== null) ln.attrs.push(attr(qname('', 'cmpd', ''), cmpd));
+};
+
+/**
+ * PowerPoint's Sketched style presets ([MS-ODRAWXML] §2.38,
+ * `EG_LineSketchType`), named after their `ask:lineSketch*` elements.
+ */
+export type LineSketch = 'curved' | 'freehand' | 'scribble';
+
+const LINE_SKETCHES: readonly LineSketch[] = ['curved', 'freehand', 'scribble'];
+
+// [MS-ODRAWXML] §2.38 sketchyshapes. Office stores the props in an
+// `<a:ln><a:extLst><a:ext>` under this URI; the spec's tables do not list the
+// URI, so it is taken from Office-written files.
+const NS_ASK = 'http://schemas.microsoft.com/office/drawing/2018/sketchyshapes';
+const SKETCH_EXT_URI = '{C807C97D-BFC1-408E-A445-0C87EB9F89A2}';
+const NAME_EXT_LST = qname('a', 'extLst', NS.dml);
+const NAME_EXT = qname('a', 'ext', NS.dml);
+const ATTR_URI = qname('', 'uri', '');
+const ATTR_SD = qname('', 'sd', '');
+const NAME_SKETCH_PROPS = qname('ask', 'lineSketchStyleProps', NS_ASK);
+const NAME_SKETCH_TYPE = qname('ask', 'type', NS_ASK);
+const SKETCH_ELEMENT: Record<LineSketch, string> = {
+  curved: 'lineSketchCurved',
+  freehand: 'lineSketchFreehand',
+  scribble: 'lineSketchScribble',
+};
+const GEOMETRY_LOCALS = new Set(['prstGeom', 'custGeom']);
+const isGeometry = (c: XmlNode): c is XmlElement =>
+  c.kind === 'element' && c.name.namespaceURI === NS.dml && GEOMETRY_LOCALS.has(c.name.localName);
+
+const sketchExt = (ln: XmlElement): XmlElement | null => {
+  const extLst = firstChildElement(ln, NAME_EXT_LST);
+  return (
+    extLst?.children.find(
+      (c): c is XmlElement =>
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        c.name.localName === 'ext' &&
+        c.attrs.some((a) => a.name.localName === 'uri' && a.value === SKETCH_EXT_URI),
+    ) ?? null
+  );
+};
+
+const sketchProps = (ln: XmlElement): XmlElement | null => {
+  const ext = sketchExt(ln);
+  return ext && firstChildElement(ext, NAME_SKETCH_PROPS);
+};
+
+/** Reads the sketched style from an `<a:ln>`; `null` for none. */
+export const readStrokeSketch = (ln: XmlElement): LineSketch | null => {
+  const props = sketchProps(ln);
+  const type = props && firstChildElement(props, NAME_SKETCH_TYPE);
+  const choice = type?.children.find((c): c is XmlElement => c.kind === 'element');
+  if (!choice || choice.name.namespaceURI !== NS_ASK) return null;
+  return LINE_SKETCHES.find((sketch) => SKETCH_ELEMENT[sketch] === choice.name.localName) ?? null;
+};
+
+/**
+ * True when the shape's geometry already is the sketched outline: Office
+ * writes the hand-drawn path into `<p:spPr>` and keeps the original geometry
+ * inside the sketch props, so a renderer must not roughen it a second time.
+ */
+export const hasSketchedGeometry = (ln: XmlElement): boolean =>
+  Boolean(sketchProps(ln)?.children.some(isGeometry));
+
+/**
+ * Sets (or with `null` removes) the sketched style on `spPr`'s outline.
+ *
+ * Office replaces the shape geometry with the generated hand-drawn path and
+ * keeps the original inside the props. This writer cannot generate that path,
+ * so it moves any kept original back into `spPr` and leaves the roughening to
+ * the renderer: afterwards `spPr` holds the shape's true outline. `seed` is
+ * written for a new sketch only; an existing one keeps its seed.
+ */
+export const setStrokeSketch = (
+  spPr: XmlElement,
+  sketch: LineSketch | null,
+  seed: number,
+): void => {
+  if (sketch !== null) oneOf(sketch, LINE_SKETCHES, 'setShapeStrokeSketch: sketch');
+  const existingLn = firstChildElement(spPr, NAME_LN);
+  if (sketch === null && !existingLn) return;
+  const ln = existingLn ?? ensureLn(spPr);
+  const extLst = firstChildElement(ln, NAME_EXT_LST);
+  const ext = sketchExt(ln);
+  const props = sketchProps(ln);
+  const original = props?.children.find(isGeometry);
+  if (props && original) {
+    const index = spPr.children.findIndex(isGeometry);
+    if (index >= 0) spPr.children.splice(index, 1, original);
+    props.children = props.children.filter((c) => c !== original);
+  }
+  if (sketch === null) {
+    if (ext && extLst) {
+      extLst.children = extLst.children.filter((c) => c !== ext);
+      if (!extLst.children.some((c) => c.kind === 'element'))
+        ln.children = ln.children.filter((c) => c !== extLst);
+    }
+    return;
+  }
+  const type = elem(NAME_SKETCH_TYPE, {
+    children: [elem(qname('ask', SKETCH_ELEMENT[sketch], NS_ASK))],
+  });
+  if (props) {
+    // CT_LineSketchStyleProperties is a sequence: geometry, type, seed, extLst.
+    const current = firstChildElement(props, NAME_SKETCH_TYPE);
+    if (current) props.children.splice(props.children.indexOf(current), 1, type);
+    else {
+      const next = props.children.findIndex(
+        (c) =>
+          c.kind === 'element' && (c.name.localName === 'seed' || c.name.localName === 'extLst'),
+      );
+      props.children.splice(next < 0 ? props.children.length : next, 0, type);
+    }
+    return;
+  }
+  const created = elem(NAME_SKETCH_PROPS, {
+    attrs: [attr(ATTR_SD, String(seed >>> 0))],
+    prefixDecls: new Map([['ask', NS_ASK]]),
+    children: [type],
+  });
+  if (ext) ext.children.push(created);
+  else {
+    const newExt = elem(NAME_EXT, { attrs: [attr(ATTR_URI, SKETCH_EXT_URI)], children: [created] });
+    if (extLst) extLst.children.push(newExt);
+    else insertLnChild(ln, elem(NAME_EXT_LST, { children: [newExt] }));
+  }
 };

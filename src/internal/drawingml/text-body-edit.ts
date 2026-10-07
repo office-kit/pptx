@@ -8,7 +8,12 @@ import {
   textContent,
   type XmlElement,
 } from '../xml/index.ts';
-import { applyRunFormat, resetRunFormat, type TextFormat } from './text-format.ts';
+import {
+  applyRunFormat,
+  type ImageEmbedder,
+  resetRunFormat,
+  type TextFormat,
+} from './text-format.ts';
 import { paragraphText, paragraphsOf, textBodyText } from './text-body.ts';
 
 const name = (local: string) => qname('a', local, NS.dml);
@@ -440,11 +445,19 @@ export function formatTextBodyRange(
   format: TextFormat,
   range: { start: number; end: number },
   reset = false,
+  images?: ImageEmbedder,
 ): void {
-  applyRunFormat(elem(name('rPr')), format);
+  // Dry run on a detached copy: a rejected format must not split any run. It
+  // must not embed a picture either, which an empty range would leave unused.
+  applyRunFormat(
+    elem(name('rPr')),
+    format,
+    undefined,
+    images && { check: images.check, embed: () => '' },
+  );
   mutateTextBodyRangeProperties(txBody, range, (properties) => {
     if (reset) resetRunFormat(properties);
-    applyRunFormat(properties, format);
+    applyRunFormat(properties, format, undefined, images);
   });
 }
 
@@ -454,6 +467,7 @@ export function formatTextBodyParagraphEnd(
   paragraphIndex: number,
   format: TextFormat,
   reset = false,
+  images?: ImageEmbedder,
 ): void {
   const paragraph = paragraphsOf(txBody)[paragraphIndex];
   if (!paragraph) throw new RangeError(`paragraph index out of range: ${paragraphIndex}`);
@@ -461,7 +475,7 @@ export function formatTextBodyParagraphEnd(
   // Apply to a copy so invalid formatting cannot partially change the document.
   const properties = existing ? copy(existing) : elem(name('endParaRPr'));
   if (reset) resetRunFormat(properties);
-  applyRunFormat(properties, format);
+  applyRunFormat(properties, format, undefined, images);
   if (existing) paragraph.children[paragraph.children.indexOf(existing)] = properties;
   else paragraph.children.push(properties);
 }

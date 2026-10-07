@@ -1758,8 +1758,6 @@ export const ja: Record<string, string> = {
   'No line': '線なし',
   'Gradient line': '線 (グラデーション)',
   'Line type': '線の種類',
-  'Gradient lines are not supported by the library yet.':
-    'グラデーションの線はまだライブラリでサポートされていません。',
   'The editor has no point editor yet.': 'このエディタにはまだ頂点の編集機能がありません。',
   'The layered stacking view is not available in this editor.':
     'このエディタでは重なり順の立体表示を利用できません。',
@@ -1993,8 +1991,7 @@ export const ja: Record<string, string> = {
   'Glow transparency': '光彩の透明度',
   'No Soft Edges': 'ぼかしなし',
   'Soft edge size': 'ぼかしのサイズ',
-  'Soft edges on text are not supported by the library yet.':
-    '文字のぼかしはライブラリでまだサポートされていません。',
+  'PowerPoint does not offer soft edges for text.': 'PowerPoint では文字にぼかしを設定できません。',
   'Top bevel': '面取り: 上',
   'Bottom bevel': '面取り: 下',
   'Top bevel width': '面取り (上) の幅',
@@ -2021,22 +2018,18 @@ export const ja: Record<string, string> = {
   'Perspective applies to perspective presets only.':
     '透視投影は透視投影の標準スタイルでのみ使用できます。',
   'Keep text flat': 'テキストを立体表示しない',
-  'Keep text flat is not supported by the library yet.':
-    '「テキストを立体表示しない」はライブラリでまだサポートされていません。',
   'Distance from ground': '底面からの距離',
   'Text fill type': '文字の塗りつぶしの種類',
-  'No text fill is not supported by the library yet.':
-    '文字の塗りつぶしなしはライブラリでまだサポートされていません。',
-  'Picture fills for text are not supported by the library yet.':
-    '文字の図の塗りつぶしはライブラリでまだサポートされていません。',
   'Text Fill Color': '文字の塗りつぶしの色',
   'Text fill transparency': '文字の塗りつぶしの透明度',
   'Text outline type': '文字の輪郭の種類',
   'Text Outline Color': '文字の輪郭の色',
   'Text outline width': '文字の輪郭の幅',
   'Sketched style': 'スケッチ スタイル',
-  'Sketched lines are not supported by the library yet.':
-    'スケッチ スタイルの線はライブラリでまだサポートされていません。',
+  // Mac PowerPoint's Japanese build names both Freehand and Scribble フリーハンド.
+  Curved: '曲線',
+  Freehand: 'フリーハンド',
+  Scribble: 'フリーハンド',
   'Previous {name} gallery': '{name} ギャラリーの前の行',
   'Next {name} gallery': '{name} ギャラリーの次の行',
   'Transition Styles': '画面切り替え効果',
