@@ -110,9 +110,9 @@ describe('fn API: fly, zoom and spin', () => {
     expect(xml).toContain('<p:strVal val="hidden"');
   });
 
-  it('a zoom scales about the centre and states no direction', async () => {
+  it('a basic zoom scales about the centre and states no direction', async () => {
     const { pres, shape } = await openDeck();
-    setShapeAnimation(shape, { effect: 'zoomIn' });
+    setShapeAnimation(shape, { effect: 'basicZoomIn' });
     const inXml = await savedXml(pres);
     expect(inXml).toContain('presetID="23"');
     expect(inXml).toContain('presetSubtype="16"');
@@ -121,7 +121,7 @@ describe('fn API: fly, zoom and spin', () => {
     expect((await savedSteps(pres))[0]!.direction).toBeNull();
 
     const out = await openDeck();
-    setShapeAnimation(out.shape, { effect: 'zoomOut' });
+    setShapeAnimation(out.shape, { effect: 'basicZoomOut' });
     const outXml = await savedXml(out.pres);
     expect(outXml).toContain('presetSubtype="32"');
     expect(keyframes(animFor(outXml, 'ppt_w'))).toEqual(['ppt_w', '0']);
@@ -151,10 +151,12 @@ describe('fn API: fly, zoom and spin', () => {
       'fadeIn',
       'flyIn',
       'zoomIn',
+      'basicZoomIn',
       'disappear',
       'fadeOut',
       'flyOut',
       'zoomOut',
+      'basicZoomOut',
       'spin',
     ];
     for (const effect of effects) {
@@ -164,7 +166,9 @@ describe('fn API: fly, zoom and spin', () => {
       expect(step.effect, effect).toBe(effect);
       expect(step.playable, effect).toBe(true);
       expect(step.editable, effect).toBe(true);
-      expect(step.valueAfterEnd, effect).toBe('held');
+      // PowerPoint leaves `fill` off a filter and off every behaviour of an
+      // exit, so those state nothing about what is left behind.
+      expect(step.valueAfterEnd, effect).not.toBe('removed');
     }
   });
 
@@ -218,7 +222,7 @@ describe('fn API: fly, zoom and spin', () => {
     setShapeAnimation(shape, { effect: 'spin', durationMs: 1500 });
     const id = getSlideAnimations(slide)[0]!.id!;
 
-    updateSlideAnimation(slide, id, { byParagraph: true });
+    updateSlideAnimation(slide, id, { build: 'byParagraph' });
     const built = await savedSteps(pres);
     expect(built).toHaveLength(3);
     expect(built.map((step) => step.effect)).toEqual(['spin', 'spin', 'spin']);
@@ -233,15 +237,15 @@ describe('fn API: fly, zoom and spin', () => {
       [1, 1],
       [2, 2],
     ]);
-    expect(built.every((step) => step.buildByParagraph)).toBe(true);
+    expect(built.every((step) => step.build === 'byParagraph')).toBe(true);
     expect(built.every((step) => step.target.shapeId === spid)).toBe(true);
 
-    updateSlideAnimation(slide, getSlideAnimations(slide)[0]!.id!, { byParagraph: false });
+    updateSlideAnimation(slide, getSlideAnimations(slide)[0]!.id!, { build: 'asOneObject' });
     const whole = await savedSteps(pres);
     expect(whole).toHaveLength(1);
     expect(whole[0]!.effect).toBe('spin');
     expect(whole[0]!.target.kind).toBe('shape');
-    expect(whole[0]!.buildByParagraph).toBe(false);
+    expect(whole[0]!.build).toBe('asOneObject');
     expect(whole[0]!.durationMs).toBe(1500);
   });
 

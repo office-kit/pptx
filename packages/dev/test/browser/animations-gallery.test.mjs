@@ -7,12 +7,14 @@ import { chromium } from 'playwright';
 import { getSlideAnimations, getSlides, loadPresentation } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
-// The Entrance gallery's and the Exit Effects menu's presets that the library
-// writes can be chosen, together with every item of their Effect Options, in
-// English and Japanese. The rest stay listed but unavailable.
+// Every preset of the Entrance and Emphasis galleries and of the Exit Effects
+// menu can be chosen and writes its own effect, every item of its Effect
+// Options too, and Sequence offers PowerPoint's three builds — in English and
+// Japanese.
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="One" /><Shape preset="rect" x={5} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
 
-// Name → effect written and the number of Effect Options items above Sequence.
+// Name → effect written and the number of Effect Options items above Sequence,
+// in the galleries' order.
 const ENTRANCE = [
   ['Appear', 'appear', 0],
   ['Blinds', 'blindsIn', 2],
@@ -27,51 +29,104 @@ const ENTRANCE = [
   ['Wedge', 'wedgeIn', 0],
   ['Wheel', 'wheelIn', 5],
   ['Wipe', 'wipeIn', 4],
+  ['Expand', 'expandIn', 0],
   ['Fade', 'fadeIn', 0],
+  ['Swivel', 'swivelIn', 0],
   ['Zoom', 'zoomIn', 0],
+  ['Center Revolve', 'centerRevolveIn', 0],
+  ['Float In', 'floatIn', 0],
+  ['Grow & Turn', 'growTurnIn', 0],
+  ['Rise Up', 'riseUpIn', 0],
+  ['Spinner', 'spinnerIn', 0],
+  ['Basic Zoom', 'basicZoomIn', 0],
+  ['Stretch', 'stretchIn', 0],
+  ['Boomerang', 'boomerangIn', 0],
+  ['Bounce', 'bounceIn', 0],
+  ['Credits', 'creditsIn', 0],
+  ['Curve Up', 'curveUpIn', 0],
+  ['Drop', 'dropIn', 0],
+  ['Flip', 'flipIn', 0],
+  ['Float', 'floatingIn', 0],
+  ['Pinwheel', 'pinwheelIn', 0],
+  ['Spiral In', 'spiralIn', 0],
+  ['Basic Swivel', 'basicSwivelIn', 0],
+  ['Whip', 'whipIn', 0],
 ];
 
+const EMPHASIS = [
+  ['Fill Color', 'fillColor'],
+  ['Font Color', 'fontColor'],
+  ['Grow/Shrink', 'growShrink'],
+  ['Line Color', 'lineColor'],
+  ['Spin', 'spin'],
+  ['Transparency', 'transparency'],
+  ['Bold Flash', 'boldFlash'],
+  ['Brush Color', 'brushColor'],
+  ['Complementary Color', 'complementaryColor'],
+  ['Complementary Color 2', 'complementaryColor2'],
+  ['Contrasting Color', 'contrastingColor'],
+  ['Darken', 'darken'],
+  ['Desaturate', 'desaturate'],
+  ['Lighten', 'lighten'],
+  ['Object Color', 'objectColor'],
+  ['Pulse', 'pulse'],
+  ['Underline', 'underline'],
+  ['Color Pulse', 'colorPulse'],
+  ['Grow With Color', 'growWithColor'],
+  ['Shimmer', 'shimmer'],
+  ['Teeter', 'teeter'],
+  ['Blink', 'blink'],
+  ['Bold Reveal', 'boldReveal'],
+  ['Wave', 'wave'],
+];
+// PowerPoint writes no build for these, so they have no Sequence either.
+const UNBUILT = new Set(['fillColor', 'lineColor']);
+
 const EXIT = [
-  ['Disappear', 'クリア', 'disappear', 0],
   ['Blinds', 'ブラインド', 'blindsOut', 2],
   ['Checkerboard', 'チェッカーボード', 'checkerboardOut', 2],
+  ['Disappear', 'クリア', 'disappear', 0],
   ['Dissolve Out', 'ディゾルブアウト', 'dissolveOut', 0],
   ['Fly Out', 'スライドアウト', 'flyOut', 8],
-  ['Peek Out', 'クロール アウト', 'peekOut', 4],
-  ['Random Bars', 'ランダム ストライプ', 'randomBarsOut', 2],
+  ['Peek Out', 'ピークアウト', 'peekOut', 4],
+  ['Random Bars', 'ランダムストライプ', 'randomBarsOut', 2],
   ['Shape', '図形', 'shapeOut', 6],
   ['Split', 'スプリット', 'splitOut', 4],
-  ['Strips', 'ストリップス', 'stripsOut', 4],
+  ['Strips', 'ストリップ', 'stripsOut', 4],
   ['Wedge', 'くさび形', 'wedgeOut', 0],
   ['Wheel', 'ホイール', 'wheelOut', 5],
   ['Wipe', 'ワイプ', 'wipeOut', 4],
-  ['Contract', 'コントラクト', null, 0],
+  ['Contract', 'コントラクト', 'contractOut', 0],
   ['Fade', 'フェード', 'fadeOut', 0],
-  ['Swivel', 'ターン', null, 0],
+  ['Swivel', 'ターン', 'swivelOut', 0],
   ['Zoom', 'ズーム', 'zoomOut', 0],
-  ['Center Revolve', 'センター リボルブ', null, 0],
-  ['Boomerang', 'ブーメラン', null, 0],
-  ['Bounce', 'バウンド', null, 0],
-  ['Credits', 'クレジット タイトル', null, 0],
-  ['Curve Down', 'カーブ (下)', null, 0],
-  ['Drop', 'ドロップ', null, 0],
-  ['Flip', 'フリップ', null, 0],
-  ['Float', 'フロート', null, 0],
-  ['Pinwheel', '風車', null, 0],
-  ['Spiral Out', 'スパイラル アウト', null, 0],
-  ['Basic Swivel', 'ターン (基本)', null, 0],
-  ['Whip', 'ホイップ', null, 0],
+  ['Center Revolve', 'リボルブ', 'centerRevolveOut', 0],
+  ['Collapse', 'コラプス', 'collapseOut', 0],
+  ['Float Out', 'フロートアウト', 'floatOut', 0],
+  ['Shrink & Turn', '縮小および回転', 'shrinkTurnOut', 0],
+  ['Sink Down', 'シンク', 'sinkDownOut', 0],
+  ['Spinner', 'スピナー', 'spinnerOut', 0],
+  ['Basic Zoom', 'ベーシック ズーム', 'basicZoomOut', 0],
+  ['Stretchy', 'ゴム', 'stretchyOut', 0],
+  ['Boomerang', 'ブーメラン', 'boomerangOut', 0],
+  ['Bounce', 'バウンド', 'bounceOut', 0],
+  ['Credits', 'クレジット タイトル', 'creditsOut', 0],
+  ['Curve Down', 'カーブ (下)', 'curveDownOut', 0],
+  ['Drop', 'ドロップ', 'dropOut', 0],
+  ['Flip', 'フリップ', 'flipOut', 0],
+  ['Float', 'フロート', 'floatingOut', 0],
+  ['Pinwheel', 'ピンウィール', 'pinwheelOut', 0],
+  ['Spiral Out', 'スパイラルアウト', 'spiralOut', 0],
+  ['Basic Swivel', 'ベーシック ターン', 'basicSwivelOut', 0],
+  ['Whip', 'ホイップ', 'whipOut', 0],
 ];
 
-const SEQUENCE = [
-  { name: 'As One Object', disabled: false },
-  { name: 'All at Once', disabled: true },
-  { name: 'By Paragraph', disabled: false },
-];
+const SEQUENCE = ['As One Object', 'All at Once', 'By Paragraph'];
+const SEQUENCE_JA = ['1 つのオブジェクトとして', 'すべて同時', '段落別'];
 
 test(
-  'every entrance and exit preset the library writes, and its Effect Options, can be chosen',
-  { timeout: 300000 },
+  'every gallery preset, its Effect Options and its Sequence can be chosen',
+  { timeout: 600000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-animations-gallery-'));
     let preview, browser;
@@ -119,23 +174,29 @@ test(
       const effectOptions = button('Effect Options');
 
       // Every item above Sequence writes something the menu then shows as
-      // checked; Sequence keeps PowerPoint's three, All at Once unavailable.
-      const exerciseOptions = async (label, count) => {
+      // checked; Sequence follows with PowerPoint's three builds.
+      const exerciseOptions = async (label, effect, count) => {
+        const sequence = UNBUILT.has(effect) ? [] : SEQUENCE;
+        if (count === 0 && sequence.length === 0) {
+          assert.equal(await effectOptions.isDisabled(), true, `${label} has no options`);
+          return;
+        }
         await effectOptions.click();
         const items = await menuItems();
-        assert.equal(items.length, count + SEQUENCE.length, `${label} options`);
         assert.deepEqual(
           items.slice(count).map(({ name, disabled }) => ({ name, disabled })),
-          SEQUENCE,
+          sequence.map((name) => ({ name, disabled: false })),
           `${label} Sequence`,
         );
+        assert.equal(items.length, count + sequence.length, `${label} options`);
         const own = items.slice(0, count);
         assert.ok(
           own.every((item) => !item.disabled),
           `${label} options are all enabled`,
         );
-        for (const [at, item] of own.entries()) {
-          if (at > 0) await effectOptions.click();
+        await effectOptions.click();
+        for (const item of own) {
+          await effectOptions.click();
           await changed(() =>
             page.getByRole('menuitemradio', { name: item.name, exact: true }).click(),
           );
@@ -155,39 +216,47 @@ test(
       await page.locator('.hit').first().click();
       await page.getByRole('tab', { name: 'Animations', exact: true }).click();
 
-      // A fresh shape gets the preset's own default duration.
-      const tile = async (name) => {
-        const radio = panel.getByRole('radio', { name, exact: true });
-        while ((await radio.count()) === 0) await button('Next Entrance Effects gallery').click();
+      const tile = async (gallery, name) => {
+        const radio = panel
+          .getByRole('radiogroup', { name: gallery, exact: true })
+          .getByRole('radio', { name, exact: true });
+        // Back to the gallery's start, then forward a page at a time.
+        const previous = button(`Previous ${gallery} gallery`);
+        while ((await radio.count()) === 0 && (await previous.count()) > 0) await previous.click();
+        while ((await radio.count()) === 0) await button(`Next ${gallery} gallery`).click();
         return radio;
       };
-      await changed(async () => (await tile('Shape')).click());
+
+      // A fresh shape gets the preset's own default duration.
+      await changed(async () => (await tile('Entrance Effects', 'Shape')).click());
       assert.deepEqual(
         (await animations()).map((step) => [step.effect, step.durationMs]),
         [['shapeIn', 2000]],
       );
-      // Paging forward from the gallery's start again.
-      while (!(await panel.getByRole('radio', { name: 'Appear', exact: true }).count()))
-        await button('Previous Entrance Effects gallery').click();
 
-      for (const [en, effect, count] of ENTRANCE) {
-        const radio = await tile(en);
-        assert.equal(await radio.isDisabled(), false, en);
-        await changed(() => radio.click());
-        const [step] = await animations();
-        assert.equal(step.effect, effect, en);
-        assert.equal(await radio.getAttribute('aria-checked'), 'true', en);
-        await exerciseOptions(en, count);
+      for (const [gallery, list] of [
+        ['Entrance Effects', ENTRANCE],
+        ['Emphasis Effects', EMPHASIS],
+      ]) {
+        for (const [en, effect, count = 0] of list) {
+          const radio = await tile(gallery, en);
+          assert.equal(await radio.isDisabled(), false, en);
+          await changed(() => radio.click());
+          const steps = await animations();
+          assert.deepEqual(
+            steps.map((step) => step.effect),
+            [effect],
+            en,
+          );
+          assert.equal(await radio.getAttribute('aria-checked'), 'true', en);
+          await exerciseOptions(en, effect, count);
+        }
       }
 
       for (const [en, , effect, count] of EXIT) {
         await button('Exit Effects').click();
         const item = page.getByRole('menuitemradio', { name: en, exact: true });
-        assert.equal(await item.isDisabled(), effect === null, en);
-        if (effect === null) {
-          await button('Exit Effects').click();
-          continue;
-        }
+        assert.equal(await item.isDisabled(), false, en);
         await changed(() => item.click());
         assert.equal((await animations())[0].effect, effect, en);
         await button('Exit Effects').click();
@@ -199,7 +268,27 @@ test(
           `${en} is checked`,
         );
         await button('Exit Effects').click();
-        await exerciseOptions(`${en} (exit)`, count);
+        await exerciseOptions(`${en} (exit)`, effect, count);
+      }
+
+      // Sequence: each build is written and then shown as checked.
+      await changed(async () => (await tile('Entrance Effects', 'Fly In')).click());
+      for (const [name, build] of [
+        ['All at Once', 'allAtOnce'],
+        ['By Paragraph', 'byParagraph'],
+        ['As One Object', 'asOneObject'],
+      ]) {
+        await effectOptions.click();
+        await changed(() => page.getByRole('menuitemradio', { name, exact: true }).click());
+        assert.deepEqual(
+          (await animations()).map((step) => [step.effect, step.build]),
+          [['flyIn', build]],
+          name,
+        );
+        await effectOptions.click();
+        const checked = (await menuItems()).filter((entry) => entry.checked).map((e) => e.name);
+        assert.ok(checked.includes(name), `${name}: ${checked}`);
+        await effectOptions.click();
       }
 
       // An exit's directions say where the shape goes.
@@ -223,23 +312,31 @@ test(
       );
       await effectOptions.click();
 
-      // Japanese: the Exit Effects menu in PowerPoint's names, the same items
-      // available, and Effect Options in Japanese.
+      // Japanese: the Exit Effects menu in PowerPoint's names, all available,
+      // and Effect Options (Sequence included) in Japanese.
       await page.locator('.lang select').selectOption('ja');
       await page.getByRole('tab', { name: 'アニメーション', exact: true }).click();
       await panel.getByRole('button', { name: '終了効果', exact: true }).click();
-      const exitItems = await menuItems();
       assert.deepEqual(
-        exitItems.map(({ name, disabled }) => ({ name, disabled })),
-        EXIT.map(([, ja, effect]) => ({ name: ja, disabled: effect === null })),
+        (await menuItems()).map(({ name, disabled }) => ({ name, disabled })),
+        EXIT.map(([, ja]) => ({ name: ja, disabled: false })),
       );
       await panel.getByRole('button', { name: '終了効果', exact: true }).click();
       await panel.getByRole('button', { name: '効果のオプション', exact: true }).click();
+      const options = await menuItems();
       assert.deepEqual(
-        (await menuItems()).slice(0, 8).map((item) => item.name),
+        options.slice(0, 8).map((item) => item.name),
         ['下へ', '左下へ', '左へ', '左上へ', '上へ', '右上へ', '右へ', '右下へ'],
       );
-      assert.ok((await menuItems()).slice(0, 8).every((item) => !item.disabled));
+      assert.deepEqual(
+        options.slice(8).map((item) => item.name),
+        SEQUENCE_JA,
+      );
+      assert.ok(options.every((item) => !item.disabled));
+      await changed(() =>
+        page.getByRole('menuitemradio', { name: 'すべて同時', exact: true }).click(),
+      );
+      assert.equal((await animations())[0].build, 'allAtOnce');
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

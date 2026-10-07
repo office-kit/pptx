@@ -107,7 +107,7 @@ Compared against PptxGenJS 4.0.1:
 | Module formats                    | ESM only                                                                                                        | ESM, CommonJS, and a script-tag bundle                                           |
 | Runtime dependencies              | 1 (`fflate`)                                                                                                    | 4 (`jszip`, `image-size`, `https`, `@types/node`)                                |
 | Slide transitions                 | ✅                                                                                                              | ❌                                                                               |
-| Animations                        | ✅ Four entrance / exit presets                                                                                 | ❌                                                                               |
+| Animations                        | ✅ All 95 gallery presets                                                                                       | ❌                                                                               |
 | Comments                          | ✅                                                                                                              | ❌ (speaker notes only)                                                          |
 | Chart types you can author        | ✅ All 16 ECMA-376 plot types, incl. 3-D, stock, surface, pie-of-pie; combos, error bars, data table, date axis | Bar, line, area, pie, doughnut, scatter, bubble, radar, 3-D bar / bubble; combos |
 | Audio, video, YouTube embeds      | ✅ Embedded from bytes (Node and browser), with read-back (`getShapeMedia`); clips de-duplicated per deck       | ✅ From a path or base64; write-only                                             |
@@ -569,14 +569,22 @@ setShapeAnimation(shape, { effect: 'flyIn', direction: 'topLeft', start: 'afterP
 setShapeAnimation(shape, { effect: 'shapeOut', shape: 'diamond', inOut: 'out' });
 ```
 
-Entrance / exit pairs: `appear` / `disappear`, `fadeIn` / `fadeOut`,
-`flyIn` / `flyOut` (eight `direction`s), `zoomIn` / `zoomOut`, and
-PowerPoint's filter effects `wipe…`, `peek…` (four edges), `split…`
-(`orientation`, `inOut`), `blinds…`, `checkerboard…`, `randomBars…`
-(`orientation`), `shape…` (`shape`, `inOut`), `strips…` (four corners),
-`wheel…` (`spokes`), `dissolve…` and `wedge…`, each with an `In` and an `Out`
-form. Emphasis: `spin`. Each writes the preset numbers and behaviours
-PowerPoint writes for the same gallery entry, with its default duration.
+All 95 presets of PowerPoint's Entrance (35), Emphasis (24) and Exit (36)
+galleries are written exactly as PowerPoint writes them: the same preset
+numbers, behaviours, default duration and build entry. Entrances end in `In`
+and exits in `Out` (`flyIn` / `flyOut`, `basicZoomIn`, `growTurnIn` /
+`shrinkTurnOut`, `creditsIn`, …), except `appear` / `disappear`; emphasis
+effects have plain names (`spin`, `pulse`, `darken`, `fillColor`, `wave`, …).
+`zoomIn` / `zoomOut` are the Subtle gallery's Zoom (preset 53), and
+`basicZoomIn` / `basicZoomOut` are Basic Zoom (preset 23).
+
+Options are the ones PowerPoint's Effect Options offer: `direction` for `fly…`
+(eight), `wipe…` / `peek…` (four edges) and `strips…` (four corners);
+`orientation` for `blinds…`, `checkerboard…`, `randomBars…`; `orientation` and
+`inOut` for `split…`; `shape` and `inOut` for `shape…`; `spokes` for `wheel…`.
+`durationMs` rescales every behaviour of the effect together, the way
+PowerPoint's Duration box does. `build` is the Sequence option for text:
+`'asOneObject'` (the default), `'allAtOnce'` or `'byParagraph'`.
 
 ### Transitions
 

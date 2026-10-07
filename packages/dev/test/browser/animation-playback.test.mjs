@@ -112,7 +112,7 @@ test(
       setShapeAnimation(getSlideShapes(slides[1])[0], {
         effect: 'fadeIn',
         durationMs: 200,
-        byParagraph: true,
+        build: 'byParagraph',
       });
       // The arriving slide is drawn into a layer of its own while the slide
       // being left is still on screen: the build must find the right one.
@@ -826,7 +826,7 @@ test('the player runs only what the deck states', { timeout: 120000 }, async () 
       durationMs: 500,
       delayMs: 0,
       valueAfterEnd: 'held',
-      buildByParagraph: false,
+      build: 'asOneObject',
       buildLevel: null,
       sequence: 'mainSeq',
       playable: true,

@@ -2,126 +2,139 @@ import type {
   AnimationDirection,
   AnimationEffect,
   AnimationPatch,
+  AnimationTextBuild,
   SlideAnimationStep,
 } from '@office-kit/pptx';
 
 // Mac PowerPoint 16's Entrance, Emphasis and Exit galleries and each effect's
-// Effect Options menu, in its order and wording (English and Japanese).
-// Presets the library does not write are listed but unavailable.
-
-export const UNSUPPORTED_EFFECT = 'This effect is not supported by the library yet.';
+// Effect Options menu, in its order and wording (English and Japanese). The
+// keys are PowerPoint's gallery item ids (`<group>_<index>`, groups Basic,
+// Subtle, Moderate and Exciting); the names are its AX labels, with the "&"
+// the labels drop put back.
 
 export interface EffectTile {
   readonly key: string;
   readonly en: string;
   readonly ja: string;
   readonly kind: 'entrance' | 'emphasis' | 'exit';
-  readonly effect?: AnimationEffect;
-  readonly unavailable?: string;
+  readonly effect: AnimationEffect;
 }
 
 const tiles = (
   kind: EffectTile['kind'],
-  list: ReadonlyArray<readonly [string, string, AnimationEffect?]>,
-): EffectTile[] =>
-  list.map(([en, ja, effect]) =>
-    effect
-      ? { key: en, en, ja, kind, effect }
-      : { key: en, en, ja, kind, unavailable: UNSUPPORTED_EFFECT },
-  );
+  list: ReadonlyArray<readonly [string, string, string, AnimationEffect]>,
+): EffectTile[] => list.map(([key, en, ja, effect]) => ({ key, en, ja, kind, effect }));
 
 export const ENTRANCE_TILES: readonly EffectTile[] = tiles('entrance', [
-  ['Appear', 'アピール', 'appear'],
-  ['Blinds', 'ブラインド', 'blindsIn'],
-  ['Checkerboard', 'チェッカーボード', 'checkerboardIn'],
-  ['Dissolve In', 'ディゾルブイン', 'dissolveIn'],
-  ['Fly In', 'スライドイン', 'flyIn'],
-  ['Peek In', 'クロール イン', 'peekIn'],
-  ['Random Bars', 'ランダム ストライプ', 'randomBarsIn'],
-  ['Shape', '図形', 'shapeIn'],
-  ['Split', 'スプリット', 'splitIn'],
-  ['Strips', 'ストリップス', 'stripsIn'],
-  ['Wedge', 'くさび形', 'wedgeIn'],
-  ['Wheel', 'ホイール', 'wheelIn'],
-  ['Wipe', 'ワイプ', 'wipeIn'],
-  ['Expand', 'エクスパンド'],
-  ['Fade', 'フェード', 'fadeIn'],
-  ['Swivel', 'ターン'],
-  ['Zoom', 'ズーム', 'zoomIn'],
-  ['Center Revolve', 'センター リボルブ'],
-  ['Boomerang', 'ブーメラン'],
-  ['Bounce', 'バウンド'],
-  ['Credits', 'クレジット タイトル'],
-  ['Curve Up', 'カーブ (上)'],
-  ['Drop', 'ドロップ'],
-  ['Flip', 'フリップ'],
-  ['Float', 'フロート'],
-  ['Pinwheel', '風車'],
-  ['Spiral In', 'スパイラル イン'],
-  ['Basic Swivel', 'ターン (基本)'],
-  ['Whip', 'ホイップ'],
+  ['0_0', 'Appear', '表示', 'appear'],
+  ['0_1', 'Blinds', 'ブラインド', 'blindsIn'],
+  ['0_2', 'Checkerboard', 'チェッカーボード', 'checkerboardIn'],
+  ['0_3', 'Dissolve In', 'ディゾルブイン', 'dissolveIn'],
+  ['0_4', 'Fly In', 'スライドイン', 'flyIn'],
+  ['0_5', 'Peek In', 'ピークイン', 'peekIn'],
+  ['0_6', 'Random Bars', 'ランダムストライプ', 'randomBarsIn'],
+  ['0_7', 'Shape', '図形', 'shapeIn'],
+  ['0_8', 'Split', 'スプリット', 'splitIn'],
+  ['0_9', 'Strips', 'ストリップ', 'stripsIn'],
+  ['0_10', 'Wedge', 'くさび形', 'wedgeIn'],
+  ['0_11', 'Wheel', 'ホイール', 'wheelIn'],
+  ['0_12', 'Wipe', 'ワイプ', 'wipeIn'],
+  ['1_0', 'Expand', 'エクスパンド', 'expandIn'],
+  ['1_1', 'Fade', 'フェード', 'fadeIn'],
+  ['1_2', 'Swivel', 'ターン', 'swivelIn'],
+  ['1_3', 'Zoom', 'ズーム', 'zoomIn'],
+  ['2_0', 'Center Revolve', 'リボルブ', 'centerRevolveIn'],
+  ['2_1', 'Float In', 'フロートイン', 'floatIn'],
+  ['2_2', 'Grow & Turn', 'グローとターン', 'growTurnIn'],
+  ['2_3', 'Rise Up', 'ライズ アップ', 'riseUpIn'],
+  ['2_4', 'Spinner', 'スピナー', 'spinnerIn'],
+  ['2_5', 'Basic Zoom', 'ベーシック ズーム', 'basicZoomIn'],
+  ['2_6', 'Stretch', 'ストレッチ', 'stretchIn'],
+  ['3_0', 'Boomerang', 'ブーメラン', 'boomerangIn'],
+  ['3_1', 'Bounce', 'バウンド', 'bounceIn'],
+  ['3_2', 'Credits', 'クレジット タイトル', 'creditsIn'],
+  ['3_3', 'Curve Up', 'カーブ (上)', 'curveUpIn'],
+  ['3_4', 'Drop', 'ドロップ', 'dropIn'],
+  ['3_5', 'Flip', 'フリップ', 'flipIn'],
+  ['3_6', 'Float', 'フロート', 'floatingIn'],
+  ['3_7', 'Pinwheel', 'ピンウィール', 'pinwheelIn'],
+  ['3_8', 'Spiral In', 'スパイラルイン', 'spiralIn'],
+  ['3_9', 'Basic Swivel', 'ベーシック ターン', 'basicSwivelIn'],
+  ['3_10', 'Whip', 'ホイップ', 'whipIn'],
 ]);
 
 export const EMPHASIS_TILES: readonly EffectTile[] = tiles('emphasis', [
-  ['Fill Color', '塗りつぶしの色'],
-  ['Font Color', 'フォントの色'],
-  ['Grow/Shrink', '拡大/収縮'],
-  ['Line Color', '線の色'],
-  ['Spin', 'スピン', 'spin'],
-  ['Transparency', '透過性'],
-  ['Bold Flash', 'ボールド フラッシュ'],
-  ['Brush Color', 'ブラシの色'],
-  ['Complementary Color', '補色'],
-  ['Complementary Color 2', '補色 2'],
-  ['Contrasting Color', '対照色'],
-  ['Darken', '暗く'],
-  ['Desaturate', '彩度を下げる'],
-  ['Lighten', '明るく'],
-  ['Object Color', 'オブジェクトの色'],
-  ['Pulse', 'パルス'],
-  ['Underline', '下線'],
-  ['Color Pulse', 'カラー パルス'],
-  ['Grow With Color', '拡大 (色付き)'],
-  ['Shimmer', 'シマー'],
-  ['Teeter', 'シーソー'],
-  ['Blink', 'ブリンク'],
-  ['Bold Reveal', 'ボールド表示'],
-  ['Wave', 'ウェーブ'],
+  ['0_0', 'Fill Color', '塗りつぶしの色', 'fillColor'],
+  ['0_1', 'Font Color', 'フォントの色', 'fontColor'],
+  ['0_2', 'Grow/Shrink', '拡大/収縮', 'growShrink'],
+  ['0_3', 'Line Color', '線の色', 'lineColor'],
+  ['0_4', 'Spin', 'スピン', 'spin'],
+  ['0_5', 'Transparency', '透過性', 'transparency'],
+  ['1_0', 'Bold Flash', 'ボールドフラッシュ', 'boldFlash'],
+  ['1_1', 'Brush Color', 'ブラシの色', 'brushColor'],
+  ['1_2', 'Complementary Color', '補色', 'complementaryColor'],
+  ['1_3', 'Complementary Color 2', '補色 2', 'complementaryColor2'],
+  ['1_4', 'Contrasting Color', 'カラー コントラスト', 'contrastingColor'],
+  ['1_5', 'Darken', '暗く', 'darken'],
+  ['1_6', 'Desaturate', '薄く', 'desaturate'],
+  ['1_7', 'Lighten', '明るく', 'lighten'],
+  ['1_8', 'Object Color', 'オブジェクト カラー', 'objectColor'],
+  ['1_9', 'Pulse', 'パルス', 'pulse'],
+  ['1_10', 'Underline', '下線', 'underline'],
+  ['2_0', 'Color Pulse', 'カラー パルス', 'colorPulse'],
+  ['2_1', 'Grow With Color', 'カラーで拡大', 'growWithColor'],
+  ['2_2', 'Shimmer', 'シマー', 'shimmer'],
+  ['2_3', 'Teeter', 'シーソー', 'teeter'],
+  ['3_0', 'Blink', 'ブリンク', 'blink'],
+  ['3_1', 'Bold Reveal', '太字表示', 'boldReveal'],
+  ['3_2', 'Wave', 'ウェーブ', 'wave'],
 ]);
 
-// The Exit Effects gallery: the entrance gallery's counterparts, in the same
-// order, with PowerPoint's exit names where they differ.
 export const EXIT_TILES: readonly EffectTile[] = tiles('exit', [
-  ['Disappear', 'クリア', 'disappear'],
-  ['Blinds', 'ブラインド', 'blindsOut'],
-  ['Checkerboard', 'チェッカーボード', 'checkerboardOut'],
-  ['Dissolve Out', 'ディゾルブアウト', 'dissolveOut'],
-  ['Fly Out', 'スライドアウト', 'flyOut'],
-  ['Peek Out', 'クロール アウト', 'peekOut'],
-  ['Random Bars', 'ランダム ストライプ', 'randomBarsOut'],
-  ['Shape', '図形', 'shapeOut'],
-  ['Split', 'スプリット', 'splitOut'],
-  ['Strips', 'ストリップス', 'stripsOut'],
-  ['Wedge', 'くさび形', 'wedgeOut'],
-  ['Wheel', 'ホイール', 'wheelOut'],
-  ['Wipe', 'ワイプ', 'wipeOut'],
-  ['Contract', 'コントラクト'],
-  ['Fade', 'フェード', 'fadeOut'],
-  ['Swivel', 'ターン'],
-  ['Zoom', 'ズーム', 'zoomOut'],
-  ['Center Revolve', 'センター リボルブ'],
-  ['Boomerang', 'ブーメラン'],
-  ['Bounce', 'バウンド'],
-  ['Credits', 'クレジット タイトル'],
-  ['Curve Down', 'カーブ (下)'],
-  ['Drop', 'ドロップ'],
-  ['Flip', 'フリップ'],
-  ['Float', 'フロート'],
-  ['Pinwheel', '風車'],
-  ['Spiral Out', 'スパイラル アウト'],
-  ['Basic Swivel', 'ターン (基本)'],
-  ['Whip', 'ホイップ'],
+  ['0_0', 'Blinds', 'ブラインド', 'blindsOut'],
+  ['0_1', 'Checkerboard', 'チェッカーボード', 'checkerboardOut'],
+  ['0_2', 'Disappear', 'クリア', 'disappear'],
+  ['0_3', 'Dissolve Out', 'ディゾルブアウト', 'dissolveOut'],
+  ['0_4', 'Fly Out', 'スライドアウト', 'flyOut'],
+  ['0_5', 'Peek Out', 'ピークアウト', 'peekOut'],
+  ['0_6', 'Random Bars', 'ランダムストライプ', 'randomBarsOut'],
+  ['0_7', 'Shape', '図形', 'shapeOut'],
+  ['0_8', 'Split', 'スプリット', 'splitOut'],
+  ['0_9', 'Strips', 'ストリップ', 'stripsOut'],
+  ['0_10', 'Wedge', 'くさび形', 'wedgeOut'],
+  ['0_11', 'Wheel', 'ホイール', 'wheelOut'],
+  ['0_12', 'Wipe', 'ワイプ', 'wipeOut'],
+  ['1_0', 'Contract', 'コントラクト', 'contractOut'],
+  ['1_1', 'Fade', 'フェード', 'fadeOut'],
+  ['1_2', 'Swivel', 'ターン', 'swivelOut'],
+  ['1_3', 'Zoom', 'ズーム', 'zoomOut'],
+  ['2_0', 'Center Revolve', 'リボルブ', 'centerRevolveOut'],
+  ['2_1', 'Collapse', 'コラプス', 'collapseOut'],
+  ['2_2', 'Float Out', 'フロートアウト', 'floatOut'],
+  ['2_3', 'Shrink & Turn', '縮小および回転', 'shrinkTurnOut'],
+  ['2_4', 'Sink Down', 'シンク', 'sinkDownOut'],
+  ['2_5', 'Spinner', 'スピナー', 'spinnerOut'],
+  ['2_6', 'Basic Zoom', 'ベーシック ズーム', 'basicZoomOut'],
+  ['2_7', 'Stretchy', 'ゴム', 'stretchyOut'],
+  ['3_0', 'Boomerang', 'ブーメラン', 'boomerangOut'],
+  ['3_1', 'Bounce', 'バウンド', 'bounceOut'],
+  ['3_2', 'Credits', 'クレジット タイトル', 'creditsOut'],
+  ['3_3', 'Curve Down', 'カーブ (下)', 'curveDownOut'],
+  ['3_4', 'Drop', 'ドロップ', 'dropOut'],
+  ['3_5', 'Flip', 'フリップ', 'flipOut'],
+  ['3_6', 'Float', 'フロート', 'floatingOut'],
+  ['3_7', 'Pinwheel', 'ピンウィール', 'pinwheelOut'],
+  ['3_8', 'Spiral Out', 'スパイラルアウト', 'spiralOut'],
+  ['3_9', 'Basic Swivel', 'ベーシック ターン', 'basicSwivelOut'],
+  ['3_10', 'Whip', 'ホイップ', 'whipOut'],
 ]);
+
+/** Every gallery's tiles, for lists that offer them all (the animation pane). */
+export const ALL_TILES: readonly EffectTile[] = [
+  ...ENTRANCE_TILES,
+  ...EMPHASIS_TILES,
+  ...EXIT_TILES,
+];
 
 /** One item of an Effect Options section. */
 export interface EffectOption {
@@ -261,5 +274,18 @@ export const effectDirections = (effect: AnimationEffect): AnimationDirection[] 
     .flatMap((s) => s.items)
     .flatMap((item) => (item.patch.direction === undefined ? [] : [item.patch.direction]));
 
-export const UNSUPPORTED_SEQUENCE =
-  'Animating all paragraphs at once is not supported by the library yet.';
+/** Effect Options ▸ Sequence, in PowerPoint's order. */
+export const SEQUENCE: ReadonlyArray<{ readonly build: AnimationTextBuild; readonly en: string }> =
+  [
+    { build: 'asOneObject', en: 'As One Object' },
+    { build: 'allAtOnce', en: 'All at Once' },
+    { build: 'byParagraph', en: 'By Paragraph' },
+  ];
+
+// PowerPoint writes no build entry for Fill Color and Line Color: they colour
+// the shape itself, so they have no Sequence to offer.
+const UNBUILT: ReadonlySet<AnimationEffect> = new Set(['fillColor', 'lineColor']);
+
+/** Whether the effect takes a Sequence (a text build). */
+export const takesSequence = (effect: AnimationEffect | null): boolean =>
+  effect !== null && !UNBUILT.has(effect);

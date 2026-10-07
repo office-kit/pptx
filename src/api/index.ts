@@ -87,6 +87,7 @@ export type {
   AnimationStart,
   AnimationStartCondition,
   AnimationTarget,
+  AnimationTextBuild,
   AnimationValueAfterEnd,
   SlideAnimationStep,
 } from './fn.ts';

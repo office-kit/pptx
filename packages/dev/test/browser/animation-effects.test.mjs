@@ -34,7 +34,7 @@ const step = (over) => ({
   durationMs: DURATION,
   delayMs: 0,
   valueAfterEnd: 'held',
-  buildByParagraph: false,
+  build: 'asOneObject',
   buildLevel: null,
   sequence: 'mainSeq',
   playable: true,
@@ -115,6 +115,7 @@ const scene = (page, { steps, go, at, watch, reduced }) =>
           scale: style.scale,
           opacity: style.opacity,
           clipPath: style.clipPath,
+          filter: style.filter,
           visibility: el.style.visibility || 'visible',
           top: box.top,
           bottom: box.bottom,
@@ -273,7 +274,7 @@ test('a fly over a build moves one paragraph at a time', async () => {
         direction: 'left',
         target: para(n),
         targetShapeIds: [12],
-        buildByParagraph: true,
+        build: 'byParagraph',
       }),
     );
     const first = await scene(page, {
@@ -338,7 +339,7 @@ test('a fly and a spin over one shape both take effect, playing forward and on r
 test('a zoom and a spin over one shape both take effect', async () => {
   await withBrowser(async (page) => {
     const steps = [
-      step({ id: 1, effect: 'zoomIn', direction: null, presetId: 23 }),
+      step({ id: 1, effect: 'basicZoomIn', direction: null, presetId: 23 }),
       step({
         id: 2,
         effect: 'spin',
@@ -534,7 +535,7 @@ test(
       );
       const [flier, zoomer, spinner] = getSlideShapes(getSlides(deck)[0]);
       setShapeAnimation(flier, { effect: 'flyIn', direction: 'left', durationMs: 2000 });
-      setShapeAnimation(zoomer, { effect: 'zoomIn', durationMs: 2000, start: 'withPrevious' });
+      setShapeAnimation(zoomer, { effect: 'basicZoomIn', durationMs: 2000, start: 'withPrevious' });
       setShapeAnimation(spinner, { effect: 'spin', durationMs: 2000, start: 'withPrevious' });
 
       await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
@@ -740,5 +741,58 @@ test('dissolve plays as a fade', async () => {
     });
     const opacity = Number(half[shape(10)].opacity);
     assert.ok(opacity > 0 && opacity < 1, `opacity ${opacity}`);
+  });
+});
+
+// The presets with no direct browser equivalent are approximated as poses:
+// an entrance runs from its pose to the shape's place, an emphasis runs its
+// frames and gives the shape back as drawn.
+test('the other presets play as approximate poses', async () => {
+  await withBrowser(async (page) => {
+    const turn = (
+      await scene(page, {
+        steps: [step({ effect: 'growTurnIn', presetId: 31 })],
+        go: { advance: 1 },
+        at: DURATION / 2,
+        watch: [shape(10)],
+      })
+    )[shape(10)];
+    assert.ok(scales(turn.scale), `scale ${turn.scale}`);
+    assert.ok(turns(turn.rotate), `rotate ${turn.rotate}`);
+    assert.ok(Number(turn.opacity) > 0 && Number(turn.opacity) < 1, `opacity ${turn.opacity}`);
+
+    const credits = await scene(page, {
+      steps: [step({ effect: 'creditsIn', presetId: 28 })],
+      go: { advance: 1 },
+      at: 0,
+      watch: [shape(10)],
+    });
+    const rest = await scene(page, {
+      steps: [step({ effect: 'creditsIn', presetId: 28 })],
+      go: { advance: 1 },
+      at: null,
+      reduced: true,
+      watch: [shape(10)],
+    });
+    assert.ok(
+      credits[shape(10)].top > rest[shape(10)].bottom,
+      'credits rolls up from below the slide',
+    );
+
+    const darken = await scene(page, {
+      steps: [step({ effect: 'darken', presetId: 24, presetClass: 'emph' })],
+      go: { advance: 1 },
+      at: DURATION / 2,
+      watch: [shape(10)],
+    });
+    assert.match(darken[shape(10)].filter, /brightness/);
+    const settled = await scene(page, {
+      steps: [step({ effect: 'darken', presetId: 24, presetClass: 'emph' })],
+      go: { advance: 1 },
+      at: null,
+      reduced: true,
+      watch: [shape(10)],
+    });
+    assertDrawnPlace(settled, settled[shape(10)], 'darken');
   });
 });
