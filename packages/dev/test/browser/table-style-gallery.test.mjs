@@ -117,6 +117,23 @@ test(
         11,
       );
       assert.equal(await items.locator('img').count(), 74);
+      // Themed Style 1's swatch carries the theme gradient with PowerPoint's
+      // over-saturated stop: accent 6 (#F79646) with tint 50% + satMod 300%
+      // is #FFBE87 in PowerPoint's own export (2 levels of sampling slack).
+      const themed = decodeURIComponent(
+        await gallery
+          .getByRole('menuitemradio', { name: 'Themed Style 1 - Accent 6', exact: true })
+          .locator('img')
+          .getAttribute('src'),
+      );
+      const firstStop = /<linearGradient[\s\S]*?stop-color="#([0-9A-Fa-f]{6})"/.exec(themed)?.[1];
+      assert.ok(firstStop, 'the swatch draws the theme gradient');
+      const reference = [0xff, 0xbe, 0x87];
+      for (const [i, level] of reference.entries())
+        assert.ok(
+          Math.abs(Number.parseInt(firstStop.slice(i * 2, i * 2 + 2), 16) - level) <= 2,
+          `gradient stop #${firstStop} is PowerPoint's #FFBE87`,
+        );
       // Picking one applies it and writes PowerPoint's definition.
       await changed(() =>
         gallery
