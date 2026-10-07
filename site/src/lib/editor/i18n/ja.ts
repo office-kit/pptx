@@ -1918,8 +1918,8 @@ export const ja: Record<string, string> = {
     '自動トリミングには Microsoft の画像サービスが必要です。',
   'The thesaurus needs the Microsoft reference service.':
     '類義語辞典には Microsoft の参照サービスが必要です。',
-  'The Format pane has no Text Options yet.':
-    '書式ウィンドウにはまだ文字のオプションがありません。',
+  'The Format pane has no Text Options for table cells yet.':
+    '書式ウィンドウにはまだ表のセルの文字のオプションがありません。',
   'Select the text to link first.': '先にリンクする文字列を選択してください。',
   'The editor has no Bullets and Numbering dialog yet.':
     'このエディタにはまだ [箇条書きと段落番号] ダイアログがありません。',

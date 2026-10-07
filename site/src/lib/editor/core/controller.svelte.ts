@@ -321,6 +321,13 @@ export class EditorController {
       this.formatPaneSections = { ...this.formatPaneSections, size: true, position: true };
   }
 
+  /** Opens the Format pane on Text Options (Format Text Effects... opens Text Effects). */
+  showTextFormat(tab: 'textFill' | 'textEffects' | 'textbox'): void {
+    this.showShapeFormat();
+    this.formatPaneOptions = 'text';
+    this.formatPaneTextTab = tab;
+  }
+
   showRotationOptions(): void {
     this.showShapeFormat('size');
     this.rotationFocusRequested = true;

@@ -155,9 +155,12 @@
     ];
   }
 
-  function textFormatItems(): Item[] {
+  // The Format pane's Text Options cover shape text; table cells have none yet.
+  function textFormatItems(cell: boolean): Item[] {
     return [
-      { label: 'Format Text Effects...', disabled: true, reason: 'The Format pane has no Text Options yet.', run: noop },
+      cell
+        ? { label: 'Format Text Effects...', disabled: true, reason: 'The Format pane has no Text Options for table cells yet.', run: noop }
+        : { label: 'Format Text Effects...', run: () => editor.showTextFormat('textEffects') },
       { label: 'Format Shape...', accel: '⇧⌘1', sep: true, run: () => editor.showShapeFormat() },
     ];
   }
@@ -169,7 +172,7 @@
       { label: 'Exit Edit Text', run: text.exit },
       ...paragraphItems(text),
       ...proofingItems(),
-      ...textFormatItems(),
+      ...textFormatItems(false),
       lockItem(editor.selectedShapes()),
       { label: 'Hyperlink...', accel: '⌘K', sep: true, disabled: !text.hasSelection, reason: 'Select the text to link first.', run: text.hyperlink },
       newComment(),
@@ -221,7 +224,7 @@
       { label: 'Merge Cells', disabled: !target || !canMergeTableBlock(target.cells, target.block), run: table(() => mergeSelectedCells(editor)) },
       { label: 'Split Cells...', sep: true, disabled: !mergedSelectedCell(editor), reason: 'The editor can split merged cells only.', run: table(() => splitSelectedCell(editor)) },
       ...proofingItems(),
-      ...textFormatItems(),
+      ...textFormatItems(true),
       lockItem(editor.selectedShapes()),
       text
         ? { label: 'Hyperlink...', accel: '⌘K', sep: true, disabled: !text.hasSelection, reason: 'Select the text to link first.', run: text.hyperlink }

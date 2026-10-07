@@ -52,7 +52,7 @@ const TEXT_MENU = [
   'Thesaurus... ⌃⌥⌘R (disabled)',
   'Translate... (disabled)',
   '----',
-  'Format Text Effects... (disabled)',
+  'Format Text Effects...',
   'Format Shape... ⇧⌘1',
   '----',
   'Lock',
@@ -317,6 +317,17 @@ test(
       await paragraph.getByRole('button', { name: 'Cancel', exact: true }).click();
       await paragraph.waitFor({ state: 'detached' });
       assert.equal((await state()).focused, true);
+
+      // Format Text Effects... opens the pane on Text Options ▸ Text Effects.
+      await contextOnSelection();
+      await menu.getByRole('menuitem', { name: 'Format Text Effects...', exact: true }).click();
+      assert.equal(
+        await editor
+          .getByRole('tab', { name: 'Text Effects', exact: true })
+          .getAttribute('aria-selected'),
+        'true',
+      );
+      assert.deepEqual(await state(), { focused: true, selected: 'Target' });
 
       // A gallery bullet applies to the paragraph being edited, still editing.
       await selectTarget();
