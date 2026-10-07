@@ -1,9 +1,9 @@
 <script lang="ts">
   import { mergeTextFormat } from '../core/merge-text-format.ts';
   import { onDestroy, onMount, tick, untrack } from 'svelte';
-  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextCase, type TextFormat } from '@office-kit/pptx';
+  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, setShapeText, setShapeParagraphs, findShapeById, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { deleteOutlineTitleRange, deleteOutlineTitleBodyRange, splitOutlineTitleRange, outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
+  import { deleteOutlineRange, splitOutlineTitleRange, splitOutlineTitle, outlineSlots, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
@@ -11,7 +11,7 @@
   import RichTextInput from './RichTextInput.svelte';
   import { outlineTextHtml } from '../core/outline-text-html.ts';
   import { richTextValue, selectRichText } from '../core/rich-text-dom.ts';
-  import { OutlineSelectionModel, type OutlineSelectionField, type OutlineClipboard } from '../core/outline-selection.ts';
+  import { OutlineSelectionModel, type OutlineSelectionField, type OutlineClipboard, type OutlinePoint, type OutlineRange } from '../core/outline-selection.ts';
   import { textCaseSelection } from '../core/text-case.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { stepFontSize, stepShapeFontSize } from '../core/font-size.ts';
@@ -97,68 +97,165 @@
     clearTimeout(timer);
     timer = setTimeout(commit, 600);
   }
-  async function replaceOutlineRange(text: string, label: string, formats: OutlineClipboard['formats'] = [], confirmed = false) {
-    const selected = selection.current();
+  /**
+   * Opening the confirmation modal blurs the editor. Commit drafts before
+   * taking the version snapshot so that this blur cannot invalidate it.
+   */
+  function commitDrafts(): number {
+    const drafts = selection.fields().map(field => ({ field, edits: field.flush() }))
+      .filter(draft => draft.edits.length);
+    if (drafts.length) doc.transact(t('Edit text'), () => {
+      for (const { field, edits } of drafts) field.apply(edits);
+    });
+    return doc.version;
+  }
+  /**
+   * Replace the shared range in one history step. A range that crosses a slide
+   * title merges slides; `split` then applies Enter at the caret, which starts
+   * a new slide when the caret is in a title.
+   */
+  async function replaceOutlineRange(text: string, label: string, options: { formats?: OutlineClipboard['formats']; confirmed?: boolean; range?: OutlineRange; split?: boolean } = {}) {
+    const { formats = [], confirmed = false, split = false } = options;
+    const selected = options.range ?? selection.current();
     if (!selected || selected.start.key === selected.end.key) {
       selection.replace(text, formats, label);
       return;
     }
-    const slots = getSlides(doc.pres).flatMap((sourceSlide, index) =>
-      outlineShapes(sourceSlide).map(item => ({ ...item, slide: sourceSlide, index,
-        key: `${getSlidePartName(sourceSlide)}:${item.id}` })));
-    const start = slots.find(item => item.key === selected.start.key && item.title);
+    const slots = outlineSlots(doc.pres);
+    const start = slots.find(item => item.key === selected.start.key);
     const end = slots.find(item => item.key === selected.end.key);
-    const joinsSlides = start && end && end.title && end.index > start.index;
-    if (start && end && ((start.slide === end.slide && !end.title) || joinsSlides)) {
+    const joinsSlides = start && end && end.index > start.index;
+    if (start && end && ((start.title && start.slide === end.slide && !end.title) || joinsSlides)) {
       const affected = getSlides(doc.pres).slice(start.index, end.index + 1);
       if (joinsSlides && !confirmed && affected.slice(1).some(outlineDemotionNeedsConfirmation)) {
-        // Opening the modal blurs the editor. Commit drafts before taking the
-        // version snapshot so that this blur cannot invalidate confirmation.
-        const drafts = selection.fields().map(field => ({ field, edits: field.flush() }))
-          .filter(draft => draft.edits.length);
-        if (drafts.length) doc.transact(t('Edit text'), () => {
-          for (const { field, edits } of drafts) field.apply(edits);
-        });
-        const version = doc.version;
+        const version = commitDrafts();
         pendingDeletion = () => {
-          if (doc.pres === presentation && doc.version === version) void replaceOutlineRange(text, label, formats, true);
+          if (doc.pres === presentation && doc.version === version) void replaceOutlineRange(text, label, { formats, confirmed: true, range: selected, split });
         };
         deletionDialog?.showModal();
         return;
       }
       const parts = new Set(affected.map(source => getSlidePartName(source)));
 
-      const key = start.key;
+      // The transaction can remove this field's slide and unmount it.
+      const owner = input.getElement()?.ownerDocument;
+      let key = start.key;
+      let caret = selected.start.offset + text.length;
       doc.transact(label, () => {
         for (const field of selection.fields()) {
           if (parts.has(field.key.slice(0, field.key.lastIndexOf(':')))) field.apply(field.flush());
         }
-        if (joinsSlides) deleteOutlineTitleRange(doc.pres, start.slide,
-          { id: start.id, offset: selected.start.offset },
-          { id: end.id, offset: selected.end.offset, slide: end.slide });
-        else deleteOutlineTitleBodyRange(start.slide,
-          { id: start.id, offset: selected.start.offset },
-          { id: end.id, offset: selected.end.offset });
-        if (text) replayTextEdits(findShapeById(start.slide, start.id)!,
-          [{ start: selected.start.offset, end: selected.start.offset, text, formats }]);
-        doc.selectShape(start.index, start.id);
+        deleteOutlineRange(doc.pres,
+          { slide: start.slide, id: start.id, offset: selected.start.offset },
+          { slide: end.slide, id: end.id, offset: selected.end.offset });
+        const head = findShapeById(start.slide, start.id)!;
+        const index = split && start.title
+          ? splitOutlineTitle(doc.pres, start.slide, head, { start: selected.start.offset, end: selected.start.offset })
+          : null;
+        if (index !== null) {
+          const next = getSlides(doc.pres)[index]!;
+          key = outlineSlots(doc.pres).find(item => item.slide === next && item.title)?.key ?? key;
+          caret = 0;
+          doc.selectSlide(index);
+        } else {
+          if (text) replayTextEdits(head, [{ start: selected.start.offset, end: selected.start.offset, text, formats }]);
+          doc.selectShape(start.index, start.id);
+        }
       });
       selection.clear();
       await tick();
-      const owner = input.getElement()?.ownerDocument;
       const active = owner?.activeElement;
       const version = doc.version;
       const restore = () => {
         if (doc.version !== version || owner?.activeElement !== active) return;
         const field = selection.fields().find(item => item.key === key);
         if (field) {
-          field.focus(selected.start.offset + text.length);
-          selection.setCaret(field, selected.start.offset + text.length);
+          field.focus(caret);
+          selection.setCaret(field, caret);
         }
       };
       if (owner?.defaultView) owner.defaultView.requestAnimationFrame(restore);
       else restore();
     } else selection.replace(text, formats, label);
+  }
+  /**
+   * Backspace at the start or Delete at the end of a field joins it with the
+   * neighbouring field when a title boundary lies between them, so the outline
+   * behaves as one text (the joined slide is merged). Collapsed bodies take
+   * part through the document, not the rendered fields.
+   */
+  function boundaryJoin(direction: -1 | 1): OutlineRange | null {
+    const current = input.getSelection();
+    const shared = selection.current();
+    if (shared && shared.start.key !== shared.end.key) return null;
+    if (current.start !== current.end || current.start !== (direction < 0 ? 0 : value.length)) return null;
+    const slots = outlineSlots(doc.pres);
+    const index = slots.findIndex(item => item.key === selectionField.key);
+    const neighbour = slots[index + direction];
+    if (index < 0 || !neighbour) return null;
+    const [first, second] = direction < 0 ? [neighbour, slots[index]!] : [slots[index]!, neighbour];
+    if (first.slide === second.slide && !(first.title && !second.title)) return null;
+    const length = selection.fields().find(field => field.key === first.key)?.text().length
+      ?? getShapeText(findShapeById(first.slide, first.id)!).length;
+    return { start: { key: first.key, offset: length }, end: { key: second.key, offset: 0 } };
+  }
+  // Option-drag copies on the Mac; Control-drag copies elsewhere.
+  function copyModifier(event: DragEvent): boolean { return event.altKey || event.ctrlKey; }
+  /**
+   * Dropping dragged outline text moves it, or copies it with the copy
+   * modifier, in one history step. A moved range that crosses a slide title
+   * merges slides exactly as deleting it would, with the same confirmation.
+   */
+  async function dropText(event: DragEvent) {
+    const drag = selection.textDrag();
+    if (!drag) return;
+    event.preventDefault(); event.stopPropagation();
+    selection.endTextDrag();
+    const point = selection.pointAt(event.clientX, event.clientY);
+    const copying = copyModifier(event);
+    if (!point || (!copying && selection.contains(point))) return;
+    const slots = outlineSlots(doc.pres);
+    const locate = (target: OutlinePoint) => {
+      const slot = slots.find(item => item.key === target.key);
+      return slot && { slide: slot.slide, id: slot.id, offset: target.offset, index: slot.index, key: slot.key };
+    };
+    const start = locate(drag.range.start);
+    const end = locate(drag.range.end);
+    const destination = locate(point);
+    if (!start || !end || !destination) return;
+    const after = selection.precedes(drag.range.end, point);
+    const apply = () => {
+      doc.transact(t(copying ? 'Copy' : 'Move text'), () => {
+        for (const field of selection.fields()) field.apply(field.flush());
+        const insert = () => replayTextEdits(findShapeById(destination.slide, destination.id)!,
+          [{ start: destination.offset, end: destination.offset, text: drag.clipboard.text, formats: drag.clipboard.formats }]);
+        if (copying) insert();
+        else if (after) { insert(); deleteOutlineRange(doc.pres, start, end); }
+        else { deleteOutlineRange(doc.pres, start, end); insert(); }
+      });
+      selection.clear();
+    };
+    if (!copying && end.index > start.index &&
+      getSlides(doc.pres).slice(start.index + 1, end.index + 1).some(outlineDemotionNeedsConfirmation)) {
+      const version = commitDrafts();
+      pendingDeletion = () => { if (doc.pres === presentation && doc.version === version) apply(); };
+      deletionDialog?.showModal();
+      return;
+    }
+    apply();
+    // Put the caret after the dropped text when its position is unaffected by
+    // the deletion: a drop before the range, on a later slide, or within the
+    // range's own field (which only shifts by the removed length).
+    let caret: number | null = destination.offset + drag.clipboard.text.length;
+    if (!copying && after && destination.index <= end.index) {
+      caret = start.key === end.key && destination.key === end.key ? caret - (end.offset - start.offset) : null;
+    }
+    await tick();
+    const field = selection.fields().find(item => item.key === destination.key);
+    if (field && caret !== null) {
+      field.focus(caret);
+      selection.setCaret(field, caret);
+    }
   }
   function copy(event: ClipboardEvent, cut = false) {
     if (!event.clipboardData || composing) return;
@@ -176,7 +273,7 @@
     const copied = parseTextClipboard(event.clipboardData.getData(TEXT_CLIPBOARD_TYPE), plain)
       ?? parseHtmlTextClipboard(event.clipboardData.getData('text/html'), plain);
     event.preventDefault(); event.stopPropagation();
-    void replaceOutlineRange(copied?.text ?? plain, t('Paste'), copied?.formats);
+    void replaceOutlineRange(copied?.text ?? plain, t('Paste'), { formats: copied?.formats });
   }
   async function menuClipboard(action: 'copy' | 'cut' | 'paste') {
     if (composing) return;
@@ -197,7 +294,7 @@
           item.types.includes(mimeType) ? (await item.getType(mimeType)).text() : ''));
         if (!current()) return;
         const copied = parseHtmlTextClipboard(html!, plain!);
-        await replaceOutlineRange(copied?.text ?? plain!, t('Paste'), copied?.formats);
+        await replaceOutlineRange(copied?.text ?? plain!, t('Paste'), { formats: copied?.formats });
       } else {
         if (selectedRange.start === selectedRange.end && !selection.current()) return;
         const copied = selection.copy();
@@ -317,6 +414,8 @@
   async function keys(event: KeyboardEvent) {
     if (event.isComposing) return;
     const mod = event.metaKey || event.ctrlKey;
+    const join = !mod && !event.altKey && !event.shiftKey && (event.key === 'Backspace' || event.key === 'Delete')
+      ? boundaryJoin(event.key === 'Backspace' ? -1 : 1) : null;
     if (mod && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 't') {
       event.preventDefault();
       event.stopPropagation();
@@ -341,6 +440,10 @@
       event.preventDefault();
       event.stopPropagation();
       selection.collapse(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+    else if (join) {
+      event.preventDefault(); event.stopPropagation();
+      await replaceOutlineRange('', t('Delete'), { range: join });
     }
     else if ((event.key === 'Backspace' || event.key === 'Delete') && selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
@@ -396,9 +499,7 @@
       selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
       const selected = selection.current()!;
-      const slots = getSlides(doc.pres).flatMap((sourceSlide, index) =>
-        outlineShapes(sourceSlide).map(item => ({ ...item, slide: sourceSlide, index,
-          key: `${getSlidePartName(sourceSlide)}:${item.id}` })));
+      const slots = outlineSlots(doc.pres);
       const start = slots.find(item => item.key === selected.start.key && item.title);
       const end = slots.find(item => item.key === selected.end.key);
       const sameSlideBody = start && end && start.slide === end.slide && !end.title && getSlideLayout(start.slide);
@@ -419,36 +520,19 @@
         selection.clear();
         await tick();
         ownerDocument.querySelector<HTMLElement>(`[data-outline-slide="${index}"] [role="textbox"]`)?.focus();
-      } else selection.replace('\n', [], t('Edit text'));
+      } else await replaceOutlineRange('\n', t('Edit text'), { split: true });
     }
     // Mac PowerPoint splits outline titles into slides for both Enter and Shift+Enter.
     else if (event.key === 'Enter' && !mod && !event.altKey && title) {
-      const layout = getSlideLayout(slide);
-      if (!layout) return;
+      if (!getSlideLayout(slide)) return;
       const ownerDocument = input.getElement()!.ownerDocument;
-      const { start, end } = input.getSelection();
+      const selected = input.getSelection();
       event.preventDefault(); event.stopPropagation(); commit();
       const source = doc.shapeById(slideIndex, shapeId)!;
-      const index = getSlides(doc.pres).indexOf(slide) + 1;
+      let index: number | null = null;
       doc.transact(t('New slide'), () => {
-        const next = addSlideAt(doc.pres, index, { layout });
-        const placeholders = outlineShapes(next);
-        for (const item of placeholders) setShapeText(findShapeById(next, item.id)!, '');
-        // Mac PowerPoint moves the following outline body when Enter splits a title.
-        // Copy whole placeholders so paragraph levels, bullets and links survive.
-        for (const item of placeholders) {
-          if (!item.title) removeShape(findShapeById(next, item.id)!);
-        }
-        for (const item of outlineShapes(slide)) {
-          if (item.title) continue;
-          const body = findShapeById(slide, item.id)!;
-          copyShape(next, body);
-          setShapeText(body, '');
-        }
-        const heading = placeholders.find(item => item.title);
-        if (heading) setShapeParagraphs(findShapeById(next, heading.id)!, { source, range: { start: end, end: value.length } });
-        setShapeText(source, '', { range: { start, end: value.length } });
-        doc.selectSlide(index);
+        index = splitOutlineTitle(doc.pres, slide, source, selected);
+        if (index !== null) doc.selectSlide(index);
       });
       await tick();
       ownerDocument.querySelector<HTMLElement>(`[data-outline-slide="${index}"] [role="textbox"]`)?.focus();
@@ -547,8 +631,26 @@
       transact: (label, fn) => doc.transact(label, fn),
       focus: offset => { input.focus(); input.setSelectionRange(offset, offset); },
       setRange: offset => { range = { start: offset, end: offset }; },
+      select: (start, end) => { input.focus(); input.setSelectionRange(start, end); range = { start, end }; },
+      get title() { return title; },
+      changeLevel,
     };
-    return selection.register(selectionField);
+    const root = input.getElement()!;
+    const dragOver = (event: DragEvent) => {
+      if (!selection.textDrag()) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = copyModifier(event) ? 'copy' : 'move';
+    };
+    const drop = (event: DragEvent) => { void dropText(event); };
+    root.addEventListener('dragover', dragOver);
+    root.addEventListener('drop', drop);
+    const unregister = selection.register(selectionField);
+    return () => {
+      root.removeEventListener('dragover', dragOver);
+      root.removeEventListener('drop', drop);
+      unregister();
+    };
   });
   onDestroy(() => untrack(commit));
 </script>
@@ -567,12 +669,11 @@
     if (active) {
       clearTimeout(timer);
       const selected = selection.current();
-      const slots = getSlides(doc.pres).flatMap((source, index) => outlineShapes(source).map(item =>
-        ({ ...item, index, key: `${getSlidePartName(source)}:${item.id}` })));
+      const slots = outlineSlots(doc.pres);
       const start = slots.find(item => item.key === selected?.start.key);
       const end = slots.find(item => item.key === selected?.end.key);
-      titleBodyComposition = !!start && !!end && start.key !== end.key && start.title
-        && ((start.index === end.index && !end.title) || (end.index > start.index && end.title));
+      titleBodyComposition = !!start && !!end && start.key !== end.key
+        && ((start.index === end.index && start.title && !end.title) || end.index > start.index);
       // Keep the IME inside one editable root; native cross-root deletion can cancel composition.
       if (titleBodyComposition) input.setSelectionRange(range.start, range.start);
     } else if (titleBodyComposition) {

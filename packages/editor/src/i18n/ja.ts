@@ -1003,6 +1003,8 @@ export const ja: Record<string, string> = {
   'Move slide down': 'スライドを下へ移動',
   'Move Up': '上へ移動',
   'Move Down': '下へ移動',
+  'Move text': 'テキストの移動',
+  'Move paragraphs': '段落の移動',
   Move: '移動',
   Download: 'ダウンロード',
   'Preview unavailable': 'プレビューに接続できません',

@@ -22,6 +22,7 @@ import {
   copyShape,
   removeShape,
   type SlideData,
+  getSlidePartName,
 } from '@office-kit/pptx';
 
 /** PowerPoint's outline excludes ordinary text boxes and footer placeholders. */
@@ -71,38 +72,237 @@ export function deleteOutlineTitleBodyRange(
   return true;
 }
 
-/** Mac PowerPoint merges slides when deleting between their outline titles. */
-export function deleteOutlineTitleRange(
+export type OutlineLocation = { slide: SlideData; id: number; offset: number };
+
+/** Every outline field in display order, keyed as the outline view keys its inputs. */
+export function outlineSlots(pres: PresentationData) {
+  return getSlides(pres).flatMap((slide, index) =>
+    outlineShapes(slide).map((item) => ({
+      ...item,
+      slide,
+      index,
+      key: `${getSlidePartName(slide)}:${item.id}`,
+    })),
+  );
+}
+
+function paragraphSpans(shape: SlideShapeData): Array<{ start: number; end: number }> {
+  let offset = 0;
+  return getShapeParagraphElements(shape).map((elements) => {
+    const start = offset;
+    const end =
+      start +
+      elements.reduce(
+        (length, element) => length + (element.kind === 'br' ? 1 : element.text.length),
+        0,
+      );
+    offset = end + 1;
+    return { start, end };
+  });
+}
+
+/**
+ * Deleting across a slide boundary treats the outline as one text: slides
+ * whose titles fall inside the range are removed, the end paragraph's suffix
+ * joins the start paragraph (which keeps its title or body level), and the
+ * end slide's remaining body moves onto the start slide. Native comparison
+ * covers title-to-title; the body-start and body-end cases follow the same
+ * text model (see POWERPOINT_PARITY.md).
+ */
+export function deleteOutlineSlideRange(
   pres: PresentationData,
-  slide: SlideData,
-  start: { id: number; offset: number },
-  end: { id: number; offset: number; slide: SlideData },
+  start: OutlineLocation,
+  end: OutlineLocation,
 ): boolean {
   const slides = getSlides(pres);
-  const from = slides.indexOf(slide);
+  const from = slides.indexOf(start.slide);
   const to = slides.indexOf(end.slide);
-  if (
-    from < 0 ||
-    to <= from ||
-    !outlineShapes(slide).some((item) => item.id === start.id && item.title) ||
-    !outlineShapes(end.slide).some((item) => item.id === end.id && item.title)
-  )
-    return false;
-  const title = findShapeById(slide, start.id)!;
-  const lastTitle = findShapeById(end.slide, end.id)!;
-  const length = getShapeText(title).length;
-  const bodies = outlineShapes(end.slide)
+  const startShapes = outlineShapes(start.slide);
+  const endShapes = outlineShapes(end.slide);
+  const first = startShapes.findIndex((item) => item.id === start.id);
+  const last = endShapes.findIndex((item) => item.id === end.id);
+  if (from < 0 || to <= from || first < 0 || last < 0) return false;
+  const startsInTitle = startShapes[first]!.title;
+  const endsInTitle = endShapes[last]!.title;
+  const head = findShapeById(start.slide, start.id)!;
+  const tail = findShapeById(end.slide, end.id)!;
+  const following = endShapes
+    .slice(last + 1)
     .filter((item) => !item.title)
     .map((item) => findShapeById(end.slide, item.id)!);
-  const target = bodies.length ? outlineBodyTarget(slide) : null;
-  setShapeParagraphs(title, { sources: [title, lastTitle] });
-  setShapeText(title, '', { range: { start: start.offset, end: length + 1 + end.offset } });
-  for (const item of outlineShapes(slide)) {
-    if (!item.title) setShapeText(findShapeById(slide, item.id)!, '');
+  const length = getShapeText(head).length;
+  setShapeParagraphs(head, { sources: [head, tail] });
+  setShapeText(head, '', { range: { start: start.offset, end: length + 1 + end.offset } });
+  for (const item of startShapes.slice(first + 1))
+    setShapeText(findShapeById(start.slide, item.id)!, '');
+  let body = startsInTitle ? null : head;
+  if (startsInTitle && !endsInTitle) {
+    // The joined paragraph stays in the title; later paragraphs of the end
+    // body remain body text, as in deleteOutlineTitleBodyRange.
+    const text = getShapeText(head);
+    const boundary = paragraphSpans(head).find((span) => span.end >= start.offset)!.end;
+    body = outlineBodyTarget(start.slide);
+    setShapeParagraphs([head, body], {
+      source: head,
+      ranges: [
+        { start: 0, end: boundary },
+        { start: Math.min(boundary + 1, text.length), end: text.length },
+      ],
+    });
   }
-  if (target) setShapeParagraphs(target, { sources: bodies });
+  if (following.length) {
+    body ??= outlineBodyTarget(start.slide);
+    // The caret paragraph survives even when empty; an emptied body does not.
+    const keep = body === head || getShapeText(body) !== '';
+    setShapeParagraphs(body, { sources: [...(keep ? [body] : []), ...following] });
+  }
   for (const removed of slides.slice(from + 1, to + 1)) removeSlide(pres, removed);
   return true;
+}
+
+/**
+ * Delete any ordered outline range. Within one slide, separate bodies stay
+ * separate shapes; only a title-to-body range joins text across fields.
+ */
+export function deleteOutlineRange(
+  pres: PresentationData,
+  start: OutlineLocation,
+  end: OutlineLocation,
+): boolean {
+  if (start.slide !== end.slide) return deleteOutlineSlideRange(pres, start, end);
+  const shapes = outlineShapes(start.slide);
+  const from = shapes.findIndex((item) => item.id === start.id);
+  const to = shapes.findIndex((item) => item.id === end.id);
+  if (from < 0 || to < from) return false;
+  const head = findShapeById(start.slide, start.id)!;
+  if (from === to) {
+    setShapeText(head, '', { range: { start: start.offset, end: end.offset } });
+    return true;
+  }
+  if (shapes[from]!.title && !shapes[to]!.title)
+    return deleteOutlineTitleBodyRange(start.slide, start, end);
+  setShapeText(head, '', { range: { start: start.offset, end: getShapeText(head).length } });
+  for (const item of shapes.slice(from + 1, to))
+    setShapeText(findShapeById(start.slide, item.id)!, '');
+  setShapeText(findShapeById(end.slide, end.id)!, '', { range: { start: 0, end: end.offset } });
+  return true;
+}
+
+/**
+ * Enter in an outline title starts a new slide after it with the same layout.
+ * Mac PowerPoint moves the title suffix and the whole following body there.
+ */
+export function splitOutlineTitle(
+  pres: PresentationData,
+  slide: SlideData,
+  source: SlideShapeData,
+  range: { start: number; end: number },
+): number | null {
+  const layout = getSlideLayout(slide);
+  if (!layout) return null;
+  const length = getShapeText(source).length;
+  const index = getSlides(pres).indexOf(slide) + 1;
+  const next = addSlideAt(pres, index, { layout });
+  const placeholders = outlineShapes(next);
+  for (const item of placeholders) setShapeText(findShapeById(next, item.id)!, '');
+  // Copy whole placeholders so paragraph levels, bullets and links survive.
+  for (const item of placeholders) {
+    if (!item.title) removeShape(findShapeById(next, item.id)!);
+  }
+  for (const item of outlineShapes(slide)) {
+    if (item.title) continue;
+    const body = findShapeById(slide, item.id)!;
+    copyShape(next, body);
+    setShapeText(body, '');
+  }
+  const heading = placeholders.find((item) => item.title);
+  if (heading)
+    setShapeParagraphs(findShapeById(next, heading.id)!, {
+      source,
+      range: { start: range.end, end: length },
+    });
+  setShapeText(source, '', { range: { start: range.start, end: length } });
+  return index;
+}
+
+/** A paragraph and the deeper paragraphs after it, which a bullet click selects together. */
+export function outlineParagraphBlock(
+  shape: SlideShapeData,
+  index: number,
+): { first: number; last: number } {
+  const count = getShapeParagraphElements(shape).length;
+  const level = getParagraphLevel(shape, index);
+  let last = index;
+  while (last + 1 < count && getParagraphLevel(shape, last + 1) > level) last++;
+  return { first: index, last };
+}
+
+/** UTF-16 range covering whole paragraphs `first` through `last`. */
+export function outlineParagraphRange(
+  shape: SlideShapeData,
+  first: number,
+  last: number,
+): { start: number; end: number } {
+  const spans = paragraphSpans(shape);
+  return { start: spans[first]!.start, end: spans[last]!.end };
+}
+
+/**
+ * Move whole body paragraphs, keeping their XML (levels, bullets, links), to a
+ * paragraph boundary of any outline body, then shift their levels. A null
+ * target id is the slide's first body, added from the layout when missing.
+ * Returns the moved paragraphs' new location, or null when nothing changes.
+ */
+export function moveOutlineParagraphs(
+  source: { slide: SlideData; id: number; first: number; last: number },
+  target: { slide: SlideData; id: number | null; index: number },
+  levelOffset = 0,
+): { shape: SlideShapeData; first: number; last: number } | null {
+  const shape = findShapeById(source.slide, source.id)!;
+  const spans = paragraphSpans(shape);
+  const moving = spans.slice(source.first, source.last + 1);
+  const remaining = spans.filter((_, index) => index < source.first || index > source.last);
+  const destination =
+    target.id === null ? outlineBodyTarget(target.slide) : findShapeById(target.slide, target.id)!;
+  let first: number;
+  if (destination === shape) {
+    if (target.index >= source.first && target.index <= source.last + 1) {
+      if (!levelOffset) return null;
+      first = source.first;
+    } else {
+      first = target.index > source.last ? target.index - moving.length : target.index;
+      const ranges = [...remaining];
+      ranges.splice(first, 0, ...moving);
+      setShapeParagraphs(shape, { source: shape, ranges });
+    }
+  } else {
+    const targetSpans = paragraphSpans(destination);
+    if (!getShapeText(destination)) {
+      // An empty body holds one empty paragraph; the moved paragraphs replace it.
+      setShapeParagraphs(destination, { source: shape, ranges: moving });
+      first = 0;
+    } else {
+      // Ranges copy from one source, so append the paragraphs and then reorder.
+      setShapeParagraphs(destination, { sources: [destination, shape] });
+      const appended = paragraphSpans(destination).slice(targetSpans.length);
+      setShapeParagraphs(destination, {
+        source: destination,
+        ranges: [
+          ...targetSpans.slice(0, target.index),
+          ...appended.slice(source.first, source.last + 1),
+          ...targetSpans.slice(target.index),
+        ],
+      });
+      first = target.index;
+    }
+    if (remaining.length) setShapeParagraphs(shape, { source: shape, ranges: remaining });
+    else setShapeText(shape, '');
+  }
+  const last = first + moving.length - 1;
+  if (levelOffset)
+    for (let index = first; index <= last; index++)
+      setParagraphLevel(destination, index, { offset: levelOffset });
+  return { shape: destination, first, last };
 }
 
 /** Preserve PowerPoint's slide boundary when replacing an outline title range. */
