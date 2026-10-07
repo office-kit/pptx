@@ -225,7 +225,7 @@ test(
       ]);
       const none = await box(panel.getByRole('radio', { name: 'None', exact: true }));
       assert.deepEqual([none.width, none.height], [92, 56]);
-      assert.equal(await panel.getByRole('radio', { name: 'Morph' }).isDisabled(), true);
+      assert.equal(await panel.getByRole('radio', { name: 'Morph' }).isDisabled(), false);
       const duration = await box(panel.getByRole('spinbutton', { name: 'Duration:' }));
       assert.deepEqual([duration.width, duration.height], [78, 24]);
       const sound = await box(panel.getByRole('combobox', { name: 'Sound:' }));

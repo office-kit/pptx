@@ -54,8 +54,14 @@ export {
   getBuiltinTableStyle,
 } from './table-styles.ts';
 export { buildEmptyNotesSlide } from './notes-slide-builder.ts';
-export type { SlideTransition, TransitionEffect, TransitionOptions } from './transition-builder.ts';
-export { buildTransition } from './transition-builder.ts';
+export type {
+  MorphOption,
+  SlideTransition,
+  TransitionEffect,
+  TransitionOptions,
+  TransitionPreset,
+} from './transition-builder.ts';
+export { buildTransition, transitionEffectNamespace } from './transition-builder.ts';
 export type {
   AnimationDirection,
   AnimationEffect,

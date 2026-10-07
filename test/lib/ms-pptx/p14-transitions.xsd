@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The slide-transition part of the p14 schema, transcribed from [MS-PPTX]
+  v20240820 §5.1 (PowerPoint (.pptx) Extensions to the Office Open XML File
+  Format, Microsoft Open Specifications). Test-only: it validates the effect
+  elements setSlideTransition writes inside an mc:Choice Requires="p14".
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+  xmlns="http://schemas.microsoft.com/office/powerpoint/2010/main"
+  targetNamespace="http://schemas.microsoft.com/office/powerpoint/2010/main"
+  elementFormDefault="qualified" attributeFormDefault="unqualified">
+  <xsd:import namespace="http://schemas.openxmlformats.org/presentationml/2006/main"
+    schemaLocation="../../../references/ecma-376-5th/ECMA-376/OfficeOpenXML-XMLSchema-Transitional/pml.xsd"/>
+  <xsd:simpleType name="ST_TransitionPattern">
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="diamond"/>
+      <xsd:enumeration value="hexagon"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_TransitionCenterDirectionType">
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="center"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_TransitionShredPattern">
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="strip"/>
+      <xsd:enumeration value="rectangle"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_TransitionCornerAndCenterDirectionType">
+    <xsd:union memberTypes="p:ST_TransitionCornerDirectionType ST_TransitionCenterDirectionType"/>
+  </xsd:simpleType>
+  <xsd:simpleType name="ST_TransitionLeftRightDirectionType">
+    <xsd:restriction base="xsd:token">
+      <xsd:enumeration value="l"/>
+      <xsd:enumeration value="r"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="CT_LeftRightDirectionTransition">
+    <xsd:attribute name="dir" type="ST_TransitionLeftRightDirectionType"/>
+  </xsd:complexType>
+  <xsd:element name="vortex" type="p:CT_SideDirectionTransition"/>
+  <xsd:element name="switch" type="CT_LeftRightDirectionTransition"/>
+  <xsd:element name="flip" type="CT_LeftRightDirectionTransition"/>
+  <xsd:complexType name="CT_RippleTransition">
+    <xsd:attribute name="dir" type="ST_TransitionCornerAndCenterDirectionType" use="optional" default="center"/>
+  </xsd:complexType>
+  <xsd:element name="ripple" type="CT_RippleTransition"/>
+  <xsd:element name="honeycomb" type="p:CT_Empty"/>
+  <xsd:complexType name="CT_PrismTransition">
+    <xsd:attribute name="dir" type="p:ST_TransitionSideDirectionType" use="optional" default="l"/>
+    <xsd:attribute name="isContent" type="xsd:boolean" use="optional" default="false"/>
+    <xsd:attribute name="isInverted" type="xsd:boolean" use="optional" default="false"/>
+  </xsd:complexType>
+  <xsd:element name="prism" type="CT_PrismTransition"/>
+  <xsd:element name="doors" type="p:CT_OrientationTransition"/>
+  <xsd:element name="window" type="p:CT_OrientationTransition"/>
+  <xsd:element name="ferris" type="CT_LeftRightDirectionTransition"/>
+  <xsd:element name="gallery" type="CT_LeftRightDirectionTransition"/>
+  <xsd:element name="conveyor" type="CT_LeftRightDirectionTransition"/>
+  <xsd:element name="pan" type="p:CT_SideDirectionTransition"/>
+  <xsd:complexType name="CT_GlitterTransition">
+    <xsd:attribute name="dir" type="p:ST_TransitionSideDirectionType" use="optional" default="l"/>
+    <xsd:attribute name="pattern" type="ST_TransitionPattern" use="optional" default="diamond"/>
+  </xsd:complexType>
+  <xsd:element name="glitter" type="CT_GlitterTransition"/>
+  <xsd:complexType name="CT_FlyThroughTransition">
+    <xsd:attribute name="dir" type="p:ST_TransitionInOutDirectionType" use="optional" default="in"/>
+    <xsd:attribute name="hasBounce" type="xsd:boolean" use="optional" default="false"/>
+  </xsd:complexType>
+  <xsd:element name="warp" type="p:CT_InOutTransition"/>
+  <xsd:element name="flythrough" type="CT_FlyThroughTransition"/>
+  <xsd:element name="flash" type="p:CT_Empty"/>
+  <xsd:complexType name="CT_ShredTransition">
+    <xsd:attribute name="pattern" type="ST_TransitionShredPattern" use="optional" default="strip"/>
+    <xsd:attribute name="dir" type="p:ST_TransitionInOutDirectionType" use="optional" default="in"/>
+  </xsd:complexType>
+  <xsd:element name="shred" type="CT_ShredTransition"/>
+  <xsd:complexType name="CT_RevealTransition">
+    <xsd:attribute name="thruBlk" type="xsd:boolean" use="optional" default="false"/>
+    <xsd:attribute name="dir" type="ST_TransitionLeftRightDirectionType" use="optional" default="l"/>
+  </xsd:complexType>
+  <xsd:element name="reveal" type="CT_RevealTransition"/>
+  <xsd:element name="wheelReverse" type="p:CT_WheelTransition"/>
+</xsd:schema>

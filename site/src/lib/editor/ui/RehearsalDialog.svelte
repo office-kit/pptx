@@ -8,10 +8,9 @@
     getSlideTransition,
     setSlideShowProperties,
     setSlideTransition,
-    type TransitionEffect,
   } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { WRITABLE_TRANSITIONS } from '../core/transition-effects.ts';
+  import { writableTransition } from '../core/transition-effects.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -33,10 +32,10 @@
       for (const { slide, ms } of timings) {
         const target = slides[slide];
         if (!target) continue;
-        const current = getSlideTransition(target) ?? { effect: 'none' };
+        const current = writableTransition(getSlideTransition(target));
         // A deck can carry effects the library cannot write; leave those slides alone.
-        if (!WRITABLE_TRANSITIONS.has(current.effect)) continue;
-        setSlideTransition(target, { ...current, effect: current.effect as TransitionEffect, advanceAfterMs: ms });
+        if (!current) continue;
+        setSlideTransition(target, { ...current, advanceAfterMs: ms });
       }
       setSlideShowProperties(doc.pres, { ...getSlideShowProperties(doc.pres), useTimings: true });
     });

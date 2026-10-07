@@ -17,6 +17,7 @@ import {
   type SlideTransition,
   type TransitionOptions,
   buildTransition,
+  transitionEffectNamespace,
 } from '../../internal/presentationml/index.ts';
 import {
   contentTypeForAudioFormat,
@@ -82,6 +83,71 @@ const insertAfterClrMapOvr = (slide: SlideData, t: XmlElement): void => {
   children.splice(insertAt, 0, t);
 };
 
+const xmlBoolean = (el: XmlElement, name: string): boolean | undefined => {
+  const raw = getAttrValue(el, qname('', name, ''))?.trim();
+  return raw === undefined ? undefined : raw === '1' || raw === 'true';
+};
+
+type EffectFields = Omit<
+  SlideTransition,
+  'speed' | 'advanceOnClick' | 'advanceAfterMs' | 'durationMs'
+>;
+
+/**
+ * The effect element and its options. The first child that is neither the
+ * sound nor the extension list is the effect (CT_SlideTransition's choice).
+ * An element this library does not write — another vendor's, or a token in a
+ * namespace it does not belong to — is reported by its prefixed name, so it can
+ * never pass for one of ours and be rewritten as such.
+ */
+const readEffect = (transition: XmlElement): EffectFields => {
+  const child = transition.children.find(
+    (c): c is XmlElement => c.kind === 'element' && !isPml(c, 'sndAc') && !isPml(c, 'extLst'),
+  );
+  if (child === undefined) return { effect: 'none' };
+  const local = child.name.localName;
+  if (transitionEffectNamespace(local) !== child.name.namespaceURI) {
+    return { effect: child.name.prefix === '' ? local : `${child.name.prefix}:${local}` };
+  }
+  const text = (name: string): string | null => getAttrValue(child, qname('', name, ''));
+  const direction = text('dir');
+  const orientation = text('orient');
+  const spokes = text('spokes');
+  const pattern = text('pattern');
+  const preset = text('prst');
+  const option = text('option');
+  const thruBlack = xmlBoolean(child, 'thruBlk');
+  const isContent = xmlBoolean(child, 'isContent');
+  const isInverted = xmlBoolean(child, 'isInverted');
+  const hasBounce = xmlBoolean(child, 'hasBounce');
+  const invertX = xmlBoolean(child, 'invX');
+  const invertY = xmlBoolean(child, 'invY');
+  return {
+    effect: local,
+    ...(direction !== null ? { direction } : {}),
+    ...(orientation === 'horz' || orientation === 'vert' ? { orientation } : {}),
+    ...((local === 'wheel' || local === 'wheelReverse') && spokes !== null
+      ? { spokes: Number(spokes) }
+      : {}),
+    ...(thruBlack !== undefined ? { thruBlack } : {}),
+    ...(pattern === 'diamond' ||
+    pattern === 'hexagon' ||
+    pattern === 'strip' ||
+    pattern === 'rectangle'
+      ? { pattern }
+      : {}),
+    ...(isContent !== undefined ? { isContent } : {}),
+    ...(isInverted !== undefined ? { isInverted } : {}),
+    ...(hasBounce !== undefined ? { hasBounce } : {}),
+    ...(preset !== null ? { preset } : {}),
+    ...(invertX !== undefined ? { invertX } : {}),
+    ...(invertY !== undefined ? { invertY } : {}),
+    ...(option === 'byObject' || option === 'byWord' || option === 'byChar'
+      ? { morphOption: option }
+      : {}),
+  };
+};
+
 /**
  * Reads back the slide's current transition (or `null` if no
  * `<p:transition>` is present). The returned shape mirrors what
@@ -94,32 +160,9 @@ export const getSlideTransition = (slide: SlideData): SlideTransition | null => 
   const speed = getAttrValue(transition, qname('', 'spd', '')) as 'slow' | 'med' | 'fast' | null;
   const advClick = getAttrValue(transition, qname('', 'advClick', ''))?.trim() ?? null;
   const advTm = getAttrValue(transition, qname('', 'advTm', ''));
-  // First child element identifies the effect (`p:fade`, `p:wipe`, ...).
-  let effect: string | null = null;
-  let direction: string | null = null;
-  let orientation: 'horz' | 'vert' | null = null;
-  let thruBlack: boolean | undefined;
-  let spokes: number | undefined;
-  for (const child of transition.children) {
-    if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
-    if (child.name.localName === 'sndAc' || child.name.localName === 'extLst') continue;
-    effect = child.name.localName;
-    direction = getAttrValue(child, qname('', 'dir', ''));
-    const spokeCount = getAttrValue(child, qname('', 'spokes', ''));
-    if (effect === 'wheel' && spokeCount !== null) spokes = Number(spokeCount);
-    const o = getAttrValue(child, qname('', 'orient', ''));
-    if (o === 'horz' || o === 'vert') orientation = o;
-    const tb = getAttrValue(child, qname('', 'thruBlk', ''))?.trim() ?? null;
-    if (tb !== null) thruBlack = tb === '1' || tb === 'true';
-    break;
-  }
   return {
-    effect: effect ?? 'none',
+    ...readEffect(transition),
     ...(speed !== null ? { speed } : {}),
-    ...(direction !== null ? { direction } : {}),
-    ...(orientation !== null ? { orientation } : {}),
-    ...(spokes !== undefined ? { spokes } : {}),
-    ...(thruBlack !== undefined ? { thruBlack } : {}),
     ...(advClick !== null ? { advanceOnClick: advClick !== '0' && advClick !== 'false' } : {}),
     ...(advTm !== null ? { advanceAfterMs: Number.parseInt(advTm, 10) } : {}),
     ...(duration !== null ? { durationMs: Number.parseInt(duration, 10) } : {}),

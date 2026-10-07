@@ -12,16 +12,16 @@
     setSlideTransition,
     setSlideTransitionSound,
     type SlideData,
-    type TransitionEffect,
     type TransitionOptions,
   } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { WRITABLE_TRANSITIONS } from '../core/transition-effects.ts';
+  import { writableTransition } from '../core/transition-effects.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import RibbonGallery from './RibbonGallery.svelte';
   import { placeBelowTrigger } from './place-menu.ts';
   import {
+    NO_TRANSITION_DURATION_MS,
     optionMatches,
     tileOfTransition,
     TRANSITION_OPTIONS,
@@ -57,11 +57,17 @@
     doc.version;
     return slides[0] ? getSlideTransitionSound(slides[0]) : null;
   });
-  // PowerPoint shows the speed's own duration until one is set.
+  // A transition written without p14:dur runs at its speed's duration; a
+  // slide without one shows PowerPoint's 2.00.
   const SPEED_MS = { fast: 500, med: 750, slow: 1000 } as const;
-  const durationMs = $derived(current?.durationMs ?? SPEED_MS[current?.speed ?? 'med']);
+  const durationMs = $derived(
+    current === null ? NO_TRANSITION_DURATION_MS : (current.durationMs ?? SPEED_MS[current.speed ?? 'med']),
+  );
   let soundFile = $state<HTMLInputElement>();
-  const timingEditable = $derived(slides.length > 0 && WRITABLE_TRANSITIONS.has(applied));
+  // What a timing edit writes back: the slide's transition as it stands, or
+  // null when its effect is one the library cannot write.
+  const writable = $derived(writableTransition(current));
+  const timingEditable = $derived(slides.length > 0 && writable !== null);
   const checkedTile = $derived(tileOfTransition(current));
   const options = $derived(checkedTile ? (TRANSITION_OPTIONS[checkedTile] ?? []) : []);
   let width = $state(typeof window === 'undefined' ? Number.POSITIVE_INFINITY : window.innerWidth);
@@ -91,9 +97,11 @@
   }
   const timing = () => ({ advanceOnClick: onClick, ...(afterMs !== undefined ? { advanceAfterMs: afterMs } : {}) });
   // A new effect keeps the slide's timing but not the old effect's direction
-  // or speed, which belong to that effect.
+  // or duration, which belong to that effect: it takes the effect's own
+  // default duration, as PowerPoint does.
   function chooseTile(item: TransitionTile) {
-    if (item.choice) apply('Slide transition', { ...item.choice, ...timing() });
+    const duration = item.choice.effect === 'none' ? {} : { durationMs: item.durationMs };
+    apply('Slide transition', { ...item.choice, ...duration, ...timing() });
   }
   // An Effect Options item keeps the effect's duration as well.
   function chooseOption(choice: TransitionChoice) {
@@ -101,8 +109,9 @@
     apply('Effect Options', { ...choice, ...timing(), ...(current?.durationMs !== undefined ? { durationMs: current.durationMs } : {}) });
   }
   function changeDuration(ms: number) {
-    const { speed: _, ...rest } = current ?? { effect: 'none' };
-    apply('Duration', { ...rest, effect: rest.effect as TransitionEffect, durationMs: ms });
+    if (!writable) return;
+    const { speed: _, ...rest } = writable;
+    apply('Duration', { ...rest, durationMs: ms });
   }
   function changeSound(value: string) {
     if (value === 'other') {
@@ -124,26 +133,34 @@
       editor.toast('error', error instanceof Error ? error.message : String(error));
     }
   }
-  // Plays the effect on the editing canvas, as PowerPoint's Preview does.
+  // Plays the effect on the editing canvas, as PowerPoint's Preview does. The
+  // 3-D and particle effects of PowerPoint 2010+ are approximated by the
+  // nearest flat motion: a slide-in, a wipe, a split, a zoom or a fade.
+  const SLIDES = new Set(['push', 'cover', 'pan', 'gallery', 'conveyor', 'ferris', 'vortex']);
+  const WIPES = new Set(['wipe', 'randomBar', 'strips', 'blinds', 'checker', 'comb', 'reveal', 'glitter']);
+  const SPLITS = new Set(['split', 'doors', 'window', 'shred']);
+  const ZOOMS = new Set(['zoom', 'warp', 'flythrough', 'newsflash', 'circle', 'diamond', 'plus', 'prism', 'ripple']);
   function preview() {
     const paint = document.querySelector<HTMLElement>('.canvas-shell .paint');
     if (!paint || applied === 'none') return;
     const dir = current?.direction ?? 'l';
-    const from = { l: 'translateX(100%)', r: 'translateX(-100%)', u: 'translateY(100%)', d: 'translateY(-100%)' }[dir[0] as 'l' | 'r' | 'u' | 'd'] ?? 'translateX(100%)';
-    const clip = { l: 'inset(0 0 0 100%)', r: 'inset(0 100% 0 0)', u: 'inset(100% 0 0 0)', d: 'inset(0 0 100% 0)' }[dir[0] as 'l' | 'r' | 'u' | 'd'] ?? 'inset(0 0 0 100%)';
+    const side = (['l', 'r', 'u', 'd'] as const).find((token) => dir.startsWith(token)) ?? 'l';
+    const from = { l: 'translateX(100%)', r: 'translateX(-100%)', u: 'translateY(100%)', d: 'translateY(-100%)' }[side];
+    const clip = { l: 'inset(0 0 0 100%)', r: 'inset(0 100% 0 0)', u: 'inset(100% 0 0 0)', d: 'inset(0 0 100% 0)' }[side];
     const frames: Keyframe[] =
-      applied === 'push' || applied === 'cover' ? [{ transform: from }, { transform: 'none' }]
-      : applied === 'wipe' || applied === 'randomBar' ? [{ clipPath: clip }, { clipPath: 'inset(0)' }]
-      : applied === 'split' ? [{ clipPath: 'inset(0 50%)' }, { clipPath: 'inset(0)' }]
+      SLIDES.has(applied) ? [{ transform: from }, { transform: 'none' }]
+      : WIPES.has(applied) ? [{ clipPath: clip }, { clipPath: 'inset(0)' }]
+      : SPLITS.has(applied) ? [{ clipPath: dir === 'horz' || current?.orientation === 'horz' ? 'inset(50% 0)' : 'inset(0 50%)' }, { clipPath: 'inset(0)' }]
+      : ZOOMS.has(applied) ? [{ transform: dir === 'out' ? 'scale(1.6)' : 'scale(0.2)', opacity: 0 }, { transform: 'none', opacity: 1 }]
       : applied === 'cut' ? [{ opacity: 0 }, { opacity: 0, offset: 0.99 }, { opacity: 1 }]
       : [{ opacity: 0 }, { opacity: 1 }];
     paint.animate(frames, { duration: durationMs, easing: 'ease-in-out' });
   }
   function changeTiming(advanceOnClick: boolean, advanceAfterMs: number | undefined, targets: readonly SlideData[] = slides) {
-    const { advanceAfterMs: _, ...rest } = current ?? { effect: 'none' };
+    if (!writable) return;
+    const { advanceAfterMs: _, ...rest } = writable;
     apply(targets === slides ? 'Slide transition' : 'Apply To All', {
       ...rest,
-      effect: rest.effect as TransitionEffect,
       advanceOnClick,
       ...(advanceAfterMs !== undefined ? { advanceAfterMs } : {}),
     }, targets);
@@ -192,7 +209,7 @@
       {#if menuOpen}
         <div class="menu" role="menu" aria-label={t('Effect Options')} use:placeBelowTrigger>
           {#each options as item (item.en)}
-            <button role="menuitemradio" aria-checked={current !== null && item.choice !== undefined && optionMatches(item.choice, current)} disabled={item.unavailable !== undefined} title={item.unavailable ? t(item.unavailable) : undefined} onclick={() => item.choice && chooseOption(item.choice)}>
+            <button role="menuitemradio" aria-checked={current !== null && optionMatches(item.choice, current)} onclick={() => chooseOption(item.choice)}>
               <span class="check" aria-hidden="true">✓</span>
               <svg class="thumb" viewBox="0 0 40 26" aria-hidden="true"><rect x="1" y="1" width="38" height="24" class="slide" /><rect x="1" y="1" width="38" height="24" class="next half" />{#if item.arrow !== undefined}<path d="M14 13h12m-4-4 4 4-4 4" transform="rotate({-item.arrow} 20 13)" />{/if}</svg>
               <span>{label(item)}</span>

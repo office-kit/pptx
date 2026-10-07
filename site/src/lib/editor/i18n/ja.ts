@@ -2059,8 +2059,6 @@ export const ja: Record<string, string> = {
   'Previous {name} gallery': '{name} ギャラリーの前の行',
   'Next {name} gallery': '{name} ギャラリーの次の行',
   'Transition Styles': '画面切り替え効果',
-  'PowerPoint 2010 and later transitions are not supported by the library yet.':
-    'PowerPoint 2010 以降の画面切り替えはまだライブラリでサポートされていません。',
   Sound: 'サウンド',
   'Entrance Effects': '開始効果',
   'Emphasis Effects': '強調効果',

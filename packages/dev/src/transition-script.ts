@@ -18,6 +18,13 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const playableEffects=['fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve','wedge','newsflash','wheel'];
+  // PowerPoint 2010+ effects (p14 / p15 / p159) play as the nearest flat
+  // effect above: their 3-D turns, particles and page curls are not drawn.
+  const approximations={morph:'fade',flash:'fade',reveal:'fade',prstTrans:'fade',honeycomb:'dissolve',glitter:'dissolve',vortex:'dissolve',shred:'dissolve',ripple:'circle',switch:'push',flip:'push',gallery:'push',conveyor:'push',ferris:'push',pan:'push',prism:'push',doors:'split',window:'split',warp:'zoom',flythrough:'zoom',wheelReverse:'wheel'};
+  const alias=Object.hasOwn(approximations,options?.effect??'')?approximations[options.effect]:undefined;
+  if(alias)options=alias==='split'
+    ?{...options,effect:alias,orientation:options.direction==='horz'?'horz':'vert',direction:'out'}
+    :{...options,effect:alias};
   // Choose per visit without replacing the persisted random transition or its timing.
   const effect=options?.effect==='random'?playableEffects[Math.floor(Math.random()*playableEffects.length)]:options?.effect;
   if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!(effect==='cut'||playableEffects.includes(effect)))return;

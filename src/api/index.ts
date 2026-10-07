@@ -745,11 +745,13 @@ export type { TableCellParagraph } from './fn.ts';
 export type { SlideNotesTextFormatOptions } from './fn.ts';
 export type { TransitionSound, TransitionSoundInput } from './fn/slide-transition.ts';
 export type {
+  MorphOption,
   PlaceholderType,
   PresetShape,
   SlideTransition,
   TransitionEffect,
   TransitionOptions,
+  TransitionPreset,
 } from '../internal/presentationml/index.ts';
 
 // Library version. Replaced at build time by the package version

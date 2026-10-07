@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  p15:prstTrans, transcribed from [MS-PPTX] v20240820 §2.4.1.5 / §2.4.3.8.
+  Test-only: validates the effect element setSlideTransition writes inside an
+  mc:Choice Requires="p15".
+-->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://schemas.microsoft.com/office/powerpoint/2012/main"
+  targetNamespace="http://schemas.microsoft.com/office/powerpoint/2012/main"
+  elementFormDefault="qualified" attributeFormDefault="unqualified">
+  <xsd:complexType name="CT_PresetTransition">
+    <xsd:attribute name="prst" type="xsd:string"/>
+    <xsd:attribute name="invX" type="xsd:boolean" use="optional" default="false"/>
+    <xsd:attribute name="invY" type="xsd:boolean" use="optional" default="false"/>
+  </xsd:complexType>
+  <xsd:element name="prstTrans" type="CT_PresetTransition"/>
+</xsd:schema>
