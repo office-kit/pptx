@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { getShapeKind, getShapePreset, getShapeStrokeArrow, setShapeStrokeArrow } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { t } from '../i18n/i18n.svelte.ts';
+  import { getLocale, t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
   type Arrow = Parameters<typeof setShapeStrokeArrow>[2];
@@ -34,6 +34,8 @@
     if (field.property === 'type') return { type: types.find(([type]) => type === value)?.[0] ?? 'none' };
     return { type: getShapeStrokeArrow(shapes[0]!, field.end)?.type ?? 'triangle', ...sizes.find(size => `${size.width}/${size.length}` === value) };
   }
+  // Mac PowerPoint names the begin sizes Arrow L Size 1-9 and the end sizes Arrow R Size 1-9.
+  const sizeName = (field: Field, index: number) => getLocale() === 'ja' ? `${t('Arrow Size')} ${index + 1}` : `Arrow ${field.end === 'head' ? 'L' : 'R'} Size ${index + 1}`;
   function close(restore = true) { active = null; if (restore) trigger.focus(); }
   async function show(field: Field, button: HTMLButtonElement) {
     if (active === field) { close(); return; }
@@ -82,7 +84,7 @@
 <svelte:window onpointerdown={event => { if (active && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (active) close(false); }} onresize={() => { if (active) close(false); }} />
 {#each fields as field}
   <div class="field"><span>{t(field.label)}</span><button class="ok-input trigger" aria-label={t(field.label)} aria-haspopup="menu" aria-expanded={active === field} {disabled} onclick={event => show(field, event.currentTarget)}>
-    {#if read(field) === 'mixed'}<span>{t('Mixed')}</span>{:else if shapes.length}{@render preview(arrow(field), field.end)}{/if}<span>▾</span>
+    {#if read(field) === 'mixed'}<span title={t('Mixed')}>–</span>{:else if shapes.length}{@render preview(arrow(field), field.end)}{/if}<span>▾</span>
   </button></div>
 {/each}
 {#if active}
@@ -91,14 +93,20 @@
     {#if field.property === 'type'}
       {#each types as [type, label]}<button role="menuitemradio" aria-label={t(label)} title={t(label)} aria-checked={read(field) === type} onclick={() => choose(field, { type })}>{@render preview({ type }, field.end)}</button>{/each}
     {:else}
-      {#each sizes as size, index}<button role="menuitemradio" aria-label={`${t('Arrow Size')} ${index+1}`} title={`${t('Arrow Size')} ${index+1}`} aria-checked={read(field) === `${size.width}/${size.length}`} onclick={() => choose(field, size)}>{@render preview({ ...arrow(field), ...size }, field.end)}</button>{/each}
+      {#each sizes as size, index}<button role="menuitemradio" aria-label={sizeName(field, index)} title={sizeName(field, index)} aria-checked={read(field) === `${size.width}/${size.length}`} onclick={() => choose(field, size)}>{@render preview({ ...arrow(field), ...size }, field.end)}</button>{/each}
     {/if}
   </div>
 {/if}
 <style>
   .field { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .trigger { display: flex; align-items: center; justify-content: space-between; width: 86px; height: 26px; padding: 0 4px; font: inherit; }
-  .gallery { position: fixed; z-index: 400; display: grid; grid-template-columns: repeat(3, 68px); gap: 3px; padding: 6px; background: var(--ok-panel); border: 1px solid var(--ok-border); border-radius: 6px; box-shadow: var(--ok-shadow-lg); }
-  .gallery button { border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ok-text); padding: 4px; }
+  /* PowerPoint's 39 × 26 pt gallery buttons; the preview is scaled to fit. */
+  .field { min-height: 26px; }
+  .trigger { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 39px; height: 26px; padding: 0 2px 0 3px; font: inherit; overflow: hidden; }
+  .trigger :global(svg) { width: 26px; height: 12px; flex: none; }
+  .trigger > span:last-child { font-size: 9px; }
+  .gallery { position: fixed; z-index: 400; display: grid; grid-template-columns: repeat(3, 38px); gap: 0; padding: 4px 1px; background: var(--ok-panel); border: 1px solid var(--ok-border); border-radius: 6px; box-shadow: var(--ok-shadow-lg); }
+  /* Native tiles: 40 pt squares on a 38 pt pitch. */
+  .gallery button { display: grid; place-items: center; width: 40px; height: 40px; margin: 0 -1px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: var(--ok-text); padding: 0; }
+  .gallery button :global(svg) { width: 36px; height: 14px; }
   .gallery button:hover, .gallery button:focus-visible, .gallery button[aria-checked=true] { background: var(--ok-hover); border-color: var(--ok-accent); }
 </style>

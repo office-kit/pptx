@@ -13,6 +13,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 import { textureIdOf } from '../helpers/textures.mjs';
 
@@ -84,6 +85,7 @@ test(
         .first()
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       const original = (await read()).fill;
       const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
       // With no picture to restore, PowerPoint inserts its default texture; Insert... chooses a file.
@@ -198,6 +200,7 @@ test(
         .first()
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       assert.equal(await picture.isChecked(), true);
       assert.equal(
         await editor

@@ -13,6 +13,7 @@ import {
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 import { slideBackgroundImageBytes, textureIdOf } from '../helpers/textures.mjs';
 
@@ -172,6 +173,7 @@ test(
         .first()
         .click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await expandFormatSections(editor, 'Fill', 'Line');
       const original = await shapes();
       const paneTitle = () => editor.locator('.panel-head strong').textContent();
       assert.equal(await paneTitle(), 'Format Shape');
@@ -313,6 +315,7 @@ test('Texture gallery shows Japanese names', { timeout: 120000 }, async () => {
       .first()
       .click({ button: 'right', position: { x: 2, y: 2 } });
     await editor.getByRole('menuitem', { name: '図形の書式設定...', exact: true }).click();
+    await expandFormatSections(editor, '塗りつぶし');
     const persisted = page.waitForResponse(
       (response) =>
         response.url().endsWith('/editor/document') &&

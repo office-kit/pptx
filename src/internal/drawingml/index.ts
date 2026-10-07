@@ -51,7 +51,7 @@ export type {
   Scene3D,
   Text3D,
 } from './text-3d.ts';
-export { applyText3D, bodyPrChildRank, readText3D } from './text-3d.ts';
+export { applyShape3D, applyText3D, bodyPrChildRank, readText3D } from './text-3d.ts';
 export type { Color, HexColor, ParsedColor, SchemeColorToken } from './color.ts';
 export { asColor, buildColorElement, parseColor, parseSrgbHex } from './color.ts';
 export type {
@@ -76,7 +76,15 @@ export type {
   ReflectionOptions,
   ShadowOptions,
 } from './effects.ts';
-export { clearEffects, setGlow, setInnerShadow, setReflection, setShadow } from './effects.ts';
+export {
+  clearEffects,
+  removeEffect,
+  setGlow,
+  setInnerShadow,
+  setReflection,
+  setShadow,
+  setSoftEdge,
+} from './effects.ts';
 export type {
   ArrowOptions,
   LineCap,

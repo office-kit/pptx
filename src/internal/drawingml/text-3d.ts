@@ -1,9 +1,10 @@
-// Text-body 3-D: `<a:scene3d>` and `<a:sp3d>` inside `<a:bodyPr>`.
+// 3-D: `<a:scene3d>` and `<a:sp3d>` inside `<a:bodyPr>` (text) or `<p:spPr>`
+// (shape).
 //
-// PowerPoint's WordArt bevels (Soft Bevel, Sharp Bevel) live here, on the text
-// body, not on the shape's `<p:spPr>`: a shape-level bevel would bevel the box.
-// The schema types are shared with shape 3-D (CT_Scene3D, CT_Shape3D,
-// ECMA-376 §20.1.4.1.26 / §20.1.5.12), so the vocabulary below is DrawingML's.
+// PowerPoint's WordArt bevels (Soft Bevel, Sharp Bevel) live on the text body,
+// not on the shape's `<p:spPr>`: a shape-level bevel would bevel the box. The
+// schema types are shared (CT_Scene3D, CT_Shape3D, ECMA-376 §20.1.4.1.26 /
+// §20.1.5.12), so one vocabulary serves both hosts.
 
 import type { Color } from './color.ts';
 import { buildColorElement } from './color.ts';
@@ -60,6 +61,13 @@ export interface LightRig {
 /** `<a:scene3d>`: the camera and light the 3-D text is rendered with. */
 export interface Scene3D {
   readonly camera: CameraPreset;
+  /**
+   * The camera's `<a:rot>`, which overrides the preset's orientation —
+   * PowerPoint's X / Y / Z Rotation fields.
+   */
+  readonly cameraRotation?: Rotation3D;
+  /** The camera's field of view (`fov`) in degrees, `[0, 180]`; PowerPoint's Perspective field. */
+  readonly fieldOfViewDeg?: number;
   readonly lightRig: LightRig;
 }
 
@@ -79,8 +87,18 @@ export interface Text3D {
   readonly scene?: Scene3D;
   /** Top bevel (`<a:bevelT>`). */
   readonly bevelTop?: Bevel;
+  /** Bottom bevel (`<a:bevelB>`). */
+  readonly bevelBottom?: Bevel;
   /** Extrusion depth (`extrusionH`) in EMU. */
   readonly extrusionHeightEmu?: number;
+  /** Extrusion color (`<a:extrusionClr>`). Same accepted forms as `TextFormat.color`. */
+  readonly extrusionColor?: Color;
+  /** Ordered adjustments to `extrusionColor`. Requires `extrusionColor`. */
+  readonly extrusionColorTransforms?: readonly ColorTransform[];
+  /** Contour width (`contourW`) in EMU. */
+  readonly contourWidthEmu?: number;
+  /** Distance from the ground (`z`) in EMU; may be negative. */
+  readonly distanceFromGroundEmu?: number;
   /** Surface material (`prstMaterial`). */
   readonly material?: PresetMaterial;
   /** Contour color (`<a:contourClr>`). Same accepted forms as `TextFormat.color`. */
@@ -89,8 +107,14 @@ export interface Text3D {
   readonly contourColorTransforms?: readonly ColorTransform[];
 }
 
-/** A text body's 3-D read back from a deck; `contourColor` is the raw `#RRGGBB` or scheme token. */
-export type ReadText3D = Omit<Text3D, 'contourColor'> & { readonly contourColor?: string };
+/**
+ * A 3-D read back from a deck; `contourColor` and `extrusionColor` are the raw
+ * `#RRGGBB` or scheme token.
+ */
+export type ReadText3D = Omit<Text3D, 'contourColor' | 'extrusionColor'> & {
+  readonly contourColor?: string;
+  readonly extrusionColor?: string;
+};
 
 const dml = (local: string) => qname('a', local, NS.dml);
 const NAME_SCENE_3D = dml('scene3d');
@@ -99,10 +123,15 @@ const NAME_CAMERA = dml('camera');
 const NAME_LIGHT_RIG = dml('lightRig');
 const NAME_ROT = dml('rot');
 const NAME_BEVEL_T = dml('bevelT');
+const NAME_BEVEL_B = dml('bevelB');
+const NAME_EXTRUSION_CLR = dml('extrusionClr');
 const NAME_CONTOUR_CLR = dml('contourClr');
 const plain = (local: string) => qname('', local, '');
 
 const ANGLE_UNITS_PER_DEGREE = 60000;
+const MAX_FOV_DEGREES = 180;
+// ST_Coordinate: ±27273042316900 EMU.
+const MAX_COORDINATE = 27273042316900;
 const FULL_TURN_DEGREES = 360;
 const FULL_TURN_UNITS = FULL_TURN_DEGREES * ANGLE_UNITS_PER_DEGREE;
 
@@ -134,6 +163,28 @@ const SP_3D_CHILD_RANK: Record<string, number> = {
 const sp3dChildRank = (el: XmlElement): number =>
   el.name.namespaceURI === NS.dml ? (SP_3D_CHILD_RANK[el.name.localName] ?? 99) : 99;
 
+// CT_ShapeProperties is a sequence: xfrm, the geometry choice, the fill
+// choice, ln, the effect choice, scene3d, sp3d, extLst.
+const SP_PR_CHILD_RANK: Record<string, number> = {
+  xfrm: 0,
+  custGeom: 1,
+  prstGeom: 1,
+  noFill: 2,
+  solidFill: 2,
+  gradFill: 2,
+  blipFill: 2,
+  pattFill: 2,
+  grpFill: 2,
+  ln: 3,
+  effectLst: 4,
+  effectDag: 4,
+  scene3d: 5,
+  sp3d: 6,
+  extLst: 7,
+};
+const spPrChildRank = (el: XmlElement): number =>
+  el.name.namespaceURI === NS.dml ? (SP_PR_CHILD_RANK[el.name.localName] ?? 99) : 99;
+
 const isDml = (el: XmlElement, ...locals: string[]): boolean =>
   el.name.namespaceURI === NS.dml && locals.includes(el.name.localName);
 
@@ -156,9 +207,22 @@ const positiveFixedAngle = (degrees: number, field: string): string => {
 
 const hasShape3D = (value: Text3D): boolean =>
   value.bevelTop !== undefined ||
+  value.bevelBottom !== undefined ||
   value.extrusionHeightEmu !== undefined ||
+  value.extrusionColor !== undefined ||
+  value.contourWidthEmu !== undefined ||
+  value.distanceFromGroundEmu !== undefined ||
   value.material !== undefined ||
   value.contourColor !== undefined;
+
+const rotationElement = (rotation: Rotation3D, caller: string): XmlElement =>
+  elem(NAME_ROT, {
+    attrs: [
+      attr(plain('lat'), positiveFixedAngle(rotation.latitudeDeg, `${caller}: latitudeDeg`)),
+      attr(plain('lon'), positiveFixedAngle(rotation.longitudeDeg, `${caller}: longitudeDeg`)),
+      attr(plain('rev'), positiveFixedAngle(rotation.revolutionDeg, `${caller}: revolutionDeg`)),
+    ],
+  });
 
 const buildScene = (scene: Scene3D, previous: XmlElement | null, caller: string): XmlElement => {
   const camera = oneOf(scene.camera, CAMERA_PRESETS, `${caller}: scene.camera`);
@@ -171,30 +235,13 @@ const buildScene = (scene: Scene3D, previous: XmlElement | null, caller: string)
   const rotation = scene.lightRig.rotation;
   const lightRig = elem(NAME_LIGHT_RIG, {
     attrs: [attr(plain('rig'), rig), attr(plain('dir'), dir)],
-    children:
-      rotation === undefined
-        ? []
-        : [
-            elem(NAME_ROT, {
-              attrs: [
-                attr(
-                  plain('lat'),
-                  positiveFixedAngle(rotation.latitudeDeg, `${caller}: latitudeDeg`),
-                ),
-                attr(
-                  plain('lon'),
-                  positiveFixedAngle(rotation.longitudeDeg, `${caller}: longitudeDeg`),
-                ),
-                attr(
-                  plain('rev'),
-                  positiveFixedAngle(rotation.revolutionDeg, `${caller}: revolutionDeg`),
-                ),
-              ],
-            }),
-          ],
+    children: rotation === undefined ? [] : [rotationElement(rotation, caller)],
   });
-  // The camera's field of view, zoom and rotation, and the scene's backdrop,
-  // are not modelled; editing the scene keeps whatever the deck had.
+  const fov = scene.fieldOfViewDeg;
+  if (fov !== undefined && (!Number.isFinite(fov) || fov < 0 || fov > MAX_FOV_DEGREES))
+    throw new RangeError(`${caller}: scene.fieldOfViewDeg must be in [0, 180]`);
+  // The camera's zoom and the scene's backdrop are not modelled; editing the
+  // scene keeps whatever the deck had.
   const result = previous
     ? { ...previous, attrs: [...previous.attrs], children: [...previous.children] }
     : elem(NAME_SCENE_3D);
@@ -203,13 +250,59 @@ const buildScene = (scene: Scene3D, previous: XmlElement | null, caller: string)
     ? { ...previousCamera, attrs: [...previousCamera.attrs] }
     : elem(NAME_CAMERA);
   setAttr(cameraElement, 'prst', camera);
+  setAttr(
+    cameraElement,
+    'fov',
+    fov === undefined ? null : String(Math.round(fov * ANGLE_UNITS_PER_DEGREE)),
+  );
+  cameraElement.children =
+    scene.cameraRotation === undefined ? [] : [rotationElement(scene.cameraRotation, caller)];
   withoutChildren(result, 'camera', 'lightRig');
   // camera and lightRig open the CT_Scene3D sequence.
   result.children.unshift(cameraElement, lightRig);
   return result;
 };
 
+const bevelElement = (
+  name: ReturnType<typeof dml>,
+  bevel: Bevel | undefined,
+  field: string,
+): XmlElement | null =>
+  bevel === undefined
+    ? null
+    : elem(name, {
+        attrs: [
+          ...(bevel.widthEmu === undefined
+            ? []
+            : [attr(plain('w'), String(emuExtent(bevel.widthEmu, `${field}.widthEmu`)))]),
+          ...(bevel.heightEmu === undefined
+            ? []
+            : [attr(plain('h'), String(emuExtent(bevel.heightEmu, `${field}.heightEmu`)))]),
+          ...(bevel.preset === undefined
+            ? []
+            : [attr(plain('prst'), oneOf(bevel.preset, BEVEL_PRESETS, `${field}.preset`))]),
+        ],
+      });
+
+const colorHolder = (
+  name: ReturnType<typeof dml>,
+  color: Color | undefined,
+  transforms: readonly ColorTransform[] | undefined,
+): XmlElement | null => {
+  if (color === undefined) return null;
+  const element = buildColorElement(color);
+  element.children = buildColorTransforms(transforms ?? []);
+  return elem(name, { children: [element] });
+};
+
 const buildShape3D = (value: Text3D, previous: XmlElement | null, caller: string): XmlElement => {
+  const contourWidth =
+    value.contourWidthEmu === undefined
+      ? null
+      : String(emuExtent(value.contourWidthEmu, `${caller}: contourWidthEmu`));
+  const z = value.distanceFromGroundEmu;
+  if (z !== undefined && (!Number.isInteger(z) || Math.abs(z) > MAX_COORDINATE))
+    throw new RangeError(`${caller}: distanceFromGroundEmu must be an integer EMU coordinate`);
   const extrusion =
     value.extrusionHeightEmu === undefined
       ? null
@@ -218,54 +311,21 @@ const buildShape3D = (value: Text3D, previous: XmlElement | null, caller: string
     value.material === undefined
       ? null
       : oneOf(value.material, PRESET_MATERIALS, `${caller}: material`);
-  const bevel = value.bevelTop;
-  const bevelElement =
-    bevel === undefined
-      ? null
-      : elem(NAME_BEVEL_T, {
-          attrs: [
-            ...(bevel.widthEmu === undefined
-              ? []
-              : [
-                  attr(
-                    plain('w'),
-                    String(emuExtent(bevel.widthEmu, `${caller}: bevelTop.widthEmu`)),
-                  ),
-                ]),
-            ...(bevel.heightEmu === undefined
-              ? []
-              : [
-                  attr(
-                    plain('h'),
-                    String(emuExtent(bevel.heightEmu, `${caller}: bevelTop.heightEmu`)),
-                  ),
-                ]),
-            ...(bevel.preset === undefined
-              ? []
-              : [
-                  attr(
-                    plain('prst'),
-                    oneOf(bevel.preset, BEVEL_PRESETS, `${caller}: bevelTop.preset`),
-                  ),
-                ]),
-          ],
-        });
-  const contourElement = (() => {
-    if (value.contourColor === undefined) return null;
-    const color = buildColorElement(value.contourColor);
-    color.children = buildColorTransforms(value.contourColorTransforms ?? []);
-    return elem(NAME_CONTOUR_CLR, { children: [color] });
-  })();
-  // `z`, `contourW`, the bottom bevel and the extrusion color are not
-  // modelled; editing keeps whatever the deck had.
+  const children = [
+    bevelElement(NAME_BEVEL_T, value.bevelTop, `${caller}: bevelTop`),
+    bevelElement(NAME_BEVEL_B, value.bevelBottom, `${caller}: bevelBottom`),
+    colorHolder(NAME_EXTRUSION_CLR, value.extrusionColor, value.extrusionColorTransforms),
+    colorHolder(NAME_CONTOUR_CLR, value.contourColor, value.contourColorTransforms),
+  ].filter((child): child is XmlElement => child !== null);
   const result = previous
     ? { ...previous, attrs: [...previous.attrs], children: [...previous.children] }
     : elem(NAME_SP_3D);
+  setAttr(result, 'z', z === undefined ? null : String(z));
   setAttr(result, 'extrusionH', extrusion);
+  setAttr(result, 'contourW', contourWidth);
   setAttr(result, 'prstMaterial', material);
-  withoutChildren(result, 'bevelT', 'contourClr');
-  if (bevelElement) insertChildByRank(result, bevelElement, sp3dChildRank);
-  if (contourElement) insertChildByRank(result, contourElement, sp3dChildRank);
+  withoutChildren(result, 'bevelT', 'bevelB', 'extrusionClr', 'contourClr');
+  for (const child of children) insertChildByRank(result, child, sp3dChildRank);
   return result;
 };
 
@@ -274,17 +334,36 @@ const buildShape3D = (value: Text3D, previous: XmlElement | null, caller: string
  * changes, so a rejected value leaves it as it was.
  */
 export const applyText3D = (bodyPr: XmlElement, value: Text3D | null, caller: string): void => {
-  if (value?.contourColorTransforms !== undefined && value.contourColor === undefined)
-    throw new Error(`${caller}: contourColorTransforms requires contourColor`);
-  const previousScene = firstChildElement(bodyPr, NAME_SCENE_3D);
-  const previousShape = firstChildElement(bodyPr, NAME_SP_3D);
-  const scene = value?.scene === undefined ? null : buildScene(value.scene, previousScene, caller);
-  const shape =
-    value === null || !hasShape3D(value) ? null : buildShape3D(value, previousShape, caller);
+  const { scene, shape } = build3D(bodyPr, value, caller);
   // sp3d and flatTx are one choice (EG_Text3D); a bevel replaces flat text.
   withoutChildren(bodyPr, 'scene3d', 'sp3d', ...(shape ? ['flatTx'] : []));
   if (scene) insertChildByRank(bodyPr, scene, bodyPrChildRank);
   if (shape) insertChildByRank(bodyPr, shape, bodyPrChildRank);
+};
+
+/** Replaces the 3-D on a shape's `spPr`; validated before `spPr` changes. */
+export const applyShape3D = (spPr: XmlElement, value: Text3D | null, caller: string): void => {
+  const { scene, shape } = build3D(spPr, value, caller);
+  withoutChildren(spPr, 'scene3d', 'sp3d');
+  if (scene) insertChildByRank(spPr, scene, spPrChildRank);
+  if (shape) insertChildByRank(spPr, shape, spPrChildRank);
+};
+
+const build3D = (
+  host: XmlElement,
+  value: Text3D | null,
+  caller: string,
+): { scene: XmlElement | null; shape: XmlElement | null } => {
+  if (value?.contourColorTransforms !== undefined && value.contourColor === undefined)
+    throw new Error(`${caller}: contourColorTransforms requires contourColor`);
+  if (value?.extrusionColorTransforms !== undefined && value.extrusionColor === undefined)
+    throw new Error(`${caller}: extrusionColorTransforms requires extrusionColor`);
+  const previousScene = firstChildElement(host, NAME_SCENE_3D);
+  const previousShape = firstChildElement(host, NAME_SP_3D);
+  return {
+    scene: value?.scene === undefined ? null : buildScene(value.scene, previousScene, caller),
+    shape: value === null || !hasShape3D(value) ? null : buildShape3D(value, previousShape, caller),
+  };
 };
 
 const readEnum = <T extends string>(
@@ -307,6 +386,17 @@ const readDegrees = (element: XmlElement, local: string): number | undefined => 
   return units === undefined ? undefined : units / ANGLE_UNITS_PER_DEGREE;
 };
 
+const readRotation = (host: XmlElement): Rotation3D | undefined => {
+  const rot = firstChildElement(host, NAME_ROT);
+  if (rot === null) return undefined;
+  const latitudeDeg = readDegrees(rot, 'lat');
+  const longitudeDeg = readDegrees(rot, 'lon');
+  const revolutionDeg = readDegrees(rot, 'rev');
+  return latitudeDeg === undefined || longitudeDeg === undefined || revolutionDeg === undefined
+    ? undefined
+    : { latitudeDeg, longitudeDeg, revolutionDeg };
+};
+
 const readScene = (scene: XmlElement): Scene3D | undefined => {
   const cameraElement = firstChildElement(scene, NAME_CAMERA);
   const rigElement = firstChildElement(scene, NAME_LIGHT_RIG);
@@ -315,15 +405,15 @@ const readScene = (scene: XmlElement): Scene3D | undefined => {
   const type = readEnum(rigElement, 'rig', LIGHT_RIG_TYPES);
   const direction = readEnum(rigElement, 'dir', LIGHT_RIG_DIRECTIONS);
   if (camera === undefined || type === undefined || direction === undefined) return undefined;
-  const rot = firstChildElement(rigElement, NAME_ROT);
-  const latitudeDeg = rot === null ? undefined : readDegrees(rot, 'lat');
-  const longitudeDeg = rot === null ? undefined : readDegrees(rot, 'lon');
-  const revolutionDeg = rot === null ? undefined : readDegrees(rot, 'rev');
-  const rotation =
-    latitudeDeg === undefined || longitudeDeg === undefined || revolutionDeg === undefined
-      ? undefined
-      : { latitudeDeg, longitudeDeg, revolutionDeg };
-  return { camera, lightRig: { type, direction, ...(rotation ? { rotation } : {}) } };
+  const rotation = readRotation(rigElement);
+  const cameraRotation = readRotation(cameraElement);
+  const fieldOfViewDeg = readDegrees(cameraElement, 'fov');
+  return {
+    camera,
+    ...(cameraRotation ? { cameraRotation } : {}),
+    ...(fieldOfViewDeg === undefined ? {} : { fieldOfViewDeg }),
+    lightRig: { type, direction, ...(rotation ? { rotation } : {}) },
+  };
 };
 
 const readBevel = (bevel: XmlElement): Bevel => {
@@ -338,38 +428,52 @@ const readBevel = (bevel: XmlElement): Bevel => {
 };
 
 // The literal color, as the run readers report one without a theme.
-const readContour = (
+const readHeldColor = (
   sp3d: XmlElement,
-): { contourColor?: string; contourColorTransforms?: ColorTransform[] } => {
-  const holder = firstChildElement(sp3d, NAME_CONTOUR_CLR);
+  name: ReturnType<typeof dml>,
+): { color: string; transforms?: ColorTransform[] } | null => {
+  const holder = firstChildElement(sp3d, name);
   const color = holder?.children.find(
     (c): c is XmlElement => c.kind === 'element' && isDml(c, 'srgbClr', 'schemeClr'),
   );
   const val = color && getAttrValue(color, plain('val'));
-  if (!color || val == null) return {};
+  if (!color || val == null) return null;
   const transforms = readColorTransforms(color);
   return {
-    contourColor: color.name.localName === 'srgbClr' ? `#${val.toUpperCase()}` : val,
-    ...(transforms.length ? { contourColorTransforms: transforms } : {}),
+    color: color.name.localName === 'srgbClr' ? `#${val.toUpperCase()}` : val,
+    ...(transforms.length ? { transforms } : {}),
   };
 };
 
-/** Reads `bodyPr`'s 3-D, or `null` when it has neither `<a:scene3d>` nor `<a:sp3d>`. */
-export const readText3D = (bodyPr: XmlElement): ReadText3D | null => {
-  const sceneElement = firstChildElement(bodyPr, NAME_SCENE_3D);
-  const shape = firstChildElement(bodyPr, NAME_SP_3D);
+/**
+ * Reads the 3-D on `host` (`<a:bodyPr>` or `<p:spPr>`), or `null` when it has
+ * neither `<a:scene3d>` nor `<a:sp3d>`.
+ */
+export const readText3D = (host: XmlElement): ReadText3D | null => {
+  const sceneElement = firstChildElement(host, NAME_SCENE_3D);
+  const shape = firstChildElement(host, NAME_SP_3D);
   if (sceneElement === null && shape === null) return null;
   const scene = sceneElement === null ? undefined : readScene(sceneElement);
   if (shape === null) return scene ? { scene } : {};
-  const bevelElement = firstChildElement(shape, NAME_BEVEL_T);
-  const bevelTop = bevelElement === null ? undefined : readBevel(bevelElement);
+  const top = firstChildElement(shape, NAME_BEVEL_T);
+  const bottom = firstChildElement(shape, NAME_BEVEL_B);
   const extrusionHeightEmu = readInteger(shape, 'extrusionH');
+  const contourWidthEmu = readInteger(shape, 'contourW');
+  const distanceFromGroundEmu = readInteger(shape, 'z');
   const material = readEnum(shape, 'prstMaterial', PRESET_MATERIALS);
+  const extrusion = readHeldColor(shape, NAME_EXTRUSION_CLR);
+  const contour = readHeldColor(shape, NAME_CONTOUR_CLR);
   return {
     ...(scene ? { scene } : {}),
-    ...(bevelTop ? { bevelTop } : {}),
+    ...(top ? { bevelTop: readBevel(top) } : {}),
+    ...(bottom ? { bevelBottom: readBevel(bottom) } : {}),
     ...(extrusionHeightEmu === undefined ? {} : { extrusionHeightEmu }),
+    ...(extrusion ? { extrusionColor: extrusion.color } : {}),
+    ...(extrusion?.transforms ? { extrusionColorTransforms: extrusion.transforms } : {}),
+    ...(contourWidthEmu === undefined ? {} : { contourWidthEmu }),
+    ...(distanceFromGroundEmu === undefined ? {} : { distanceFromGroundEmu }),
     ...(material === undefined ? {} : { material }),
-    ...readContour(shape),
+    ...(contour ? { contourColor: contour.color } : {}),
+    ...(contour?.transforms ? { contourColorTransforms: contour.transforms } : {}),
   };
 };

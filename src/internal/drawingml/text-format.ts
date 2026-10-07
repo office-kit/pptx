@@ -331,6 +331,10 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
             ...(shadow.offsetEmu === undefined ? {} : { offsetEmu: shadow.offsetEmu }),
             ...(shadow.angleDeg === undefined ? {} : { angleDeg: shadow.angleDeg }),
             ...(shadow.opacity === undefined ? {} : { opacity: shadow.opacity }),
+            ...(shadow.scaleX === undefined ? {} : { scaleX: shadow.scaleX }),
+            ...(shadow.scaleY === undefined ? {} : { scaleY: shadow.scaleY }),
+            ...(shadow.skewX === undefined ? {} : { skewX: shadow.skewX }),
+            ...(shadow.skewY === undefined ? {} : { skewY: shadow.skewY }),
             ...(shadowColor === null ? {} : { color: shadowColor }),
             ...(shadowColor === null || shadow.colorTransforms === undefined
               ? {}

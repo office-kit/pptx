@@ -21,6 +21,10 @@
   import AnimationSection from './AnimationSection.svelte';
   import ParagraphSection from './ParagraphSection.svelte';
   import BespokeSections from './BespokeSections.svelte';
+  import EffectSections from './EffectSections.svelte';
+  import TextFillSections from './TextFillSections.svelte';
+  import TextBoxSection from './TextBoxSection.svelte';
+  import { textEffects } from './effects-model.ts';
   import { t, capLabel, catLabel, getLocale } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -39,6 +43,23 @@
     return !!shape && getShapeMedia(shape)?.kind === 'video';
   });
   const formatTabs = $derived(selectedVideo ? [...baseFormatTabs, videoTab] : baseFormatTabs);
+  const textTabs = [
+    { id: 'textFill', label: 'Text Fill & Outline', icon: 'font-color' },
+    { id: 'textEffects', label: 'Text Effects', icon: 'glow' },
+    { id: 'textbox', label: 'Textbox', icon: 'textbox' },
+  ] as const;
+  // Text Options apply to the text of shapes that can hold it.
+  const textOptionsAvailable = $derived.by(() => {
+    doc.version;
+    return !selectedVideo && editor.selectedShapes().some((shape) => getShapeKind(shape) === 'shape');
+  });
+  const textOptions = $derived(textOptionsAvailable && editor.formatPaneOptions === 'text');
+  const activeTabs = $derived<readonly { id: string; label: string; icon: string }[]>(textOptions ? textTabs : formatTabs);
+  const activeTab = $derived(textOptions ? editor.formatPaneTextTab : editor.formatPaneTab);
+  function selectTab(id: string) {
+    if (textOptions) editor.formatPaneTextTab = id as typeof editor.formatPaneTextTab;
+    else editor.formatPaneTab = id as typeof editor.formatPaneTab;
+  }
   const isShape = $derived.by(() => {
     if (editor.propertiesPaneMode === 'background') return false;
     doc.version;
@@ -63,13 +84,13 @@
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     event.stopPropagation();
-    const index = formatTabs.findIndex((tab) => tab.id === editor.formatPaneTab);
+    const index = activeTabs.findIndex((tab) => tab.id === activeTab);
     const next = event.key === 'Home'
       ? 0
       : event.key === 'End'
-        ? formatTabs.length - 1
-        : (index + (event.key === 'ArrowLeft' ? -1 : 1) + formatTabs.length) % formatTabs.length;
-    editor.formatPaneTab = formatTabs[next]!.id;
+        ? activeTabs.length - 1
+        : (index + (event.key === 'ArrowLeft' ? -1 : 1) + activeTabs.length) % activeTabs.length;
+    selectTab(activeTabs[next]!.id);
     (event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
 
@@ -182,6 +203,16 @@
       }}>×</button>
   </div>
 
+  {#if isShape && !selectedVideo}
+    <!-- PowerPoint's Shape Options / Text Options switch above the categories. -->
+    <div class="options-switch" role="radiogroup" aria-label={t('Format Shape options')}>
+      {#each [['shape', 'Shape Options'], ['text', 'Text Options']] as const as [value, label]}
+        <button role="radio" aria-checked={(textOptions ? 'text' : 'shape') === value} disabled={value === 'text' && !textOptionsAvailable}
+          title={value === 'text' && !textOptionsAvailable ? t('Select a shape that can hold text.') : undefined}
+          onclick={() => editor.formatPaneOptions = value}>{t(label)}</button>
+      {/each}
+    </div>
+  {/if}
   {#if isShape}
     <div
       class="format-tabs"
@@ -190,16 +221,16 @@
       aria-label={t(selectedVideo ? 'Format Video' : 'Format Shape')}
       onkeydown={tabKeys}
     >
-      {#each formatTabs as tab}
+      {#each activeTabs as tab (tab.id)}
         <button
           role="tab"
           id="format-tab-{tab.id}"
           aria-label={t(tab.label)}
           title={t(tab.label)}
-          aria-selected={editor.formatPaneTab === tab.id}
+          aria-selected={activeTab === tab.id}
           aria-controls="format-panel"
-          tabindex={editor.formatPaneTab === tab.id ? 0 : -1}
-          onclick={() => editor.formatPaneTab = tab.id}
+          tabindex={activeTab === tab.id ? 0 : -1}
+          onclick={() => selectTab(tab.id)}
         >
           <Icon name={tab.icon} size={24} />
         </button>
@@ -209,10 +240,20 @@
   <div
     id="format-panel"
     role={isShape ? 'tabpanel' : undefined}
-    aria-labelledby={isShape ? `format-tab-${editor.formatPaneTab}` : undefined}
+    aria-labelledby={isShape ? `format-tab-${activeTab}` : undefined}
   >
     {#if backgroundPane}
       <BackgroundSection extra={objectSelected ? undefined : selectionSections} />
+    {:else if textOptions}
+      <div class="text-options">
+        {#if editor.formatPaneTextTab === 'textFill'}
+          <TextFillSections />
+        {:else if editor.formatPaneTextTab === 'textEffects'}
+          <EffectSections target={textEffects} />
+        {:else}
+          <TextBoxSection sectionId="textbox" />
+        {/if}
+      </div>
     {:else}
       {@render selectionSections()}
 
@@ -258,6 +299,29 @@
     line-height: 20px;
     cursor: pointer;
   }
+  /* Mac PowerPoint: a 278 × 26 pt segmented switch, 14 pt below the title. */
+  .options-switch {
+    display: flex;
+    gap: 1px;
+    margin: 14px 11px 0 10px;
+    padding: 1px;
+    border-radius: 6px;
+    background: var(--ok-hover);
+  }
+  .options-switch button {
+    flex: 1;
+    height: 24px;
+    border: none;
+    border-radius: 5px;
+    background: none;
+    color: var(--ok-text);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .options-switch button[aria-checked='true'] { background: var(--ok-panel); box-shadow: 0 0 0 1px var(--ok-border-strong); font-weight: 600; }
+  .options-switch button:disabled { opacity: 0.45; cursor: default; }
+  .text-options { padding: 8px 10px; display: flex; flex-direction: column; }
   .format-tabs {
     display: flex;
     gap: 0;

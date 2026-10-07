@@ -1,3 +1,4 @@
+import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { openArrange } from '../helpers/ribbon.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -41,6 +42,7 @@ test(
       const effects = tabs.getByRole('tab', { name: 'Effects', exact: true });
       const size = tabs.getByRole('tab', { name: 'Size & Properties' });
       assert.equal(await paint.getAttribute('aria-selected'), 'true');
+      await expandFormatSections(editor, 'Fill');
       assert.equal(
         await editor.getByRole('radio', { name: 'No fill', exact: true }).isVisible(),
         true,
@@ -56,6 +58,7 @@ test(
       assert.equal(await editor.locator('.cat-head').count(), 1);
       await effects.press('End');
       assert.equal(await size.getAttribute('aria-selected'), 'true');
+      await expandFormatSections(editor, 'Size');
       const scale = editor.getByRole('spinbutton', { name: 'Scale Width', exact: true });
       await scale.fill('150');
       await scale.press('Tab');

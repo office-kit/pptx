@@ -491,6 +491,19 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setShapeStrokeCompound: { labelJa: '線の種類' },
   setShapeStrokeJoin: { labelJa: '線の接合部の形状' },
   setShapeText3D: { labelEn: 'Text 3-D format', labelJa: '文字の 3-D 書式' },
+  // The Format Shape pane's Effects sections drive these; the command dialog
+  // offers the JSON fallback for their full option objects.
+  setShape3D: { labelEn: 'Shape 3-D format', labelJa: '図形の 3-D 書式', category: 'effect' },
+  setShapeInnerShadow: { labelEn: 'Inner shadow', labelJa: '内側の影' },
+  setShapeReflection: { labelEn: 'Reflection', labelJa: '反射' },
+  setShapeSoftEdge: {
+    labelEn: 'Soft Edges',
+    labelJa: 'ぼかし',
+    category: 'effect',
+    params: [
+      { name: 'radiusEmu', type: 'number | null', kind: 'emu', optional: false, label: 'Size' },
+    ],
+  },
   setShapeTextBodyRotationDeg: { labelJa: 'テキストの回転' },
   setShapeZIndex: { labelJa: '図形の重なり順' },
   setSlideBackground: { labelJa: '背景色' },
