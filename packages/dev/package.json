@@ -35,6 +35,7 @@
   "dependencies": {
     "@office-kit/pptx": "workspace:^",
     "@office-kit/pptx-dsl": "workspace:^",
+    "@office-kit/pptx-editor": "workspace:^",
     "@office-kit/pptx-preview": "workspace:^",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
@@ -46,7 +47,6 @@
     "typescript": "^6.0.3"
   },
   "devDependencies": {
-    "@office-kit/pptx-editor": "workspace:^",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^24.13.2",
     "tsdown": "^0.22.2"

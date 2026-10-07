@@ -2,8 +2,8 @@
   import { parseTableClipboard } from './core/table-clipboard.ts';
   import { menuItemForKey } from './core/menubar-shortcuts.ts';
   import { nativeMenus } from './ui/menubar-commands.ts';
-  import { t } from './i18n/i18n.svelte.ts';
-  import { untrack, type Snippet } from 'svelte';
+  import { getLocale, t } from './i18n/i18n.svelte.ts';
+  import { untrack } from 'svelte';
   import { EditorController } from './core/controller.svelte.ts';
   import { setEditor } from './core/context.ts';
   import { eventTarget } from './core/dom-root.ts';
@@ -55,16 +55,41 @@
   let { editor: initialEditor = new EditorController(), onsave, status, compactHost = false, autoSave = false, embedded = false }: {
     editor?: EditorController;
     onsave?: () => Promise<void>;
-    status?: Snippet;
-    /** Reduce chrome when the editor is embedded in the dev preview shell. */
+    /** The host's own element for the title bar (its save status, say). */
+    status?: HTMLElement;
+    /** A slimmer title bar, for a host with little room. */
     compactHost?: boolean;
-    /** The host saves automatically while the title bar's AutoSave switch is on. */
+    /** Saves through `onsave` shortly after each edit while the title bar's AutoSave switch is on. */
     autoSave?: boolean;
     /** Fill the containing element instead of the window. */
     embedded?: boolean;
   } = $props();
   const editor = untrack(() => initialEditor);
   setEditor(editor);
+  // Long enough that a burst of quick edits saves once.
+  const AUTO_SAVE_DELAY = 700;
+  $effect(() => {
+    const doc = editor.doc;
+    doc.committedVersion;
+    if (!autoSave || !onsave || !editor.autoSave || !doc.dirty || doc.liveEditing) return;
+    const save = onsave;
+    const timer = setTimeout(() => void save(), AUTO_SAVE_DELAY);
+    return () => clearTimeout(timer);
+  });
+  // The preview page around the frame follows the slide being edited.
+  $effect(() => {
+    if (!editor.hostFrame) return;
+    window.parent.postMessage(
+      {
+        type: 'editor-focus',
+        slide: editor.doc.selection.slideIndex,
+        count: editor.doc.slides.length,
+        dirty: editor.doc.dirty,
+        locale: getLocale(),
+      },
+      window.location.origin,
+    );
+  });
   let shell = $state<HTMLElement>();
   $effect(() => {
     if (!shell) return;

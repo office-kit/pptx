@@ -1,27 +1,40 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+import { build } from 'esbuild';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import {
+  addBlankSlide,
   addSlideImage,
   addSlideTextBox,
   bringShapeToFront,
+  createPresentation,
   getShapeHyperlink,
   getShapeImagePartName,
   getShapeName,
-  getSlides,
-  getSlideShapes,
   getShapeText,
+  getSlideShapes,
+  getSlides,
   loadPresentation,
   removeShape,
   savePresentation,
   setShapeHyperlink,
   setShapeText,
 } from '@office-kit/pptx';
-import { buildDeck } from '../dist/index.mjs';
-import { mergeDecks } from './helpers/deck-merge.mjs';
+
+// The merge bundles the core's package layer, whose TypeScript uses syntax
+// Node's type stripping cannot run, so the tests load it the way tsdown ships it.
+const { outputFiles } = await build({
+  entryPoints: [fileURLToPath(new URL('../src/merge.ts', import.meta.url))],
+  bundle: true,
+  write: false,
+  format: 'esm',
+  platform: 'node',
+  target: 'es2022',
+});
+const { mergeDecks, describeConflict } = await import(
+  `data:text/javascript;base64,${Buffer.from(outputFiles[0].contents).toString('base64')}`
+);
 
 const EMU = 914400;
 const PNG = Uint8Array.from(
@@ -30,19 +43,18 @@ const PNG = Uint8Array.from(
   ),
   (c) => c.charCodeAt(0),
 );
-const deck = (a, b) =>
-  `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={8} height={1}>${a}</Text><Text x={1} y={3} width={8} height={1}>${b}</Text></Slide><Slide><Text x={1} y={1} width={8} height={1}>Second</Text></Slide></Presentation>`;
 
-let dir;
-let builds = 0;
-async function build(source) {
-  dir ??= await mkdtemp(join(tmpdir(), 'office-merge-'));
-  const folder = join(dir, String(builds++));
-  await mkdir(folder);
-  await writeFile(join(folder, 'deck.tsx'), source);
-  return (await buildDeck(join(folder, 'deck.tsx'))).bytes;
+/** Builds the whole deck from scratch, as a source rebuild does. */
+async function deck(a, b) {
+  const pres = createPresentation();
+  const first = addBlankSlide(pres);
+  addSlideTextBox(first, { x: EMU, y: EMU, w: 8 * EMU, h: EMU, text: a });
+  addSlideTextBox(first, { x: EMU, y: 3 * EMU, w: 8 * EMU, h: EMU, text: b });
+  const second = addBlankSlide(pres);
+  addSlideTextBox(second, { x: EMU, y: EMU, w: 8 * EMU, h: EMU, text: 'Second' });
+  return savePresentation(pres);
 }
-const base = await build(deck('A', 'B'));
+const base = await deck('A', 'B');
 
 /** Applies `change` to the first slide's shapes and saves the deck. */
 async function edit(bytes, change) {
@@ -53,11 +65,9 @@ async function edit(bytes, change) {
 const texts = async (bytes) =>
   getSlideShapes(getSlides(await loadPresentation(bytes))[0]).map(getShapeText);
 
-test.after(() => rm(dir, { recursive: true, force: true }));
-
 test('merges different shapes changed on each side', async () => {
   const ours = await edit(base, ([a]) => setShapeText(a, 'A edited'));
-  const theirs = await build(deck('A', 'B source'));
+  const theirs = await deck('A', 'B source');
   const merged = mergeDecks(base, ours, theirs);
   assert.equal(merged.ok, true);
   assert.deepEqual(await texts(merged.bytes), ['A edited', 'B source']);
@@ -65,8 +75,9 @@ test('merges different shapes changed on each side', async () => {
 
 test('reports the same shape changed on both sides', async () => {
   const ours = await edit(base, ([a]) => setShapeText(a, 'A edited'));
-  const theirs = await build(deck('A source', 'B'));
-  assert.deepEqual(mergeDecks(base, ours, theirs), {
+  const theirs = await deck('A source', 'B');
+  const merged = mergeDecks(base, ours, theirs);
+  assert.deepEqual(merged, {
     ok: false,
     conflicts: [
       {
@@ -77,13 +88,17 @@ test('reports the same shape changed on both sides', async () => {
       },
     ],
   });
+  assert.equal(
+    describeConflict(merged.conflicts[0]),
+    'Slide 1: TextBox 2 was changed both in the editor and in the source.',
+  );
 });
 
 test('keeps a shape added in the editor while the source changes another', async () => {
   const ours = await edit(base, (_, slide) =>
     addSlideTextBox(slide, { x: 0, y: 5 * EMU, w: 4 * EMU, h: EMU, text: 'Added' }),
   );
-  const theirs = await build(deck('A', 'B source'));
+  const theirs = await deck('A', 'B source');
   const merged = mergeDecks(base, ours, theirs);
   assert.equal(merged.ok, true);
   assert.deepEqual(await texts(merged.bytes), ['A', 'B source', 'Added']);
@@ -91,7 +106,7 @@ test('keeps a shape added in the editor while the source changes another', async
 
 test('keeps the editor stacking order while merging source text', async () => {
   const ours = await edit(base, ([a]) => bringShapeToFront(a));
-  const theirs = await build(deck('A source', 'B'));
+  const theirs = await deck('A source', 'B');
   const merged = mergeDecks(base, ours, theirs);
   assert.equal(merged.ok, true);
   assert.deepEqual(await texts(merged.bytes), ['B', 'A source']);
@@ -99,7 +114,7 @@ test('keeps the editor stacking order while merging source text', async () => {
 
 test('reports a shape deleted on one side and changed on the other', async () => {
   const ours = await edit(base, ([, b]) => removeShape(b));
-  const theirs = await build(deck('A', 'B source'));
+  const theirs = await deck('A', 'B source');
   const merged = mergeDecks(base, ours, theirs);
   assert.equal(merged.ok, false);
   assert.deepEqual(merged.conflicts, [
@@ -110,6 +125,10 @@ test('reports a shape deleted on one side and changed on the other', async () =>
       reason: 'deleted-and-changed',
     },
   ]);
+  assert.equal(
+    describeConflict(merged.conflicts[0]),
+    'Slide 1: TextBox 3 was deleted on one side and changed on the other.',
+  );
 });
 
 test('reports different shapes added with the same ID on both sides', async () => {
@@ -157,10 +176,12 @@ test('ignores generated core property timestamps', async () => {
   const stamp = (bytes, time) => {
     const parts = unzipSync(bytes);
     parts['docProps/core.xml'] = strToU8(
-      strFromU8(parts['docProps/core.xml']).replace(
-        '</cp:coreProperties>',
-        `<dcterms:created xsi:type="dcterms:W3CDTF">${time}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${time}</dcterms:modified></cp:coreProperties>`,
-      ),
+      strFromU8(parts['docProps/core.xml'])
+        .replace(/<dcterms:(created|modified)\b[^>]*>[^<]*<\/dcterms:\1>/g, '')
+        .replace(
+          '</cp:coreProperties>',
+          `<dcterms:created xsi:type="dcterms:W3CDTF">${time}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${time}</dcterms:modified></cp:coreProperties>`,
+        ),
     );
     return zipSync(parts);
   };
@@ -168,7 +189,7 @@ test('ignores generated core property timestamps', async () => {
     await edit(base, ([a]) => setShapeText(a, 'A edited')),
     '2001-01-01T00:00:00Z',
   );
-  const theirs = stamp(await build(deck('A', 'B source')), '2002-02-02T00:00:00Z');
+  const theirs = stamp(await deck('A', 'B source'), '2002-02-02T00:00:00Z');
   const merged = mergeDecks(stamp(base, '2000-01-01T00:00:00Z'), ours, theirs);
   assert.equal(merged.ok, true);
   assert.deepEqual(await texts(merged.bytes), ['A edited', 'B source']);
@@ -177,10 +198,8 @@ test('ignores generated core property timestamps', async () => {
 test('reports slide numbers by presentation order', async () => {
   const pres = await loadPresentation(base);
   const second = getSlides(pres)[1];
-  const ours = await (async () => {
-    setShapeText(getSlideShapes(second)[0], 'Second edited');
-    return savePresentation(pres);
-  })();
+  setShapeText(getSlideShapes(second)[0], 'Second edited');
+  const ours = await savePresentation(pres);
   const theirsPres = await loadPresentation(base);
   setShapeText(getSlideShapes(getSlides(theirsPres)[1])[0], 'Second source');
   const merged = mergeDecks(base, ours, await savePresentation(theirsPres));

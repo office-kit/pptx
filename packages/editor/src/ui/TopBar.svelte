@@ -4,9 +4,10 @@
   import { getEditor } from '../core/context.ts';
   import { downloadPptx } from '../core/download.ts';
   import { t, getLocale, setLocale, LOCALES, type Locale } from '../i18n/i18n.svelte.ts';
-  import type { Snippet } from 'svelte';
+  import type { Attachment } from 'svelte/attachments';
+  import ProposalBar from './ProposalBar.svelte';
 
-  let { onsave, autoSave = false, compact = false, status }: { onsave?: () => Promise<void>; autoSave?: boolean; compact?: boolean; status?: Snippet } = $props();
+  let { onsave, autoSave = false, compact = false, status }: { onsave?: () => Promise<void>; autoSave?: boolean; compact?: boolean; status?: HTMLElement } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   let fileInput = $state<HTMLInputElement>();
@@ -30,6 +31,25 @@
   function newPresentation() {
     doc.resetBlank();
     if (onsave) doc.dirty = true;
+  }
+
+  // The host's element stays in the host's DOM: inside a shadow root it is
+  // slotted, so the page's own styles still reach it.
+  const STATUS_SLOT = 'office-kit-status';
+  function hostStatus(element: HTMLElement): Attachment<HTMLElement> {
+    return (container) => {
+      const root = container.getRootNode();
+      if (root instanceof ShadowRoot) {
+        const slot = document.createElement('slot');
+        slot.name = STATUS_SLOT;
+        container.append(slot);
+        element.slot = STATUS_SLOT;
+        root.host.append(element);
+      } else {
+        container.append(element);
+      }
+      return () => element.remove();
+    };
   }
 
   async function onSave() {
@@ -94,7 +114,8 @@
     </button>
   </div>
 
-  {#if status}<div class="host-status">{@render status()}</div>{/if}
+  {#if status}<div class="host-status" {@attach hostStatus(status)}></div>{/if}
+  {#if editor.proposal}<ProposalBar proposal={editor.proposal} />{/if}
 
   <input
     bind:this={fileInput}
@@ -124,7 +145,7 @@
     padding: 2px 8px;
     overflow-x: auto;
   }
-  .topbar.compact:has(:global(.conflict)) { flex-wrap: wrap; overflow-x: hidden; }
+  .topbar:has(:global(.conflict)) { flex-wrap: wrap; overflow-x: hidden; }
   .topbar.compact .tag { display: none; }
   .topbar.compact .brand { display: none; }
   .topbar.compact .quick { flex: none; }
@@ -219,17 +240,7 @@
   .topbar.compact .host-status {
     display: contents;
   }
-  /* A wrapping status would change the bar's height whenever it updates and
-     shift the canvas mid-gesture; the title bar keeps one line. */
-  .topbar.compact .host-status :global(.save-status) {
-    flex: 0 1 auto;
-    min-height: 24px;
-    white-space: nowrap;
-  }
   .topbar.compact .right :global(.palette-btn) {
     min-width: 0;
-  }
-  .topbar.compact .host-status :global(.conflict) {
-    flex-basis: 100%;
   }
 </style>

@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { renderDeck, type BuildResult } from './build.ts';
-import { describeConflict, mergeDecks } from './deck-merge.ts';
+import { describeConflict, mergeDecks } from '@office-kit/pptx-editor/merge';
 import { sourceFingerprint } from './fingerprint.ts';
 
 export interface SavedEdits {

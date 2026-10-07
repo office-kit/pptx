@@ -41,6 +41,7 @@ const svelte: Rolldown.Plugin = {
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
+    merge: 'src/merge.ts',
     internal: 'src/internal.ts',
     'internal/animation-player': 'src/internal-animation-player.ts',
   },

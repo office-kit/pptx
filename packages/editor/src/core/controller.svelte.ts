@@ -81,6 +81,7 @@ import { shapeScope, invert, project, type Matrix } from '../canvas/group-space.
 import { projectedBounds } from '../canvas/transformed-snapping.ts';
 import type { Rect } from '../canvas/snapping.ts';
 import { selectedSlideIndices, selectedShapeId, selectedShapeIds } from './selection.ts';
+import type { PendingProposal } from './proposal.ts';
 
 export interface Toast {
   readonly id: number;
@@ -276,8 +277,10 @@ export class EditorController {
    * through EditorDocument.transact so save/undo treats each gesture as one
    * PowerPoint-style document edit. */
   /** Slide times from Rehearse Timings, waiting for the user to keep or discard them. */
-  /** Title bar AutoSave: hosts that save on their own pause while it is off. */
+  /** Title bar AutoSave: the editor saves through the host while it is on. */
   autoSave = $state(true);
+  /** A proposed version that collided with the user's edits, awaiting their choice. */
+  proposal = $state.raw<PendingProposal | null>(null);
   rehearsalTimings = $state<readonly { slide: number; ms: number }[] | null>(null);
   /** The Accessibility issue list (status bar, Review ▸ Check Accessibility). */
   accessibilityOpen = $state(false);

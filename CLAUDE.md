@@ -56,13 +56,15 @@ for core APIs, not evidence of typed DSL coverage.
 | `@office-kit/pptx`         | Read / write PPTX (the core library below)                            | Node + browser |
 | `@office-kit/pptx-preview` | SVG rendering                                                         | Node + browser |
 | `@office-kit/pptx-dsl`     | TSX → PPTX                                                            | Node + browser |
-| `@office-kit/pptx-editor`  | Embeddable editing UI (`mountEditor`); later the agent write API      | Browser        |
+| `@office-kit/pptx-editor`  | Embeddable editing UI (`mountEditor`) and its agent API               | Browser        |
 | `@office-kit/pptx-dev`     | Local host for the editor: TSX watch / rebuild, disk persistence, CLI | Node + browser |
 
-`pptx-dev` is a client of the editor. It should reach the editor only through
-its public API so that gaps in the embedding API surface during dev work.
-`@office-kit/pptx-editor/internal` exists only while that migration is in
-progress; do not add to it without a plan to remove it.
+`pptx-dev` is a client of the editor. It reaches the editor through its public
+API (`mountEditor`, the handle, `@office-kit/pptx-editor/merge`) so that gaps
+in the embedding API surface during dev work. `@office-kit/pptx-editor/internal`
+keeps only the preview frame's `postMessage` protocol (Slide Show, Reading View,
+Rehearse Timings, the Agents pane button) and the animation player the preview
+page loads on its own; do not add to it without a plan to remove it.
 
 ### Core library
 

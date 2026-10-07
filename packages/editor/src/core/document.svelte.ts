@@ -148,8 +148,9 @@ export class EditorDocument {
    * Run `fn` as one undoable transaction. The mutation runs synchronously so
    * the UI updates immediately; a byte snapshot is captured asynchronously for
    * undo. Returns whatever `fn` returns (e.g. a newly created shape/slide).
+   * `dirty: false` is for a step that leaves the deck as its host has saved it.
    */
-  transact<T>(label: string, fn: () => T, source: ChangeSource = 'user'): T {
+  transact<T>(label: string, fn: () => T, source: ChangeSource = 'user', dirty = true): T {
     const result = this.#atomic(() => {
       this.#invalidateRestore();
       const current = this.#history[this.#cursor];
@@ -159,7 +160,7 @@ export class EditorDocument {
         );
       const result = fn();
       this.version++;
-      this.dirty = true;
+      this.dirty = dirty;
       this.#snapshot(label);
       return result;
     });
@@ -391,7 +392,8 @@ export class EditorDocument {
   }
 
   // --- IO ----------------------------------------------------------------
-  async loadBytes(bytes: Uint8Array, name: string): Promise<void> {
+  /** `dirty`: the opened deck is not what the host has saved (a recovered copy). */
+  async loadBytes(bytes: Uint8Array, name: string, dirty = false): Promise<void> {
     this.#invalidateRestore();
     const operation = this.#operation;
     let pres: PresentationData;
@@ -411,7 +413,7 @@ export class EditorDocument {
     this.#cursor = -1;
     this.selection = { kind: 'none', slideIndex: 0 };
     this.version++;
-    this.dirty = false;
+    this.dirty = dirty;
     this.liveEditing = false;
     this.#snapshot('Open');
     this.onChange?.('user');

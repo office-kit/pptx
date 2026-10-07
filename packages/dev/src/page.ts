@@ -736,6 +736,8 @@ async function refresh(){
 }
 const editorFrame=byId('editor-frame');
 let editorFocus;
+// The preview revision the editor last saw; it reports this apart from its focus.
+let editorRevision=0;
 // The Agents task pane opens on demand, like PowerPoint's panes; the editor's
 // Agents button (in its tab row) mirrors that state, so every change is reported back.
 const agentsKey='office-kit-agents-open';
@@ -771,7 +773,7 @@ function applyEditorFocus(){
  if(!editorFocus)return;
  index=Math.max(0,editorFocus.slide);
  byId('chat-context').textContent=(editorFocus.locale==='ja'?'スライド ':'Slide ')+(index+1)+' / '+editorFocus.count+(editorFocus.dirty?' · '+(editorFocus.locale==='ja'?'未保存':'Unsaved'):'');
- byId('chat-context').dataset.focus=JSON.stringify({slide:editorFocus.count?index:null,revision:editorFocus.dirty?-1:editorFocus.revision});
+ byId('chat-context').dataset.focus=JSON.stringify({slide:editorFocus.count?index:null,revision:editorFocus.dirty?-1:editorRevision});
  window.dispatchEvent(new Event('agent-focus'));
 }
 window.addEventListener('message',event=>{
@@ -790,6 +792,11 @@ window.addEventListener('message',event=>{
  else if(event.data.action==='current'&&Number.isInteger(slide)&&slide>=0&&slide<state.slides.length)void startPresentation(slide);
  else if(event.data.action==='presenter')byId('presenter').click();
  else if(event.data.action==='rehearse'){void startPresentation();if(presenting)startRehearsal();}
+});
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-revision'||!Number.isInteger(event.data.revision))return;
+ editorRevision=event.data.revision;
+ if(document.body.classList.contains('editing'))applyEditorFocus();
 });
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-focus')return;
