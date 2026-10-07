@@ -15,17 +15,20 @@
 
 import {
   ANIMATION_PRESET_ENTRIES,
+  type AnimationColor,
   type AnimationDirection,
   type AnimationEffect,
   type AnimationEffectOptions,
   type AnimationInOut,
   type AnimationOrientation,
+  type AnimationScaleDirection,
   type AnimationShape,
+  type AnimationSpinDirection,
   type AnimationTextBuild,
-  FULL_TURN,
   effectDurationMs,
   isMediaTimingNode,
   lastBehaviourEndMs,
+  readAnimationEmphasisOptions,
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -65,9 +68,6 @@ const ATTR_BLD_LVL = qname('', 'bldLvl', '');
 const ATTR_ST = qname('', 'st', '');
 const ATTR_END = qname('', 'end', '');
 const ATTR_FILL = qname('', 'fill', '');
-const ATTR_BY = qname('', 'by', '');
-const ATTR_FROM = qname('', 'from', '');
-const ATTR_TO = qname('', 'to', '');
 
 /** `fill` values that leave a timing node's value in place after it has run. */
 const HOLDING_FILLS = new Set(['hold', 'freeze']);
@@ -152,6 +152,22 @@ export interface SlideAnimationStep {
   readonly shape: AnimationShape | null;
   /** Wheel: how many spokes. */
   readonly spokes: number | null;
+  /** Spin: which way it turns. */
+  readonly spinDirection: AnimationSpinDirection | null;
+  /** Spin: how far it turns, in degrees. */
+  readonly spinDegrees: number | null;
+  /** Grow/Shrink: which axes it scales. */
+  readonly scaleDirection: AnimationScaleDirection | null;
+  /** Grow/Shrink: the size it reaches, in percent of the shape's own. */
+  readonly scalePercent: number | null;
+  /** Transparency: how transparent the shape becomes, 0–100. */
+  readonly transparencyPercent: number | null;
+  /**
+   * The colour emphasis effects: the colour they change to — a theme slot as
+   * `scheme:accent2`, an sRGB value as `#RRGGBB`, with its colour transforms
+   * when it has any.
+   */
+  readonly color: AnimationColor | null;
   readonly presetId: number | null;
   readonly presetClass: string | null;
   /** `'unknown'` when the node type is not one this library models. */
@@ -474,42 +490,6 @@ const PRESET_EFFECTS: ReadonlyMap<string, PresetEffect> = (() => {
   return out;
 })();
 
-/**
- * Whether a `spin` really turns the shape once, clockwise, and does nothing
- * else.
- *
- * The preset triple is not enough. `presetClass="emph" presetID="8"` is
- * PowerPoint's Spin whatever angle it turns through: the amount lives on
- * `<p:animRot>`, whose `by` / `from` / `to` are `a:ST_Angle` — sixtieth-
- * thousandths of a degree, and negative for a counter-clockwise turn. A tree
- * that says half a turn back the other way carries the same preset numbers as
- * one that says a full turn forwards, so reading the numbers alone would report
- * the second when the file says the first — and let an edit rewrite it as one.
- *
- * Only the shape this library writes is accepted: a single rotation behaviour,
- * `by` a full positive turn, and no `from` / `to` fixing where it starts or
- * ends. Anything else is an effect we read rather than name.
- */
-const isFullClockwiseTurn = (step: XmlElement): boolean => {
-  const rotations: XmlElement[] = [];
-  const walk = (el: XmlElement): void => {
-    if (isPml(el, 'cBhvr')) return;
-    if (isPml(el, 'animRot')) {
-      rotations.push(el);
-      return;
-    }
-    for (const child of el.children) if (child.kind === 'element') walk(child);
-  };
-  for (const child of step.children) if (child.kind === 'element') walk(child);
-  const rotation = rotations[0];
-  if (rotations.length !== 1 || rotation === undefined) return false;
-  if (behavioursOf(step).length !== 1) return false;
-  if (getAttrValue(rotation, ATTR_FROM) !== null || getAttrValue(rotation, ATTR_TO) !== null) {
-    return false;
-  }
-  return strictInt(getAttrValue(rotation, ATTR_BY)) === FULL_TURN;
-};
-
 const readStart = (step: XmlElement): AnimationStart => {
   switch (getAttrValue(step, ATTR_NODE_TYPE)) {
     case 'clickEffect':
@@ -559,9 +539,14 @@ const toStep = (
   // for a preset written without a subtype at all.
   const subtype = rawSubtype === null ? '-' : (strictInt(rawSubtype) ?? 'unreadable');
   const named = PRESET_EFFECTS.get(`${presetClass}:${presetId}:${subtype}`) ?? null;
-  // A preset whose numbers do not settle what it does is checked against the
-  // behaviour that does.
-  const preset = named?.effect === 'spin' && !isFullClockwiseTurn(node) ? null : named;
+  // The emphasis effects' own options are not in the preset numbers:
+  // `presetClass="emph" presetID="8"` is Spin whatever angle it turns through,
+  // and the angle lives on `<p:animRot by>`. So they are read off the
+  // behaviours, and an effect whose behaviours say something those options
+  // cannot — half a turn fixed by `from` / `to`, two different colours — is
+  // one we read rather than name, so an edit cannot rewrite it as another.
+  const emphasis = named === null ? null : readAnimationEmphasisOptions(named.effect, node);
+  const preset = emphasis === null ? null : named;
   const effect = preset?.effect ?? null;
   // An emphasis effect hands its target back on the slide whatever its `fill`
   // says — PowerPoint's own Color Pulse takes its colour away again
@@ -584,6 +569,12 @@ const toStep = (
     inOut: preset?.options.inOut ?? null,
     shape: preset?.options.shape ?? null,
     spokes: preset?.options.spokes ?? null,
+    spinDirection: emphasis?.spinDirection ?? null,
+    spinDegrees: emphasis?.spinDegrees ?? null,
+    scaleDirection: emphasis?.scaleDirection ?? null,
+    scalePercent: emphasis?.scalePercent ?? null,
+    transparencyPercent: emphasis?.transparencyPercent ?? null,
+    color: emphasis?.color ?? null,
     presetId,
     presetClass,
     start,

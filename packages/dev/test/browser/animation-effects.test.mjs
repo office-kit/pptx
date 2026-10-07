@@ -796,3 +796,79 @@ test('the other presets play as approximate poses', async () => {
     assertDrawnPlace(settled, settled[shape(10)], 'darken');
   });
 });
+
+test('the emphasis options play the angle, size and amount the deck states', async () => {
+  await withBrowser(async (page) => {
+    const ended = (over) =>
+      scene(page, {
+        steps: [step({ direction: null, presetClass: 'emph', ...over })],
+        go: {},
+        at: DURATION,
+        watch: [shape(10)],
+      });
+    const back = await ended({
+      effect: 'spin',
+      presetId: 8,
+      spinDirection: 'counterclockwise',
+      spinDegrees: 90,
+    });
+    assert.equal(back[shape(10)].rotate, '-90deg');
+    const twice = await ended({
+      effect: 'spin',
+      presetId: 8,
+      spinDirection: 'clockwise',
+      spinDegrees: 720,
+    });
+    assert.equal(twice[shape(10)].rotate, '720deg');
+    const wide = await ended({
+      effect: 'growShrink',
+      presetId: 6,
+      scaleDirection: 'horizontal',
+      scalePercent: 400,
+    });
+    assert.equal(wide[shape(10)].scale, '4 1');
+    const tall = await ended({
+      effect: 'growShrink',
+      presetId: 6,
+      scaleDirection: 'vertical',
+      scalePercent: 25,
+    });
+    assert.equal(tall[shape(10)].scale, '1 0.25');
+  });
+});
+
+test('a multi-part preset keeps each behaviour’s share of its length', async () => {
+  await withBrowser(async (page) => {
+    const keyframes = (over) =>
+      page.evaluate(
+        async ({ steps, slide }) => {
+          const { createAnimationPlayer } = await import('/animation-player.js');
+          for (const old of document.querySelectorAll('[data-scene]')) old.remove();
+          const root = document.createElement('div');
+          root.dataset.scene = '1';
+          root.innerHTML = slide;
+          document.body.append(root);
+          const player = createAnimationPlayer({ root, steps });
+          player.reset();
+          player.advance();
+          const el = root.querySelector('[data-pptx-shape-id="10"]');
+          const [animation] = el.getAnimations();
+          animation.pause();
+          return animation.effect.getKeyframes().map((f) => Number(f.computedOffset.toFixed(3)));
+        },
+        { steps: [step(over)], slide: SLIDE },
+      );
+    // Bounce lands at 664 of its 1822 ms, then bounces three times: played at
+    // any length, each landing comes at the same share of it.
+    const bounce = await keyframes({ effect: 'bounceIn', presetId: 26, durationMs: 4000 });
+    assert.deepEqual(
+      bounce,
+      [0, 664, 994, 1324, 1490, 1656, 1739, 1822].map((ms) => Number((ms / 1822).toFixed(3))),
+    );
+    // The exit plays the same track backwards, the last landing first.
+    const out = await keyframes({ effect: 'bounceOut', presetId: 26, presetClass: 'exit' });
+    assert.deepEqual(out, bounce.map((offset) => Number((1 - offset).toFixed(3))).reverse());
+    const teeter = await keyframes({ effect: 'teeter', presetId: 32, presetClass: 'emph' });
+    assert.deepEqual(teeter, [0, 0.1, 0.2, 0.4, 0.6, 0.8, 1]);
+  });
+});

@@ -1,12 +1,15 @@
 // Slide animations.
 
 import {
+  type AnimationColor,
   type AnimationDirection,
   type AnimationEffect,
   type AnimationInOut,
   type AnimationOptions,
   type AnimationOrientation,
+  type AnimationScaleDirection,
   type AnimationShape,
+  type AnimationSpinDirection,
   type AnimationStartCondition,
   type AnimationTextBuild,
   animationBuildKind,
@@ -68,6 +71,7 @@ import { maxCTnId, rootChildTnLst } from './_media-timing.ts';
 export type { AnimationDirection, AnimationEffect, AnimationOptions, AnimationStartCondition };
 export type { AnimationTextBuild };
 export type { AnimationInOut, AnimationOrientation, AnimationShape };
+export type { AnimationColor, AnimationScaleDirection, AnimationSpinDirection };
 export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
 export type { AnimationValueAfterEnd };
 
@@ -580,6 +584,15 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  *     of it (`'out'`). PowerPoint's Shape exit defaults to `'out'`.
  *   - `shape` — `'circle'` (the default), `'box'`, `'diamond'` or `'plus'`.
  *   - `spokes` — wheel: 1 (the default), 2, 3, 4 or 8.
+ *   - `spinDirection` and `spinDegrees` — spin: `'clockwise'` (the default)
+ *     or `'counterclockwise'`, through any positive angle (360 by default).
+ *   - `scaleDirection` and `scalePercent` — grow/shrink: `'both'` axes (the
+ *     default), `'horizontal'` or `'vertical'`, to any positive size (150 %).
+ *   - `transparencyPercent` — transparency: 0–100 (50 by default).
+ *   - `color` — the colour emphasis effects (fill, font, line, brush and
+ *     object colour, colour pulse, grow with colour): a theme slot or
+ *     `#RRGGBB`, optionally with colour transforms. Accent 2 by default, and
+ *     Background 1 for colour pulse.
  *
  * An option passed for an effect that does not take it is an error rather
  * than a no-op.

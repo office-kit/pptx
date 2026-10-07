@@ -72,14 +72,21 @@ const PRESET_CLASS_KINDS: Readonly<Record<string, AnimationItem['kind']>> = {
  * equivalent, so it is drawn with an animated `clip-path` making the same
  * reveal — bars, a wedge, an outline growing out of the centre.
  *
- * Every other preset is a `pose`, and an approximation: the frames below go
- * from the pose to the shape's own place (or back, for an exit) evenly over
- * the effect's whole length, where PowerPoint's own behaviours each have a
- * timing of their own — a bounce's falls, a boomerang's arc. Dissolve plays as
- * a fade. Emphasis colour changes are a CSS `filter` over the drawn shape
- * (darker, lighter, greyer, or its hues turned), since the drawing has already
- * resolved the colours the deck names; like every emphasis here, they play and
- * then hand the shape back as drawn.
+ * Every other preset is a `pose`, and an approximation. The presets made of
+ * several behaviours with timings of their own — a bounce's falls, a
+ * boomerang's arc, a teeter's swings — are a `TRACK`: keyframes placed at the
+ * moments PowerPoint's own behaviours start and end (as saved in
+ * test/fixtures/native/animations/), so each part keeps its share of the
+ * effect at any duration, with distances the deck states against the slide
+ * measured against the drawn slide. An exit plays its entrance's track
+ * backwards, as PowerPoint's own exits of these presets do, Drop and Flip
+ * aside. The rest go from the pose to the shape's own place (or back, for an
+ * exit) evenly over the effect's whole length. Dissolve plays as a fade.
+ * Emphasis colour changes are a CSS `filter` over the drawn shape (darker,
+ * lighter, greyer, or its hues turned), since the drawing has already resolved
+ * the colours the deck names; like every emphasis here, they play and then
+ * hand the shape back as drawn. Spin, Grow/Shrink and Transparency play the
+ * angle, size and amount their Effect Options state.
  */
 type Motion = 'none' | 'fly' | 'filter' | 'peek' | 'pose';
 
@@ -100,27 +107,16 @@ const AWAY: Readonly<Record<string, Keyframe>> = {
   swivel: { opacity: 0, scale: '0 1' },
   zoom: { opacity: 0, scale: '0' },
   basicZoom: { scale: '0' },
-  centerRevolve: { opacity: 0, scale: '0.5', translate: '0% 50%' },
   float: { opacity: 0, translate: '0% 50%' },
   growTurn: { opacity: 0, scale: '0', rotate: '90deg' },
   shrinkTurn: { opacity: 0, scale: '0', rotate: '90deg' },
-  riseUp: { opacity: 0, translate: '0% 100%' },
-  sinkDown: { opacity: 0, translate: '0% 100%' },
   spinner: { opacity: 0, scale: '0', rotate: '-90deg' },
   stretch: { scale: '0 1' },
   stretchy: { scale: '0 1' },
   collapse: { scale: '0 1' },
-  boomerang: { opacity: 0, scale: '0.5', rotate: '-90deg', translate: '-150% 0%' },
-  bounce: { translate: '0% -150%' },
-  curveUp: { opacity: 0, scale: '0.5', translate: '50% 100%' },
-  curveDown: { opacity: 0, scale: '0.5', translate: '50% 100%' },
-  drop: { opacity: 0, translate: '0% -100%' },
-  flip: { opacity: 0, rotate: '-90deg' },
-  floating: { opacity: 0, translate: '50% -50%' },
   pinwheel: { opacity: 0, scale: '0', rotate: '720deg' },
   spiral: { scale: '0', translate: '-100% 100%' },
   basicSwivel: { scale: '0 1' },
-  whip: { opacity: 0, scale: '0.5', translate: '-100% 0%' },
 };
 
 /** Each property of a pose at the shape's own place. */
@@ -145,14 +141,45 @@ const CONTRAST_FLASH = flash('contrast(1)', 'contrast(1.8)');
 
 /** The frames of each emphasis effect, which starts and ends with the shape as drawn. */
 const EMPHASIS: Readonly<Record<string, Keyframe[]>> = {
-  spin: [{ rotate: '0deg' }, { rotate: '360deg' }],
-  growShrink: [{ scale: '1' }, { scale: '1.5' }],
-  pulse: [{ scale: '1' }, { scale: '1.05' }, { scale: '1' }],
-  teeter: ['0deg', '4deg', '-4deg', '4deg', '-4deg', '0deg'].map((rotate) => ({ rotate })),
-  wave: [{ translate: '0% 0%' }, { translate: '0% -20%' }, { translate: '0% 0%' }],
-  shimmer: [{ scale: '1' }, { scale: '1.05 0.95' }, { scale: '1' }],
-  blink: [{ opacity: 1 }, { opacity: 0 }, { opacity: 1 }],
-  transparency: [{ opacity: 1 }, { opacity: 0.5 }],
+  // Up to 105 % and back while it fades to half between a fifth and four fifths.
+  pulse: [
+    { offset: 0, scale: '1', opacity: 1 },
+    { offset: 0.2, opacity: 0.5 },
+    { offset: 0.5, scale: '1.05' },
+    { offset: 0.8, opacity: 0.5 },
+    { offset: 1, scale: '1', opacity: 1 },
+  ],
+  // Two degrees out and back over the first tenth, then four-degree swings
+  // a fifth apiece (PowerPoint's five `<p:animRot>`, the first waiting a tenth).
+  teeter: [
+    { offset: 0, rotate: '0deg' },
+    { offset: 0.1, rotate: '2deg' },
+    { offset: 0.2, rotate: '2deg' },
+    { offset: 0.4, rotate: '-2deg' },
+    { offset: 0.6, rotate: '2deg' },
+    { offset: 0.8, rotate: '-2deg' },
+    { offset: 1, rotate: '0deg' },
+  ],
+  // Lifted and set down again over the whole length while it rocks 25° each
+  // way a quarter apiece.
+  wave: [
+    { offset: 0, translate: '0% 0%', rotate: '0deg', easing: 'ease-in-out' },
+    { offset: 0.25, rotate: '25deg' },
+    { offset: 0.5, translate: '0% -20%', rotate: '0deg', easing: 'ease-in-out' },
+    { offset: 0.75, rotate: '-25deg' },
+    { offset: 1, translate: '0% 0%', rotate: '0deg' },
+  ],
+  shimmer: [
+    { scale: '1', translate: '0% 0%', rotate: '0deg' },
+    { scale: '0.8 1', translate: '10% -10%', rotate: '-8deg' },
+    { scale: '1', translate: '0% 0%', rotate: '0deg' },
+  ],
+  // Hidden for the first half, then shown (`calcmode="discrete"`).
+  blink: [
+    { offset: 0, opacity: 0, easing: 'step-end' },
+    { offset: 0.5, opacity: 1 },
+    { offset: 1, opacity: 1 },
+  ],
   fillColor: HUE_TURN,
   lineColor: HUE_TURN,
   fontColor: HUE_TURN,
@@ -169,9 +196,270 @@ const EMPHASIS: Readonly<Record<string, Keyframe[]>> = {
     { scale: '1', filter: 'hue-rotate(0deg)' },
     { scale: '1.1', filter: 'hue-rotate(180deg)' },
   ],
-  boldFlash: CONTRAST_FLASH,
+  // Bold from half-way to six tenths of the way through (`calcmode="discrete"`).
+  boldFlash: [
+    { offset: 0, filter: 'contrast(1)', easing: 'step-end' },
+    { offset: 0.5, filter: 'contrast(1.8)', easing: 'step-end' },
+    { offset: 0.6, filter: 'contrast(1)' },
+    { offset: 1, filter: 'contrast(1)' },
+  ],
   boldReveal: CONTRAST_FLASH,
   underline: CONTRAST_FLASH,
+};
+
+/**
+ * The frames of an emphasis effect whose Effect Options decide how far it
+ * goes: Spin's angle and direction, Grow/Shrink's size and axes,
+ * Transparency's amount. `null` for every other effect.
+ */
+const optionedEmphasis = (step: SlideAnimationStep): Keyframe[] | null => {
+  switch (step.effect) {
+    case 'spin': {
+      const sign = step.spinDirection === 'counterclockwise' ? -1 : 1;
+      return [{ rotate: '0deg' }, { rotate: `${sign * (step.spinDegrees ?? 360)}deg` }];
+    }
+    case 'growShrink': {
+      const size = (step.scalePercent ?? 150) / 100;
+      const scale =
+        step.scaleDirection === 'horizontal'
+          ? `${size} 1`
+          : step.scaleDirection === 'vertical'
+            ? `1 ${size}`
+            : `${size}`;
+      return [{ scale: '1' }, { scale }];
+    }
+    case 'transparency':
+      return [{ opacity: 1 }, { opacity: 1 - (step.transparencyPercent ?? 50) / 100 }];
+    default:
+      return null;
+  }
+};
+
+/**
+ * Where a track puts the shape: a translation by fractions of the slide's
+ * width and height — which is how PowerPoint states these presets' distances
+ * (`#ppt_x+0.4`) — plus fractions of the shape's own box, in the units the
+ * element's own CSS transform is written in. `null` before the slide is laid
+ * out, when nothing can be measured.
+ */
+interface Geometry {
+  shift(slideX: number, slideY: number, ownX?: number, ownY?: number): string | null;
+  /** Clear of the slide past the top or bottom edge, as a fly leaves it. */
+  past(edge: 'top' | 'bottom'): { readonly dx: number; readonly dy: number } | null;
+}
+
+/** The time-to-progress curve of a `tmFilter`, read at `t`. */
+const filtered = (points: readonly (readonly [number, number])[], t: number): number => {
+  for (let at = 1; at < points.length; at += 1) {
+    const [t1, p1] = points[at]!;
+    const [t0, p0] = points[at - 1]!;
+    if (t <= t1) return p0 + ((p1 - p0) * (t - t0)) / (t1 - t0);
+  }
+  return 1;
+};
+
+// Bounce's sideways drift (`tmFilter` on its `ppt_x`) and the moments it
+// lands, in milliseconds of its 1822: a third of the slide's height to fall,
+// then bounces of a ninth, a twenty-seventh and an eighty-first.
+const BOUNCE_DRIFT: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.14, 0.36],
+  [0.43, 0.73],
+  [0.71, 0.91],
+  [1, 1],
+];
+const BOUNCE_LENGTH = 1822;
+const BOUNCE_LANDINGS = [664, 1324, 1656, 1822];
+const BOUNCE_HEIGHTS = [1 / 9, 1 / 27, 1 / 81];
+
+// Center Revolve's arc, sampled from the `<p:tav>` PowerPoint writes for it.
+const REVOLVE_ARC: readonly (readonly [number, number, number])[] = [
+  [0, 0, 0.31],
+  [0.25, 0.1096, 0.2646],
+  [0.5, 0.155, 0.155],
+  [0.75, 0.1096, 0.0454],
+  [1, 0, 0],
+];
+
+// Curve Up's motion path (`<p:animMotion path>`): the end of each of its four
+// cubic segments, from below left of the slide to the shape's own place.
+const CURVE_POINTS: readonly (readonly [number, number])[] = [
+  [-0.46736, 0.92887],
+  [0.0908, 0.66613],
+  [0.23177, 0.40825],
+  [0.18264, 0.09152],
+  [0, 0],
+];
+
+const frame = (offset: number, translate: string | null, rest: Keyframe = {}): Keyframe | null =>
+  translate === null ? null : { offset, translate, ...rest };
+
+const all = (frames: (Keyframe | null)[]): Keyframe[] | null =>
+  frames.every((f) => f !== null) ? (frames as Keyframe[]) : null;
+
+/**
+ * The entrance presets made of several behaviours, as keyframes from where the
+ * shape starts to its own place. Each offset is where one of PowerPoint's
+ * behaviours starts or ends, as a fraction of the preset's default length.
+ */
+const TRACKS: Readonly<Record<string, (g: Geometry) => Keyframe[] | null>> = {
+  bounce: (g) => {
+    const at = (ms: number, height: number, easing: string): Keyframe | null =>
+      frame(
+        ms / BOUNCE_LENGTH,
+        g.shift(-0.25 * (1 - filtered(BOUNCE_DRIFT, ms / BOUNCE_LENGTH)), -height),
+        {
+          easing,
+        },
+      );
+    const frames: (Keyframe | null)[] = [at(0, 1 / 3, 'ease-in')];
+    BOUNCE_LANDINGS.forEach((landing, i) => {
+      frames.push(at(landing, 0, 'ease-out'));
+      const next = BOUNCE_LANDINGS[i + 1];
+      if (next !== undefined) frames.push(at((landing + next) / 2, BOUNCE_HEIGHTS[i]!, 'ease-in'));
+    });
+    return all(frames);
+  },
+  boomerang: (g) =>
+    all([
+      frame(0, g.shift(0.4, -0.2), {
+        rotate: '-90deg',
+        scale: '1 1',
+        opacity: 0,
+        easing: 'ease-out',
+      }),
+      frame(0.5, g.shift(0, 0.1), {
+        rotate: '0deg',
+        scale: '0.05 1',
+        opacity: 0.5,
+        easing: 'ease-in',
+      }),
+      frame(1, g.shift(0, 0), { rotate: '0deg', scale: '1 1', opacity: 1 }),
+    ]),
+  // Faded in over the first tenth, held below its place until four tenths,
+  // then swung round to it.
+  centerRevolve: (g) =>
+    all([
+      frame(0, g.shift(0, 0.31), { opacity: 0 }),
+      frame(0.1, g.shift(0, 0.31), { opacity: 1 }),
+      ...REVOLVE_ARC.map(([t, x, y]) => frame(0.4 + 0.6 * t, g.shift(x, y), { opacity: 1 })),
+    ]),
+  // Up from a slide's height below to just past its place in nine tenths,
+  // then settling back.
+  riseUp: (g) =>
+    all([
+      frame(0, g.shift(0, 1), { opacity: 0, easing: 'ease-out' }),
+      frame(0.9, g.shift(0, -0.03), { opacity: 0.9, easing: 'ease-in' }),
+      frame(1, g.shift(0, 0), { opacity: 1 }),
+    ]),
+  floating: (g) =>
+    all([
+      frame(0, g.shift(0.4, -0.4), { rotate: '-90deg', opacity: 0, easing: 'ease-out' }),
+      frame(0.8, g.shift(-0.05, 0.1), { rotate: '0deg', opacity: 1, easing: 'ease-in' }),
+      frame(1, g.shift(0, 0), { rotate: '0deg', opacity: 1 }),
+    ]),
+  // Out of a tenth of its size to just past full size half-way, with a tenth
+  // of the slide's swing to the right, opaque from half-way.
+  whip: (g) =>
+    all([
+      frame(0, g.shift(0, 0), { scale: '0.1', opacity: 0 }),
+      frame(0.5, g.shift(0.1, 0), { scale: '1.02', opacity: 1 }),
+      frame(1, g.shift(0, 0), { scale: '1', opacity: 1 }),
+    ]),
+  curveUp: (g) =>
+    all(
+      CURVE_POINTS.map(([x, y], i) =>
+        frame(i / (CURVE_POINTS.length - 1), g.shift(x, y), {
+          scale: `${2.5 - (1.5 * i) / (CURVE_POINTS.length - 1)}`,
+          opacity: i / (CURVE_POINTS.length - 1),
+        }),
+      ),
+    ),
+  // Tilted 45° back as it falls from a slide's height above for 45.5 % of the
+  // length, bounced half its height, then swung through 45° and down.
+  drop: (g) =>
+    all([
+      frame(0, g.shift(0, -1), { rotate: '-45deg', easing: 'ease-in' }),
+      frame(0.455, g.shift(0, 0, 0, -10), { rotate: '-45deg', easing: 'ease-out' }),
+      frame(0.611, g.shift(0, 0, 0, -50), { rotate: '0deg', easing: 'ease-in' }),
+      frame(0.767, g.shift(0, 0, 0, -10), { rotate: '42deg' }),
+      frame(0.864, g.shift(0, 0, 0, -10), { rotate: '15deg' }),
+      frame(0.91, g.shift(0, 0, 0, -5), { rotate: '0deg' }),
+      frame(1, g.shift(0, 0), { rotate: '0deg' }),
+    ]),
+  // Falls from just above the slide while it turns once and flips over,
+  // drifting half its width aside half-way.
+  flip: (g) => flipTrack(g, 'top'),
+};
+
+const flipTrack = (g: Geometry, edge: 'top' | 'bottom'): Keyframe[] | null => {
+  const past = g.past(edge);
+  if (past === null) return null;
+  const at = (share: number, own: number): string =>
+    `calc(${past.dx * share}px + ${own}%) calc(${past.dy * share}px + 0%)`;
+  const entering = edge === 'top';
+  const from = entering ? 1 : 0;
+  const to = entering ? 0 : 1;
+  return [
+    { offset: 0, translate: at(from, 0), scale: '1 1', rotate: '0deg' },
+    { offset: 0.5, translate: at(0.5, 50), scale: '-1 1', rotate: '180deg' },
+    { offset: 1, translate: at(to, 0), scale: '1 1', rotate: '360deg' },
+  ];
+};
+
+/** The exits whose track is not their entrance's, played backwards. */
+const EXIT_TRACKS: Readonly<Record<string, (g: Geometry) => Keyframe[] | null>> = {
+  // Turned 45° as it falls a slide's height.
+  drop: (g) =>
+    all([
+      frame(0, g.shift(0, 0), { rotate: '0deg', easing: 'ease-in' }),
+      frame(1, g.shift(0, 1), { rotate: '45deg' }),
+    ]),
+  flip: (g) => flipTrack(g, 'bottom'),
+};
+
+/** The entrance track whose reverse is an exit's: Sink Down is Rise Up backwards. */
+const TRACK_OF_EXIT: Readonly<Record<string, string>> = {
+  sinkDown: 'riseUp',
+  curveDown: 'curveUp',
+};
+
+const SWAPPED_EASING: Readonly<Record<string, string>> = {
+  'ease-in': 'ease-out',
+  'ease-out': 'ease-in',
+};
+
+/**
+ * A track played backwards: the last frame first, each offset mirrored, and
+ * the easing of each stretch moved to the frame that now starts it, turned
+ * round — a stretch that slowed into a frame speeds out of it.
+ */
+const reversed = (frames: readonly Keyframe[]): Keyframe[] => {
+  const count = frames.length;
+  return frames.map((_, i) => {
+    const pose: Keyframe = { ...frames[count - 1 - i]! };
+    delete pose.easing;
+    if (typeof pose.offset === 'number') pose.offset = 1 - pose.offset;
+    const easing = frames[count - 2 - i]?.easing;
+    if (typeof easing === 'string') pose.easing = SWAPPED_EASING[easing] ?? easing;
+    return pose;
+  });
+};
+
+/** The track of a preset, in the direction the step plays it; `undefined` when it has none. */
+const trackOf = (item: AnimationItem): ((g: Geometry) => Keyframe[] | null) | undefined => {
+  const family = item.step.effect?.replace(/(In|Out)$/, '');
+  if (family === undefined) return undefined;
+  if (item.kind === 'entrance') return TRACKS[family];
+  const own = EXIT_TRACKS[family];
+  if (own !== undefined) return own;
+  const entrance = TRACKS[TRACK_OF_EXIT[family] ?? family];
+  return entrance === undefined
+    ? undefined
+    : (g) => {
+        const frames = entrance(g);
+        return frames === null ? null : reversed(frames);
+      };
 };
 
 /** Why a step is not played. */
@@ -462,6 +750,15 @@ const flyOffset = (
     : lower.includes('top')
       ? slide.top - box.bottom
       : 0;
+  return toOwnUnits(el, dx, dy);
+};
+
+/** A distance on screen in the units the element's own CSS transform is written in. */
+const toOwnUnits = (
+  el: StyledElement,
+  dx: number,
+  dy: number,
+): { readonly dx: number; readonly dy: number } | null => {
   const matrix = screenMatrixOf(el);
   // Plain HTML with no SVG above it: its pixels are the screen's.
   if (matrix === null) return { dx, dy };
@@ -472,6 +769,19 @@ const flyOffset = (
     dy: (matrix.a * dy - matrix.b * dx) / determinant,
   };
 };
+
+const geometryOf = (el: StyledElement, root: ParentNode): Geometry => ({
+  shift(slideX, slideY, ownX = 0, ownY = 0) {
+    const slide = slideBoxOf(el, root);
+    if (slide === null || slide.width <= 0 || slide.height <= 0) return null;
+    const own = toOwnUnits(el, slideX * slide.width, slideY * slide.height);
+    if (own === null) return null;
+    return `calc(${own.dx}px + ${ownX}%) calc(${own.dy}px + ${ownY}%)`;
+  },
+  past(edge) {
+    return flyOffset(el, edge, root);
+  },
+});
 
 /** What one effect runs on one element, and whether it needs the element's own box. */
 interface Movement {
@@ -504,7 +814,8 @@ interface Movement {
  * movement of `null` means "not read yet" rather than "nothing to run".
  */
 const needsGeometry = (item: AnimationItem): boolean =>
-  item.step.effect !== null && motionOf(item.step.effect) === 'fly';
+  item.step.effect !== null &&
+  (motionOf(item.step.effect) === 'fly' || trackOf(item) !== undefined);
 
 /**
  * The keyframes one step runs on one element, or `null` when there is nothing
@@ -521,8 +832,13 @@ const movementFor = (item: AnimationItem, el: StyledElement, root: ParentNode): 
       return null;
     case 'pose': {
       if (item.kind === 'emphasis') {
-        const frames = EMPHASIS[effect];
+        const frames = optionedEmphasis(item.step) ?? EMPHASIS[effect];
         return frames === undefined ? null : { frames, aboutOwnCentre: true };
+      }
+      const track = trackOf(item);
+      if (track !== undefined) {
+        const frames = track(geometryOf(el, root));
+        return frames === null ? null : { frames, aboutOwnCentre: true };
       }
       const away = AWAY[effect.replace(/(In|Out)$/, '')];
       if (away === undefined) return null;

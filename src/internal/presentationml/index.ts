@@ -99,6 +99,19 @@ export type {
   AnimationTextBuild,
   EffectContext,
 } from './animation-builder.ts';
+export type {
+  AnimationColor,
+  AnimationEmphasisOptionName,
+  AnimationEmphasisOptions,
+  AnimationScaleDirection,
+  AnimationSpinDirection,
+} from './animation-emphasis-options.ts';
+export {
+  ANIMATION_EMPHASIS_OPTION_NAMES,
+  animationEmphasisOptionNames,
+  readAnimationEmphasisOptions,
+  resolveAnimationEmphasisOptions,
+} from './animation-emphasis-options.ts';
 export {
   ANIMATION_DIRECTIONS,
   ANIMATION_EFFECTS,
@@ -112,7 +125,6 @@ export {
   effectDurationMs,
   lastBehaviourEndMs,
   setEffectDurationMs,
-  FULL_TURN,
   isDirectionalEffect,
   resolveAnimationOptions,
   trailingHideDelayMs,

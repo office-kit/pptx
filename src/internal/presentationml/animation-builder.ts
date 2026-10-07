@@ -35,6 +35,13 @@ import {
   qname,
 } from '../xml/index.ts';
 import {
+  type AnimationColor,
+  type AnimationScaleDirection,
+  type AnimationSpinDirection,
+  applyAnimationEmphasisOptions,
+  resolveAnimationEmphasisOptions,
+} from './animation-emphasis-options.ts';
+import {
   ANIMATION_PRESET_TEMPLATES,
   ANIMATION_TEMPLATE_ABBREVIATIONS,
   type AnimationPresetTemplate,
@@ -590,9 +597,6 @@ export const ANIMATION_PRESET_ENTRIES: readonly AnimationPresetEntry[] = ANIMATI
   },
 );
 
-/** A full turn in `a:ST_Angle`, which counts sixtieth-thousandths of a degree. */
-export const FULL_TURN = 360 * 60000;
-
 /**
  * Where the `<p:set>` that ends an exit stands, measured from the start of the
  * effect. The shape has to stay on the slide until its motion is over, and the
@@ -906,6 +910,37 @@ export interface AnimationOptions {
   readonly shape?: AnimationShape;
   /** For `'wheelIn'` / `'wheelOut'`: 1, 2, 3, 4 or 8 spokes. Defaults to 1. */
   readonly spokes?: number;
+  /** For `'spin'`: which way it turns. Defaults to `'clockwise'`. */
+  readonly spinDirection?: AnimationSpinDirection;
+  /**
+   * For `'spin'`: how far it turns, in degrees. PowerPoint's menu offers 90
+   * (Quarter Spin), 180 (Half Spin), 360 (Full Spin, the default) and 720
+   * (Two Spins); any positive angle can be written.
+   */
+  readonly spinDegrees?: number;
+  /**
+   * For `'growShrink'`: scale both axes (the default), or only the width
+   * (`'horizontal'`) or only the height (`'vertical'`).
+   */
+  readonly scaleDirection?: AnimationScaleDirection;
+  /**
+   * For `'growShrink'`: the size to reach, in percent of the shape's own.
+   * PowerPoint's menu offers 25 (Tiny), 50 (Smaller), 150 (Larger, the
+   * default) and 400 (Huge).
+   */
+  readonly scalePercent?: number;
+  /**
+   * For `'transparency'`: how transparent the shape becomes, 0–100. PowerPoint
+   * offers 25, 50 (the default), 75 and 100.
+   */
+  readonly transparencyPercent?: number;
+  /**
+   * For the colour emphasis effects — `'fillColor'`, `'fontColor'`,
+   * `'lineColor'`, `'brushColor'`, `'objectColor'`, `'colorPulse'` and
+   * `'growWithColor'` — the colour to change to. Defaults to Accent 2, and to
+   * Background 1 for `'colorPulse'`, as PowerPoint's gallery does.
+   */
+  readonly color?: AnimationColor;
   /**
    * How long the effect runs, in milliseconds. Defaults to PowerPoint's default
    * for the preset (`defaultAnimationDurationMs`). An effect made of several
@@ -1000,6 +1035,7 @@ export const buildSingleEffectTiming = (
   const delay = opts.delayMs === undefined ? 0 : unsignedIntMs(opts.delayMs, `${label}: delayMs`);
 
   const effectCTn = effectNode(effect, options, targetMarkup(spid, paragraph), start, delay);
+  applyAnimationEmphasisOptions(effectCTn, resolveAnimationEmphasisOptions(effect, opts, label));
   // <p:cTn dur> is ST_TLTime (xsd:unsignedInt ms or "indefinite"). Bounds
   // checking rounds to whole milliseconds and rejects anything outside the
   // range, so we never emit an invalid dur.

@@ -591,9 +591,14 @@ effects have plain names (`spin`, `pulse`, `darken`, `fillColor`, `wave`, …).
 Options are the ones PowerPoint's Effect Options offer: `direction` for `fly…`
 (eight), `wipe…` / `peek…` (four edges) and `strips…` (four corners);
 `orientation` for `blinds…`, `checkerboard…`, `randomBars…`; `orientation` and
-`inOut` for `split…`; `shape` and `inOut` for `shape…`; `spokes` for `wheel…`.
+`inOut` for `split…`; `shape` and `inOut` for `shape…`; `spokes` for `wheel…`;
+`spinDirection` and `spinDegrees` for `spin`; `scaleDirection` and
+`scalePercent` for `growShrink`; `transparencyPercent` for `transparency`; and
+`color` (a theme slot or `#RRGGBB`, optionally with colour transforms) for the
+colour emphasis effects. `getSlideAnimations` reads every option back.
 `durationMs` rescales every behaviour of the effect together, the way
-PowerPoint's Duration box does. `build` is the Sequence option for text:
+PowerPoint's Duration box does; `updateSlideAnimation` with a new `effect`
+gives it that preset's default duration unless the patch states one. `build` is the Sequence option for text:
 `'asOneObject'` (the default), `'allAtOnce'` or `'byParagraph'`.
 
 ### Transitions

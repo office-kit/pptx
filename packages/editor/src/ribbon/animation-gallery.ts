@@ -1,6 +1,7 @@
 import type {
   AnimationDirection,
   AnimationEffect,
+  AnimationOptions,
   AnimationPatch,
   AnimationTextBuild,
   SlideAnimationStep,
@@ -129,6 +130,31 @@ export const EXIT_TILES: readonly EffectTile[] = tiles('exit', [
   ['3_10', 'Whip', 'ホイップ', 'whipOut'],
 ]);
 
+/**
+ * The headings a gallery popover lists its tiles under — the `<group>` of each
+ * tile's key, in PowerPoint's wording (its Japanese AX labels: 基本, 弱, 中,
+ * はなやか).
+ */
+export const GALLERY_GROUPS: ReadonlyArray<{
+  readonly group: string;
+  readonly en: string;
+  readonly ja: string;
+}> = [
+  { group: '0', en: 'Basic', ja: '基本' },
+  { group: '1', en: 'Subtle', ja: '弱' },
+  { group: '2', en: 'Moderate', ja: '中' },
+  { group: '3', en: 'Exciting', ja: 'はなやか' },
+];
+
+/** The tiles of one gallery under their headings, in gallery order. */
+export const groupedTiles = (
+  tiles: readonly EffectTile[],
+): Array<{ readonly heading: (typeof GALLERY_GROUPS)[number]; readonly tiles: EffectTile[] }> =>
+  GALLERY_GROUPS.map((heading) => ({
+    heading,
+    tiles: tiles.filter((tile) => tile.key.split('_')[0] === heading.group),
+  })).filter((section) => section.tiles.length > 0);
+
 /** Every gallery's tiles, for lists that offer them all (the animation pane). */
 export const ALL_TILES: readonly EffectTile[] = [
   ...ENTRANCE_TILES,
@@ -150,6 +176,25 @@ export interface EffectOptionSection {
   readonly heading: string;
   readonly items: readonly EffectOption[];
 }
+
+/**
+ * The colour emphasis effects, whose Effect Options are a colour palette —
+ * theme colours with their tints and shades, then the standard colours —
+ * rather than a list.
+ */
+const COLOR_EFFECTS: ReadonlySet<AnimationEffect> = new Set([
+  'fillColor',
+  'fontColor',
+  'lineColor',
+  'brushColor',
+  'objectColor',
+  'colorPulse',
+  'growWithColor',
+]);
+
+/** Whether the effect's Effect Options offer a colour. */
+export const takesColor = (effect: AnimationEffect | null): boolean =>
+  effect !== null && COLOR_EFFECTS.has(effect);
 
 // The arrow shows where the shape travels: "From Bottom" points up. An exit
 // travels the other way, so its arrow is turned round and its label says "To".
@@ -222,6 +267,41 @@ const SPOKES: readonly EffectOption[] = [1, 2, 3, 4, 8].map((spokes) => ({
   patch: { spokes },
 }));
 
+// The emphasis effects' own sections. Mac PowerPoint was captured with each
+// effect's gallery default only, so these names (and their Japanese) follow
+// PowerPoint for Windows' Effect Options and are not verified against the Mac
+// menu; see POWERPOINT_PARITY.md.
+const SPIN_DIRECTIONS: readonly EffectOption[] = [
+  { en: 'Clockwise', ja: '時計回り', patch: { spinDirection: 'clockwise' } },
+  { en: 'Counterclockwise', ja: '反時計回り', patch: { spinDirection: 'counterclockwise' } },
+];
+
+const SPIN_AMOUNTS: readonly EffectOption[] = [
+  { en: 'Quarter Spin', ja: '4 分の 1 回転', patch: { spinDegrees: 90 } },
+  { en: 'Half Spin', ja: '半回転', patch: { spinDegrees: 180 } },
+  { en: 'Full Spin', ja: '1 回転', patch: { spinDegrees: 360 } },
+  { en: 'Two Spins', ja: '2 回転', patch: { spinDegrees: 720 } },
+];
+
+const SCALE_DIRECTIONS: readonly EffectOption[] = [
+  { en: 'Both', ja: '両方向', patch: { scaleDirection: 'both' } },
+  { en: 'Horizontal', ja: '水平方向', patch: { scaleDirection: 'horizontal' } },
+  { en: 'Vertical', ja: '垂直方向', patch: { scaleDirection: 'vertical' } },
+];
+
+const SCALE_AMOUNTS: readonly EffectOption[] = [
+  { en: 'Tiny', ja: '極小', patch: { scalePercent: 25 } },
+  { en: 'Smaller', ja: '小', patch: { scalePercent: 50 } },
+  { en: 'Larger', ja: '大', patch: { scalePercent: 150 } },
+  { en: 'Huge', ja: '特大', patch: { scalePercent: 400 } },
+];
+
+const TRANSPARENCY_AMOUNTS: readonly EffectOption[] = [25, 50, 75, 100].map((percent) => ({
+  en: `${percent}%`,
+  ja: `${percent}%`,
+  patch: { transparencyPercent: percent },
+}));
+
 const section = (heading: string, items: readonly EffectOption[]): EffectOptionSection => ({
   heading,
   items,
@@ -248,6 +328,12 @@ export const effectOptionSections = (effect: AnimationEffect | null): EffectOpti
       return [section('Direction', IN_OUT), section('Shapes', SHAPES)];
     case 'wheel':
       return [section('Spokes', SPOKES)];
+    case 'spin':
+      return [section('Direction', SPIN_DIRECTIONS), section('Amount', SPIN_AMOUNTS)];
+    case 'growShrink':
+      return [section('Direction', SCALE_DIRECTIONS), section('Amount', SCALE_AMOUNTS)];
+    case 'transparency':
+      return [section('Amount', TRANSPARENCY_AMOUNTS)];
     default:
       return [];
   }
@@ -273,6 +359,27 @@ export const effectDirections = (effect: AnimationEffect): AnimationDirection[] 
   effectOptionSections(effect)
     .flatMap((s) => s.items)
     .flatMap((item) => (item.patch.direction === undefined ? [] : [item.patch.direction]));
+
+/** The options the step carries, as `setShapeAnimation` takes them — for Animation Painter. */
+export const stepOptions = (step: SlideAnimationStep): Partial<AnimationOptions> => {
+  const out: Record<string, unknown> = {};
+  for (const name of [
+    'direction',
+    'orientation',
+    'inOut',
+    'shape',
+    'spokes',
+    'spinDirection',
+    'spinDegrees',
+    'scaleDirection',
+    'scalePercent',
+    'transparencyPercent',
+    'color',
+  ] as const) {
+    if (step[name] !== null) out[name] = step[name];
+  }
+  return out as Partial<AnimationOptions>;
+};
 
 /** Effect Options ▸ Sequence, in PowerPoint's order. */
 export const SEQUENCE: ReadonlyArray<{ readonly build: AnimationTextBuild; readonly en: string }> =
