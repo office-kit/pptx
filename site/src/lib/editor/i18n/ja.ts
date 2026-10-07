@@ -1986,7 +1986,6 @@ export const ja: Record<string, string> = {
   Camera: 'カメラ',
   Help: 'ヘルプ',
   Proofing: '文章校正',
-  Accessibility: 'アクセシビリティ',
   Activity: 'アクティビティ',
   Protect: '保護',
   Ink: 'インク',
