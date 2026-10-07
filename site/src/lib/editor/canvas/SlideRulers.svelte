@@ -6,7 +6,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
   let { area, stage, zoom, text = null, onindent, ontabs, onpreview }: {
     area: HTMLElement; stage: HTMLElement; zoom: number;
-    /** The first selected paragraph's indentation and tabs; `scale` is the autofit factor. */
+    /** The last selected paragraph's indentation and tabs; `scale` is the autofit factor. Null outside text editing, where the rulers measure the slide from its centre with no markers. */
     text?: { left: number; first: number; scale: number; flow: TextFlow; tabStops: readonly ParagraphTabStop[] } | null;
     ontabs?: (edits: TabStopEdit[]) => void;
     onindent?: (kind: IndentHandle, delta: number) => void;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getSlides, copySlideBackground, getSlidePartName, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, setSlideBackgroundImageFillLayout, clearSlideBackground } from '@office-kit/pptx';
   import { TEXTURE_TILE_LAYOUT } from '../core/remembered-fill.ts';
-  import { DEFAULT_TEXTURE, texturePng } from '../core/textures.ts';
+  import { defaultTexture, texturePng } from '../core/textures.ts';
   import TexturePicker from '../ui/TexturePicker.svelte';
   import { readSlideBackground } from '../core/slide-background.ts';
   import { rememberBackgroundFill } from '../core/remembered-background-fill.ts';
@@ -66,7 +66,7 @@
     if (imageBackground || loading) return;
     const targets = slides, selection = doc.selection, presentation = doc.pres, version = doc.version;
     const needsTexture = targets.some(target => readSlideBackground(doc.pres, target).fill.kind !== 'image' && !doc.rememberedFills.get(`background:${getSlidePartName(target)}`)?.backgroundImage);
-    const texture = needsTexture ? await texturePng(DEFAULT_TEXTURE) : null;
+    const texture = needsTexture ? await texturePng(defaultTexture()) : null;
     if (doc.pres !== presentation || doc.version !== version || doc.selection !== selection) return;
     apply('Background image', target => {
       if (readSlideBackground(doc.pres, target).fill.kind === 'image') return;

@@ -40,12 +40,26 @@ export const TEXTURES = [
 
 export type TextureId = (typeof TEXTURES)[number]['id'];
 
-/**
- * What PowerPoint inserts when Picture or texture fill is chosen for a shape or
- * background with no picture to restore: Papyrus, the gallery's first texture
- * (see test/fixtures/native/texture-capture.md).
- */
-export const DEFAULT_TEXTURE: TextureId = 'papyrus';
+// Mac PowerPoint keeps one "last texture" per application session (native
+// capture 2026-10-07): it starts as Papyrus, the gallery's first texture,
+// changes only when a texture is picked for a shape (Format Shape / Format
+// Picture; picking one in Format Background does not change it), is what
+// Picture or texture fill inserts for both shapes and slide backgrounds with no
+// picture to restore, is shared by every open document and resets when
+// PowerPoint relaunches. It is never written to the document. The editor maps
+// "relaunch" to a page load: this module state is deliberately not persisted.
+let sessionTexture: TextureId = 'papyrus';
+
+/** The texture Picture or texture fill inserts when there is no picture to restore. */
+export function defaultTexture(): TextureId {
+  return sessionTexture;
+}
+
+/** Records a texture picked for a shape as the session's default texture. */
+export function rememberShapeTexture(id: TextureId): void {
+  sessionTexture = id;
+}
+
 type Rgb = readonly [number, number, number];
 type Field = (x: number, y: number) => Rgb;
 type Random = () => number;

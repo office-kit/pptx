@@ -9,7 +9,7 @@
   import { EMU_PER_POINT } from './effects-model.ts';
   import GradientFillSection from './GradientFillSection.svelte';
   import TexturePicker from '../ui/TexturePicker.svelte';
-  import { DEFAULT_TEXTURE, texturePng } from '../core/textures.ts';
+  import { defaultTexture, texturePng } from '../core/textures.ts';
 
   // Text Options ▸ Text Fill & Outline: the fill and outline of every run in
   // the selected shapes, as PowerPoint applies them with no text selected.
@@ -80,7 +80,7 @@
   }
   function changeFill(kind: 'none' | 'solid' | 'gradient' | 'image' | 'pattern') {
     if (fillKind === kind) return;
-    if (kind === 'image') { void fillWithPicture(() => texturePng(DEFAULT_TEXTURE)); return; }
+    if (kind === 'image') { void fillWithPicture(() => texturePng(defaultTexture())); return; }
     apply('Text Fill', (_shape, format) => {
       if (kind === 'none') return { textFill: { kind: 'none' } };
       const base = (format.color && asColor(String(format.color))) || 'tx1';

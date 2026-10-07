@@ -142,8 +142,15 @@ test(
       await saved();
       assert.deepEqual((await getShapeRunFormat(await shape(), 0, 0)).textFill, { kind: 'none' });
       await fills.getByRole('radio', { name: 'Picture or texture fill', exact: true }).check();
-      await saved();
-      const picture = (await getShapeRunFormat(await shape(), 0, 0)).textFill;
+      // The texture PNG is encoded asynchronously, so the save badge from the
+      // previous edit can still be showing; poll the saved deck instead.
+      let picture;
+      for (const deadline = Date.now() + 10000; Date.now() < deadline; ) {
+        await saved();
+        picture = (await getShapeRunFormat(await shape(), 0, 0)).textFill;
+        if (picture?.kind === 'image') break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
       assert.equal(picture.kind, 'image');
       // The default texture, a PNG.
       assert.deepEqual(Array.from(picture.bytes.subarray(1, 4)), [0x50, 0x4e, 0x47]);

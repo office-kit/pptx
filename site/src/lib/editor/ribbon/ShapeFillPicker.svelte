@@ -4,7 +4,7 @@
   import type { Color } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { canFillWithPicture, fillSelectionWithPicture } from '../core/picture-fill.ts';
-  import { texturePng, type TextureId } from '../core/textures.ts';
+  import { rememberShapeTexture, texturePng, type TextureId } from '../core/textures.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
 
@@ -31,7 +31,7 @@
 
 <ColorPicker compact label={t('Shape Fill')} {disabled} choose={fill} texture={{
   disabled: !pictureFillable,
-  choose: (id: TextureId) => picture(() => texturePng(id), 'texture'),
+  choose: (id: TextureId) => { rememberShapeTexture(id); return picture(() => texturePng(id), 'texture'); },
   more: () => input?.click(),
 }} />
 <input type="file" accept="image/*" hidden bind:this={input} onchange={upload} aria-label={t('More Textures...')} />

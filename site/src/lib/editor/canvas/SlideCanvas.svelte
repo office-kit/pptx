@@ -1197,10 +1197,13 @@
       ? getTableCellTextDirection(getTableCells(shape)[editing.cell.row]![editing.cell.col]!)
       : getShapeBodyPrEffective(doc.pres, shape).vert ?? getShapeTextDirection(shape);
     const flow: TextFlow = !verticalTextStyle(direction).declarations ? 'horizontal' : textBodyTurn ? 'vertical-reversed' : 'vertical';
-    // A multi-paragraph selection shows the first paragraph's markers, as Office
-    // rulers are described to (not observed natively); gestures then apply
-    // relative to each paragraph's own values.
-    const props = getParagraphPropertiesEffective(doc.pres, target.shape, target.indices[0]!);
+    // Mac PowerPoint shows the last selected paragraph's markers for a
+    // multi-paragraph selection (native capture 2026-10-07, with the levels in
+    // either order). AppleScript cannot select backwards, so "the paragraph
+    // holding the selection end" would fit the capture equally well; the last
+    // paragraph is the reading that does not depend on selection direction.
+    // Gestures then apply relative to each paragraph's own values.
+    const props = getParagraphPropertiesEffective(doc.pres, target.shape, target.indices.at(-1)!);
     return { ...rulerIndent(props), scale: editAutoFit, flow, tabStops: props.tabStops ?? [] };
   });
   // The gesture in progress on the ruler, reflowed in the editing view only.

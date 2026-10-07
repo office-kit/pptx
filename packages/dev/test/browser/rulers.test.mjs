@@ -67,6 +67,19 @@ test(
         });
       };
       await verifyAlignment();
+      // As in Mac PowerPoint, a text box selected as a shape (not in text
+      // editing) leaves the rulers in slide coordinates with no indent markers;
+      // editing its text moves the origin to the text and shows them.
+      const hit = editor.locator('.hit').first();
+      await hit.click({ position: { x: 2, y: 2 } });
+      await editor.locator('.handle').first().waitFor();
+      await verifyAlignment();
+      assert.equal(await editor.locator('.rulers .indent, .rulers .tab-track').count(), 0);
+      await hit.dblclick();
+      await editor.locator('.rulers .indent.left').waitFor();
+      await editor.locator('.canvas-shell .inline-edit').press('Escape');
+      await editor.locator('.rulers .indent').first().waitFor({ state: 'detached' });
+      await verifyAlignment();
       await editor.getByTitle('Zoom...', { exact: true }).click();
       const dialog = editor.getByRole('dialog', { name: 'Zoom', exact: true });
       await dialog.getByRole('radio', { name: '200%', exact: true }).check();

@@ -2,7 +2,7 @@
   import { getSlidePartName, getShapeId, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
   import { switchRememberedImageLayout } from '../core/remembered-image-fill.ts';
   import { canFillWithPicture, fillSelectionWithPicture } from '../core/picture-fill.ts';
-  import { texturePng } from '../core/textures.ts';
+  import { rememberShapeTexture, texturePng } from '../core/textures.ts';
   import TexturePicker from '../ui/TexturePicker.svelte';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -114,7 +114,7 @@
     <span>{t('Picture source')}</span>
     <button class="ok-btn" disabled={shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={chooseImage}>{t('Insert...')}</button>
     <button class="ok-btn" disabled={!navigator.clipboard?.read || shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={pasteImage}>{t('Clipboard')}</button>
-    <TexturePicker disabled={locked || shapes.some(shape => getShapeKind(shape) !== 'shape')} choose={id => fill(() => texturePng(id), 'texture')} />
+    <TexturePicker disabled={locked || shapes.some(shape => getShapeKind(shape) !== 'shape')} choose={id => { rememberShapeTexture(id); void fill(() => texturePng(id), 'texture'); }} />
     <span>{t('Transparency')}</span>
     <div class="transparency">
       <input type="range" min="0" max="100" value={transparency ?? 0} aria-label={t('Picture transparency')} aria-valuetext={transparency === undefined ? t('Mixed') : `${transparency}%`} onchange={event => { const value = event.currentTarget.valueAsNumber; apply('Picture transparency', shape => setShapeImageOpacity(shape, 1 - value / 100)); }} />

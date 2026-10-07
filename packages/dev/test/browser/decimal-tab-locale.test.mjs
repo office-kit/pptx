@@ -15,6 +15,16 @@ import {
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
+// The lines of the Mac PowerPoint capture (2026-10-07): one decimal tab, and
+// numbers with ",", ".", neither, and both. Set Proofing Language to German
+// moved the alignment from "." to ","; a number without the run language's
+// separator ends at the tab.
+const LINES = ['A\t12,50', 'B\t3.25', 'C\t1234', 'D\t1.234,5'];
+const ALIGNED = {
+  'de-DE': { separator: ',', aligned: [0, 3], ending: [1, 2] },
+  'en-US': { separator: '.', aligned: [1, 3], ending: [0, 2] },
+};
+
 test(
   'decimal tabs align on the run language separator in the preview and while editing',
   { timeout: 90000 },
@@ -24,16 +34,17 @@ test(
     try {
       const pres = createPresentation();
       const slide = addBlankSlide(pres);
-      for (const [index, lang] of ['de-DE', 'en-US'].entries()) {
+      const languages = Object.keys(ALIGNED);
+      for (const [index, lang] of languages.entries()) {
         const shape = addSlideTextBox(slide, {
           x: inches(1),
-          y: inches(1 + index * 2.5),
+          y: inches(0.5 + index * 3.25),
           w: inches(5),
-          h: inches(2),
-          text: 'A\t12,5\nB\t3,25',
+          h: inches(3),
+          text: LINES.join('\n'),
         });
         setShapeTextLanguage(shape, lang);
-        for (const paragraph of [0, 1])
+        for (const paragraph of LINES.keys())
           setParagraphTabs(shape, paragraph, {
             tabStops: [{ positionEmu: inches(2), alignment: 'decimal' }],
           });
@@ -51,60 +62,70 @@ test(
       await page.goto(preview.url);
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      // Viewport x of each comma, and the field end (last digit's right edge).
-      const painted = (shape) =>
-        editor.locator('.paint').evaluate((paint, index) => {
-          const group = paint.querySelectorAll('[data-pptx-shape-id]')[index];
-          return [...group.querySelectorAll('tspan')]
-            .filter((span) => span.textContent.includes(','))
-            .map((span) => {
-              const at = span.textContent.indexOf(',');
-              const point = (position) =>
-                new DOMPoint(position.x, position.y).matrixTransform(span.getScreenCTM());
-              return {
-                comma: point(span.getStartPositionOfChar(at)).x,
-                end: point(span.getEndPositionOfChar(span.textContent.length - 1)).x,
-              };
-            });
-        }, shape);
-      const edited = (input) =>
-        input.evaluate((node) => {
+      // Per number, in line order: the viewport x of its separator (null when
+      // it has none) and of its last digit's right edge.
+      const painted = (shape, separator) =>
+        editor.locator('.paint').evaluate(
+          (paint, [index, mark]) => {
+            const group = paint.querySelectorAll('[data-pptx-shape-id]')[index];
+            return [...group.querySelectorAll('tspan')]
+              .filter((span) => /^[\d.,]+$/.test(span.textContent))
+              .map((span) => {
+                const at = span.textContent.indexOf(mark);
+                const point = (position) =>
+                  new DOMPoint(position.x, position.y).matrixTransform(span.getScreenCTM()).x;
+                return {
+                  separator: at < 0 ? null : point(span.getStartPositionOfChar(at)),
+                  end: point(span.getEndPositionOfChar(span.textContent.length - 1)),
+                };
+              });
+          },
+          [shape, separator],
+        );
+      const edited = (input, separator) =>
+        input.evaluate((node, mark) => {
           const result = [];
           const walker = node.ownerDocument.createTreeWalker(node, NodeFilter.SHOW_TEXT);
           for (let text = walker.nextNode(); text; text = walker.nextNode()) {
-            const at = text.data.indexOf(',');
-            if (at < 0) continue;
+            const number = /[\d.,]+$/.exec(text.data);
+            if (!number || !/\d/.test(number[0])) continue;
             const range = node.ownerDocument.createRange();
-            range.setStart(text, at);
-            range.setEnd(text, at + 1);
-            const comma = range.getBoundingClientRect().left;
+            const at = text.data.indexOf(mark, number.index);
+            let position = null;
+            if (at >= 0) {
+              range.setStart(text, at);
+              range.setEnd(text, at + 1);
+              position = range.getBoundingClientRect().left;
+            }
             range.setStart(text, text.data.length - 1);
             range.setEnd(text, text.data.length);
-            result.push({ comma, end: range.getBoundingClientRect().right });
+            result.push({ separator: position, end: range.getBoundingClientRect().right });
           }
           return result;
-        });
-      const german = await painted(0);
-      const english = await painted(1);
-      assert.equal(german.length, 2);
-      assert.ok(Math.abs(german[0].comma - german[1].comma) < 0.5, JSON.stringify(german));
-      assert.ok(Math.abs(english[0].end - english[1].end) < 0.5, JSON.stringify(english));
-      assert.ok(Math.abs(english[0].comma - english[1].comma) > 3);
+        }, separator);
+      const near = (a, b, tolerance) => Math.abs(a - b) < tolerance;
+      for (const [index, lang] of languages.entries()) {
+        const { separator, aligned, ending } = ALIGNED[lang];
+        const numbers = await painted(index, separator);
+        const detail = `${lang}: ${JSON.stringify(numbers)}`;
+        assert.equal(numbers.length, LINES.length, detail);
+        const [first, second] = aligned.map((line) => numbers[line].separator);
+        assert.ok(near(first, second, 0.5), detail);
+        // Numbers without the separator end where it would have been.
+        for (const line of ending) assert.ok(near(numbers[line].end, first, 0.5), detail);
 
-      for (const [index, expected] of [german, english].entries()) {
         await page.keyboard.press('Escape');
         await editor.locator('.hit').nth(index).dblclick();
         const input = editor.locator('.canvas-shell .inline-edit');
         await input.waitFor();
-        const live = await edited(input);
-        assert.equal(live.length, 2);
-        for (const [line, value] of live.entries()) {
+        const live = await edited(input, separator);
+        assert.equal(live.length, LINES.length, JSON.stringify(live));
+        for (const line of aligned)
           // Same tolerance as the other editing-versus-painted tab checks.
           assert.ok(
-            Math.abs(value.comma - expected[line].comma) < 1.5,
-            `${index}: ${JSON.stringify(live)} vs ${JSON.stringify(expected)}`,
+            near(live[line].separator, numbers[line].separator, 1.5),
+            `${lang}: ${JSON.stringify(live)} vs ${detail}`,
           );
-        }
       }
     } finally {
       await browser?.close();

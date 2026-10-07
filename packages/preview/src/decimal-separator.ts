@@ -3,7 +3,9 @@ const separators = new Map<string, string>();
 /**
  * The character a decimal tab stop aligns on for a run's language
  * (`<a:rPr lang>`): `,` for `de-DE`, `.` for `en-US`. Runs without a
- * language, or with one Intl does not know, align on `.`.
+ * language, or with one Intl does not know, align on `.`. Mac PowerPoint
+ * uses the run language too, not the UI or system locale (native capture
+ * 2026-10-07: Set Proofing Language to German moved alignment to `,`).
  */
 export function decimalSeparatorOf(lang: string | null | undefined): string {
   if (!lang) return '.';
