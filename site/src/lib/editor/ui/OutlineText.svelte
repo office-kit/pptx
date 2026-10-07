@@ -290,7 +290,7 @@
   function context(event: MouseEvent) {
     event.preventDefault(); event.stopPropagation();
     rememberRange(); commit();
-    editor.openContextMenu(event.clientX, event.clientY, 'outline', {
+    editor.openContextMenu(event.clientX, event.clientY, { source: 'outline', outlineText: {
       moveUp: () => { void moveParagraph(-1); },
       moveDown: () => { void moveParagraph(1); },
       canMoveUp: title ? outlineTitleMove(doc.pres, slide, -1) !== null : outlineParagraphMove(doc.shapeById(slideIndex, shapeId)!, range, -1) !== null,
@@ -303,7 +303,7 @@
       hasTextSelection: range.start !== range.end || (() => { const selected = selection.current(); return !!selected && selected.start.key !== selected.end.key; })(),
       canPromote: !title,
       canDemote: !title || slideIndex > 0,
-    });
+    } });
   }
   async function keys(event: KeyboardEvent) {
     if (event.isComposing) return;

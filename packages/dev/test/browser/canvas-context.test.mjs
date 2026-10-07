@@ -57,8 +57,11 @@ test(
       await hits.nth(0).click();
       await editor.locator('.stage').click({ button: 'right', position: { x: 3, y: 3 } });
       assert.equal(await selected.count(), 0);
-      assert.equal(await menu.getByRole('menuitem', { name: 'Delete', exact: false }).count(), 0);
-      await menu.getByRole('menuitem', { name: 'Select all', exact: false }).click();
+      // The slide's menu has no Delete or Select All (PowerPoint's has neither); ⌘A selects.
+      assert.equal(await menu.getByRole('menuitem', { name: 'Delete', exact: true }).count(), 0);
+      await page.keyboard.press('Escape');
+      await editor.locator('.stage').click({ position: { x: 3, y: 3 } });
+      await page.keyboard.press('ControlOrMeta+A');
       assert.equal(await selected.count(), 3);
       await hits.nth(0).click({ button: 'right', modifiers: ['Shift'] });
       assert.equal(await selected.count(), 3);
@@ -140,7 +143,9 @@ test(
           .getByRole('menu', { name: 'Group', exact: true })
           .locator(':scope > .ctx-item, :scope > .ctx-sep')
           .evaluateAll((nodes) =>
-            nodes.map((node) => (node.classList.contains('ctx-sep') ? '----' : node.textContent)),
+            nodes.map((node) =>
+              node.classList.contains('ctx-sep') ? '----' : node.getAttribute('aria-label'),
+            ),
           ),
         ['Group', 'Regroup', '----', 'Ungroup'],
       );
@@ -193,7 +198,9 @@ test(
           .getAttribute('aria-pressed'),
         'true',
       );
-      await menu.getByRole('menuitem', { name: 'セルの文字列を消去', exact: false }).click();
+      // PowerPoint's cell menu has no Clear command; the Delete key clears.
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Delete');
       await saved();
       assert.deepEqual(
         getTableCells((await shapes()).find(isTableShape)).map((row) => row.map(getTableCellText)),
@@ -211,7 +218,9 @@ test(
       await cellContext(0, 1);
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
       await page.screenshot({ path: '/tmp/pptx-pr287-canvas-context-ja.png', fullPage: true });
-      await menu.getByRole('menuitem', { name: 'セルの文字列を消去', exact: false }).click();
+      // PowerPoint's cell menu has no Clear command; the Delete key clears.
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Delete');
       await saved();
       await page.reload();
       await saved();
@@ -224,6 +233,7 @@ test(
       );
       assert.deepEqual((await shapes()).map(getShapeBounds), original);
       await hits.nth(0).dblclick();
+      // Inline editing opens the editor's text menu instead of the browser's.
       const nativeMenuAllowed = await editor
         .locator('.canvas-shell .inline-edit')
         .evaluate((node) =>
@@ -231,8 +241,9 @@ test(
             new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }),
           ),
         );
-      assert.equal(nativeMenuAllowed, true);
-      assert.equal(await menu.count(), 0);
+      assert.equal(nativeMenuAllowed, false);
+      await menu.getByRole('menuitem', { name: 'テキストの編集を終了', exact: true }).waitFor();
+      await page.keyboard.press('Escape');
       await page.keyboard.press('Escape');
       assert.deepEqual(errors, []);
     } finally {
