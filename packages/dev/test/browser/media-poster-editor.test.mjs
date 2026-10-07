@@ -94,6 +94,11 @@ const firstVideoFrameBytes = (page, media) =>
     }
   }, Array.from(media));
 
+// Autosave debounce plus server-side serialization can exceed 5 s on a
+// loaded CI runner; the predicate checks the saved deck, so waiting longer
+// cannot hide a missing write.
+const PERSIST_TIMEOUT_MS = 20000;
+
 test(
   'video poster frame changes preserve media bytes, support file replacement, undo, and reload',
   { timeout: 60000 },
@@ -200,7 +205,7 @@ test(
       // visible before the preview server has finished serializing the deck.
       // Poll the authoritative PPTX until the requested mutation is present.
       const waitForPersisted = async (predicate, label) => {
-        const deadline = Date.now() + 5000;
+        const deadline = Date.now() + PERSIST_TIMEOUT_MS;
         let lastValue;
         while (Date.now() < deadline) {
           lastValue = await readPosterAndMedia();
