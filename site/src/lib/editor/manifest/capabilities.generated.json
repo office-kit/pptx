@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 207,
+  "count": 224,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -558,6 +558,40 @@
           "kind": "enum",
           "optional": false,
           "enumValues": ["portrait", "landscape"]
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageCompressionState",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-picture-style.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "state",
+          "type": "ImageCompressionState | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapePictureStyle",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-picture-style.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "style",
+          "type": "BuiltinPictureStyleName",
+          "kind": "object",
+          "optional": false
         }
       ]
     },

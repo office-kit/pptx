@@ -106,8 +106,10 @@ describe('renderSlideToSvg: reflection effect', () => {
     // stA 50000 → 0.5 at the contact edge; endA 300 → ~0 at the far edge.
     expect(grad).toContain('stop-opacity="0.500"');
     expect(grad).toContain('stop-opacity="0.003"');
-    // The contact-edge stop is the more opaque one (offset 0).
-    expect(grad).toMatch(/offset="0"[^>]*stop-opacity="0\.500"/);
+    // The contact-edge stop is the more opaque one (offset 0). The mask is in
+    // the mirrored copy's own coordinates, where the contact edge is y=1.
+    expect(grad).toMatch(/offset="0.000"[^>]*stop-opacity="0\.500"/);
+    expect(grad).toContain('y1="1" x2="0" y2="0"');
   });
 });
 

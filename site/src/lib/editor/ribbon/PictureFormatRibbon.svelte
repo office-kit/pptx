@@ -13,6 +13,7 @@
   import Icon from '../ui/Icon.svelte';
   import ArrangeGroup from './ArrangeGroup.svelte';
   import MenuButton from './MenuButton.svelte';
+  import PictureStyleGallery from './PictureStyleGallery.svelte';
   import SizeSpinners from './SizeSpinners.svelte';
   import VideoCorrectionsMenu from './VideoCorrectionsMenu.svelte';
   import VideoRecolorMenu from './VideoRecolorMenu.svelte';
@@ -134,7 +135,10 @@
   </div>
 {/snippet}
 
-{#snippet qualityItems()}<button role="menuitem" disabled>{t('Picture Quality')}</button>{/snippet}
+{#snippet qualityItems()}
+  <button role="menuitem" onclick={() => (editor.activeDialog = 'compressPictures')}>{t('Compress Pictures...')}</button>
+  <button role="menuitem" title={t('Upscale Picture enlarges a picture with a Microsoft cloud AI service, which the editor does not have.')} disabled>{t('Upscale Picture')}</button>
+{/snippet}
 
 {#snippet changeItems()}
   <button role="menuitem" disabled={!editor.canRun('setShapeImage')} onclick={() => editor.runOrPrompt('setShapeImage')}>{t('From a File...')}</button>
@@ -172,7 +176,7 @@
     </div>
     <div class="ctx-rows">
       <button class="ctx-icon" aria-label={t('Compress Pictures')} title={t('Compress Pictures')} disabled={!editable} onclick={() => (editor.activeDialog = 'compressPictures')}><Icon name="compress" size={18} /></button>
-      <MenuButton look="icon" icon="picture" label={t('Picture Quality')} title={t("Mac PowerPoint's Picture Quality menu has not been captured; Compress Pictures offers the same resolutions.")} disabled>{@render qualityItems()}</MenuButton>
+      <MenuButton look="icon" icon="picture" label={t('Picture Quality')} disabled={!editable}>{@render qualityItems()}</MenuButton>
       <MenuButton look="icon" icon="replace" label={t('Change Picture')} disabled={!editable}>{@render changeItems()}</MenuButton>
     </div>
     <div class="ctx-rows">
@@ -181,13 +185,7 @@
   </section>
 
   <section class="ctx-group ctx-shrink" aria-label={t('Picture Styles')}>
-    <div class="ctx-gallery" role="group" aria-label={t('Quick Styles')}>
-      <span class="ctx-gallery-arrow hidden" aria-hidden="true"></span>
-      <div class="ctx-gallery-items picture-strip" title={t("PowerPoint's picture style definitions are compiled into the application, so their exact formatting is not available.")}>
-        {#each [0, 1, 2, 3] as index (index)}<span class="picture-swatch" aria-hidden="true"><Icon name="picture" size={30} /></span>{/each}
-      </div>
-      <button class="ctx-gallery-arrow" aria-label={t('Next Quick Styles gallery')} title={t("PowerPoint's picture style definitions are compiled into the application, so their exact formatting is not available.")} disabled>›</button>
-    </div>
+    <PictureStyleGallery />
     <div class="ctx-rows">
       <span class="ctx-paint {compact ? 'ctx-icon' : 'ctx-row'}" class:disabled={!editable}><Icon name="outline" size={16} />{#if !compact}<span>{t('Picture Border')}</span>{/if}<ColorPicker compact label={t('Picture Border')} disabled={!editable} choose={border} /></span>
       <MenuButton look={compact ? 'icon' : 'row'} icon="shadow" label={t('Picture Effects')} disabled={!editable}>{@render effectItems()}</MenuButton>
@@ -216,8 +214,6 @@
 </div>
 
 <style>
-  .ctx-gallery-items.picture-strip { --ctx-gallery-min: 150px; width: 212px; justify-content: space-around; opacity: 0.4; }
   .artistic-grid { display: grid; grid-template-columns: repeat(5, 76px); }
   .artistic-grid button { height: 40px; white-space: normal; text-align: center; justify-content: center; }
-  .picture-swatch { display: flex; align-items: center; justify-content: center; width: 48px; height: 44px; border: 1px solid var(--ok-border); color: var(--ok-text-3); background: #fff; }
 </style>

@@ -7,6 +7,7 @@
 // of how much of this file is filled in. Unlisted capabilities simply use their
 // generated defaults, which are still fully reachable via the command palette.
 
+import { BUILTIN_PICTURE_STYLES } from '@office-kit/pptx';
 import { generatedOverrides } from './overrides.generated.ts';
 import type { CapabilityOverride, ParamSpec } from './types.ts';
 
@@ -1159,6 +1160,36 @@ const handOverrides: Record<string, CapabilityOverride> = {
     params: [
       { name: 'id', type: 'number', kind: 'number', optional: false, label: 'Animation' },
       { name: 'index', type: 'number', kind: 'number', optional: false, label: 'Position' },
+    ],
+  },
+  setShapePictureStyle: {
+    labelEn: 'Picture style',
+    labelJa: '図のスタイル',
+    ribbonGroup: 'picture',
+    params: [
+      {
+        name: 'style',
+        type: 'BuiltinPictureStyleName',
+        kind: 'enum',
+        optional: false,
+        enumValues: [...BUILTIN_PICTURE_STYLES],
+        label: 'Style',
+      },
+    ],
+  },
+  setShapeImageCompressionState: {
+    labelEn: 'Picture compression target',
+    labelJa: '図の圧縮の対象',
+    ribbonGroup: 'picture',
+    params: [
+      {
+        name: 'state',
+        type: "'email' | 'screen' | 'print' | 'hqprint' | 'none' | null",
+        kind: 'enum',
+        optional: false,
+        enumValues: ['print', 'screen', 'email', 'hqprint', 'none'],
+        label: 'Compressed for',
+      },
     ],
   },
   setShapeImageCrop: {
