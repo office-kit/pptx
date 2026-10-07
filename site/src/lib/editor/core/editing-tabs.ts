@@ -27,6 +27,7 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
       text: string;
       width: number;
       decimal: number;
+      separator?: string;
       measurementKey?: string;
       chunks?: string[];
       measure?: (text: string) => number;
@@ -34,6 +35,9 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
     }[] = [];
     for (const node of nodes) {
       const style = getComputedStyle(node.parentElement!);
+      const separator =
+        node.parentElement!.closest<HTMLElement>('[data-decimal-separator]')?.dataset
+          .decimalSeparator ?? '.';
       const variant = style.fontVariantCaps === 'small-caps' ? 'small-caps' : 'normal';
       const font = `${style.fontStyle} ${variant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
       const configure = () => {
@@ -70,6 +74,7 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
         style.textTransform,
         style.writingMode,
         style.textOrientation,
+        separator,
       ]);
       const fragment = document.createDocumentFragment();
       for (const text of node.data.split(/(\t|\n)/)) {
@@ -91,7 +96,16 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
           const joined =
             text !== '\n' && previous?.text !== '\n' && previous?.measurementKey === measurementKey;
           if (joined) previous.chunks!.push(text);
-          else parts.push({ text, chunks: [text], width: 0, decimal: -1, measurementKey, measure });
+          else
+            parts.push({
+              text,
+              chunks: [text],
+              width: 0,
+              decimal: -1,
+              separator,
+              measurementKey,
+              measure,
+            });
         }
       }
       node.replaceWith(fragment);
@@ -100,7 +114,7 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
       if (!part.chunks) continue;
       const text = part.chunks.join('');
       part.width = part.measure!(text);
-      const decimal = text.indexOf('.');
+      const decimal = text.indexOf(part.separator!);
       // Subtract the suffix from the fully shaped run to retain kerning at
       // the decimal boundary (for example, the V and period in "AV.12").
       part.decimal = decimal < 0 ? -1 : part.width - part.measure!(text.slice(decimal));

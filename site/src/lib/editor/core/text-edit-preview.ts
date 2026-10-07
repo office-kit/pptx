@@ -59,14 +59,18 @@ export function replayTextEdits(
   }
 }
 
-/** A disposable model for reading pending toolbar formats without touching history. */
+/**
+ * A disposable model for reading pending toolbar formats without touching history.
+ * `copy` returns a copy even without edits, for previews that change it further.
+ */
 export function projectTextEdits(
   shape: SlideShapeData,
   changes: readonly TextEdit[],
   position?: CellPosition,
   pres?: PresentationData,
+  options: { copy?: boolean } = {},
 ): SlideShapeData {
-  if (!changes.length) return shape;
+  if (!changes.length && !options.copy) return shape;
   const copy = copyShape(addBlankSlide(createPresentation()), shape);
   // copyShape has no source layout/master. Preserve the effective paragraph
   // controls before edits split or merge paragraphs in the disposable shape.

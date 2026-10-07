@@ -400,6 +400,7 @@ export {
   getShapeStrokeWidth,
   getShapeText,
   getShapeTextLanguage,
+  getParagraphElementLanguages,
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
   getShapeTextAutoFit,

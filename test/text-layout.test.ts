@@ -15,6 +15,7 @@ import {
   type TextBodyInput,
   type TextMeasurer,
 } from '../packages/preview/src/text-layout.ts';
+import { decimalSeparatorOf } from '../packages/preview/src/decimal-separator.ts';
 
 describe('substituteFamily', () => {
   it('maps PowerPoint fonts to bundled internal family names', () => {
@@ -802,6 +803,33 @@ describe('paragraph tab stops', () => {
     ]);
     const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
     expect(lines.map((line) => line.tokens.find((token) => token.isTab)?.width)).toEqual([70, 60]);
+  });
+
+  it('aligns decimal fields on the run language separator', () => {
+    const tabWidth = (over: Partial<PieceInput>) =>
+      layoutCore(
+        body([
+          para([piece('A\t12,5', over)], {
+            tabStops: [{ positionPx: 100, alignment: 'decimal' }],
+          }),
+        ]),
+        stubMeasurer,
+      ).placements[0]!.line.tokens.find((token) => token.isTab)?.width;
+    // `12` precedes the comma; without a comma separator the whole field
+    // right-aligns, as a field without a point does.
+    expect(tabWidth({ decimalSeparator: ',' })).toBe(70);
+    expect(tabWidth({})).toBe(50);
+  });
+
+  it('maps run languages to decimal separators', () => {
+    expect(decimalSeparatorOf('de-DE')).toBe(',');
+    expect(decimalSeparatorOf('fr-FR')).toBe(',');
+    expect(decimalSeparatorOf('en-US')).toBe('.');
+    expect(decimalSeparatorOf('ja-JP')).toBe('.');
+    // Latin digits: Arabic text in decks still writes 12.5.
+    expect(decimalSeparatorOf('ar-EG')).toBe('.');
+    expect(decimalSeparatorOf('x-none')).toBe('.');
+    expect(decimalSeparatorOf(null)).toBe('.');
   });
 });
 
