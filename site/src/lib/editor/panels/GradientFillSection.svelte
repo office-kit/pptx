@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getShapeGradientFillEffective, setShapeGradientFill, setSlideBackgroundGradientFill, asColor, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
+  import { getShapeGradientFillEffective, getShapeKind, getShapeRunFormatEffective, getShapeStrokeGradient, getShapeText, setShapeGradientFill, setShapeStroke, setShapeTextFormat, setSlideBackgroundGradientFill, asColor, type GradientFillOptions, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
+  import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
@@ -8,15 +9,23 @@
   import { readSlideBackground } from '../core/slide-background.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
 
-  let { background = false }: { background?: boolean } = $props();
+  // The same gradient controls edit a shape fill, the slide background, a
+  // shape's line and the text outline, as in PowerPoint's Format pane.
+  let { target = 'fill' }: { target?: 'fill' | 'background' | 'line' | 'textOutline' } = $props();
+  const background = $derived(target === 'background');
   const editor = getEditor();
+  const textShapes = $derived.by(() => { editor.doc.version; return editor.selectedShapes().filter(shape => getShapeKind(shape) === 'shape'); });
+  const textOutlineGradient = (shape: Parameters<typeof getShapeText>[0]): ReadGradientFill | null =>
+    getShapeText(shape).length ? getShapeRunFormatEffective(editor.doc.pres, shape, 0, 0).outline?.fill ?? null : null;
   const slides = $derived.by(() => {
     editor.doc.version;
     return selectedSlideIndices(editor.doc.selection).flatMap(index => { const slide = editor.doc.slideAt(index); return slide ? [slide] : []; });
   });
   const gradients = $derived.by(() => {
     editor.doc.version;
-    if (background) return slides.map(slide => readSlideBackground(editor.doc.pres, slide).gradient);
+    if (target === 'background') return slides.map(slide => readSlideBackground(editor.doc.pres, slide).gradient);
+    if (target === 'line') return editor.selectedShapes().map(shape => getShapeStrokeGradient(shape, editor.doc.pres));
+    if (target === 'textOutline') return textShapes.map(textOutlineGradient);
     return editor.selectedShapes().map(shape => getShapeGradientFillEffective(editor.doc.pres, shape));
   });
   const gradient = $derived(gradients[0] ?? null);
@@ -58,16 +67,23 @@
   }
   function apply(patch: Partial<ReadGradientFill>) {
     if (!gradient || locked) return;
-    editor.doc.transact(t('Gradient fill'), () => {
-      const options = (current: ReadGradientFill) => {
+    editor.doc.transact(t(target === 'line' ? 'Line' : target === 'textOutline' ? 'Text Outline' : 'Gradient fill'), () => {
+      const options = (current: ReadGradientFill): GradientFillOptions => {
         const next = { ...current, ...patch };
         return { ...next, stops: next.stops.map(stop => {
           const color = asColor(stop.color);
           return { ...stop, color: color ?? asColor(stop.resolvedColor ?? '') ?? 'accent1', brightness: color ? stop.brightness : 0, colorTransforms: color ? stop.colorTransforms : undefined };
         }) };
       };
-      if (background) {
+      if (target === 'background') {
         for (const slide of slides) setSlideBackgroundGradientFill(slide, options(readSlideBackground(editor.doc.pres, slide).gradient!));
+      } else if (target === 'line') {
+        for (const shape of editor.selectedShapes()) setShapeStroke(shape, { fill: { kind: 'gradient', ...options(getShapeStrokeGradient(shape, editor.doc.pres)!) } });
+      } else if (target === 'textOutline') {
+        for (const shape of textShapes) {
+          const widthEmu = textFormatsInRange(shape, { start: 0, end: getShapeText(shape).length }, undefined, { pres: editor.doc.pres })[0]?.outline?.widthEmu;
+          setShapeTextFormat(shape, { outline: { ...(widthEmu !== undefined ? { widthEmu } : {}), fill: { kind: 'gradient', ...options(textOutlineGradient(shape)!) } } });
+        }
       } else {
         for (const shape of editor.selectedShapes()) setShapeGradientFill(shape, options(getShapeGradientFillEffective(editor.doc.pres, shape)!));
       }

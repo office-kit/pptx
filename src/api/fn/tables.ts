@@ -66,6 +66,7 @@ import {
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
+  SLIDE_PART_NAME,
   SLIDE_SHAPES,
   type SlideData,
   type SlideShapeData,
@@ -73,6 +74,7 @@ import {
 } from '../_internal-symbols.ts';
 import { emuCoordinate32, emuExtent, lineWidthEmu, normalizeGuid } from '../../internal/bounds.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
+import { createImageEmbedder, relatedImageBytes } from './_image-embed.ts';
 import {
   type ShapeParagraphElement,
   readParagraphElements,
@@ -701,6 +703,11 @@ const commitTableCell = (cell: TableCellData): void => {
   refreshSlideData(shape[SHAPE_SLIDE]);
 };
 
+const cellImageEmbedder = (cell: TableCellData, caller: string) => {
+  const slide = cell[CELL_TABLE][SHAPE_SLIDE];
+  return createImageEmbedder(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME], caller);
+};
+
 const ensureCellTxBody = (cell: TableCellData): XmlElement => {
   const tc = cell[CELL_ELEMENT];
   let txBody = firstChildElement(tc, NAME_A_TX_BODY_TBL);
@@ -765,7 +772,11 @@ export const setTableCellParagraphs = (
 ): void => {
   // Built first: a rejected format must not leave a freshly created, empty
   // (schema-invalid) <a:txBody> on a cell that had none.
-  const built = buildTextBodyParagraphs(paragraphs, 'setTableCellParagraphs');
+  const built = buildTextBodyParagraphs(
+    paragraphs,
+    'setTableCellParagraphs',
+    cellImageEmbedder(cell, 'setTableCellParagraphs'),
+  );
   replaceTextBodyParagraphs(ensureCellTxBody(cell), built);
   commitTableCell(cell);
 };
@@ -1465,6 +1476,10 @@ export const getTableCellRunFormatEffective = (
     {
       theme: getPresentationTheme(pres),
       colorMap: getEffectiveColorMap(cell[CELL_TABLE][SHAPE_SLIDE]),
+      images: relatedImageBytes(
+        cell[CELL_TABLE][SHAPE_SLIDE][INTERNAL_PACKAGE],
+        cell[CELL_TABLE][SHAPE_SLIDE][SLIDE_PART_NAME],
+      ),
     },
     txBody,
     paragraphIndex,
@@ -1817,12 +1832,14 @@ export const setTableCellTextFormat = (
     | { range?: { start: number; end: number }; reset?: boolean; paragraphEnd?: never }
     | { paragraphEnd: number; reset?: boolean; range?: never },
 ): void => {
-  validateFormatEnums(format, 'setTableCellTextFormat');
+  const images = cellImageEmbedder(cell, 'setTableCellTextFormat');
+  validateFormatEnums(format, 'setTableCellTextFormat', images);
   const txBody = ensureCellTxBody(cell);
   if (options?.paragraphEnd !== undefined)
-    formatTextBodyParagraphEnd(txBody, options.paragraphEnd, format, options.reset);
-  else if (options?.range) formatTextBodyRange(txBody, format, options.range, options.reset);
-  else applyValidatedFormatToAllRuns(txBody, format, options?.reset);
+    formatTextBodyParagraphEnd(txBody, options.paragraphEnd, format, options.reset, images);
+  else if (options?.range)
+    formatTextBodyRange(txBody, format, options.range, options.reset, images);
+  else applyValidatedFormatToAllRuns(txBody, format, options?.reset, images);
   commitTableCell(cell);
 };
 

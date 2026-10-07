@@ -42,7 +42,7 @@ import {
   setReflection,
   setShadow,
 } from './effects.ts';
-import { applySolidStroke } from './stroke.ts';
+import { type LineFill, type ReadLineFill, applyStroke, validateStrokeFill } from './stroke.ts';
 import {
   type GradientFillOptions,
   type PatternFillOptions,
@@ -78,6 +78,8 @@ const ATTR_CAP = qname('', 'cap', '');
 const ATTR_TYPEFACE = qname('', 'typeface', '');
 const ATTR_VAL = qname('', 'val', '');
 const NAME_HIGHLIGHT = qname('a', 'highlight', NS.dml);
+const NAME_NO_FILL = qname('a', 'noFill', NS.dml);
+const NAME_BLIP_FILL = qname('a', 'blipFill', NS.dml);
 
 // CT_TextCharacterProperties (a:rPr) is an xsd:sequence: children must appear
 // in this order or the run fails dml/pml schema validation. Setters strip the
@@ -216,9 +218,17 @@ export interface TextFormat {
   reflection?: ReflectionOptions | null;
 }
 
+/**
+ * Non-solid glyph fill. `none` is `<a:noFill>` (glyphs show only their
+ * outline); `image` is `<a:blipFill>`, the picture stretched over the text
+ * block — PowerPoint's Picture or texture fill. Its `bytes` must be PNG, JPEG,
+ * GIF, BMP, TIFF or WebP, and each edit embeds them once per part.
+ */
 export type TextFill =
   | ({ readonly kind: 'gradient' } & GradientFillOptions)
-  | ({ readonly kind: 'pattern' } & PatternFillOptions);
+  | ({ readonly kind: 'pattern' } & PatternFillOptions)
+  | { readonly kind: 'none' }
+  | { readonly kind: 'image'; readonly bytes: Uint8Array };
 
 export type ReadTextFill =
   | ({ readonly kind: 'gradient' } & ReadGradientFill)
@@ -229,6 +239,16 @@ export type ReadTextFill =
       readonly background: string;
       readonly foregroundTransforms?: PatternFillOptions['foregroundTransforms'];
       readonly backgroundTransforms?: PatternFillOptions['backgroundTransforms'];
+    }
+  | { readonly kind: 'none' }
+  | {
+      readonly kind: 'image';
+      /**
+       * The picture, when the reader can reach the part that holds it — the
+       * run's own slide. A picture inherited from a layout or master, or one
+       * behind a broken relationship, reads without bytes.
+       */
+      readonly bytes?: Uint8Array;
     };
 
 /** A run's outline: `CT_LineProperties` as far as text uses it. */
@@ -239,6 +259,22 @@ export interface TextOutline {
   readonly colorTransforms?: readonly ColorTransform[];
   /** Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt). */
   readonly widthEmu?: number;
+  /**
+   * Gradient outline (`<a:gradFill>` in the run's `<a:ln>`), as on
+   * `setShapeStroke`. Exclusive with `color`.
+   */
+  readonly fill?: LineFill;
+}
+
+/**
+ * Adds a picture to the part being edited and returns its relationship id.
+ * Picture text fills need one; the API layer supplies it.
+ */
+export interface ImageEmbedder {
+  /** Throws when `bytes` is not a picture the part can hold. */
+  check(bytes: Uint8Array): void;
+  /** Embeds `bytes` (once per embedder) and returns the relationship id. */
+  embed(bytes: Uint8Array): string;
 }
 
 /**
@@ -270,7 +306,10 @@ export type ReadTextFormat = Omit<
 };
 
 /** A run outline read back from a deck. `color` widens for the same reason. */
-export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: string };
+export type ReadTextOutline = Omit<TextOutline, 'color' | 'fill'> & {
+  readonly color?: string;
+  readonly fill?: ReadLineFill;
+};
 
 /**
  * Converts a format read back from a deck into one a writer accepts. The
@@ -299,6 +338,7 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
   const innerShadowColor = innerShadow?.color === undefined ? null : asColor(innerShadow.color);
   const glowColor = glow == null ? null : asColor(glow.color);
   const writableFill = textFill === undefined ? undefined : toWritableTextFill(textFill);
+  const outlineFill = outline?.fill === undefined ? undefined : toWritableGradient(outline.fill);
   return {
     ...rest,
     ...(color == null ? {} : { color: writableColor }),
@@ -317,6 +357,7 @@ export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
             ...(outlineColor === null || outline.colorTransforms === undefined
               ? {}
               : { colorTransforms: outline.colorTransforms }),
+            ...(outlineFill === undefined ? {} : { fill: outlineFill }),
           },
         }),
     ...(shadow == null
@@ -394,6 +435,14 @@ const toWritableTextFill = (fill: ReadTextFill): TextFill | undefined => {
         : { backgroundTransforms: fill.backgroundTransforms }),
     };
   }
+  if (fill.kind === 'none') return fill;
+  if (fill.kind === 'image') return fill.bytes ? { kind: 'image', bytes: fill.bytes } : undefined;
+  return toWritableGradient(fill);
+};
+
+const toWritableGradient = (
+  fill: { readonly kind: 'gradient' } & ReadGradientFill,
+): ({ readonly kind: 'gradient' } & GradientFillOptions) | undefined => {
   const stops: Array<GradientFillOptions['stops'][number]> = [];
   for (const stop of fill.stops) {
     const color = asColor(stop.color);
@@ -452,11 +501,30 @@ const setSolidFill = (
   insertChildByRank(rPr, fill, rprChildRank);
 };
 
-const setTextFill = (rPr: XmlElement, fill: TextFill): void => {
+const setTextFill = (rPr: XmlElement, fill: TextFill, images: ImageEmbedder | undefined): void => {
   if (fill.kind === 'gradient') {
     setGradientFill(rPr, fill);
-  } else {
+  } else if (fill.kind === 'pattern') {
     setPatternFill(rPr, fill);
+  } else if (fill.kind === 'none') {
+    removeAnyFill(rPr);
+    rPr.children.push(elem(NAME_NO_FILL));
+  } else {
+    // validateFormatEnums rejects a picture fill without an embedder.
+    const relationshipId = images!.embed(fill.bytes);
+    removeAnyFill(rPr);
+    // PowerPoint's own picture text fill: the image stretched over the text block.
+    rPr.children.push(
+      elem(NAME_BLIP_FILL, {
+        attrs: [attr(qname('', 'rotWithShape', ''), '1')],
+        children: [
+          elem(qname('a', 'blip', NS.dml), {
+            attrs: [attr(qname('r', 'embed', NS.officeDocRels), relationshipId)],
+          }),
+          elem(qname('a', 'stretch', NS.dml), { children: [elem(qname('a', 'fillRect', NS.dml))] }),
+        ],
+      }),
+    );
   }
   // The shape fill helpers place fills before `<a:ln>`. Character properties
   // have the opposite order: `<a:ln>` precedes the fill choice.
@@ -540,7 +608,11 @@ const setHighlight = (rPr: XmlElement, value: string | null): void => {
   insertChildByRank(rPr, elem(NAME_HIGHLIGHT, { children: [inner] }), rprChildRank);
 };
 
-export const validateFormatEnums = (format: TextFormat, caller: string): void => {
+export const validateFormatEnums = (
+  format: TextFormat,
+  caller: string,
+  images?: ImageEmbedder,
+): void => {
   if (format.underline != null && typeof format.underline !== 'boolean')
     oneOf(format.underline, UNDERLINES, `${caller}: underline`);
   if (format.strike != null && typeof format.strike !== 'boolean')
@@ -565,16 +637,30 @@ export const validateFormatEnums = (format: TextFormat, caller: string): void =>
   if (format.textFill !== undefined) {
     if (format.color !== undefined)
       throw new Error(`${caller}: color and textFill are mutually exclusive; pass one`);
-    validateTextFill(format.textFill, `${caller}: textFill`);
+    validateTextFill(format.textFill, `${caller}: textFill`, images);
   }
+  if (format.outline) validateStrokeFill(format.outline, `${caller}: outline`);
 };
 
-const validateTextFill = (fill: TextFill, caller: string): void => {
-  if (fill.kind === 'pattern') {
-    validatePatternFillOptions(fill, caller);
-    return;
+const validateTextFill = (fill: TextFill, caller: string, images?: ImageEmbedder): void => {
+  switch (fill.kind) {
+    case 'pattern':
+      validatePatternFillOptions(fill, caller);
+      return;
+    case 'gradient':
+      validateGradientFillOptions(fill, caller);
+      return;
+    case 'none':
+      return;
+    case 'image':
+      if (!images) throw new Error(`${caller}: a picture fill needs a slide or notes text body`);
+      images.check(fill.bytes);
+      return;
+    default: {
+      const unknown: never = fill;
+      throw new Error(`${caller}: unknown fill kind ${JSON.stringify(unknown)}`);
+    }
   }
-  validateGradientFillOptions(fill, caller);
 };
 
 /** Mutates `rPr` in place per `format`. */
@@ -582,12 +668,17 @@ export const applyRunFormat = (
   rPr: XmlElement,
   format: TextFormat,
   caller = 'setShapeRunFormat',
+  images?: ImageEmbedder,
 ): void => {
-  validateFormatEnums(format, caller);
-  applyValidatedRunFormat(rPr, format);
+  validateFormatEnums(format, caller, images);
+  applyValidatedRunFormat(rPr, format, images);
 };
 
-const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
+const applyValidatedRunFormat = (
+  rPr: XmlElement,
+  format: TextFormat,
+  images?: ImageEmbedder,
+): void => {
   let attrs = rPr.attrs;
   if (format.size !== undefined) {
     // Hundredths of a point per the schema (ST_TextFontSize: 1..4000 pt).
@@ -634,7 +725,7 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.font !== undefined) setLatin(rPr, format.font);
   if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
   if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
-  if (format.textFill !== undefined) setTextFill(rPr, format.textFill);
+  if (format.textFill !== undefined) setTextFill(rPr, format.textFill, images);
   else if (format.color !== undefined) setSolidFill(rPr, format.color, format.colorTransforms);
   if (format.underlineColor !== undefined) setUnderlineFill(rPr, format.underlineColor);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
@@ -676,9 +767,9 @@ const setRunOutline = (rPr: XmlElement, outline: TextOutline | null): void => {
     return;
   }
   const ln = existing ?? elem(NAME_LN);
-  applySolidStroke(ln, outline);
+  applyStroke(ln, outline, 'setShapeRunFormat: outline');
   if (outline.colorTransforms !== undefined) {
-    // applySolidStroke keeps a previous color's alpha; stated transforms replace them all.
+    // applyStroke keeps a previous color's alpha; stated transforms replace them all.
     const color = firstChildElement(ln, NAME_SOLID_FILL)?.children.find(
       (child) => child.kind === 'element',
     );
@@ -853,18 +944,20 @@ export const applyFormatToAllRuns = (
   format: TextFormat,
   caller = 'setShapeTextFormat',
   reset = false,
+  images?: ImageEmbedder,
 ): void => {
-  validateFormatEnums(format, caller);
-  applyValidatedFormatToAllRuns(txBody, format, reset);
+  validateFormatEnums(format, caller, images);
+  applyValidatedFormatToAllRuns(txBody, format, reset, images);
 };
 
 export const applyValidatedFormatToAllRuns = (
   txBody: XmlElement,
   format: TextFormat,
   reset = false,
+  images?: ImageEmbedder,
 ): void => {
   if (reset) {
-    applyValidatedRunFormat(elem(NAME_RPR), format);
+    applyValidatedRunFormat(elem(NAME_RPR), format, images);
     resetTextBodyRunFormats(txBody);
   }
   // Walk depth-first; runs live two levels deep (txBody > p > r).
@@ -875,7 +968,7 @@ export const applyValidatedFormatToAllRuns = (
     // The paragraph end mark supplies the format for typing into an empty paragraph.
     const existingEnd = firstChildElement(p, qname('a', 'endParaRPr', NS.dml));
     const end = existingEnd ?? elem(qname('a', 'endParaRPr', NS.dml));
-    applyValidatedRunFormat(end, format);
+    applyValidatedRunFormat(end, format, images);
     if (!existingEnd && (end.attrs.length || end.children.length)) p.children.push(end);
     for (const r of p.children) {
       if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') {
@@ -887,7 +980,7 @@ export const applyValidatedFormatToAllRuns = (
         // rPr must be the first child of the run per the schema.
         r.children.unshift(rPr);
       }
-      applyValidatedRunFormat(rPr, format);
+      applyValidatedRunFormat(rPr, format, images);
     }
   }
   // Force-touch a NAME_R reference so it isn't elided as unused.

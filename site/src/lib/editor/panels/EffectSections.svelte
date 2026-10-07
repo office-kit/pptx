@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getShapeKind, type Color, type ColorTransform, type ReflectionOptions, type SlideShapeData, type Text3D } from '@office-kit/pptx';
+  import { getShapeKind, getShapeTextFlat, setShapeTextFlat, type Color, type ColorTransform, type ReflectionOptions, type SlideShapeData, type Text3D } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
@@ -85,13 +85,23 @@
 
   // --- Soft Edges
   const softEdgePreset = $derived(common((state) => SOFT_EDGE_PRESETS.find((preset) => preset.value === state.softEdgeEmu)?.label));
-  const softEdgeReason = $derived(target.softEdge ? undefined : t('Soft edges on text are not supported by the library yet.'));
+  // Mac PowerPoint disables Soft Edges under Text Effects, although a run's
+  // effect list can hold one.
+  const softEdgeReason = $derived(target.softEdge ? undefined : t('PowerPoint does not offer soft edges for text.'));
   function softEdge(radiusEmu: number | null) {
     const write = target.softEdge;
     if (write) apply('Soft Edges', (shape) => write(shape, radiusEmu));
   }
 
   // --- 3-D
+  // Keep text flat belongs to the text body, so PowerPoint disables it for
+  // pictures and connectors.
+  const flatDisabled = $derived(disabled || shapes.some((shape) => getShapeKind(shape) !== 'shape'));
+  const textFlat = $derived.by(() => {
+    doc.version;
+    const values = new Set(shapes.map(getShapeTextFlat));
+    return values.size === 1 ? [...values][0] : undefined;
+  });
   function threeD(label: string, update: (value: Text3D) => Text3D) {
     apply(label, (shape, state) => {
       const next = update(writable3D(state.threeD));
@@ -278,7 +288,7 @@ const nudgeName = (english: string, japanese: string) => (getLocale() === 'ja' ?
         <button class="ok-btn nudge" aria-label={nudgeName(nudgeLabel, nudgeJa)} title={nudgeName(nudgeLabel, nudgeJa)} disabled={disabled || !perspectiveCamera} onclick={() => perspective(Math.min(120, Math.max(0, (fieldOfView ?? 45) + step)))}>{step < 0 ? '−' : '+'}</button>
       {/each}
     </div>
-    <label class="pane-check" title={t('Keep text flat is not supported by the library yet.')}><input type="checkbox" disabled /><span>{t('Keep text flat')}</span></label>
+    <label class="pane-check"><input type="checkbox" disabled={flatDisabled} checked={!flatDisabled && textFlat === true} indeterminate={!flatDisabled && textFlat === undefined} onchange={(event) => { const flat = event.currentTarget.checked; apply('Keep text flat', (shape) => setShapeTextFlat(shape, flat)); }} /><span>{t('Keep text flat')}</span></label>
     <SliderField label={t('Distance from ground')} slider={false} value={common((state) => pt(state.threeD?.distanceFromGroundEmu ?? 0))} min={-4000} max={4000} unit="pt" {disabled}
       apply={(points) => threeD('Distance from ground', (value) => ({ ...value, distanceFromGroundEmu: Math.round(points * EMU_PER_POINT) }))} />
     <button class="ok-btn reset" aria-label={t('Reset 3-D Rotation')} {disabled} onclick={() => threeD('Reset 3-D Rotation', (value) => {

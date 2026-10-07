@@ -22,7 +22,7 @@ import {
   text,
   walkElements,
 } from '../xml/index.ts';
-import { type TextFormat, applyRunFormat } from './text-format.ts';
+import { type ImageEmbedder, type TextFormat, applyRunFormat } from './text-format.ts';
 
 const NAME_BU_CHAR = qname('a', 'buChar', NS.dml);
 const NAME_BU_AUTO_NUM = qname('a', 'buAutoNum', NS.dml);
@@ -591,34 +591,40 @@ export interface ParagraphSpec {
 export const buildTextBodyParagraphs = (
   paragraphs: ReadonlyArray<ParagraphSpec>,
   caller = 'setShapeParagraphs',
+  images?: ImageEmbedder,
 ): ReadonlyArray<XmlElement> => {
   // CT_TextBody requires at least one <a:p>; `[{ runs: [] }]` is the empty body.
   if (paragraphs.length === 0) {
     throw new Error('setTextBodyParagraphs: at least one paragraph is required');
   }
-  const built: XmlElement[] = [];
-  // for...of, not map: map skips the holes of a sparse array and would hand
-  // them on as undefined children.
-  for (const para of paragraphs) {
-    const children: XmlElement[] = [];
-    if (para.align !== undefined) {
-      children.push(elem(NAME_PPR, { attrs: [attr(ATTR_ALGN, alignToken(para.align, caller))] }));
+  const build = (embedder: ImageEmbedder | undefined): XmlElement[] => {
+    const built: XmlElement[] = [];
+    // for...of, not map: map skips the holes of a sparse array and would hand
+    // them on as undefined children.
+    for (const para of paragraphs) {
+      const children: XmlElement[] = [];
+      if (para.align !== undefined) {
+        children.push(elem(NAME_PPR, { attrs: [attr(ATTR_ALGN, alignToken(para.align, caller))] }));
+      }
+      for (const run of para.runs) {
+        const rPr = elem(NAME_RPR);
+        if (run.format !== undefined) applyRunFormat(rPr, run.format, caller, embedder);
+        const t = elem(NAME_T, { children: run.text.length > 0 ? [text(run.text)] : [] });
+        children.push(elem(NAME_R, { children: [rPr, t] }));
+      }
+      // CT_TextParagraph is a sequence: <a:endParaRPr> comes after every run.
+      if (para.endFormat !== undefined) {
+        const endParaRPr = elem(NAME_END_PARA_RPR);
+        applyRunFormat(endParaRPr, para.endFormat, caller, embedder);
+        children.push(endParaRPr);
+      }
+      built.push(elem(NAME_P, { children }));
     }
-    for (const run of para.runs) {
-      const rPr = elem(NAME_RPR);
-      if (run.format !== undefined) applyRunFormat(rPr, run.format, caller);
-      const t = elem(NAME_T, { children: run.text.length > 0 ? [text(run.text)] : [] });
-      children.push(elem(NAME_R, { children: [rPr, t] }));
-    }
-    // CT_TextParagraph is a sequence: <a:endParaRPr> comes after every run.
-    if (para.endFormat !== undefined) {
-      const endParaRPr = elem(NAME_END_PARA_RPR);
-      applyRunFormat(endParaRPr, para.endFormat, caller);
-      children.push(endParaRPr);
-    }
-    built.push(elem(NAME_P, { children }));
-  }
-  return built;
+    return built;
+  };
+  // A later rejected format must not leave an earlier run's picture embedded.
+  if (images) build({ check: images.check, embed: () => '' });
+  return build(images);
 };
 
 export const replaceTextBodyParagraphs = (
@@ -638,6 +644,7 @@ export const replaceTextBodyParagraphs = (
 export const setTextBodyParagraphs = (
   txBody: XmlElement,
   paragraphs: ReadonlyArray<ParagraphSpec>,
+  images?: ImageEmbedder,
 ): void => {
-  replaceTextBodyParagraphs(txBody, buildTextBodyParagraphs(paragraphs));
+  replaceTextBodyParagraphs(txBody, buildTextBodyParagraphs(paragraphs, undefined, images));
 };

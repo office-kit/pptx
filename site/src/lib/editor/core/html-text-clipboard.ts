@@ -266,6 +266,8 @@ export type TextClipboardHtmlOptions = { editing?: boolean };
 
 const withoutSvgPaintedLayers = (format: TextFormat): TextFormat => {
   const {
+    color: _color,
+    colorTransforms: _colorTransforms,
     outline: _outline,
     shadow: _shadow,
     glow: _glow,
@@ -278,11 +280,16 @@ const withoutSvgPaintedLayers = (format: TextFormat): TextFormat => {
 
 // The caret takes the fill's first color: transparent glyphs would otherwise
 // hide it, since `caret-color: auto` follows the text color.
-const textFillCaretColor = (fill: NonNullable<TextFormat['textFill']>): string => {
+const textFillCaretColor = (format: TextFormat): string => {
+  const fill = format.textFill;
   const color =
-    fill.kind === 'pattern'
-      ? fill.foreground
-      : [...fill.stops].sort((a, b) => a.offset - b.offset)[0]?.color;
+    fill === undefined
+      ? (format.color ?? undefined)
+      : fill.kind === 'pattern'
+        ? fill.foreground
+        : fill.kind === 'gradient'
+          ? [...fill.stops].sort((a, b) => a.offset - b.offset)[0]?.color
+          : undefined;
   return color !== undefined && /^#?[\da-f]{6}$/i.test(color) ? color : '#000000';
 };
 
@@ -305,14 +312,16 @@ export function textClipboardHtml(
     span.textContent = copied.text.slice(start, end);
     const style = span.style;
     // While editing, the canvas's SVG fill layer (renderTextEffectsSvg) draws
-    // gradient and pattern glyphs with their outline, shadows and decorations,
-    // because CSS cannot spread one gradient across the whole text block. The
-    // editable glyphs stay transparent so nothing is drawn twice.
-    const svgFill = options.editing === true ? authored.textFill : undefined;
+    // non-solid glyph fills and gradient outlines with their shadows and
+    // decorations, because CSS cannot spread one gradient across the whole
+    // text block. The editable glyphs stay transparent so nothing is drawn
+    // twice.
+    const svgFill =
+      options.editing === true && (authored.textFill !== undefined || !!authored.outline?.fill);
     const format = svgFill ? withoutSvgPaintedLayers(authored) : authored;
     if (svgFill) {
       style.color = 'transparent';
-      style.caretColor = cssColor(textFillCaretColor(svgFill));
+      style.caretColor = cssColor(textFillCaretColor(authored));
     }
     if (format.bold !== undefined) style.fontWeight = format.bold ? 'bold' : 'normal';
     if (format.italic !== undefined) style.fontStyle = format.italic ? 'italic' : 'normal';

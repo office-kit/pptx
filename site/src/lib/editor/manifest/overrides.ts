@@ -490,7 +490,9 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setShapeStrokeCap: { labelJa: '線の端の形状' },
   setShapeStrokeCompound: { labelJa: '線の種類' },
   setShapeStrokeJoin: { labelJa: '線の接合部の形状' },
+  setShapeStrokeSketch: { labelEn: 'Sketched style', labelJa: 'スケッチ スタイル' },
   setShapeText3D: { labelEn: 'Text 3-D format', labelJa: '文字の 3-D 書式' },
+  setShapeTextFlat: { labelEn: 'Keep text flat', labelJa: 'テキストを立体表示しない' },
   // The Format Shape pane's Effects sections drive these; the command dialog
   // offers the JSON fallback for their full option objects.
   setShape3D: { labelEn: 'Shape 3-D format', labelJa: '図形の 3-D 書式', category: 'effect' },

@@ -7,6 +7,10 @@ import {
   type ArrowOptions,
   type GradientFillOptions,
   type LineDash,
+  type LineFill,
+  type LineSketch,
+  readStrokeSketch,
+  setStrokeSketch,
   type PatternFillOptions,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
@@ -30,17 +34,8 @@ import {
   type PatternPreset,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
-import {
-  contentTypeForFormat,
-  detectImageFormat,
-  emptyRels,
-  extensionForFormat,
-  type ImageFormat,
-  nextRelId,
-  partName,
-} from '../../internal/opc/index.ts';
+import { detectImageFormat, type ImageFormat } from '../../internal/opc/index.ts';
 import type { PresetShape } from '../../internal/presentationml/shape-builder.ts';
-import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import {
   NS,
   attr,
@@ -58,7 +53,8 @@ import {
   SLIDE_PART_NAME,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, requireSpPr, setOpcDefault } from './_helpers.ts';
+import { commitAndRefresh, requireSpPr } from './_helpers.ts';
+import { embedImagePart } from './_image-embed.ts';
 import { getPresentationTheme } from './theme.ts';
 // ---------------------------------------------------------------------------
 // Shape mutation — geometry.
@@ -306,36 +302,8 @@ export const setShapeImageFill = (
       'setShapeImageFill: could not detect image format. Pass options.format explicitly.',
     );
   }
-  const contentType = contentTypeForFormat(format);
-  const extension = extensionForFormat(format);
   const slide = shape[SHAPE_SLIDE];
-  const pkg = slide[INTERNAL_PACKAGE];
-
-  // Allocate /ppt/media/imageN.<ext> (shared with addSlideImage's
-  // numbering — both feed off the same /ppt/media space).
-  let nextN = 1;
-  const mediaPattern = /^\/ppt\/media\/image(\d+)\./;
-  for (const p of pkg.parts) {
-    const m = p.name.match(mediaPattern);
-    if (m?.[1] !== undefined) {
-      const n = Number.parseInt(m[1], 10);
-      if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
-    }
-  }
-  const newMediaName = partName(`/ppt/media/image${nextN}.${extension}`);
-  setOpcDefault(pkg, extension, contentType);
-  pkg.addPart(newMediaName, contentType, bytes);
-
-  // Slide → image rel.
-  const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
-  const newRId = nextRelId(rels.items.map((r) => r.id));
-  rels.items.push({
-    id: newRId,
-    type: REL_TYPES.image,
-    target: `../media/image${nextN}.${extension}`,
-    targetMode: 'Internal',
-  });
-  pkg.setRels(slide[SLIDE_PART_NAME], rels);
+  const newRId = embedImagePart(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME], bytes, format);
 
   // Replace the shape's fill choice with <a:blipFill>.
   const spPr = requireSpPr(shape);
@@ -403,13 +371,56 @@ export const clearShapeFill = (shape: SlideShapeData): void => {
   commitAndRefresh(shape);
 };
 
-/** Updates outline color, width and/or opacity (0–1); omitted properties are preserved. */
+/**
+ * Updates outline color, width and/or opacity (0–1); omitted properties are
+ * preserved. `fill: { kind: 'gradient', ... }` paints a gradient line instead
+ * of `color` (PowerPoint's Gradient line); it takes the same options as
+ * `setShapeGradientFill` and is exclusive with `color` and `opacity`.
+ */
 export const setShapeStroke = (
   shape: SlideShapeData,
-  options: { color?: Color; widthEmu?: number; opacity?: number },
+  options: { color?: Color; widthEmu?: number; opacity?: number; fill?: LineFill },
 ): void => {
   setSolidStroke(requireSpPr(shape), options);
   commitAndRefresh(shape);
+};
+
+/**
+ * Sets PowerPoint's Sketched style on the outline (`'curved'`, `'freehand'`
+ * or `'scribble'`), or removes it with `null`. Stored as the Office 2021
+ * `ask:lineSketchStyleProps` extension of `<a:ln>`, which older readers
+ * ignore. A new sketch gets a seed derived from the shape id, so the same
+ * deck always saves the same bytes.
+ *
+ * Office writes the hand-drawn outline into the shape's geometry and keeps the
+ * original beside the style; this library keeps the true geometry instead (and
+ * restores it when editing a sketch Office wrote), leaving the roughening to
+ * the renderer.
+ */
+export const setShapeStrokeSketch = (shape: SlideShapeData, sketch: LineSketch | null): void => {
+  setStrokeSketch(requireSpPr(shape), sketch, sketchSeed(shape));
+  commitAndRefresh(shape);
+};
+
+// FNV-1a over the shape's slide part and id: stable across saves, distinct
+// between shapes, and an `ST_LineSketchSeed` (xsd:unsignedInt).
+const sketchSeed = (shape: SlideShapeData): number => {
+  let hash = 0x811c9dc5;
+  for (const char of `${shape[SHAPE_SLIDE][SLIDE_PART_NAME]}#${shape[SHAPE_SNAPSHOT].id}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+};
+
+/**
+ * Reads the outline's sketched style, or `null` when it has none. Only the
+ * shape's own `<a:ln>` is consulted.
+ */
+export const getShapeStrokeSketch = (shape: SlideShapeData): LineSketch | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  const ln = spPr && firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  return ln ? readStrokeSketch(ln) : null;
 };
 
 /** Sets an explicit "no outline" on the shape. */

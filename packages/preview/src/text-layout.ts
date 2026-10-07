@@ -179,6 +179,8 @@ export interface PieceInput {
   readonly highlightHex?: string;
   /** Character outline (`<a:rPr><a:ln>`), painted behind the glyph fill. */
   readonly outlineHex?: string;
+  /** Gradient outline paint; `outlineHex` stays the solid fallback. */
+  readonly outlinePaint?: TextFillPaint;
   readonly outlineWidthPx?: number;
   /** DrawingML `ST_TextUnderlineType`; wavy variants use explicit SVG paths. */
   readonly underline: UnderlineStyle;
@@ -830,16 +832,19 @@ const lineContentExtent = (line: Line, dx: number): { left: number; width: numbe
   return { left, width };
 };
 
-// Resolves every distinct `fillPaint` against the laid-out block and swaps the
-// paint reference into `fillHex`, so the glyph, reflection and decoration
-// emitters all paint the same gradient or pattern without knowing about it.
+// Resolves every distinct `fillPaint` / `outlinePaint` against the laid-out
+// block and swaps the paint reference into `fillHex` / `outlineHex`, so the
+// glyph, reflection and decoration emitters all paint the same gradient,
+// pattern or picture without knowing about it.
 //
 // ECMA-376 §20.1.8.33 does not say what box a text gradient fills. PowerPoint
 // spreads it once across the text block — every line of the body, not each
 // line or run separately — so the bounds are the union of the laid-out lines'
 // ink boxes (ascent to descent, drawn content width).
 const resolveFillPaints = (placements: Placement[]): { defs: string; placements: Placement[] } => {
-  const hasPaint = placements.some(({ line }) => line.tokens.some((t) => t.piece.fillPaint));
+  const hasPaint = placements.some(({ line }) =>
+    line.tokens.some((t) => t.piece.fillPaint || t.piece.outlinePaint),
+  );
   if (!hasPaint) return { defs: '', placements };
   let left = Number.POSITIVE_INFINITY;
   let top = Number.POSITIVE_INFINITY;
@@ -857,12 +862,7 @@ const resolveFillPaints = (placements: Placement[]): { defs: string; placements:
   const bounds: TextBlockBounds = { x: left, y: top, w: right - left, h: bottom - top };
   const painted = new Map<TextFillPaint, string>();
   let defs = '';
-  const pieces = new Map<PieceInput, PieceInput>();
-  const repaint = (piece: PieceInput): PieceInput => {
-    const paint = piece.fillPaint;
-    if (paint === undefined) return piece;
-    let next = pieces.get(piece);
-    if (next) return next;
+  const resolve = (paint: TextFillPaint): string => {
     let fill = painted.get(paint);
     if (fill === undefined) {
       const built = paint(bounds);
@@ -870,7 +870,17 @@ const resolveFillPaints = (placements: Placement[]): { defs: string; placements:
       fill = built.fill;
       painted.set(paint, fill);
     }
-    next = { ...piece, fillHex: fill };
+    return fill;
+  };
+  const pieces = new Map<PieceInput, PieceInput>();
+  const repaint = (piece: PieceInput): PieceInput => {
+    let next = pieces.get(piece);
+    if (next) return next;
+    next = {
+      ...piece,
+      ...(piece.fillPaint ? { fillHex: resolve(piece.fillPaint) } : {}),
+      ...(piece.outlinePaint ? { outlineHex: resolve(piece.outlinePaint) } : {}),
+    };
     pieces.set(piece, next);
     return next;
   };
@@ -879,7 +889,9 @@ const resolveFillPaints = (placements: Placement[]): { defs: string; placements:
     line: {
       ...placement.line,
       tokens: placement.line.tokens.map((token) =>
-        token.piece.fillPaint ? { ...token, piece: repaint(token.piece) } : token,
+        token.piece.fillPaint || token.piece.outlinePaint
+          ? { ...token, piece: repaint(token.piece) }
+          : token,
       ),
     },
   }));

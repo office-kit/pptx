@@ -347,7 +347,17 @@ export const setPatternFill = (host: XmlElement, options: Partial<PatternFillOpt
 
 /** Sets `<a:gradFill>` on `host`, replacing any previous fill choice. */
 export const setGradientFill = (host: XmlElement, options: GradientFillOptions): void => {
-  validateGradientFillOptions(options, 'setShapeGradientFill');
+  const grad = buildGradientFill(options, 'setShapeGradientFill');
+  removeAnyFill(host);
+  host.children.splice(fillInsertionIndex(host), 0, grad);
+};
+
+/**
+ * Builds a validated `<a:gradFill>` without placing it, for hosts whose fill
+ * slot is not the shape-properties one (`<a:ln>`, `<a:rPr>`).
+ */
+export const buildGradientFill = (options: GradientFillOptions, caller: string): XmlElement => {
+  validateGradientFillOptions(options, caller);
   if (options.stops.length < 2) {
     throw new Error('gradient fill requires at least two stops');
   }
@@ -456,13 +466,11 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
           }),
         ];
 
-  const grad = elem(NAME_GRAD_FILL, {
+  return elem(NAME_GRAD_FILL, {
     attrs: [
       attr(ATTR_FLIP, 'none'),
       attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === false ? '0' : '1'),
     ],
     children: [elem(NAME_GS_LST, { children: stops }), directionEl, ...tileRect],
   });
-  removeAnyFill(host);
-  host.children.splice(fillInsertionIndex(host), 0, grad);
 };

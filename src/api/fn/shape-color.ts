@@ -4,6 +4,7 @@ import { NAME_A_RPR, requireRun } from './shape-runs.ts';
 import {
   PATTERN_PRESETS,
   type ReadGradientStop,
+  type ReadLineFill,
   type ReadTextFormat,
   type TextFormat,
 } from '../../internal/drawingml/index.ts';
@@ -16,7 +17,13 @@ import {
   getAttrValue,
   qname,
 } from '../../internal/xml/index.ts';
-import { type SlideShapeData } from '../_internal-symbols.ts';
+import {
+  INTERNAL_PACKAGE,
+  SHAPE_SLIDE,
+  SLIDE_PART_NAME,
+  type SlideShapeData,
+} from '../_internal-symbols.ts';
+import { relatedImageBytes } from './_image-embed.ts';
 import { type PresentationTheme } from './theme.ts';
 import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
@@ -579,7 +586,7 @@ const readTextGradientFill = (
     readonly theme: PresentationTheme | null;
     readonly colorMap?: Readonly<Record<string, string>> | null;
   },
-): ReadTextFormat['textFill'] => {
+): ReadLineFill | undefined => {
   const gsList = firstChildElement(gradFill, qname('a', 'gsLst', NS.dml));
   if (gsList === null) return undefined;
   const stops: ReadGradientStop[] = [];
@@ -701,12 +708,18 @@ const readTextPatternFill = (
 // `#RRGGBB` and color transforms (`<a:lumMod>` etc.) are applied. Without
 // a theme, transforms are not applied and theme tokens are passed through
 // verbatim — this preserves the legacy `getShapeRunFormat` behavior.
+//
+// `images` resolves a picture fill's relationship id against the part that
+// holds `rPr`; without it a picture fill reads without its bytes.
+export type RelatedImageBytes = (relationshipId: string) => Uint8Array | null;
+
 export const parseRPrLikeElement = (
   rPr: XmlElement,
   ctx?: {
     readonly theme: PresentationTheme | null;
     readonly colorMap?: Readonly<Record<string, string>> | null;
   },
+  images?: RelatedImageBytes,
 ): Partial<ReadTextFormat> => {
   const out: Partial<ReadTextFormat> = {};
   const sz = getAttrValue(rPr, qname('', 'sz', ''));
@@ -793,6 +806,15 @@ export const parseRPrLikeElement = (
     const fill = readTextPatternFill(patternFill, ctx);
     if (fill) out.textFill = fill;
   }
+  if (firstChildElement(rPr, qname('a', 'noFill', NS.dml)) !== null)
+    out.textFill = { kind: 'none' };
+  const blipFill = firstChildElement(rPr, qname('a', 'blipFill', NS.dml));
+  if (blipFill !== null) {
+    const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+    const embed = blip && getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+    const bytes = embed ? images?.(embed) : null;
+    out.textFill = bytes ? { kind: 'image', bytes } : { kind: 'image' };
+  }
   // Underline fill is a separate DrawingML choice from the run's text fill.
   // `uFillTx` is meaningful even without a color child: it explicitly follows
   // the text color and must therefore remain distinct from an omitted value.
@@ -827,7 +849,12 @@ export const parseRPrLikeElement = (
   }
   const ln = firstChildElement(rPr, qname('a', 'ln', NS.dml));
   if (ln !== null) {
-    const outline: { color?: string; colorTransforms?: ColorTransform[]; widthEmu?: number } = {};
+    const outline: {
+      color?: string;
+      colorTransforms?: ColorTransform[];
+      widthEmu?: number;
+      fill?: ReadLineFill;
+    } = {};
     const w = getAttrValue(ln, qname('', 'w', ''));
     if (w !== null) {
       const n = Number.parseInt(w, 10);
@@ -840,6 +867,9 @@ export const parseRPrLikeElement = (
       const colorTransforms = pendingTransforms(lnFill!, ctx);
       if (colorTransforms) outline.colorTransforms = colorTransforms;
     }
+    const lnGradient = firstChildElement(ln, qname('a', 'gradFill', NS.dml));
+    const fill = lnGradient && readTextGradientFill(lnGradient, ctx);
+    if (fill) outline.fill = fill;
     out.outline = outline;
   }
   // `<a:effectLst>` on a run holds the same effects as on a shape; a run that
@@ -929,5 +959,10 @@ export const getShapeRunFormat = (
   const run = requireRun(shape, paragraphIndex, runIndex);
   const rPr = firstChildElement(run, NAME_A_RPR);
   if (rPr === null) return null;
-  return parseRPrLikeElement(rPr) as TextFormat;
+  const slide = shape[SHAPE_SLIDE];
+  return parseRPrLikeElement(
+    rPr,
+    undefined,
+    relatedImageBytes(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME]),
+  ) as TextFormat;
 };

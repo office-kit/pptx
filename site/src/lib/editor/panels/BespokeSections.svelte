@@ -24,6 +24,7 @@
     getSlidePartName,
     getSlideShapes,
     setShapeText,
+    type GradientFillOptions,
   } from '@office-kit/pptx';
   import GradientFillSection from './GradientFillSection.svelte';
   import PatternFillSection from './PatternFillSection.svelte';
@@ -42,6 +43,15 @@
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
 
   let { tab }: { tab: 'paint' | 'effects' | 'size' | 'all' } = $props();
+  const DEFAULT_GRADIENT: GradientFillOptions = {
+    path: 'linear', angleDeg: 90, scaled: true,
+    stops: [
+      { offset: 0, color: 'accent1', brightness: 0.95 },
+      { offset: 0.74, color: 'accent1', brightness: 0.55 },
+      { offset: 0.83, color: 'accent1', brightness: 0.55 },
+      { offset: 1, color: 'accent1', brightness: 0.7 },
+    ],
+  };
   const editor = getEditor();
   const doc = editor.doc;
   const shape = $derived.by(() => {
@@ -174,15 +184,7 @@
         else if (kind === 'none') setShapeNoFill(target);
         else if (kind === 'solid') setShapeFill(target, remembered.solid ?? { color: 'accent1' });
         else if (kind === 'pattern') setShapePatternFill(target, remembered.pattern ?? { preset: 'pct5', foreground: 'accent1', background: 'bg1' });
-        else setShapeGradientFill(target, remembered.gradient ?? {
-          path: 'linear', angleDeg: 90, scaled: true,
-          stops: [
-            { offset: 0, color: 'accent1', brightness: 0.95 },
-            { offset: 0.74, color: 'accent1', brightness: 0.55 },
-            { offset: 0.83, color: 'accent1', brightness: 0.55 },
-            { offset: 1, color: 'accent1', brightness: 0.7 },
-          ],
-        });
+        else setShapeGradientFill(target, remembered.gradient ?? DEFAULT_GRADIENT);
       }
     });
   }
@@ -195,10 +197,13 @@
   // line"; Japanese distinguishes them (線 (単色) here, 実線 for the dash), so
   // the shared English key cannot carry this one.
   const solidLineLabel = $derived(getLocale() === 'ja' ? '線 (単色)' : 'Solid line');
-  function changeLine(kind: 'none' | 'solid') {
+  function changeLine(kind: 'none' | 'solid' | 'gradient') {
     if (editor.selectionLocked() || lineKind === kind) return;
     if (kind === 'none') editor.invoke('setShapeNoStroke');
-    else editor.invoke('setShapeStroke', { options: { color: 'accent1' } });
+    else if (kind === 'solid') editor.invoke('setShapeStroke', { options: { color: 'accent1' } });
+    // PowerPoint starts a gradient line from the same accent 1 ramp as a
+    // gradient fill.
+    else editor.invoke('setShapeStroke', { options: { fill: { kind: 'gradient', ...DEFAULT_GRADIENT } } });
   }
   function applyFill(value: string) {
     editor.invoke('setShapeFill', { color: { color: value.replace('#', '') } });
@@ -257,10 +262,14 @@
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Line type')}>
             <label><input type="radio" name="shape-line-type" checked={lineKind === 'none'} onchange={() => changeLine('none')} />{t('No line')}</label>
             <label><input type="radio" name="shape-line-type" checked={lineKind === 'solid'} onchange={() => changeLine('solid')} />{solidLineLabel}</label>
-            <label title={t('Gradient lines are not supported by the library yet.')}><input type="radio" name="shape-line-type" disabled />{t('Gradient line')}</label>
+            <label><input type="radio" name="shape-line-type" checked={lineKind === 'gradient'} onchange={() => changeLine('gradient')} />{t('Gradient line')}</label>
           </fieldset>
+          {#if lineKind === 'gradient'}
+          <GradientFillSection target="line" />
+          {/if}
           {#if lineKind !== 'none'}
           <hr class="rule" />
+          {#if lineKind !== 'gradient'}
           <div class="paint-field">
             <span>{t('Color')}</span>
             <span class="colorwrap">
@@ -269,6 +278,7 @@
             </span>
           </div>
           <TransparencyField paint="line" />
+          {/if}
           <label class="paint-field">
             <span>{t('Width')}</span>
             <span class="number"><input class="ok-input" aria-label={t('Outline width (points)')} type="number" min="0" max="1584" step="any"

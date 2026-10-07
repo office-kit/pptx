@@ -1,7 +1,8 @@
 // Shape reads: fill and stroke.
 
 import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
-import { readColorFromContainer } from './shape-gradient-read.ts';
+import { parseGradFill, readColorFromContainer } from './shape-gradient-read.ts';
+import type { ReadGradientFill } from '../../internal/drawingml/index.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
@@ -47,11 +48,14 @@ export type ShapeFill =
  * Reads back the shape's stroke (`<a:ln>`). Returns:
  *
  *   - `{ kind: 'solid', color, widthEmu? }` for a solid-color outline.
+ *   - `{ kind: 'gradient', widthEmu? }` for a gradient line; read its stops
+ *     with `getShapeStrokeGradient`.
  *   - `{ kind: 'none' }` when an `<a:noFill>` sits inside `<a:ln>`.
  *   - `{ kind: 'inherit' }` when no `<a:ln>` is present.
  */
 export type ShapeStroke =
   | { readonly kind: 'solid'; readonly color: string; readonly widthEmu?: number }
+  | { readonly kind: 'gradient'; readonly widthEmu?: number }
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
 
@@ -323,38 +327,36 @@ export const getShapeStrokeEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
 ): ShapeStroke => {
-  const own = getShapeStroke(shape);
+  const line = effectiveStrokeLineElement(pres, shape);
+  return (line && readStrokeElement(line)) ?? getShapeStroke(shape);
+};
+
+/**
+ * The line element `getShapeStrokeEffective` reads: the shape's own line over
+ * its style-matrix `lnRef`, else the first placeholder ancestor's line that
+ * states a paint. `null` when no layer states one.
+ */
+const effectiveStrokeLineElement = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): XmlElement | null => {
   const effectiveLine = readShapeStrokeLineElement(pres, shape);
-  if (effectiveLine) {
-    const effectiveStroke = readStrokeElement(effectiveLine);
-    if (effectiveStroke) return effectiveStroke;
-  }
-  if (own.kind !== 'inherit') return own;
+  if (effectiveLine && readStrokeElement(effectiveLine)) return effectiveLine;
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
-  if (phIdx === null && phType === null) return own;
+  if (phIdx === null && phType === null) return null;
 
   const layout = getSlideLayout(shape[SHAPE_SLIDE]);
-  if (!layout) return own;
+  if (!layout) return null;
 
-  const readStrokeFromSpPr = (el: XmlElement): ShapeStroke | null => {
+  // A placeholder ancestor's line counts once it states a usable paint; a
+  // solid fill whose color cannot be read lets the cascade continue.
+  const paintedLine = (el: XmlElement): XmlElement | null => {
     const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
-    if (!spPr) return null;
-    const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
-    if (!ln) return null;
-    const wRaw = getAttrValue(ln, qname('', 'w', ''));
-    const widthEmu = wRaw !== null ? Number.parseInt(wRaw, 10) : undefined;
-    for (const c of ln.children) {
-      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-      if (c.name.localName === 'noFill') return { kind: 'none' };
-      if (c.name.localName === 'solidFill') {
-        const color = readColorFromContainer(c);
-        if (color !== null)
-          return { kind: 'solid', color, ...(widthEmu !== undefined ? { widthEmu } : {}) };
-      }
-    }
-    return null;
+    const ln = spPr && firstChildElement(spPr, qname('a', 'ln', NS.dml));
+    const stroke = ln && readStrokeElement(ln);
+    return stroke && !(stroke.kind === 'solid' && stroke.color === '') ? ln : null;
   };
 
   const findPh = (
@@ -370,26 +372,20 @@ export const getShapeStrokeEffective = (
   };
 
   const layoutPh = findPh(layout[LAYOUT_PART].shapes);
-  if (layoutPh) {
-    const s = readStrokeFromSpPr(layoutPh);
-    if (s) return s;
-  }
+  const fromLayout = layoutPh && paintedLine(layoutPh);
+  if (fromLayout) return fromLayout;
   const pkg = pres[INTERNAL_PACKAGE];
   const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
   const layoutRels = pkg.getRels(layoutPartName);
-  if (!layoutRels) return own;
+  if (!layoutRels) return null;
   const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
-  if (!masterRel) return own;
+  if (!masterRel) return null;
   const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
-  if (!masterPart) return own;
+  if (!masterPart) return null;
   const masterRoot = parseXml(decode(masterPart.data)).root;
   const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
   const masterPh = findPh(masterShapes);
-  if (masterPh) {
-    const s = readStrokeFromSpPr(masterPh);
-    if (s) return s;
-  }
-  return own;
+  return masterPh && paintedLine(masterPh);
 };
 
 const readStrokeElement = (line: XmlElement): ShapeStroke | null => {
@@ -397,19 +393,40 @@ const readStrokeElement = (line: XmlElement): ShapeStroke | null => {
   if (line.name.localName !== 'ln') return null;
   const wRaw = getAttrValue(line, qname('', 'w', ''));
   const widthEmu = wRaw !== null ? Number.parseInt(wRaw, 10) : undefined;
+  const width = widthEmu !== undefined ? { widthEmu } : {};
   for (const c of line.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
     if (c.name.localName === 'noFill') return { kind: 'none' };
     if (c.name.localName === 'solidFill') {
       const color = readColorFromContainer(c);
-      return {
-        kind: 'solid',
-        color: color ?? '',
-        ...(widthEmu !== undefined ? { widthEmu } : {}),
-      };
+      return { kind: 'solid', color: color ?? '', ...width };
     }
+    if (c.name.localName === 'gradFill') return { kind: 'gradient', ...width };
   }
   return null;
+};
+
+/**
+ * Returns the full gradient (`stops`, direction, rotation) of a gradient line,
+ * or `null` when the line is not one. Without `pres` only the shape's own
+ * `<a:ln>` is read; with it, the line `getShapeStrokeEffective` resolves —
+ * style matrix and placeholder cascade included — and every stop carries its
+ * theme- and transform-resolved `resolvedColor`.
+ */
+export const getShapeStrokeGradient = (
+  shape: SlideShapeData,
+  pres?: PresentationData,
+): ReadGradientFill | null => {
+  const line = pres ? effectiveStrokeLineElement(pres, shape) : directStrokeLineElement(shape);
+  const gradFill = line && firstChildElement(line, qname('a', 'gradFill', NS.dml));
+  if (!gradFill) return null;
+  return parseGradFill(
+    gradFill,
+    pres && {
+      theme: getShapeStyleTheme(pres, shape).theme,
+      colorMap: getEffectiveColorMap(shape[SHAPE_SLIDE]),
+    },
+  );
 };
 
 export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {

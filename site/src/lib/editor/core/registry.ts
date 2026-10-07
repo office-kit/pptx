@@ -140,6 +140,7 @@ const selectionAppearanceCommands = new Set([
   'setShapeStrokeCap',
   'setShapeStrokeJoin',
   'setShapeStrokeCompound',
+  'setShapeStrokeSketch',
   'setShapeShadow',
   'setShapeGlow',
   'setShapeTextFormat',

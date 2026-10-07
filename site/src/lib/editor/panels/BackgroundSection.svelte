@@ -134,7 +134,7 @@
         </div>
         <label class="check"><input type="checkbox" checked={graphicsHidden} indeterminate={mixedGraphics} onchange={event => { const hidden = event.currentTarget.checked; apply('Hide Background Graphics', target => setSlideBackgroundGraphicsHidden(target, hidden)); }} />{t('Hide Background Graphics')}</label>
         {#if gradientBackground}
-          <GradientFillSection background />
+          <GradientFillSection target="background" />
         {:else if imageBackground}
           <span class="selection">{t('Picture source')}</span>
           <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Insert...')}</button>

@@ -26,6 +26,8 @@ import {
   getShapeStrokeCompound,
   getShapeStrokeDash,
   getShapeStrokeJoin,
+  getShapeStrokeGradient,
+  getShapeStrokeSketch,
   getTableCellParagraphs,
   setParagraphAlignment,
   setParagraphBullet,
@@ -46,6 +48,7 @@ import {
   setShapeStrokeCompound,
   setShapeStrokeDash,
   setShapeStrokeJoin,
+  setShapeStrokeSketch,
   setShapeTextFormat,
   setTableCellTextFormat,
   type Color,
@@ -71,8 +74,14 @@ interface ShapePaint {
     | null;
   readonly stroke:
     | { readonly kind: 'solid'; readonly color: string; readonly widthEmu?: number }
+    | {
+        readonly kind: 'gradient';
+        readonly gradient: GradientFillOptions;
+        readonly widthEmu?: number;
+      }
     | { readonly kind: 'none' }
     | { readonly kind: 'inherit' };
+  readonly sketch: ReturnType<typeof getShapeStrokeSketch>;
   readonly dash: ReturnType<typeof getShapeStrokeDash>;
   readonly cap: ReturnType<typeof getShapeStrokeCap>;
   readonly join: ReturnType<typeof getShapeStrokeJoin>;
@@ -151,7 +160,8 @@ const paintOf = (pres: PresentationData, shape: SlideShapeData): ShapePaint => {
               ? // A picture fill is the shape's own image, not a format.
                 null
               : { kind: fill.kind },
-    stroke: getShapeStroke(shape),
+    stroke: strokeOf(shape),
+    sketch: getShapeStrokeSketch(shape),
     dash: getShapeStrokeDash(shape),
     cap: getShapeStrokeCap(shape),
     join: getShapeStrokeJoin(shape),
@@ -180,16 +190,34 @@ const paintOf = (pres: PresentationData, shape: SlideShapeData): ShapePaint => {
 // rather than pasted as something the schema has no room for.
 const writableColor = (color: string): Color | null => asColor(color);
 
-const gradientFillOf = (shape: SlideShapeData): ShapePaint['fill'] => {
-  const gradient = getShapeGradientFill(shape);
+const writableGradient = (
+  gradient: ReturnType<typeof getShapeGradientFill>,
+): GradientFillOptions | null => {
   if (!gradient) return null;
   const stops = gradient.stops.flatMap((stop) => {
     const color = writableColor(stop.color);
     return color === null ? [] : [{ ...stop, color }];
   });
-  return stops.length === gradient.stops.length
-    ? { kind: 'gradient', gradient: { ...gradient, stops } }
-    : null;
+  return stops.length === gradient.stops.length ? { ...gradient, stops } : null;
+};
+
+const gradientFillOf = (shape: SlideShapeData): ShapePaint['fill'] => {
+  const gradient = writableGradient(getShapeGradientFill(shape));
+  return gradient ? { kind: 'gradient', gradient } : null;
+};
+
+const strokeOf = (shape: SlideShapeData): ShapePaint['stroke'] => {
+  const stroke = getShapeStroke(shape);
+  if (stroke.kind !== 'gradient') return stroke;
+  const gradient = writableGradient(getShapeStrokeGradient(shape));
+  // A gradient the writers cannot reproduce leaves the target's line alone.
+  return gradient
+    ? {
+        kind: 'gradient',
+        gradient,
+        ...(stroke.widthEmu === undefined ? {} : { widthEmu: stroke.widthEmu }),
+      }
+    : { kind: 'inherit' };
 };
 
 const patternFillOf = (pres: PresentationData, shape: SlideShapeData): ShapePaint['fill'] => {
@@ -256,13 +284,16 @@ const applyPaint = (shape: SlideShapeData, paint: ShapePaint): void => {
     } else if (paint.fill.kind === 'none') setShapeNoFill(shape);
     else clearShapeFill(shape);
   }
-  if (paint.stroke.kind === 'solid') {
-    const strokeColor = writableColor(paint.stroke.color);
-    if (strokeColor !== null)
-      setShapeStroke(shape, {
-        color: strokeColor,
-        ...(paint.stroke.widthEmu === undefined ? {} : { widthEmu: paint.stroke.widthEmu }),
-      });
+  if (paint.stroke.kind === 'solid' || paint.stroke.kind === 'gradient') {
+    const widthEmu = paint.stroke.widthEmu === undefined ? {} : { widthEmu: paint.stroke.widthEmu };
+    if (paint.stroke.kind === 'gradient')
+      setShapeStroke(shape, { fill: { kind: 'gradient', ...paint.stroke.gradient }, ...widthEmu });
+    else {
+      const strokeColor = writableColor(paint.stroke.color);
+      if (strokeColor !== null) setShapeStroke(shape, { color: strokeColor, ...widthEmu });
+    }
+    // Connectors take no sketched style.
+    if (getShapeKind(shape) === 'shape') setShapeStrokeSketch(shape, paint.sketch);
     // Stroke detail only means anything once the outline exists, and each
     // writer is skipped when the source said nothing — writing a default
     // would invent an outline style the source never had.

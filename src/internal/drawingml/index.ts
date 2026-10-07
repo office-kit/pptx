@@ -24,6 +24,7 @@ export {
   updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
 export type {
+  ImageEmbedder,
   ReadTextFill,
   ReadTextFormat,
   ReadTextOutline,
@@ -93,12 +94,18 @@ export type {
   LineEndSize,
   LineEndType,
   LineJoin,
+  LineFill,
+  LineSketch,
+  ReadLineFill,
   StrokeOptions,
 } from './stroke.ts';
 export {
   clearStroke,
+  hasSketchedGeometry,
+  readStrokeSketch,
   setNoStroke,
   setSolidStroke,
+  setStrokeSketch,
   setStrokeArrow,
   setStrokeCap,
   setStrokeCompound,
