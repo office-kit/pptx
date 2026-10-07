@@ -1,7 +1,7 @@
 <script lang="ts">
   import { restoreRememberedImageFill } from '../core/remembered-image-fill.ts';
   import { insertRememberedTextureFill, rememberShapeFill } from '../core/remembered-fill.ts';
-  import { DEFAULT_TEXTURE, texturePng } from '../core/textures.ts';
+  import { defaultTexture, texturePng } from '../core/textures.ts';
   import { getEditor } from '../core/context.ts';
   import {
     getShapeText,
@@ -168,7 +168,7 @@
     // Like PowerPoint, a shape with no picture to restore gets the default texture.
     const needsTexture = kind === 'image' && shapes.some(target => getShapeFillEffective(doc.pres, target).kind !== 'image' && !doc.rememberedFills.get(`${slideKey}:${getShapeId(target)}`)?.image);
     const presentation = doc.pres, version = doc.version;
-    const texture = needsTexture ? await texturePng(DEFAULT_TEXTURE) : null;
+    const texture = needsTexture ? await texturePng(defaultTexture()) : null;
     if (doc.pres !== presentation || doc.version !== version || doc.selection !== selection) return;
     doc.transact(t('Fill'), () => {
       for (const target of shapes) {

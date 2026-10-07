@@ -81,14 +81,16 @@ const TILE = {
   rotateWithShape: true,
 };
 
-async function withEditor(locale, run) {
+const DECK = `<Slide><Text x={1} y={1} width={3} height={2} fill="#00FF00">First</Text><Text x={5} y={1} width={3} height={2} fill="#0000FF">Second</Text></Slide><Slide><Text x={1} y={1} width={3} height={2}>Other</Text></Slide>`;
+
+async function withEditor(locale, run, slides = DECK) {
   const dir = await mkdtemp(join(tmpdir(), 'office-texture-gallery-'));
   let preview, browser;
   try {
     const file = join(dir, 'deck.tsx');
     await writeFile(
       file,
-      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={3} height={2} fill="#00FF00">First</Text><Text x={5} y={1} width={3} height={2} fill="#0000FF">Second</Text></Slide><Slide><Text x={1} y={1} width={3} height={2}>Other</Text></Slide></Presentation>`,
+      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation>${slides}</Presentation>`,
     );
     preview = await startPreview(file);
     browser = await chromium.launch({ headless: true });
@@ -274,15 +276,16 @@ test(
         plain.map((background) => background.texture),
         [null, null],
       );
+      // Oak, last picked for a shape, is the session's default texture.
       await commit(() => picture.click());
-      assert.deepEqual(await backgrounds(), [{ texture: 'papyrus', layout: TILE }, plain[1]]);
+      assert.deepEqual(await backgrounds(), [{ texture: 'oak', layout: TILE }, plain[1]]);
       assert.equal(await picture.isChecked(), true);
       await assertNothingMarked();
       await undo();
       assert.deepEqual(await backgrounds(), plain);
       assert.equal(await picture.isChecked(), false);
       await commit(() => editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click());
-      assert.equal((await backgrounds())[0].texture, 'papyrus');
+      assert.equal((await backgrounds())[0].texture, 'oak');
       await texture.click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
       await commit(() => gallery.getByRole('menuitem', { name: 'Walnut', exact: true }).click());
@@ -300,8 +303,107 @@ test(
       await undo();
       assert.equal((await backgrounds())[1].texture, null);
       await undo();
-      assert.equal((await backgrounds())[0].texture, 'papyrus');
+      assert.equal((await backgrounds())[0].texture, 'oak');
     });
+  },
+);
+
+test(
+  'Picture or texture fill defaults to the last texture picked for a shape until reload',
+  { timeout: 180000 },
+  async () => {
+    // Replays the native capture: one in-memory "last texture" per session,
+    // starting at Papyrus, set only by shape texture picks, used by shapes and
+    // backgrounds alike and reset by relaunching (here: reloading the page).
+    await withEditor(
+      'en',
+      async ({ page, editor, deck }) => {
+        const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+        const commit = async (action) => {
+          const persisted = page.waitForResponse(
+            (response) =>
+              response.url().endsWith('/editor/document') &&
+              response.request().method() === 'PUT' &&
+              response.ok(),
+          );
+          await action();
+          await persisted;
+          await saved();
+        };
+        const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
+        const gallery = editor.getByRole('menu', { name: 'Texture', exact: true });
+        const pick = (name) =>
+          commit(async () => {
+            await editor.getByRole('button', { name: 'Texture', exact: true }).click();
+            await gallery.getByRole('menuitem', { name, exact: true }).click();
+          });
+        const shapeTexture = async (slide, index) =>
+          textureIdOf(
+            getShapeImageFillBytes(getSlideShapes(getSlides(await deck())[slide])[index]),
+          );
+        const backgroundTexture = async (slide) => {
+          const pres = await deck();
+          return textureIdOf(slideBackgroundImageBytes(pres, getSlides(pres)[slide]));
+        };
+        const formatShape = async (slide, index) => {
+          await editor.locator('.thumb-row').nth(slide).click();
+          await editor
+            .locator('.hit')
+            .nth(index)
+            .click({ button: 'right', position: { x: 2, y: 2 } });
+          await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+          await expandFormatSections(editor, 'Fill');
+        };
+        const formatBackground = async (slide) => {
+          await editor.locator('.thumb-row').nth(slide).click();
+          await editor.getByRole('tab', { name: 'Design', exact: true }).click();
+          await editor.getByRole('button', { name: 'Background Styles', exact: true }).click();
+          await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
+        };
+        await saved();
+
+        await formatShape(0, 0);
+        await commit(() => picture.click());
+        assert.equal(await shapeTexture(0, 0), 'papyrus');
+        await pick('Canvas');
+        assert.equal(await shapeTexture(0, 0), 'canvas');
+        await formatShape(0, 1);
+        await commit(() => picture.click());
+        assert.equal(await shapeTexture(0, 1), 'canvas');
+        await formatBackground(0);
+        await commit(() => picture.click());
+        assert.equal(await backgroundTexture(0), 'canvas');
+        // A texture picked for a background does not become the default.
+        await pick('Denim');
+        assert.equal(await backgroundTexture(0), 'denim');
+        await formatShape(1, 0);
+        await commit(() => picture.click());
+        assert.equal(await shapeTexture(1, 0), 'canvas');
+        await pick('Sand');
+        await formatBackground(1);
+        await commit(() => picture.click());
+        assert.equal(await backgroundTexture(1), 'sand');
+        await pick('Granite');
+        await formatBackground(2);
+        await commit(() => picture.click());
+        assert.equal(await backgroundTexture(2), 'sand');
+        // Undo does not forget the session texture either.
+        await commit(() => editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click());
+        await commit(() => picture.click());
+        assert.equal(await backgroundTexture(2), 'sand');
+
+        // Nothing about it is saved: a reload starts again from Papyrus.
+        await page.reload();
+        await saved();
+        await formatShape(0, 2);
+        await commit(() => picture.click());
+        assert.equal(await shapeTexture(0, 2), 'papyrus');
+        await formatBackground(3);
+        await commit(() => picture.click());
+        assert.equal(await backgroundTexture(3), 'papyrus');
+      },
+      `<Slide><Text x={1} y={1} width={3} height={2}>A</Text><Text x={5} y={1} width={3} height={2}>B</Text><Text x={9} y={1} width={3} height={2}>C</Text></Slide><Slide><Text x={1} y={1} width={3} height={2}>D</Text></Slide><Slide><Text x={1} y={1} width={3} height={2}>E</Text></Slide><Slide><Text x={1} y={1} width={3} height={2}>F</Text></Slide>`,
+    );
   },
 );
 

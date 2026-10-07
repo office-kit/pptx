@@ -335,7 +335,7 @@ for (const direction of ['vert', 'vert270']) {
 }
 
 test(
-  'mixed paragraphs show the first paragraph’s markers and move each relative to itself (Japanese labels)',
+  'mixed paragraphs show the last paragraph’s markers and move each relative to itself (Japanese labels)',
   { timeout: 90000 },
   async () => {
     const context = await open((shape) => {
@@ -354,10 +354,14 @@ test(
         .check();
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.canvas-shell .inline-edit');
-      await input.evaluate((node) => {
-        window.selectEditorText(node, 3, 20);
-        node.dispatchEvent(new Event('select', { bubbles: true }));
-      });
+      const select = (start, end) =>
+        input.evaluate(
+          (node, [from, to]) => {
+            window.selectEditorText(node, from, to);
+            node.dispatchEvent(new Event('select', { bubbles: true }));
+          },
+          [start, end],
+        );
       const origin = await textOrigin(input);
       const pixelsPerEmu = await editor.locator('.rulers').evaluate(() => {
         const shell = document.querySelector('.inline-edit-shell');
@@ -368,21 +372,35 @@ test(
         const box = await editor.getByRole('button', { name, exact: true }).boundingBox();
         return box.x + box.width / 2;
       };
-      assert.ok(
-        Math.abs((await center('左インデント')) - origin.rulerX - inches(0.5) * pixelsPerEmu) < 1.5,
-      );
-      assert.ok(
-        Math.abs(
-          (await center('最初の行のインデント')) - origin.rulerX - inches(0.25) * pixelsPerEmu,
-        ) < 1.5,
-      );
-      assert.equal(await editor.locator('.tab-stop').count(), 1);
-      const stop = await editor.locator('.tab-stop').boundingBox();
-      assert.ok(Math.abs(stop.x + stop.width / 2 - origin.rulerX - inches(2) * pixelsPerEmu) < 1.5);
-      assert.equal(
-        await editor.locator('.tab-stop').getAttribute('aria-label'),
-        'タブ位置 5.08 cm',
-      );
+      const assertMarkers = async ({ left, first, tab, label }) => {
+        await editor.getByRole('button', { name: label, exact: true }).waitFor();
+        assert.ok(
+          Math.abs((await center('左インデント')) - origin.rulerX - left * pixelsPerEmu) < 1.5,
+        );
+        assert.ok(
+          Math.abs((await center('最初の行のインデント')) - origin.rulerX - first * pixelsPerEmu) <
+            1.5,
+        );
+        assert.equal(await editor.locator('.tab-stop').count(), 1);
+        const stop = await editor.locator('.tab-stop').boundingBox();
+        assert.ok(Math.abs(stop.x + stop.width / 2 - origin.rulerX - tab * pixelsPerEmu) < 1.5);
+      };
+      // A selection inside one paragraph shows that paragraph's markers.
+      await select(0, 3);
+      await assertMarkers({
+        left: inches(0.5),
+        first: inches(0.25),
+        tab: inches(2),
+        label: 'タブ位置 5.08 cm',
+      });
+      // Across both paragraphs, Mac PowerPoint shows the last paragraph's.
+      await select(3, 20);
+      await assertMarkers({
+        left: inches(1),
+        first: inches(1),
+        tab: inches(2.5),
+        label: 'タブ位置 6.35 cm',
+      });
 
       // Both paragraphs reflow during the drag.
       const initial = await read();
@@ -415,8 +433,9 @@ test(
       await waitForState(context.preview.url, (state) => state.revision > beforeTab);
       await saved();
       const tabs = await read();
-      assert.ok(tabs[0].tabs[0].positionEmu > inches(2));
-      assert.deepEqual(tabs[1].tabs, initial[1].tabs);
+      assert.ok(tabs[1].tabs[0].positionEmu > inches(2.5));
+      assert.equal(tabs[1].tabs[0].alignment, 'right');
+      assert.deepEqual(tabs[0].tabs, initial[0].tabs);
     } finally {
       await context.close();
     }

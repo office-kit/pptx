@@ -45,8 +45,10 @@ const NATURAL: Record<TextFlow, Point> = {
  * Maps a text body's inline axis onto the axis-aligned rulers. Rotated text
  * is measured as if its shape were unrotated about `center`, so indents and
  * tabs keep their own lengths; vertical writing measures on the vertical
- * ruler. `origin` and `direction` are the screen point and per-pixel vector
- * of the text's own inline axis.
+ * ruler. Both match Mac PowerPoint (native capture 2026-10-07: a 30° box
+ * keeps an unrotated horizontal ruler at its unrotated left edge, and `vert`
+ * text draws its markers on the vertical ruler). `origin` and `direction` are
+ * the screen point and per-pixel vector of the text's own inline axis.
  */
 export function rulerAxis(input: {
   readonly origin: Point;
