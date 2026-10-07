@@ -60,8 +60,14 @@ const boxes = (locator) =>
       };
     }),
   );
-const near = (actual, expected, label) =>
-  assert.ok(Math.abs(actual - expected) <= TOLERANCE, `${label}: ${actual} (native ${expected})`);
+// Native positions were measured on macOS. Elsewhere the label font is wider,
+// and the extra width accumulates from left to right along the ribbon.
+const LINUX_DRIFT = 0.03;
+const near = (actual, expected, label) => {
+  const tolerance =
+    process.platform === 'darwin' ? TOLERANCE : Math.max(TOLERANCE, expected * LINUX_DRIFT);
+  assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: ${actual} (native ${expected})`);
+};
 
 test(
   'Insert, Draw and Design ribbons follow Mac PowerPoint geometry in English and Japanese',
