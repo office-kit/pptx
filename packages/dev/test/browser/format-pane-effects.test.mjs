@@ -98,6 +98,17 @@ test(
         ['Fill', false],
         ['Line', false],
       ]);
+      // Opening two sections before either `toggle` event lands, then
+      // re-rendering every label, must not close either of them.
+      await editor
+        .locator('details.pane-section:visible > summary')
+        .evaluateAll((summaries) => summaries.forEach((summary) => summary.click()));
+      await editor.locator('.lang select').selectOption('ja');
+      await editor.locator('.lang select').selectOption('en');
+      assert.deepEqual(await sectionState(editor), [
+        ['Fill', true],
+        ['Line', true],
+      ]);
       await editor.getByRole('tab', { name: 'Effects', exact: true }).click();
       assert.deepEqual(
         await sectionState(editor),

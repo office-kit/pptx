@@ -7,12 +7,21 @@
   // editor remembers which ones the user opened for the rest of the session.
   let { id, label, children }: { id: string; label: string; children: Snippet } = $props();
   const editor = getEditor();
+  const stored = $derived(editor.formatPaneSections[id] ?? false);
+  // The DOM opens on click but `toggle` reaches the store a task later, so the
+  // store may briefly lag. Push it into the element only when this section's
+  // own value changes: re-asserting it on every re-render (a language switch
+  // re-renders the label, a neighbour's toggle replaces the record) would
+  // close a section the user has just opened.
+  const syncOpen = (node: HTMLDetailsElement) => {
+    node.open = stored;
+  };
 </script>
 
-<details class="pane-section" data-section={id} open={editor.formatPaneSections[id] ?? false}
+<details class="pane-section" data-section={id} {@attach syncOpen}
   ontoggle={(event) => {
     const open = event.currentTarget.open;
-    if ((editor.formatPaneSections[id] ?? false) !== open) editor.formatPaneSections = { ...editor.formatPaneSections, [id]: open };
+    if (stored !== open) editor.formatPaneSections = { ...editor.formatPaneSections, [id]: open };
   }}>
   <summary>{label}</summary>
   <div class="pane-fields">{@render children()}</div>
