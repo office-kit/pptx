@@ -172,6 +172,7 @@ import {
   type LineSketch,
   type PathFillMode,
   type ReadGradientFill,
+  type ReadGradientStop,
   type ShapeFill,
   type ShapeStroke,
   type SlideData,
@@ -5740,6 +5741,53 @@ const renderTableCellText = (
   return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>${fillOverlay()}${bevelOverlay()}`;
 };
 
+// Mac PowerPoint 16.113 does not blend a two-stop linear table background at
+// a constant rate. Its exports of Themed Style 2 (theme fill style 3: two
+// stops, `lin ang="16200000" scaled="0"`) over all six accents follow the
+// straight sRGB line between the stops, but the first stop's weight is
+// (1 − offset)^1.85 rather than 1 − offset: the end stop's color holds through
+// the header row and the blend steepens toward the start stop. With the
+// gradient spanning the table frame this matches every sampled pixel within
+// 2 levels; a constant rate is up to 21 levels darker in the middle rows, and
+// blending in linear light is wrong too (the channels then move at different
+// rates, which PowerPoint's do not). The cause is not known. Themed Style 1's
+// three-stop background, in the same exports, is blended at a constant rate,
+// so only two-stop linear backgrounds get the curve.
+const TWO_STOP_TABLE_GRADIENT_EXPONENT = 1.85;
+// Enough stops that the piecewise-linear SVG gradient stays within 0.1 level
+// of the curve.
+const TWO_STOP_TABLE_GRADIENT_SAMPLES = 16;
+
+const twoStopTableGradient = (
+  grad: ReadGradientFill,
+  theme: PresentationTheme | null,
+): ReadGradientFill => {
+  if (grad.path !== undefined || grad.stops.length !== 2) return grad;
+  const [start, end] = [...grad.stops].sort((a, b) => a.offset - b.offset);
+  if (!start || !end || end.offset <= start.offset) return grad;
+  const span = end.offset - start.offset;
+  const colorOf = (stop: ReadGradientStop): string =>
+    stop.resolvedColor ?? resolveColor(stop.color, theme, '#E5E7EB');
+  const startColor = colorOf(start);
+  const endColor = colorOf(end);
+  const stops = Array.from({ length: TWO_STOP_TABLE_GRADIENT_SAMPLES + 1 }, (_, i) => {
+    const along = i / TWO_STOP_TABLE_GRADIENT_SAMPLES;
+    const startWeight = (1 - along) ** TWO_STOP_TABLE_GRADIENT_EXPONENT;
+    const color = mixHex(startColor, endColor, startWeight);
+    const opacity =
+      start.opacity === undefined && end.opacity === undefined
+        ? undefined
+        : (start.opacity ?? 1) * startWeight + (end.opacity ?? 1) * (1 - startWeight);
+    return {
+      offset: start.offset + along * span,
+      color,
+      resolvedColor: color,
+      ...(opacity === undefined ? {} : { opacity }),
+    };
+  });
+  return { ...grad, stops };
+};
+
 const renderTable = (
   shape: SlideShapeData,
   pres: PresentationData,
@@ -5812,7 +5860,7 @@ const renderTable = (
       `<rect x="${px(xPx)}" y="${px(yPx)}" width="${px(tableW)}" height="${px(tableH)}" fill="${resolveColor(background.fill.color, theme, '#FFFFFF')}"${opacity}/>`,
     );
   } else if (background?.gradient) {
-    const built = gradientDef(background.gradient, theme);
+    const built = gradientDef(twoStopTableGradient(background.gradient, theme), theme);
     out.push(
       `${built.defs}<rect x="${px(xPx)}" y="${px(yPx)}" width="${px(tableW)}" height="${px(tableH)}" fill="${built.fillAttr}"/>`,
     );

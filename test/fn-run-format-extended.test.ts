@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addSlideTextBox,
   getShapeRunFormat,
+  getShapeXmlString,
   getSlides,
   inches,
   loadPresentation,
@@ -52,6 +53,23 @@ describe('fn API: extended run-format properties', () => {
     expect(
       getShapeRunFormat(getSlideShapes(getSlides(loaded)[0]!).at(-1)!, 0, 0)!.baseline,
     ).toBeCloseTo(0.00001, 8);
+  });
+
+  it('null removes bold and spacing, where false and 0 write them off', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const shape = addSlideTextBox(getSlides(pres)[0]!, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
+      text: 'spaced',
+    });
+    setShapeRunFormat(shape, 0, 0, { bold: false, spc: 0 });
+    expect(getShapeXmlString(shape)).toMatch(/<a:rPr[^>]* b="0"[^>]* spc="0"/);
+    setShapeRunFormat(shape, 0, 0, { bold: null, spc: null });
+    expect(getShapeXmlString(shape)).not.toMatch(/ (b|spc)="/);
+    const format = getShapeRunFormat(shape, 0, 0) ?? {};
+    expect('bold' in format || 'spc' in format).toBe(false);
   });
 
   it.each([
