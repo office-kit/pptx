@@ -1,0 +1,336 @@
+/* Mac PowerPoint's contextual tabs (Shape Format, Picture Format, Table
+   Design, Table Layout), measured through the accessibility API at 1512 and
+   1200 pt (packages/dev/POWERPOINT_PARITY.md). Like the Home tab: a 72 pt row
+   of groups separated by a rule with 10 pt on either side, large buttons that
+   fill the row, 26 pt small buttons, and 22 pt rows with an icon and a label.
+   Global because the shared controls (menus, galleries, spin boxes) are used
+   by all four tabs. */
+.ctx-ribbon {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+  height: 72px;
+}
+.ctx-ribbon .ctx-group {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 10px;
+  border-right: 1px solid var(--ok-border);
+  flex: none;
+}
+.ctx-ribbon .ctx-group:first-child {
+  padding-left: 4px;
+}
+.ctx-ribbon .ctx-group:last-child {
+  padding-right: 0;
+  border-right: none;
+}
+/* PowerPoint's buttons at a group's edges reach 1 pt into the group margin. */
+.ctx-ribbon .ctx-group > .ctx-big:first-child {
+  margin-left: -1px;
+}
+.ctx-ribbon .ctx-group > .ctx-big:last-child {
+  margin-right: -1px;
+}
+.ctx-ribbon button {
+  font: inherit;
+  color: var(--ok-text);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--ok-radius);
+  cursor: pointer;
+}
+.ctx-ribbon button:hover:not(:disabled) {
+  background: var(--ok-hover);
+}
+.ctx-ribbon button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctx-ribbon button[aria-pressed='true'] {
+  background: var(--ok-selected);
+  border-color: var(--ok-selected-border);
+}
+
+/* Large button: icon (with ▾ beside it for a menu) over a one- or two-line
+   caption. Width comes from the caption, at least 38 pt. */
+.ctx-ribbon .ctx-big {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  flex: none;
+  gap: 2px;
+  min-width: 38px;
+  height: 72px;
+  padding: 4px 1px 0;
+  font-size: 11px;
+  line-height: 1.15;
+}
+/* With a ▾ beside the icon the button is at least 50 pt, like Bring Forward. */
+.ctx-ribbon .ctx-big[aria-haspopup],
+.ctx-ribbon .ctx-paint.ctx-big {
+  min-width: 50px;
+}
+.ctx-ribbon .ctx-big > .ctx-caption {
+  text-align: center;
+  white-space: pre-line;
+}
+.ctx-ribbon .ctx-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 32px;
+}
+.ctx-ribbon .ctx-caret {
+  font-size: 9px;
+  line-height: 1;
+}
+
+/* Stacked columns: three 22 pt rows, or two 26 pt rows on a 32 pt pitch. */
+.ctx-ribbon .ctx-rows {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex: none;
+}
+.ctx-ribbon .ctx-rows.tools {
+  gap: 6px;
+  padding-top: 4px;
+}
+.ctx-ribbon .ctx-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 2px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ctx-ribbon .ctx-row > svg {
+  flex: none;
+}
+.ctx-ribbon .ctx-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 36px;
+  height: 22px;
+  padding: 0;
+}
+.ctx-ribbon .ctx-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 38px;
+  height: 26px;
+  padding: 0;
+}
+.ctx-ribbon .ctx-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+.ctx-ribbon .ctx-tool-row {
+  display: flex;
+  align-items: center;
+  height: 26px;
+}
+
+/* A paint button (Shape Fill, Text Outline ...): the color picker's ▾ covers
+   the whole button, so a click anywhere opens the palette. */
+.ctx-ribbon .ctx-paint {
+  position: relative;
+  flex: none;
+}
+.ctx-ribbon .ctx-paint > button.trigger.compact {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  width: auto;
+  padding: 0;
+  border: 1px solid transparent;
+}
+.ctx-ribbon .ctx-paint.ctx-big {
+  align-items: center;
+}
+.ctx-ribbon .ctx-paint.ctx-big > button.trigger.compact {
+  padding: 14px 4px 0 0;
+}
+.ctx-ribbon .ctx-paint.ctx-tool > button.trigger.compact {
+  align-items: center;
+  padding-right: 4px;
+}
+.ctx-ribbon .ctx-paint.ctx-icon > button.trigger.compact {
+  align-items: center;
+  padding-right: 2px;
+}
+.ctx-ribbon .ctx-paint.ctx-row > button.trigger.compact {
+  align-items: center;
+  padding-right: 3px;
+}
+.ctx-ribbon .ctx-paint.disabled {
+  opacity: 0.4;
+}
+.ctx-ribbon .ctx-paint > svg,
+.ctx-ribbon .ctx-paint > .ctx-icon-row,
+.ctx-ribbon .ctx-paint > .ctx-caption {
+  pointer-events: none;
+}
+.ctx-ribbon .ctx-paint.ctx-tool,
+.ctx-ribbon .ctx-paint.ctx-icon {
+  justify-content: flex-start;
+  padding-left: 4px;
+}
+.ctx-ribbon .ctx-paint.ctx-row {
+  padding-right: 14px;
+}
+
+/* In-ribbon gallery: 18 × 58 pt arrows around a 60 pt tall strip of items. */
+.ctx-ribbon .ctx-gallery {
+  display: flex;
+  align-items: flex-start;
+  flex: none;
+  height: 60px;
+}
+.ctx-ribbon .ctx-gallery-items {
+  display: flex;
+  align-items: center;
+  height: 58px;
+  margin-top: 1px;
+  overflow: hidden;
+  border: 1px solid var(--ok-border);
+  border-radius: 3px;
+  background: var(--ok-panel);
+}
+.ctx-ribbon .ctx-gallery-arrow {
+  width: 18px;
+  height: 58px;
+  margin-top: 1px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.ctx-ribbon .ctx-gallery-arrow.hidden {
+  visibility: hidden;
+}
+/* As in PowerPoint, galleries narrow before a tab switches to its compact
+   layout. Label widths depend on the font (the system fallback on Linux is
+   wider than San Francisco; Japanese captions are longer), so a ribbon that
+   misses by a few points gives them up from its galleries; only an overflow
+   beyond that takes the next collapse step (RibbonCollapse). */
+.ctx-ribbon .ctx-group.ctx-shrink {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ctx-ribbon .ctx-shrink .ctx-gallery {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ctx-ribbon .ctx-shrink .ctx-gallery-items {
+  flex: 0 1 auto;
+  min-width: var(--ctx-gallery-min);
+}
+
+/* Spin boxes (Height, Width, Row, Column): 78 × 24 pt on a 28 pt pitch. */
+.ctx-ribbon .ctx-spins {
+  display: grid;
+  grid-template-columns: auto 78px;
+  align-content: start;
+  row-gap: 4px;
+  padding-top: 8px;
+  flex: none;
+}
+.ctx-ribbon .ctx-spins > label {
+  display: contents;
+}
+.ctx-ribbon .ctx-spin-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.ctx-ribbon .ctx-spins input {
+  box-sizing: border-box;
+  width: 78px;
+  height: 24px;
+  padding: 2px 5px;
+  font-size: 12px;
+}
+.ctx-ribbon .ctx-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  margin-top: 26px;
+  flex: none;
+}
+
+/* Dropdown menus share the look of the editor's other ribbon menus. */
+.ctx-menu {
+  position: fixed;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--ok-border);
+  border-radius: 6px;
+  background: var(--ok-panel);
+  color: var(--ok-text);
+  box-shadow: var(--ok-shadow-lg);
+}
+.ctx-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ctx-menu button:hover:not(:disabled),
+.ctx-menu button:focus-visible {
+  background: var(--ok-accent);
+  color: white;
+  outline: none;
+}
+.ctx-menu button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ctx-menu .ctx-heading {
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--ok-text-3);
+}
+.ctx-menu hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--ok-border);
+  margin: 4px 0;
+}

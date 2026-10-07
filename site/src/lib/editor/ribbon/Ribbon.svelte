@@ -1,9 +1,9 @@
 <script lang="ts">
   // The ribbon. Renders the tab/group/command layout from config.ts. Contextual
-  // tabs (Shape Format, Table) only appear when the matching selection is
+  // tabs (Shape Format, Picture Format, Table Design/Layout) only appear when the matching selection is
   // active, mirroring PowerPoint. Buttons dispatch through runOrPrompt, so a
   // command needing arguments opens its (auto-generated or bespoke) dialog.
-  import { getShapeChartSpec, getShapeMedia, getShapeMediaPlayback, isTableShape } from '@office-kit/pptx';
+  import { getShapeChartSpec, getShapeKind, getShapeMedia, getShapeMediaPlayback, isTableShape } from '@office-kit/pptx';
   import MediaPlaybackRibbon from './MediaPlaybackRibbon.svelte';
   import { getEditor } from '../core/context.ts';
   import { RIBBON, type RibbonTab } from './config.ts';
@@ -21,6 +21,9 @@
   import DesignRibbon from './DesignRibbon.svelte';
   import InsertRibbon from './InsertRibbon.svelte';
   import VideoFormatRibbon from './VideoFormatRibbon.svelte';
+  import PictureFormatRibbon from './PictureFormatRibbon.svelte';
+  import TableDesignRibbon from './TableDesignRibbon.svelte';
+  import TableLayoutRibbon from './TableLayoutRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
   import { downloadPptx } from '../core/download.ts';
 
@@ -63,12 +66,15 @@
     // PowerPoint shows Table Design and Layout for a selected table as well as
     // for cells being edited, and replaces Shape Format with them.
     const table = sel.kind === 'cell' || (shapes.length === 1 && isTableShape(shapes[0]!));
+    // A picture gets Picture Format instead of Shape Format.
+    const picture = shapes.length === 1 && getShapeKind(shapes[0]!) === 'picture' && !kind;
     return RIBBON.filter((t) => {
       if (!t.contextual) return true;
       if (t.contextual === 'master') return editor.masterView;
       if (t.contextual === 'media') return media;
       if (t.contextual === 'chart') return chart;
-      if (t.contextual === 'shape') return sel.kind === 'shape' && !table;
+      if (t.contextual === 'shape') return sel.kind === 'shape' && !table && !picture;
+      if (t.contextual === 'image') return picture;
       if (t.contextual === 'cell' || t.contextual === 'table') return table;
       return false;
     }).map(tab => tab.id !== 'shape' ? tab : kind === 'video' ? { ...tab, title: 'Video Format' } : chart ? { ...tab, title: 'Format' } : tab);
@@ -163,6 +169,9 @@
     {#if current?.id === 'insert'}<InsertRibbon />{/if}
     {#if current?.id === 'design'}<DesignRibbon />{/if}
     {#if current?.id === 'shape'}<ShapeFormatRibbon />{/if}
+    {#if current?.id === 'picture'}<PictureFormatRibbon />{/if}
+    {#if current?.id === 'tableDesign'}<TableDesignRibbon />{/if}
+    {#if current?.id === 'table'}<TableLayoutRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group" role="group" aria-label={t(group.title)}>
         <div class="group-items">

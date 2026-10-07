@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { arrangeShortcut } from '../core/arrange-shortcuts.ts';
-  import { getSlideShapes, getShapeId, getShapeRotation, getShapeFlip, setShapeRotation, setShapeFlip } from '@office-kit/pptx';
+  import { ALIGN_ITEMS, ROTATE_ITEMS, rotateSelection } from './arrange-actions.ts';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -17,7 +17,6 @@
   const locked = $derived(editor.selectionLocked());
   const toSlide = $derived(count < 2 || editor.alignmentReference === 'slide');
   const order = [{ id: 'bringShapeToFront', label: 'Bring to Front' }, { id: 'sendShapeToBack', label: 'Send to Back' }, { id: 'bringShapeForward', label: 'Bring Forward' }, { id: 'sendShapeBackward', label: 'Send Backward' }];
-  const alignment = [{ value: 'left', label: 'Align Left' }, { value: 'center', label: 'Align Center' }, { value: 'right', label: 'Align Right' }, { value: 'top', label: 'Align Top' }, { value: 'middle', label: 'Align Middle' }, { value: 'bottom', label: 'Align Bottom' }] as const;
   function close(restore = true) { open = false; branch = null; if (restore) trigger.focus(); }
   function choose(action: () => void) { close(); onchoose?.(); action(); }
   async function show() { open = !open; branch = null; if (open) { await tick(); menu?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus(); } }
@@ -53,18 +52,6 @@
       items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length]?.focus();
     }
   }
-  function transform(action: 'right' | 'left' | 'horizontal' | 'vertical') {
-    if (!doc.currentSlide || locked) return;
-    const ids = new Set(selectedShapeIds(doc.selection));
-    const shapes = getSlideShapes(doc.currentSlide).filter(shape => ids.has(getShapeId(shape)));
-    if (!shapes.length) return;
-    doc.transact(t('Rotate'), () => {
-      for (const shape of shapes) {
-        if (action === 'right' || action === 'left') setShapeRotation(shape, getShapeRotation(shape) + (action === 'right' ? 90 : -90));
-        else setShapeFlip(shape, { [action]: !getShapeFlip(shape)?.[action] });
-      }
-    });
-  }
 </script>
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} />
 <button class="trigger" class:compact bind:this={trigger} aria-label={t('Arrange')} aria-haspopup="menu" aria-expanded={open} onclick={show}>{#if compact}<span>{t('Arrange')} ▾</span>{:else}<span class="icon-row"><Icon name="arrange" size={32} /><span aria-hidden="true">▾</span></span><span>{t('Arrange')}</span>{/if}</button>
@@ -81,7 +68,7 @@
     <div class="branch">
       <button role="menuitem" data-branch="align" aria-label={t('Align')} aria-haspopup="menu" aria-expanded={branch === 'align'} disabled={!count || locked} onpointerenter={() => branch = 'align'} onclick={() => branch = 'align'}>{t('Align')}<span>›</span></button>
       {#if branch === 'align' && count}<div class="menu submenu" role="menu" aria-label={t('Align')} use:place={true}>
-        {#each alignment as item}<button role="menuitem" onclick={() => choose(() => editor.alignSelection(item.value, toSlide ? 'slide' : 'selection'))}>{t(item.label)}</button>{/each}
+        {#each ALIGN_ITEMS as item}<button role="menuitem" onclick={() => choose(() => editor.alignSelection(item.value, toSlide ? 'slide' : 'selection'))}>{t(item.label)}</button>{/each}
         <hr />
         <button role="menuitem" disabled={count === 0 || (!toSlide && count < 3)} onclick={() => choose(() => editor.distributeSelection('horizontal'))}>{t('Distribute Horizontally')}</button>
         <button role="menuitem" disabled={count === 0 || (!toSlide && count < 3)} onclick={() => choose(() => editor.distributeSelection('vertical'))}>{t('Distribute Vertically')}</button>
@@ -93,7 +80,7 @@
     <div class="branch">
       <button role="menuitem" data-branch="rotate" aria-label={t('Rotate')} aria-haspopup="menu" aria-expanded={branch === 'rotate'} disabled={!count || locked} onpointerenter={() => branch = 'rotate'} onclick={() => branch = 'rotate'}>{t('Rotate')}<span>›</span></button>
       {#if branch === 'rotate' && count}<div class="menu submenu" role="menu" aria-label={t('Rotate')} use:place={true}>
-        {#each [{ action: 'right', label: 'Rotate Right 90°' }, { action: 'left', label: 'Rotate Left 90°' }, { action: 'vertical', label: 'Flip Vertical' }, { action: 'horizontal', label: 'Flip Horizontal' }] as item}<button role="menuitem" onclick={() => choose(() => transform(item.action as 'right' | 'left' | 'vertical' | 'horizontal'))}>{t(item.label)}</button>{/each}
+        {#each ROTATE_ITEMS as item}<button role="menuitem" onclick={() => choose(() => rotateSelection(editor, item.action))}>{t(item.label)}</button>{/each}
         <hr /><button role="menuitem" disabled={!editor.canRun('setShapeRotation')} onclick={() => choose(() => editor.showRotationOptions())}>{t('More Rotation Options...')}</button>
       </div>{/if}
     </div>

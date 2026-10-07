@@ -8,8 +8,10 @@ import {
   getShapeRunFormat,
   setShapeText3D,
   setShapeTextFormat,
+  setTableCellTextFormat,
   type ColorTransform,
   type SlideShapeData,
+  type TableCellData,
   type Text3D,
   type TextFormat,
 } from '@office-kit/pptx';
@@ -368,4 +370,14 @@ export function applyWordArtPreset(shape: SlideShapeData, preset: WordArtPreset)
   // without one removes it. (Unlike the run properties, this is not yet
   // confirmed against a native capture of one preset applied over another.)
   setShapeText3D(shape, preset.text3D ?? null);
+}
+
+/**
+ * Table Design ▸ WordArt Styles ▸ Quick Styles over table cells: the same run
+ * properties as on a shape. Cells have no text bevel, so a preset's bevel is
+ * left out.
+ */
+export function applyTableCellWordArtPreset(cell: TableCellData, preset: WordArtPreset): void {
+  setTableCellTextFormat(cell, CLEARED);
+  setTableCellTextFormat(cell, preset.format);
 }

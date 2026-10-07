@@ -4,6 +4,7 @@
   import {
     getShapeImageBrightness,
     getShapeImageContrast,
+    getShapeKind,
     getShapeMedia,
     setShapeImageBrightness,
     setShapeImageContrast,
@@ -12,7 +13,10 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
 
-  let { variant = 'ribbon' } = $props<{ variant?: 'ribbon' | 'pane' }>();
+  // `target` picks videos (Video Format) or pictures (Picture Format); `big`
+  // `row` and `icon` are the Picture Format tab's large button, 22 pt row
+  // and 36 × 22 pt icon menu.
+  let { variant = 'ribbon', target = 'video' } = $props<{ variant?: 'ribbon' | 'pane' | 'big' | 'row' | 'icon'; target?: 'video' | 'picture' }>();
 
   const componentId = $props.id();
   const editor = getEditor();
@@ -27,7 +31,9 @@
   const selected = $derived.by(() => {
     doc.version;
     const shapes = editor.selectedShapes();
-    if (shapes.length !== 1 || getShapeMedia(shapes[0]!)?.kind !== 'video') return null;
+    if (shapes.length !== 1) return null;
+    const media = getShapeMedia(shapes[0]!);
+    if (target === 'video' ? media?.kind !== 'video' : media || getShapeKind(shapes[0]!) !== 'picture') return null;
     return shapes[0]!;
   });
   const locked = $derived(editor.selectionLocked());
@@ -61,7 +67,7 @@
   function apply(preset: (typeof presets)[number]): void {
     const shape = selected;
     if (!shape || locked) return;
-    doc.transact(t('Set video corrections'), () => {
+    doc.transact(t(target === 'video' ? 'Set video corrections' : 'Corrections'), () => {
       setShapeImageBrightness(shape, preset.brightness / 100 || null);
       setShapeImageContrast(shape, preset.contrast / 100 || null);
     });
@@ -98,9 +104,15 @@
 
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger?.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 
+{#if variant === 'big' || variant === 'row' || variant === 'icon'}
+<button class="ctx-{variant}" type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t('Corrections')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
+  {#if variant === 'big'}<span class="ctx-icon-row"><Icon name="corrections" size={32} /><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{t('Corrections')}</span>{:else if variant === 'icon'}<Icon name="corrections" size={18} /><span class="ctx-caret" aria-hidden="true">▾</span>{:else}<Icon name="corrections" size={16} /><span>{t('Corrections')}</span><span class="ctx-caret" aria-hidden="true">▾</span>{/if}
+</button>
+{:else}
 <button class="trigger" class:compact={variant === 'pane'} type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t(variant === 'pane' ? 'Corrections presets' : 'Corrections')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
   {#if variant !== 'pane'}<Icon name="gradient" />{/if}<span>{t(variant === 'pane' ? 'Presets' : 'Corrections')} ▾</span>
 </button>
+{/if}
 {#if open}
   <div class="menu" role="menu" aria-label={t('Corrections')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="heading">{t('Brightness')} / {t('Contrast')}</div>
@@ -129,7 +141,7 @@
         </button>
       {/each}
     </div>
-    <button class="options" type="button" role="menuitem" onclick={() => { close(false); editor.showShapeFormat('video'); }}>{t('Movie Correction Options...')}</button>
+    <button class="options" type="button" role="menuitem" onclick={() => { close(false); editor.showShapeFormat(target === 'video' ? 'video' : 'paint'); }}>{t(target === 'video' ? 'Movie Correction Options...' : 'Picture Corrections Options...')}</button>
   </div>
 {/if}
 
