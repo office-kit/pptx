@@ -5,14 +5,15 @@
   // Borders (Pen Style, Pen Weight, Pen Color, Draw Table, Eraser). Below
   // 1300 pt Shading, Borders and Effects lose their labels.
   import './contextual.css';
-  import { getPresentationTheme, getTableCellPosition, getTableCellSpan, getTableStyleFlags, getTableStyleId, setTableCellBorders, setTableCellFill, setTableCellTextFormat, setTableStyleFlags, setTableStyleId, type Color, type TableCellBorder, type TableCellData, type TextFormat } from '@office-kit/pptx';
+  import { BUILTIN_TABLE_STYLES, clearTableCellFill, getTableCellPosition, getTableCellSpan, getTableStyleFlags, getTableStyleId, setTableCellBorders, setTableCellFill, setTableCellTextFormat, setTableStyleFlags, setTableStyleId, type Color, type TableCellBorder, type TableCellData, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { tableTarget } from '../core/table-target.ts';
-  import { resolveColor } from '../core/theme-color.ts';
+  import { NO_STYLE_NO_GRID, TABLE_STYLES_PER_ROW, tableStyleName, tableStyleSwatches } from '../core/table-styles.ts';
   import { applyTableCellWordArtPreset, type WordArtPreset } from '../core/wordart-presets.ts';
-  import { t } from '../i18n/i18n.svelte.ts';
+  import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import Icon from '../ui/Icon.svelte';
+  import TableStyleGallery from '../ui/TableStyleGallery.svelte';
   import WordArtGallery from '../ui/WordArtGallery.svelte';
   import MenuButton from './MenuButton.svelte';
   import { captionLines } from './caption.ts';
@@ -26,7 +27,6 @@
   const editable = $derived(target !== null && !editor.selectionLocked());
   const flags = $derived.by(() => { doc.version; return target ? getTableStyleFlags(target.table) : null; });
   const styleId = $derived.by(() => { doc.version; return target ? getTableStyleId(target.table) : null; });
-  const theme = $derived.by(() => { doc.version; return getPresentationTheme(doc.pres); });
   let quickStylesOpen = $state(false);
   let quickStylesButton = $state<HTMLButtonElement>();
 
@@ -39,16 +39,24 @@
     ['bandCol', 'Banded Columns'],
   ] as const;
 
-  // The built-in styles the editor can draw. PowerPoint's other built-in
-  // styles are stored by GUID alone, and the renderer has no definitions for
-  // them yet, so offering them would show an unstyled table here.
-  const STYLES = [
-    { id: '{2D5ABB26-0587-4C30-8999-92F81FD0307C}', name: 'No Style, No Grid', kind: 'none' },
-    { id: '{5940675A-B579-460E-94D1-54222C63F5DA}', name: 'No Style, Table Grid', kind: 'grid' },
-    { id: '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}', name: 'Medium Style 2 - Accent 1', kind: 'medium2' },
-  ] as const;
-  const accent = $derived(resolveColor('accent1', [], theme) ?? '#156082');
-  const text = $derived(resolveColor('tx1', [], theme) ?? '#000000');
+  // The in-ribbon strip shows one gallery row: the one holding the table's
+  // style, else the first. › opens the whole gallery.
+  const currentId = $derived(styleId?.toUpperCase() ?? null);
+  const stripStyles = $derived.by(() => {
+    const index = BUILTIN_TABLE_STYLES.findIndex((style) => style.id === currentId);
+    const start = index < 0 ? 0 : index - (index % TABLE_STYLES_PER_ROW);
+    return BUILTIN_TABLE_STYLES.slice(start, start + TABLE_STYLES_PER_ROW);
+  });
+  let galleryOpen = $state(false);
+  let strip = $state<HTMLDivElement>();
+  // Swatches are drawn by the preview renderer, in the slide's theme and with
+  // the table's style options, as PowerPoint's are.
+  const swatches = $derived.by(() => {
+    const slide = doc.currentSlide;
+    if (!slide || !flags) return new Map<string, string>();
+    const ids = galleryOpen ? BUILTIN_TABLE_STYLES.map((style) => style.id) : stripStyles.map((style) => style.id);
+    return tableStyleSwatches(slide, doc.version, flags, ids);
+  });
 
   const PEN_STYLES = [['solid', 'Solid Line'], ['dash', 'Dashed Line'], ['sysDot', 'Round Dot Line'], ['dashDot', 'Dash Dot Line'], ['lgDash', 'Long Dash Line']] as const;
   const PEN_WEIGHTS = [0.25, 0.5, 0.75, 1, 1.5, 2.25, 3, 4.5, 6] as const;
@@ -83,8 +91,23 @@
     if (table && editable) doc.transact(t('Table Style Options'), () => setTableStyleFlags(table, { [key]: on }));
   }
   function applyStyle(id: string) {
+    galleryOpen = false;
     const table = target?.table;
     if (table && editable) doc.transact(t('Table Styles'), () => setTableStyleId(table, id));
+  }
+  // Clear Table removes the table's formatting: No Style, No Grid, and the
+  // cells' own fills and borders.
+  function clearTable() {
+    galleryOpen = false;
+    const current = target;
+    if (!current || !editable) return;
+    doc.transact(t('Clear Table'), () => {
+      setTableStyleId(current.table, NO_STYLE_NO_GRID);
+      for (const cell of current.cells.flat()) {
+        clearTableCellFill(cell);
+        setTableCellBorders(cell, null);
+      }
+    });
   }
   // PowerPoint's Borders ▾ applies the current pen to the chosen edges of the
   // selection; inside edges are the shared sides between selected cells.
@@ -153,17 +176,19 @@
   <section class="ctx-group ctx-shrink" aria-label={t('Table Styles')}>
     <div class="ctx-gallery" role="group" aria-label={t('Table Styles')}>
       <span class="ctx-gallery-arrow hidden" aria-hidden="true"></span>
-      <div class="ctx-gallery-items table-strip">
-        {#each STYLES as style (style.id)}
-          <button class="table-swatch" class:current={styleId?.toUpperCase() === style.id} aria-label={t(style.name)} title={t(style.name)} aria-pressed={styleId?.toUpperCase() === style.id} disabled={!editable} onclick={() => applyStyle(style.id)}>
-            <span class="mini {style.kind}" style:--accent={accent} style:--text={text} aria-hidden="true">
-              {#each [0, 1, 2, 3, 4] as row (row)}<span class="mini-row" class:header={row === 0 && flags?.firstRow !== false} class:band={row % 2 === 1}></span>{/each}
-            </span>
+      <div class="ctx-gallery-items table-strip" bind:this={strip}>
+        {#each stripStyles as style (style.id)}
+          {@const name = tableStyleName(style.name, getLocale())}
+          <button class="table-swatch" class:current={currentId === style.id} aria-label={name} title={name} aria-pressed={currentId === style.id} disabled={!editable} onclick={() => applyStyle(style.id)}>
+            {#if swatches.has(style.id)}<img src={swatches.get(style.id)} alt="" />{/if}
           </button>
         {/each}
       </div>
-      <button class="ctx-gallery-arrow" aria-label={t('Next Table Styles gallery')} title={t('The editor draws only these built-in table styles.')} disabled>›</button>
+      <button class="ctx-gallery-arrow" aria-label={t('Next Table Styles gallery')} aria-haspopup="menu" aria-expanded={galleryOpen} disabled={!editable} onclick={() => (galleryOpen = !galleryOpen)}>›</button>
     </div>
+    {#if galleryOpen && strip}
+      <TableStyleGallery anchor={strip} images={swatches} current={currentId} choose={applyStyle} clear={clearTable} close={() => (galleryOpen = false)} />
+    {/if}
     <div class="ctx-rows">
       <span class="ctx-paint {compact ? 'ctx-icon' : 'ctx-row'}" class:disabled={!editable}><Icon name="fill" size={16} />{#if !compact}<span>{t('Shading')}</span>{/if}<ColorPicker compact label={t('Shading')} disabled={!editable} choose={(color) => edit('Shading', (cell) => setTableCellFill(cell, color))} /></span>
       <MenuButton look={compact ? 'icon' : 'row'} icon="border" label={t('Borders')} disabled={!editable}>{@render borderItems()}</MenuButton>
@@ -204,13 +229,7 @@
   .ctx-gallery-items.table-strip { --ctx-gallery-min: 300px; width: 518px; justify-content: flex-start; gap: 0; background: #fff; }
   .table-swatch { width: 76px; height: 56px; margin-right: -2px; padding: 4px 6px; }
   .table-swatch.current { border-color: var(--ok-selected-border); background: var(--ok-selected); }
-  .mini { display: flex; flex-direction: column; width: 100%; height: 100%; }
-  .mini-row { flex: 1; border-top: 1px dashed #c8c8c8; }
-  .mini.grid .mini-row { border: 1px solid var(--text); border-bottom: none; }
-  .mini.grid .mini-row:last-child { border-bottom: 1px solid var(--text); }
-  .mini.medium2 .mini-row { border-top: 1px solid #fff; background: color-mix(in srgb, var(--accent) 20%, #fff); }
-  .mini.medium2 .mini-row.band { background: color-mix(in srgb, var(--accent) 40%, #fff); }
-  .mini.medium2 .mini-row.header { background: var(--accent); }
+  .table-swatch img { display: block; width: 100%; height: 100%; }
   .anchor { position: relative; display: flex; }
   .wordart { font: 700 28px/32px Georgia, serif; color: var(--ok-accent); }
   .pens { gap: 0; }

@@ -14,14 +14,11 @@ import { type XmlElement, NS, attr, elem, qname, text as textNode } from '../xml
 
 const TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table';
 
-// PowerPoint's "No Style, Table Grid" built-in. Every PowerPoint deck (and
-// PptxGenJS, and our own template fixtures) ships this GUID as the
-// `tableStyles.xml` default. Emitting it as the table's `<a:tableStyleId>`
-// is what makes a table resolve to a clean ruled grid instead of rendering
-// unstyled — without it, the `firstRow` / `bandRow` flags have no style to
-// resolve against and PowerPoint paints a borderless, broken-looking block.
-// The matching `tableStyles.xml` part is shipped by `buildBlankDeck`.
-const DEFAULT_TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}';
+// PowerPoint's default for a new table, "Medium Style 2 - Accent 1". Without a
+// style the `firstRow` / `bandRow` flags have nothing to resolve against and
+// the table paints as a borderless block. `addSlideTable` also writes the
+// style's definition into `tableStyles.xml`, as PowerPoint does.
+export const DEFAULT_TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}';
 
 const NAME_GRAPHIC_FRAME = qname('p', 'graphicFrame', NS.pml);
 const NAME_NV_GRAPHIC_FRAME_PR = qname('p', 'nvGraphicFramePr', NS.pml);
@@ -92,8 +89,7 @@ export interface TableOptions {
   bandRow?: boolean;
   /**
    * Table-style GUID written to `<a:tblPr><a:tableStyleId>`. Defaults to
-   * PowerPoint's "No Style, Table Grid" so the table resolves to a clean
-   * ruled grid in every renderer that ships the built-in styles.
+   * PowerPoint's "Medium Style 2 - Accent 1", its default for new tables.
    */
   styleId?: string;
   /**

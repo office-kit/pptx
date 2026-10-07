@@ -103,11 +103,9 @@ const PRES_PROPS_XML = `${XML_DECL}<p:presentationPr xmlns:a="http://schemas.ope
 
 const VIEW_PROPS_XML = `${XML_DECL}<p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>`;
 
-// Table styles. PowerPoint always ships this part, and a table's
-// `<a:tableStyleId>` resolves against the `def` GUID here. We ship the
-// "No Style, Table Grid" default that PptxGenJS and our template fixtures
-// also use, so `addSlideTable` output renders as a clean ruled grid rather
-// than an unstyled block. (See `table-builder.ts` DEFAULT_TABLE_STYLE_ID.)
+// Table styles. PowerPoint always ships this part; `def` names its default
+// for new tables, "Medium Style 2 - Accent 1". Style definitions are added
+// as tables start using them (see `api/fn/table-style-part.ts`).
 const TABLE_STYLES_XML = `${XML_DECL}<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>`;
 
 const CORE_PROPS_XML = `${XML_DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title></dc:title><dc:creator>@office-kit/pptx</dc:creator><cp:lastModifiedBy>@office-kit/pptx</cp:lastModifiedBy></cp:coreProperties>`;
