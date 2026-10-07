@@ -20,9 +20,11 @@ import {
 } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
+  LAYOUT_PART_NAME,
   SLIDE_DOCUMENT,
   SLIDE_PART_NAME,
   type SlideData,
+  type SlideLayoutData,
 } from '../_internal-symbols.ts';
 import { decode } from './_helpers.ts';
 import { resolveDrawingColor, resolveSchemeToken } from './shape-color.ts';
@@ -54,7 +56,9 @@ const NAME_LVL1_PPR = qname('a', 'lvl1pPr', NS.dml);
 const NAME_DEF_RPR = qname('a', 'defRPr', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
 
-const getSlideLayoutPartName = (slide: SlideData) => {
+const getSlideLayoutPartName = (value: SlideData | SlideLayoutData) => {
+  if (LAYOUT_PART_NAME in value) return value[LAYOUT_PART_NAME];
+  const slide = value;
   const pkg = slide[INTERNAL_PACKAGE];
   const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]);
   if (slideRels === null) return null;
@@ -67,7 +71,7 @@ const getSlideLayoutPartName = (slide: SlideData) => {
     : resolveTarget(slide[SLIDE_PART_NAME], layoutRel.target);
 };
 
-const getSlideMasterRoot = (slide: SlideData): XmlElement | null => {
+const getSlideMasterRoot = (slide: SlideData | SlideLayoutData): XmlElement | null => {
   const pkg = slide[INTERNAL_PACKAGE];
   const layoutPartName = getSlideLayoutPartName(slide);
   if (!layoutPartName) return null;
@@ -100,22 +104,25 @@ const readClrMapElement = (root: XmlElement): Record<string, string> | null => {
  * The slide's effective color map: the master's `<p:clrMap>`, overlaid by a
  * layout or slide `<p:clrMapOvr><a:overrideClrMapping>` when present. An explicit
  * slide `masterClrMapping` bypasses the layout override. Falls back to
- * the standard map for decks that omit it.
+ * the standard map for decks that omit it. Given a layout, it is the map the
+ * layout itself is drawn with (its master's, under its own override).
  *
  * Pass the result to color resolution / renderers so `schemeClr` tokens map to
  * the theme slot PowerPoint actually paints — critical for decks with an
  * inverted map (`bg1="dk1" tx1="lt1"`).
  */
-export const getEffectiveColorMap = (slide: SlideData): Record<string, string> => {
-  const override = getSlideColorMapOverride(slide);
+export const getEffectiveColorMap = (
+  slide: SlideData | SlideLayoutData,
+): Record<string, string> => {
+  const isSlide = !(LAYOUT_PART_NAME in slide);
+  const override = isSlide ? getSlideColorMapOverride(slide) : null;
   if (override) return { ...STANDARD_COLOR_MAP, ...override };
   const masterRoot = getSlideMasterRoot(slide);
   const masterMap = masterRoot ? readClrMapElement(masterRoot) : null;
   const inherited = { ...STANDARD_COLOR_MAP, ...masterMap };
-  const slideOverride = firstChildElement(
-    slide[SLIDE_DOCUMENT].root,
-    qname('p', 'clrMapOvr', NS.pml),
-  );
+  const slideOverride = isSlide
+    ? firstChildElement(slide[SLIDE_DOCUMENT].root, qname('p', 'clrMapOvr', NS.pml))
+    : null;
   if (slideOverride && firstChildElement(slideOverride, qname('a', 'masterClrMapping', NS.dml)))
     return inherited;
   const layoutName = getSlideLayoutPartName(slide);
@@ -151,7 +158,7 @@ const firstColorChild = (solidFill: XmlElement): XmlElement | null => {
  * the SAME as the background, making the text invisible. Baking the body color
  * in keeps generated tables / charts readable on whatever surface the deck uses.
  */
-export const resolveDeckBodyTextColor = (slide: SlideData): string | null => {
+export const resolveDeckBodyTextColor = (slide: SlideData | SlideLayoutData): string | null => {
   const theme = themeFromPackage(slide[INTERNAL_PACKAGE]);
   if (!theme) return null;
   const clrMap = getEffectiveColorMap(slide);

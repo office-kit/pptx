@@ -61,6 +61,8 @@ const LABELS = {
     ],
     pageMasterTabs: (first) => [first, 'Home', 'Insert', 'Draw', 'Review', 'View'],
     rename: 'Rename',
+    delete: 'Delete',
+    preserve: 'Preserve',
     insertSlideMaster: 'Insert Slide Master',
     sixSlides: '6 Slides',
     placeholder: 'Placeholder',
@@ -94,6 +96,8 @@ const LABELS = {
     ],
     pageMasterTabs: (first) => [first, 'ホーム', '挿入', '描画', '校閲', '表示'],
     rename: '名前の変更',
+    delete: '削除',
+    preserve: '保持',
     insertSlideMaster: 'スライド マスターの挿入',
     sixSlides: '6 枚',
     placeholder: 'プレースホルダー',
@@ -417,10 +421,13 @@ for (const locale of ['en', 'ja'])
           layouts.filter((layout) => layout.current).map((layout) => layout.name),
           ['Title and Content'],
         );
-        // What the library cannot do is shown disabled with the reason.
-        const insertMaster = ribbonButton(L.insertSlideMaster);
-        assert.equal(await insertMaster.isDisabled(), true);
-        assert.ok((await insertMaster.getAttribute('title')).length > 0);
+        // As natively, a layout that slides use cannot be deleted, and
+        // Preserve belongs to the master.
+        assert.equal(await ribbonButton(L.insertSlideMaster).isEnabled(), true);
+        const deleteButton = ribbonButton(L.delete);
+        assert.equal(await deleteButton.isDisabled(), true);
+        assert.ok((await deleteButton.getAttribute('title')).length > 0);
+        assert.equal(await ribbonButton(L.preserve).isDisabled(), true);
         assert.equal(await ribbonButton(L.rename).isEnabled(), true);
         // Placeholders move with the arrow keys and the layout keeps the change.
         const before = getSlideLayoutPlaceholders(
@@ -445,9 +452,10 @@ for (const locale of ['en', 'ja'])
           ),
         );
         assert.equal(after[0].bounds.x - (before[0].bounds?.x ?? after[0].bounds.x - 18288), 18288);
-        // The master itself cannot be renamed by the library.
+        // The master is renamed and preserved from the same column.
         await pane.locator('.cell.master').click();
-        assert.equal(await ribbonButton(L.rename).isDisabled(), true);
+        assert.equal(await ribbonButton(L.rename).isEnabled(), true);
+        assert.equal(await ribbonButton(L.preserve).isEnabled(), true);
         await ribbonButton(L.close).click();
         await pane.waitFor({ state: 'detached' });
         assert.equal(await page.getByRole('tab', { name: L.slideMaster, exact: true }).count(), 0);
@@ -505,7 +513,7 @@ for (const locale of ['en', 'ja'])
         );
         const six = ribbonButton(L.sixSlides);
         assert.equal(await six.getAttribute('aria-pressed'), 'true');
-        assert.equal(await six.isDisabled(), true);
+        assert.equal(await six.isEnabled(), true);
 
         // Notes Master: the slide image above five body levels.
         await enter(L.notesMaster);

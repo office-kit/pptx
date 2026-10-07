@@ -369,17 +369,17 @@ export class EditorController {
       );
     } else if (mode !== 'slideMaster') {
       this.doc.layoutTarget = null;
-      this.selectedMaster = null;
     }
     this.viewMode = mode;
   }
 
   /** Slide Master view: the master whose cell (or one of whose layouts) is selected. */
-  selectedMaster = $state<string | null>(null);
+  get selectedMaster(): string | null {
+    return this.doc.layoutTarget?.master ?? null;
+  }
   /** Selects a master (`layout` null) or one of its layouts in Slide Master view. */
   selectMasterCell(master: string | null, layout: string | null): void {
-    this.selectedMaster = master;
-    this.doc.layoutTarget = { partName: layout };
+    this.doc.layoutTarget = { master, partName: layout };
   }
 
   /** True in Slide, Handout and Notes Master views. */

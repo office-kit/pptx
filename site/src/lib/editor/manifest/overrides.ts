@@ -569,6 +569,33 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  // Slide Master tab. Master commands name the master by its part name, which
+  // Slide Master view passes; layout commands act on the selected layout.
+  addSlideMaster: { labelEn: 'Insert Slide Master', labelJa: 'スライド マスターの挿入' },
+  removeSlideMaster: { labelEn: 'Delete Master', labelJa: 'マスターの削除' },
+  setSlideMasterName: { labelEn: 'Rename Master', labelJa: 'マスター名の変更' },
+  setSlideMasterPreserved: { labelEn: 'Preserve Master', labelJa: 'マスターの保持' },
+  setSlideMasterPlaceholderIncluded: { labelEn: 'Master Layout', labelJa: 'マスターのレイアウト' },
+  addSlideLayout: { labelEn: 'Insert Layout', labelJa: 'レイアウトの挿入' },
+  removeSlideLayout: { labelEn: 'Delete Layout', labelJa: 'レイアウトの削除' },
+  addSlideLayoutPlaceholder: { labelEn: 'Insert Placeholder', labelJa: 'プレースホルダーの挿入' },
+  setSlideLayoutTitleIncluded: { labelEn: 'Layout Title', labelJa: 'レイアウトのタイトル' },
+  setSlideLayoutFootersIncluded: { labelEn: 'Layout Footers', labelJa: 'レイアウトのフッター' },
+  setSlideLayoutBackgroundGraphicsHidden: {
+    labelEn: 'Hide Background Graphics on Layout',
+    labelJa: 'レイアウトの背景グラフィックを表示しない',
+  },
+  // Handout Master and Notes Master tabs.
+  setNotesMasterPlaceholderIncluded: {
+    labelEn: 'Notes Master Placeholders',
+    labelJa: 'ノート マスターのプレースホルダー',
+  },
+  setHandoutMasterPlaceholderIncluded: {
+    labelEn: 'Handout Master Placeholders',
+    labelJa: '配布資料マスターのプレースホルダー',
+  },
+  setNotesPageOrientation: { labelEn: 'Notes Page Orientation', labelJa: 'ノートの向き' },
+  setHandoutSlidesPerPage: { labelEn: 'Slides Per Page', labelJa: '1 ページあたりのスライド数' },
   setSlideNotes: { labelJa: 'スピーカーノートの編集' },
   setSlideNotesFormat: {
     labelEn: 'Format Speaker Notes',

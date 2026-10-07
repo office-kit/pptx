@@ -154,6 +154,59 @@
       ]
     },
     {
+      "id": "addSlideLayout",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "SlideLayoutData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "master",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ index?: number }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "addSlideLayoutPlaceholder",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "kind",
+          "type": "LayoutPlaceholderKind",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "bounds",
+          "type": "ShapeBounds",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "addSlideLine",
       "operand": "slide",
       "takesOperand": true,
@@ -169,6 +222,16 @@
           "optional": false
         }
       ]
+    },
+    {
+      "id": "addSlideMaster",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "string",
+      "canvas": true,
+      "params": []
     },
     {
       "id": "addSlideMedia",
@@ -382,6 +445,121 @@
       "returns": "void",
       "canvas": true,
       "params": []
+    },
+    {
+      "id": "removeSlideLayout",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "removeSlideMaster",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "master",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setHandoutMasterPlaceholderIncluded",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "type",
+          "type": "HandoutMasterPlaceholderType",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "included",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setHandoutSlidesPerPage",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "slidesPerPage",
+          "type": "HandoutSlidesPerPage",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setNotesMasterPlaceholderIncluded",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "type",
+          "type": "NotesMasterPlaceholderType",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "included",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setNotesPageOrientation",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/page-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "orientation",
+          "type": "'portrait' | 'landscape'",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["portrait", "landscape"]
+        }
+      ]
     },
     {
       "id": "setShapeSoftEdge",
@@ -2983,6 +3161,52 @@
       ]
     },
     {
+      "id": "setSlideLayoutBackgroundGraphicsHidden",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "hidden",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideLayoutFootersIncluded",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "included",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setSlideLayoutName",
       "operand": "presentation",
       "takesOperand": false,
@@ -3035,6 +3259,29 @@
       ]
     },
     {
+      "id": "setSlideLayoutTitleIncluded",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "included",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setSlideMasterBackgroundStyle",
       "operand": "slide",
       "takesOperand": true,
@@ -3047,6 +3294,81 @@
           "name": "style",
           "type": "number",
           "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideMasterName",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "master",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideMasterPlaceholderIncluded",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "master",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "type",
+          "type": "MasterPlaceholderType",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "included",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideMasterPreserved",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-masters.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "master",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "preserved",
+          "type": "boolean",
+          "kind": "boolean",
           "optional": false
         }
       ]

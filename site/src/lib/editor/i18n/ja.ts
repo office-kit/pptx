@@ -1539,10 +1539,6 @@ export const ja: Record<string, string> = {
     'マクロ (VBA) は PowerPoint 以外では実行できません。',
   'Insert Slide Master': 'スライド マスターの挿入',
   'Insert Layout': 'レイアウトの挿入',
-  'Adding masters and layouts is not supported by the library yet.':
-    'マスターとレイアウトの追加はまだライブラリでサポートされていません。',
-  'Deleting layouts is not supported by the library yet.':
-    'レイアウトの削除はまだライブラリでサポートされていません。',
   Rename: '名前の変更',
   'Master Layout': 'マスターのレイアウト',
   'Reset Background': '背景のリセット',
@@ -2240,20 +2236,20 @@ export const ja: Record<string, string> = {
   Placeholders: 'プレースホルダー',
   'Slides Per Page': '1 ページあたりのスライド数',
   'Page Setup': 'ページ設定',
-  'Deleting masters and layouts is not supported by the library yet.':
-    'マスターとレイアウトの削除はライブラリがまだ対応していません。',
-  'Renaming a slide master is not supported by the library yet.':
-    'スライド マスターの名前の変更はライブラリがまだ対応していません。',
-  'Preserving masters is not supported by the library yet.':
-    'マスターの保持はライブラリがまだ対応していません。',
-  'Choosing the master placeholders is not supported by the library yet.':
-    'マスターのプレースホルダーの選択はライブラリがまだ対応していません。',
-  'Adding or removing layout placeholders is not supported by the library yet.':
-    'レイアウトのプレースホルダーの追加と削除はライブラリがまだ対応していません。',
-  'Hiding background graphics on a layout is not supported by the library yet.':
-    'レイアウトの背景グラフィックの非表示はライブラリがまだ対応していません。',
-  'Handout masters are not supported by the library yet.':
-    '配布資料マスターはライブラリがまだ対応していません。',
-  'Notes masters are not supported by the library yet.':
-    'ノート マスターはライブラリがまだ対応していません。',
+  Portrait: '縦',
+  Landscape: '横',
+  OK: 'OK',
+  Content: 'コンテンツ',
+  'Content (Vertical)': 'コンテンツ (縦)',
+  'Text (Vertical)': 'テキスト (縦)',
+  'Online Image': 'オンライン画像',
+  'Select a master or layout.': 'マスターまたはレイアウトを選択してください。',
+  'Slides use this layout.': 'このレイアウトを使っているスライドがあります。',
+  'Slides use this master.': 'このマスターを使っているスライドがあります。',
+  'A slide master needs at least one layout.':
+    'スライド マスターには少なくとも 1 つのレイアウトが必要です。',
+  'A presentation needs at least one slide master.':
+    'プレゼンテーションには少なくとも 1 つのスライド マスターが必要です。',
+  'Select a layout to change it.': '変更するレイアウトを選択してください。',
+  'Select the slide master to change it.': '変更するスライド マスターを選択してください。',
 };

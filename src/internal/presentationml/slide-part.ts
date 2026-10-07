@@ -187,7 +187,7 @@ export const readGroupChildren = (element: XmlElement): SlideShape[] => {
  */
 export const readShapeTreeFromCsldRoot = (
   root: XmlElement,
-  expectedLocalName: 'sld' | 'sldLayout' | 'sldMaster',
+  expectedLocalName: 'sld' | 'sldLayout' | 'sldMaster' | 'notesMaster' | 'handoutMaster',
   options: { recurseIntoGroups?: boolean } = {},
 ): { shapes: SlideShape[]; cSld: XmlElement } => {
   if (root.name.namespaceURI !== NS.pml || root.name.localName !== expectedLocalName) {

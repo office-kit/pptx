@@ -42,6 +42,12 @@ const svg = renderSlideToSvg(pres, getSlides(pres)[0]);
 // → '<svg …>…</svg>'  (text laid out via <foreignObject> — the browser wraps it)
 ```
 
+`renderSlideLayoutToSvg(pres, layout, { master })` draws what a slide master
+editor shows behind the placeholders: the layout's background and decorative
+shapes over its master's (the master's are left out when the layout hides
+background graphics), or with `master: true` the slide master's own background
+and shapes. Placeholders are not drawn.
+
 ### Underlines in custom HTML editors
 
 `textUnderlineStyle(underline, color)` returns inline CSS for a DrawingML

@@ -19,7 +19,7 @@ import {
   serializeXml,
   walkElements,
 } from '../../internal/xml/index.ts';
-import { partName } from '../../internal/opc/index.ts';
+import { type PartName, dirname, partName } from '../../internal/opc/index.ts';
 import {
   INTERNAL_PACKAGE,
   LAYOUT_DOCUMENT,
@@ -210,7 +210,8 @@ export const requireSpTree = (slide: SlideData): XmlElement => {
   return spTree;
 };
 
-export const nextShapeId = (slide: SlideData): number => {
+/** One more than the largest `cNvPr` id in a shape tree: the next free shape id there. */
+export const nextShapeIdInTree = (spTree: XmlElement): number => {
   let maxId = 0;
   const walk = (el: XmlElement): void => {
     if (el.name.namespaceURI === NS.pml && el.name.localName === 'cNvPr') {
@@ -219,8 +220,36 @@ export const nextShapeId = (slide: SlideData): number => {
     }
     for (const child of el.children) if (child.kind === 'element') walk(child);
   };
-  walk(requireSpTree(slide));
+  walk(spTree);
   return Math.max(maxId, 1) + 1;
+};
+
+export const nextShapeId = (slide: SlideData): number => nextShapeIdInTree(requireSpTree(slide));
+
+/**
+ * `count` unused part names `${stem}N.xml`, numbered after the highest `N`
+ * already in the package (PowerPoint numbers new masters, layouts and themes
+ * the same way).
+ */
+export const allocatePartNames = (pkg: OpcPackage, stem: string, count: number): PartName[] => {
+  let max = 0;
+  const prefix = stem.toLowerCase();
+  for (const part of pkg.parts) {
+    const name = part.name.toLowerCase();
+    if (!name.startsWith(prefix) || !name.endsWith('.xml')) continue;
+    const n = Number(name.slice(prefix.length, -'.xml'.length));
+    if (Number.isInteger(n) && n > max) max = n;
+  }
+  return Array.from({ length: count }, (_, i) => partName(`${stem}${max + 1 + i}.xml`));
+};
+
+/** The relationship `Target` that reaches part `to` from part `from`. */
+export const relativeTarget = (from: PartName, to: PartName): string => {
+  const fromDir = dirname(from).split('/').filter(Boolean);
+  const toParts = to.split('/').filter(Boolean);
+  let common = 0;
+  while (common < fromDir.length && fromDir[common] === toParts[common]) common++;
+  return [...fromDir.slice(common).map(() => '..'), ...toParts.slice(common)].join('/');
 };
 
 export const appendAndReturnNewShape = (slide: SlideData, child: XmlElement): SlideShapeData => {

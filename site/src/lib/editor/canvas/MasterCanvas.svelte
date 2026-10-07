@@ -5,7 +5,7 @@
   // layout inherits; the rest is edited through the Slide Master tab.
   import { emu, getSlideLayoutName, getSlideLayoutPartName, getSlideSize, type ShapeBounds } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { layoutBoxes, masterGroups } from '../core/master-geometry.ts';
+  import { layoutBoxes, masterBoxes, masterGroups } from '../core/master-geometry.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import MasterSlide from '../ui/MasterSlide.svelte';
 
@@ -20,13 +20,13 @@
     doc.version;
     const partName = doc.layoutTarget?.partName ?? null;
     for (const group of masterGroups(doc.pres)) {
-      if (partName === null && group.partName === editor.selectedMaster && group.layouts[0]) return { layout: group.layouts[0], master: true, label: t('Slide Master') };
+      if (partName === null && group.partName === editor.selectedMaster && group.layouts[0]) return { layout: group.layouts[0], masterPart: group.partName, master: true, label: t('Slide Master') };
       const layout = group.layouts.find((item) => getSlideLayoutPartName(item) === partName);
-      if (layout) return { layout, master: false, label: getSlideLayoutName(layout) };
+      if (layout) return { layout, masterPart: group.partName, master: false, label: getSlideLayoutName(layout) };
     }
     return null;
   });
-  const boxes = $derived(target && !target.master ? layoutBoxes(target.layout, size) : []);
+  const boxes = $derived(target && !target.master ? layoutBoxes(target.layout, size, masterBoxes(doc.pres, target.masterPart, size)) : []);
   let areaWidth = $state(0);
   let areaHeight = $state(0);
   $effect(() => {
