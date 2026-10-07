@@ -10,6 +10,10 @@ import {
   addTitleSlide,
   createPresentation,
   getShapeBoundsResolved,
+  getShapeFillColor,
+  getShapeName,
+  getShapeText,
+  getSlidePartName,
   getSlideShapes,
   getSlideText,
   getSlideXmlString,
@@ -43,9 +47,11 @@ let script;
 before(async () => {
   const bundle = await build({
     stdin: {
-      contents: `import { mountEditor } from ${JSON.stringify(
+      // The page's "agent" uses the core library the editor depends on.
+      contents: `import { mountEditor, resolveShape } from ${JSON.stringify(
         fileURLToPath(new URL('../../dist/index.js', import.meta.url)),
-      )}; window.mountEditor = mountEditor;`,
+      )}; import * as pptx from '@office-kit/pptx';
+      Object.assign(window, { mountEditor, resolveShape, pptx });`,
       resolveDir: fileURLToPath(new URL('../..', import.meta.url)),
     },
     bundle: true,
@@ -145,11 +151,13 @@ const savedDeck = async (page, id) =>
   loadPresentation(new Uint8Array(await page.evaluate((id) => window.saved[id], id)));
 const handleDeck = async (page, id) =>
   loadPresentation(
-    new Uint8Array(await page.evaluate(async (id) => [...(await window.handles[id].save())], id)),
+    new Uint8Array(
+      await page.evaluate(async (id) => [...(await window.handles[id].snapshot())], id),
+    ),
   );
 const titleOf = (presentation, index = 0) => getSlideText(getSlides(presentation)[index]);
 
-test('isolates styles in a shadow root and saves edits through onSave and save()', async () => {
+test('isolates styles in a shadow root and saves edits through onSave and snapshot()', async () => {
   const { page, errors } = await hostPage();
   const headStyles = await page.locator('head style').count();
   const editor = await mount(page, 'a', await deck('Embedded title'), { locale: 'en' });
@@ -231,7 +239,7 @@ test('isolates styles in a shadow root and saves edits through onSave and save()
   assert.ok(bounds(saved).x > bounds(original).x);
   assert.ok(bounds(saved).y > bounds(original).y);
 
-  // save() serializes the same state without calling onSave again.
+  // snapshot() serializes the same state without calling onSave again.
   await page.evaluate(() => (window.saved.a = null));
   const pulled = await handleDeck(page, 'a');
   assert.equal(titleOf(pulled), 'Embedded headline');
@@ -383,7 +391,7 @@ test('a failed onSave is shown, and an unreadable source rejects ready', async (
       () => 'resolved',
       (error) => error.message,
     );
-    const saved = await handle.save().then(
+    const saved = await handle.snapshot().then(
       () => 'resolved',
       () => 'rejected',
     );
@@ -393,5 +401,240 @@ test('a failed onSave is shown, and an unreadable source rejects ready', async (
   assert.notEqual(rejected.message, 'resolved');
   assert.equal(rejected.saved, 'rejected');
   assert.equal(rejected.children, 0);
+  await page.close();
+});
+
+// --- Agents in the browser ---------------------------------------------------
+// An "agent" here is a script in the host page: it reads the deck and the user's
+// selection, and edits through `apply` with the core library's public API.
+
+/** Records the handle's events for `id` in `window.events[id]`. */
+const watchEvents = (page, id) =>
+  page.evaluate((id) => {
+    window.events ??= {};
+    const events = (window.events[id] = { change: [], selectionchange: [] });
+    const handle = window.handles[id];
+    handle.on('change', (event) => events.change.push(event.source));
+    handle.on('selectionchange', (event) => events.selectionchange.push(event.selection));
+  }, id);
+const events = (page, id) => page.evaluate((id) => window.events[id], id);
+const waitForChanges = (page, id, count) =>
+  page.waitForFunction(({ id, count }) => window.events[id].change.length === count, { id, count });
+const firstShape = (presentation) => getSlideShapes(getSlides(presentation)[0])[0];
+
+/**
+ * Runs `handle.apply` in the page with `edit` as the body of a function of
+ * (presentation, pptx, resolveShape, arg); resolves to its rejection message, or null.
+ */
+const apply = (page, id, label, edit, arg) =>
+  page.evaluate(
+    async ({ id, label, edit, arg }) => {
+      const run = new Function('presentation', 'pptx', 'resolveShape', 'arg', edit);
+      return window.handles[id]
+        .apply(label, (presentation) => run(presentation, window.pptx, window.resolveShape, arg))
+        .then(
+          () => null,
+          (error) => error.message,
+        );
+    },
+    { id, label, edit, arg },
+  );
+
+/** The Edit menu's Undo item, which names the edit Undo reverts. */
+async function undoMenuItem(editor, page, labels = { edit: 'Edit', undo: 'Undo' }) {
+  await editor
+    .getByRole('menubar')
+    .getByRole('menuitem', { name: labels.edit, exact: true })
+    .click();
+  const item = editor
+    .getByRole('menu', { name: labels.edit, exact: true })
+    .getByRole('menuitem', { name: new RegExp(`^${labels.undo}`) })
+    .first();
+  const name = await item.getAttribute('aria-label');
+  await page.keyboard.press('Escape');
+  return name;
+}
+
+test('an agent reads the deck and selection, and edits as one undo step', async () => {
+  const { page, errors } = await hostPage();
+  const editor = await mount(page, 'a', await deck('Quarterly review'), { locale: 'en' });
+  await watchEvents(page, 'a');
+  const original = await handleDeck(page, 'a');
+  assert.equal(titleOf(original), 'Quarterly review');
+  assert.deepEqual(await page.evaluate(() => window.handles.a.selection()), []);
+
+  // The user picks the title; the agent sees which shape "this" is.
+  await editor.locator('.hit').first().click();
+  await page.keyboard.press('Escape');
+  const selected = await page.evaluate(() => window.handles.a.selection());
+  const ref = {
+    slideIndex: 0,
+    slide: getSlidePartName(getSlides(original)[0]),
+    shapeId: selected[0]?.shapeId,
+    name: getShapeName(firstShape(original)),
+  };
+  assert.deepEqual(selected, [ref]);
+  await page.waitForFunction(() => window.events.a.selectionchange.length > 0);
+  assert.deepEqual((await events(page, 'a')).selectionchange.at(-1), [ref]);
+  const changesBefore = (await events(page, 'a')).change.length;
+
+  const edit = `const shape = resolveShape(presentation, arg);
+    pptx.setShapeText(shape, 'Agent title');
+    pptx.setShapeFill(shape, '#FF0000');`;
+  assert.equal(await apply(page, 'a', 'Make the title red', edit, ref), null);
+  assert.deepEqual((await events(page, 'a')).change.slice(changesBefore), ['agent']);
+  const edited = await handleDeck(page, 'a');
+  assert.equal(getShapeText(firstShape(edited)), 'Agent title');
+  assert.equal(getShapeFillColor(firstShape(edited)), '#FF0000');
+  // The canvas shows it at once.
+  assert.match(await editor.locator('.canvas-shell .paint').textContent(), /Agent/);
+  assert.equal(await undoMenuItem(editor, page), 'Undo Agent: Make the title red');
+
+  // One Undo reverts both the text and the fill; Redo restores both.
+  await page.keyboard.press('ControlOrMeta+z');
+  await waitForChanges(page, 'a', changesBefore + 2);
+  const undone = await handleDeck(page, 'a');
+  assert.equal(getShapeText(firstShape(undone)), 'Quarterly review');
+  assert.equal(getShapeFillColor(firstShape(undone)), getShapeFillColor(firstShape(original)));
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await waitForChanges(page, 'a', changesBefore + 3);
+  assert.equal(getShapeText(firstShape(await handleDeck(page, 'a'))), 'Agent title');
+  assert.deepEqual((await events(page, 'a')).change.slice(changesBefore), [
+    'agent',
+    'user',
+    'user',
+  ]);
+
+  // An edit that throws leaves nothing behind: no partial text, no undo step,
+  // no change event.
+  const failed = await apply(
+    page,
+    'a',
+    'Half done',
+    `pptx.setShapeText(resolveShape(presentation, arg), 'partial'); throw new Error('model gave up');`,
+    ref,
+  );
+  assert.equal(failed, 'model gave up');
+  assert.equal(getShapeText(firstShape(await handleDeck(page, 'a'))), 'Agent title');
+  assert.equal(await undoMenuItem(editor, page), 'Undo Agent: Make the title red');
+  assert.equal((await events(page, 'a')).change.length, changesBefore + 3);
+  // An asynchronous edit is refused rather than committed half-way.
+  assert.match(await apply(page, 'a', 'Async', `return Promise.resolve();`), /must be synchronous/);
+
+  // Once the shape is gone, its ref fails loudly instead of editing something else.
+  assert.equal(
+    await apply(
+      page,
+      'a',
+      'Delete the title',
+      `pptx.removeShape(resolveShape(presentation, arg));`,
+      ref,
+    ),
+    null,
+  );
+  assert.deepEqual(await page.evaluate(() => window.handles.a.selection()), []);
+  await page.waitForFunction(() => window.events.a.selectionchange.at(-1).length === 0);
+  assert.match(
+    await apply(
+      page,
+      'a',
+      'Recolor',
+      `pptx.setShapeFill(resolveShape(presentation, arg), '#00FF00');`,
+      ref,
+    ),
+    /is gone/,
+  );
+
+  // A user's edit reports itself as such.
+  const count = (await events(page, 'a')).change.length;
+  await editor.getByRole('button', { name: 'New Slide options', exact: true }).click();
+  await editor.getByRole('menuitem', { name: 'Title Slide', exact: true }).click();
+  await waitForChanges(page, 'a', count + 1);
+  assert.equal((await events(page, 'a')).change.at(-1), 'user');
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+test('names agent edits in Japanese', async () => {
+  const { page, errors } = await hostPage();
+  const editor = await mount(page, 'a', await deck('日本語のタイトル'), { locale: 'ja' });
+  assert.equal(
+    await apply(
+      page,
+      'a',
+      'タイトルを赤に',
+      `pptx.setShapeFill(pptx.getSlideShapes(pptx.getSlides(presentation)[0])[0], '#FF0000');`,
+    ),
+    null,
+  );
+  assert.equal(
+    await undoMenuItem(editor, page, { edit: ja.Edit, undo: ja.Undo }),
+    `${ja.Undo} エージェント: タイトルを赤に`,
+  );
+  assert.deepEqual(errors, []);
+  await page.close();
+});
+
+test('agents drive each editor on a page separately', async () => {
+  const { page, errors } = await hostPage();
+  // Before the deck is open there is nothing to edit, and after destroy() nothing either.
+  const early = await page.evaluate(
+    async (bytes) => {
+      const handle = window.mountEditor(document.getElementById('b'), {
+        source: new Uint8Array(bytes),
+      });
+      const message = await handle
+        .apply('Too early', () => {})
+        .then(
+          () => null,
+          (error) => error.message,
+        );
+      await handle.ready;
+      handle.destroy();
+      const destroyed = await handle
+        .apply('Too late', () => {})
+        .then(
+          () => null,
+          (error) => error.message,
+        );
+      return { message, destroyed };
+    },
+    await deck('Early'),
+  );
+  assert.match(early.message, /not ready/);
+  assert.match(early.destroyed, /destroyed/);
+
+  const first = await mount(page, 'a', await deck('First deck'));
+  await mount(page, 'b', await deck('Second deck'));
+  await watchEvents(page, 'a');
+  await watchEvents(page, 'b');
+  await first.locator('.hit').first().click();
+  await page.keyboard.press('Escape');
+  assert.equal((await page.evaluate(() => window.handles.a.selection())).length, 1);
+  assert.deepEqual(await page.evaluate(() => window.handles.b.selection()), []);
+
+  const retitle = `pptx.setShapeText(pptx.getSlideShapes(pptx.getSlides(presentation)[0])[0], 'Second, edited');`;
+  assert.equal(await apply(page, 'b', 'Retitle', retitle), null);
+  assert.equal(titleOf(await handleDeck(page, 'b')), 'Second, edited');
+  assert.equal(titleOf(await handleDeck(page, 'a')), 'First deck');
+  assert.deepEqual((await events(page, 'b')).change, ['agent']);
+  assert.deepEqual((await events(page, 'a')).change, []);
+
+  // Undo in the editor the user last used leaves the other's agent edit alone.
+  await page.keyboard.press('ControlOrMeta+z');
+  assert.equal(titleOf(await handleDeck(page, 'b')), 'Second, edited');
+
+  // An unsubscribed listener hears nothing more.
+  await page.evaluate(() => {
+    window.unsubscribed = [];
+    const off = window.handles.b.on('change', (event) => window.unsubscribed.push(event));
+    off();
+  });
+  assert.equal(
+    await apply(page, 'b', 'Again', `pptx.addTitleSlide(presentation, 'Another');`),
+    null,
+  );
+  assert.deepEqual(await page.evaluate(() => window.unsubscribed), []);
+  assert.deepEqual(errors, []);
   await page.close();
 });
