@@ -79,7 +79,21 @@ const firstVideoFrameBytes = (page, media) =>
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
+      const context = canvas.getContext('2d');
+      // Chromium on Linux x86-64 can fire `loadeddata` before the first frame
+      // reaches the element's paint path, so a draw right away is blank. The
+      // editor's Reset waits for a painted frame too; the reference must match.
+      const painted = () => {
+        context.drawImage(video, 0, 0);
+        return context
+          .getImageData(0, 0, canvas.width, canvas.height)
+          .data.some((value, index) => index % 4 === 3 && value !== 0);
+      };
+      const paintDeadline = Date.now() + 5000;
+      while (!painted()) {
+        if (Date.now() >= paintDeadline) throw new Error('video never painted its first frame');
+        await new Promise((resolve) => setTimeout(resolve, 16));
+      }
       const blob = await new Promise((resolve, reject) =>
         canvas.toBlob(
           (value) => (value ? resolve(value) : reject(new Error('failed to encode first frame'))),
@@ -372,6 +386,25 @@ test(
       assert.deepEqual(redone.media, original.media);
       assert.deepEqual(await waitForPlayback(), originalPlayback);
 
+      // The preview server can serve the saved deck before the editor has
+      // received the save's response. Until the editor drops its recovery copy,
+      // a reload offers to recover it and the dialog blocks the canvas.
+      await page.waitForFunction(async () => {
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('office-pptx-editor-drafts', 1);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        try {
+          return await new Promise((resolve, reject) => {
+            const request = db.transaction('drafts').objectStore('drafts').count();
+            request.onsuccess = () => resolve(request.result === 0);
+            request.onerror = () => reject(request.error);
+          });
+        } finally {
+          db.close();
+        }
+      });
       await page.reload();
       await saved();
       await editor.locator('.hit').first().click();

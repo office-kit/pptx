@@ -39,6 +39,18 @@ const videoBytes = (page, colors) =>
     return Array.from(new Uint8Array(await new Blob(parts).arrayBuffer()));
   }, colors);
 
+// The fixture video lasts under half a second, so it can end before a
+// callback registered after playback starts would see a frame. Register the
+// callback before Play and await it once playback has advanced.
+const watchPresentedFrame = (video) =>
+  video.evaluate((element) => {
+    element.presentedFrame = new Promise((resolve) =>
+      element.requestVideoFrameCallback((_timestamp, metadata) =>
+        resolve(metadata.presentedFrames ?? 1),
+      ),
+    );
+  });
+
 const waitForDecodedFrame = (video) =>
   video.evaluate(
     (element) =>
@@ -47,9 +59,9 @@ const waitForDecodedFrame = (video) =>
           () => reject(new Error('video did not present a decoded frame')),
           3000,
         );
-        element.requestVideoFrameCallback((_timestamp, metadata) => {
+        element.presentedFrame.then((frames) => {
           window.clearTimeout(deadline);
-          resolve(metadata.presentedFrames ?? 1);
+          resolve(frames);
         });
       }),
   );
@@ -122,6 +134,7 @@ test(
       const firstSource = await firstVideo.getAttribute('src');
       const firstHandle = await firstVideo.elementHandle();
       assert.ok(firstHandle);
+      await watchPresentedFrame(firstVideo);
       await editor.getByRole('button', { name: 'Play', exact: true }).click();
       await firstVideo.evaluate(
         (element) =>
@@ -173,6 +186,7 @@ test(
       await page.setViewportSize({ width: 900, height: 900 });
       await page.waitForTimeout(100);
       assert.deepEqual(await controlsInsideCanvas(), { left: true, right: true });
+      await watchPresentedFrame(secondVideo);
       await editor.getByRole('button', { name: 'Play', exact: true }).click();
       await secondVideo.evaluate(
         (element) =>
