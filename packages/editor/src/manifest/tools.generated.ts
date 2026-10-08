@@ -140,7 +140,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'addSectionHeaderSlide',
       description:
-        'Sugar over `addSlide` + `setSlideTitle` for the section-divider\npattern. Picks `<p:sldLayout type="secHead">` when present (the\nPowerPoint "Section Header" layout); otherwise falls back to a\n`title`-typed layout or the first available layout.',
+        'Sugar over `addSlide` + `setSlideTitle` for the section-divider\npattern. Picks `<p:sldLayout type="secHead">` when present (the\nthe reference desktop app\'s "Section Header" layout); otherwise falls back to a\n`title`-typed layout or the first available layout.',
       args: [null, 'title'],
       input_schema: {
         type: 'object',
@@ -244,7 +244,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'addSlideChart',
       description:
-        "Adds a native chart to the slide at `x`/`y` with size `w`×`h` (EMU),\nbuilt from `spec`, with an embedded workbook so PowerPoint's \"Edit data\"\nopens the chart's numbers. Returns the chart's graphic-frame shape.",
+        "Adds a native chart to the slide at `x`/`y` with size `w`×`h` (EMU),\nbuilt from `spec`, with an embedded workbook so the reference desktop app's \"Edit data\"\nopens the chart's numbers. Returns the chart's graphic-frame shape.",
       args: ['slide', 'opts'],
       input_schema: {
         type: 'object',
@@ -2156,18 +2156,18 @@ export const generatedTools: GeneratedTools = {
                       bubbleScale: {
                         type: 'number',
                         description:
-                          'Bubble-size scale percentage from `<c:bubbleChart><c:bubbleScale\nval="N"/>` (0..300, PowerPoint default 100). Scales every bubble\'s\nrendered radius proportionally.',
+                          'Bubble-size scale percentage from `<c:bubbleChart><c:bubbleScale\nval="N"/>` (0..300, the reference desktop app\'s default 100). Scales every bubble\'s\nrendered radius proportionally.',
                       },
                       bubbleSizeRepresents: {
                         type: 'string',
                         enum: ['area', 'width'],
                         description:
-                          "Whether a bubble's `<c:bubbleSize>` maps to the bubble's area or its\nwidth — `<c:bubbleChart><c:sizeRepresents val=\"area|w\"/>` (ECMA-376\nST_SizeRepresents; the `'w'` token is surfaced as `'width'`).\nPowerPoint's default is `'area'`, so radius scales with `sqrt(size)`;\n`'width'` scales radius linearly with size.",
+                          "Whether a bubble's `<c:bubbleSize>` maps to the bubble's area or its\nwidth — `<c:bubbleChart><c:sizeRepresents val=\"area|w\"/>` (ECMA-376\nST_SizeRepresents; the `'w'` token is surfaced as `'width'`).\nThe reference desktop app's default is `'area'`, so radius scales with `sqrt(size)`;\n`'width'` scales radius linearly with size.",
                       },
                       bubble3D: {
                         type: 'boolean',
                         description:
-                          'Shade bubbles as spheres — `<c:bubble3D val="1"/>` on each series of the\nbubble chart (PowerPoint\'s "3-D Bubble" subtype). Unlike the\nother 3-D variants it has no camera, so `view3D` does not apply.',
+                          'Shade bubbles as spheres — `<c:bubble3D val="1"/>` on each series of the\nbubble chart (the reference desktop app\'s "3-D Bubble" subtype). Unlike the\nother 3-D variants it has no camera, so `view3D` does not apply.',
                       },
                       showNegativeBubbles: {
                         type: 'boolean',
@@ -2261,7 +2261,7 @@ export const generatedTools: GeneratedTools = {
             type: 'string',
             enum: ['ctr', 'l', 'r'],
             description:
-              'Multi-line category-label alignment relative to the tick mark —\n`<c:catAx><c:lblAlgn val="ctr|l|r"/>`. PowerPoint defaults to\n`ctr` when omitted; the authored value wins.',
+              'Multi-line category-label alignment relative to the tick mark —\n`<c:catAx><c:lblAlgn val="ctr|l|r"/>`. The reference desktop app defaults to\n`ctr` when omitted; the authored value wins.',
           },
           CategoryAxisLabelOffset: {
             type: 'number',
@@ -2271,7 +2271,7 @@ export const generatedTools: GeneratedTools = {
           CategoryAxisLabelRotationDeg: {
             type: 'number',
             description:
-              'Authored rotation on the category-axis tick labels, in degrees. From\n`<c:catAx><c:txPr><a:bodyPr rot="N"/>` where N is in 60000ths of a\ndegree. Positive values rotate clockwise (PowerPoint convention),\nmatching the SVG `transform=rotate()` sense.',
+              'Authored rotation on the category-axis tick labels, in degrees. From\n`<c:catAx><c:txPr><a:bodyPr rot="N"/>` where N is in 60000ths of a\ndegree. Positive values rotate clockwise (the reference desktop app\'s convention),\nmatching the SVG `transform=rotate()` sense.',
           },
           CategoryAxisLabelStyle: {
             $ref: '#/$defs/ChartTextStyle',
@@ -2339,7 +2339,7 @@ export const generatedTools: GeneratedTools = {
           CategoryAxisNoMultiLevelLabel: {
             type: 'boolean',
             description:
-              'Toggle multi-level (hierarchical) category labels —\n`<c:catAx><c:noMultiLvlLbl val="0|1"/>`. PowerPoint defaults to\n`0` (multi-level labels stack). Set to `true` to flatten\nhierarchical categories into a single row.',
+              'Toggle multi-level (hierarchical) category labels —\n`<c:catAx><c:noMultiLvlLbl val="0|1"/>`. The reference desktop app defaults to\n`0` (multi-level labels stack). Set to `true` to flatten\nhierarchical categories into a single row.',
           },
           CategoryAxisNumberFormat: {
             type: 'string',
@@ -2350,7 +2350,7 @@ export const generatedTools: GeneratedTools = {
             type: 'string',
             enum: ['minMax', 'maxMin'],
             description:
-              "Category-axis order — `'minMax'` (the data's natural order) or\n`'maxMin'` (reversed). For bar charts PowerPoint typically emits\n`maxMin` so the first category sits at the top instead of the\nbottom; honour the authored value when present.",
+              "Category-axis order — `'minMax'` (the data's natural order) or\n`'maxMin'` (reversed). For bar charts the reference desktop app typically emits\n`maxMin` so the first category sits at the top instead of the\nbottom; honour the authored value when present.",
           },
           CategoryAxisScaling: {
             $ref: '#/$defs/ChartAxisScaling',
@@ -2661,7 +2661,7 @@ export const generatedTools: GeneratedTools = {
           ChartStyle: {
             type: 'number',
             description:
-              'PowerPoint built-in chart-style preset\n(`<c:chartSpace><c:style val="N"/>`), 1–48. Encodes a curated combo\nof theme accent colors, gradients, effects, and font sizes that\nPowerPoint applies when the user picks a chart style from the\n"Chart Styles" gallery. Surface for round-trip parity; renderers in',
+              'The reference desktop app\'s built-in chart-style preset\n(`<c:chartSpace><c:style val="N"/>`), 1–48. Encodes a curated combo\nof theme accent colors, gradients, effects, and font sizes that\nthe reference desktop app applies when the user picks a chart style from the\n"Chart Styles" gallery. Surface for round-trip parity; renderers in',
           },
           ChartTextStyle: {
             type: 'object',
@@ -2669,7 +2669,7 @@ export const generatedTools: GeneratedTools = {
               font: {
                 type: 'string',
                 description:
-                  'Font face applied to both the latin and east-asian typeface slots —\n`<a:rPr><a:latin typeface="…"/><a:ea typeface="…"/>`. East-asian is\nset alongside latin so a Japanese / CJK family (e.g. `\'Yu Gothic\'`)\nrenders the labels instead of the renderer\'s latin-only fallback.\nMirrors the latin/ea pairing PowerPoint emits for CJK chart fonts.',
+                  'Font face applied to both the latin and east-asian typeface slots —\n`<a:rPr><a:latin typeface="…"/><a:ea typeface="…"/>`. East-asian is\nset alongside latin so a Japanese / CJK family (e.g. `\'Yu Gothic\'`)\nrenders the labels instead of the renderer\'s latin-only fallback.\nMirrors the latin/ea pairing the reference desktop app emits for CJK chart fonts.',
               },
               fontComplexScript: {
                 type: 'string',
@@ -2698,7 +2698,7 @@ export const generatedTools: GeneratedTools = {
               name: {
                 type: 'string',
                 description:
-                  'Optional custom label for the trendline (`<c:trendline><c:name>…`).\nDefaults to PowerPoint\'s auto-generated label\n(e.g. "Linear (X)" / "MA(5) (X)") when omitted.',
+                  'Optional custom label for the trendline (`<c:trendline><c:name>…`).\nDefaults to the reference desktop app\'s auto-generated label\n(e.g. "Linear (X)" / "MA(5) (X)") when omitted.',
               },
               type: {
                 type: 'string',
@@ -2748,7 +2748,7 @@ export const generatedTools: GeneratedTools = {
               gapWidthPct: {
                 type: 'number',
                 description:
-                  "Bar width gap, 0..500 percent (`<c:gapWidth>`); PowerPoint's default is 150.",
+                  "Bar width gap, 0..500 percent (`<c:gapWidth>`); the reference desktop app's default is 150.",
               },
               upColor: {
                 type: 'string',
@@ -2772,12 +2772,12 @@ export const generatedTools: GeneratedTools = {
               rightAngleAxes: {
                 type: 'boolean',
                 description:
-                  "Right-angle axes (`<c:rAngAx>`): an oblique projection that ignores\n`perspective`. PowerPoint's default for bar / column / line / area.",
+                  "Right-angle axes (`<c:rAngAx>`): an oblique projection that ignores\n`perspective`. The reference desktop app's default for bar / column / line / area.",
               },
               perspective: {
                 type: 'number',
                 description:
-                  "Field of view, 0..240 (`<c:perspective>`); PowerPoint's default is 30.",
+                  "Field of view, 0..240 (`<c:perspective>`); the reference desktop app's default is 30.",
               },
               depthPercent: {
                 type: 'number',
@@ -2881,7 +2881,7 @@ export const generatedTools: GeneratedTools = {
           GapWidthPct: {
             type: 'number',
             description:
-              'Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units\n(0..500, percent of bar width). Default 150 (= 1.5×) in PowerPoint.',
+              'Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units\n(0..500, percent of bar width). Default 150 (= 1.5×) in the reference desktop app.',
           },
           Grouping: {
             $ref: '#/$defs/ChartGrouping',
@@ -2900,7 +2900,7 @@ export const generatedTools: GeneratedTools = {
           Language: {
             type: 'string',
             description:
-              "Language code for the chart's number / date formatters\n(`<c:chartSpace><c:lang val=\"…\"/>`). PowerPoint emits the user's\nOffice UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for\nround-trip parity; renderers in",
+              "Language code for the chart's number / date formatters\n(`<c:chartSpace><c:lang val=\"…\"/>`). The reference desktop app emits the user's\nAuthoring app UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for\nround-trip parity; renderers in",
           },
           Legend: {
             type: 'object',
@@ -2947,7 +2947,7 @@ export const generatedTools: GeneratedTools = {
           LineMarkers: {
             type: 'boolean',
             description:
-              'Whether a line chart draws point markers (`<c:lineChart><c:marker\nval="1"/>`). `true` is PowerPoint\'s "Line with Markers" subtype;\nabsent / `false` is the plain "Line" subtype (no markers). Only\nmeaningful for `kind: \'line\'`.',
+              'Whether a line chart draws point markers (`<c:lineChart><c:marker\nval="1"/>`). `true` is the reference desktop app\'s "Line with Markers" subtype;\nabsent / `false` is the plain "Line" subtype (no markers). Only\nmeaningful for `kind: \'line\'`.',
           },
           LineWidthEmu: {
             type: 'number',
@@ -2957,7 +2957,7 @@ export const generatedTools: GeneratedTools = {
           MarkerColor: {
             type: 'string',
             description:
-              "Optional marker fill + outline color (`<c:marker><c:spPr>`), as an sRGB\nhex. Defaults to `color`. The builder always writes it for line /\nscatter / radar series, because PowerPoint paints a marker without\n`<c:spPr>` in the theme's automatic color instead of the series color.",
+              "Optional marker fill + outline color (`<c:marker><c:spPr>`), as an sRGB\nhex. Defaults to `color`. The builder always writes it for line /\nscatter / radar series, because the reference desktop app paints a marker without\n`<c:spPr>` in the theme's automatic color instead of the series color.",
           },
           MarkerLineColor: {
             type: 'string',
@@ -2967,7 +2967,7 @@ export const generatedTools: GeneratedTools = {
           MarkerSizePt: {
             type: 'number',
             description:
-              'Marker size in points (`<c:marker><c:size val="N"/>`). PowerPoint\ndefault ~5. Only meaningful when `markerSymbol` isn\'t `none`.',
+              'Marker size in points (`<c:marker><c:size val="N"/>`). The reference desktop app\ndefault ~5. Only meaningful when `markerSymbol` isn\'t `none`.',
           },
           MarkerSymbol: {
             anyOf: [
@@ -3041,7 +3041,7 @@ export const generatedTools: GeneratedTools = {
           PlotVisibleCellsOnly: {
             type: 'boolean',
             description:
-              'When `false`, plot data from hidden cells in the embedded workbook\n— maps to `<c:plotVisOnly val="0"/>`. PowerPoint\'s default is\n`true` (only plot visible cells), so omitting this field emits\n`val="1"` to stay round-trip-safe with PowerPoint-authored files.',
+              'When `false`, plot data from hidden cells in the embedded workbook\n— maps to `<c:plotVisOnly val="0"/>`. The reference desktop app\'s default is\n`true` (only plot visible cells), so omitting this field emits\n`val="1"` to stay round-trip-safe with files the reference desktop app authored.',
           },
           PointColors: {
             type: 'array',
@@ -3053,7 +3053,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/ChartDataLabels' }] },
             description:
-              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`. PowerPoint draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
+              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
           },
           PointExplosions: {
             type: 'array',
@@ -3070,7 +3070,7 @@ export const generatedTools: GeneratedTools = {
           RoundedCorners: {
             type: 'boolean',
             description:
-              'Renders the chart area with rounded corners\n(`<c:chartSpace><c:roundedCorners val="1"/>`). PowerPoint\'s default\nis `false`; surface only when explicitly `true` so the round-trip\ndoesn\'t add a redundant `false`.',
+              'Renders the chart area with rounded corners\n(`<c:chartSpace><c:roundedCorners val="1"/>`). The reference desktop app\'s default\nis `false`; surface only when explicitly `true` so the round-trip\ndoesn\'t add a redundant `false`.',
           },
           SecondaryValueAxis: {
             $ref: '#/$defs/ChartSecondaryValueAxis',
@@ -3171,7 +3171,7 @@ export const generatedTools: GeneratedTools = {
             type: 'string',
             enum: ['between', 'midCat'],
             description:
-              'Whether the value axis crosses the category axis *between* tick\nmarks (the default for bar / column / area) or *at* each tick mark\n(the default for line / scatter). Maps to `<c:valAx>\n<c:crossBetween val="between|midCat"/>`. PowerPoint emits this when\nthe chart kind makes the default value non-obvious — surface it\nhere so the round-trip preserves the authored intent.',
+              'Whether the value axis crosses the category axis *between* tick\nmarks (the default for bar / column / area) or *at* each tick mark\n(the default for line / scatter). Maps to `<c:valAx>\n<c:crossBetween val="between|midCat"/>`. The reference desktop app emits this when\nthe chart kind makes the default value non-obvious — surface it\nhere so the round-trip preserves the authored intent.',
           },
           ValueAxisCrosses: {
             anyOf: [
@@ -3184,7 +3184,7 @@ export const generatedTools: GeneratedTools = {
               },
             ],
             description:
-              'Where the category axis crosses the value axis. Either an enum\nkeyword (`<c:valAx><c:crosses val="autoZero|min|max"/>`) or a\nspecific numeric value (`<c:valAx><c:crossesAt val="N"/>`). The two\nforms are mutually exclusive — PowerPoint emits one or the other.\nDefault is `autoZero` (the category axis sits at value 0 if the\nrange straddles zero, otherwise at the closer extreme).',
+              'Where the category axis crosses the value axis. Either an enum\nkeyword (`<c:valAx><c:crosses val="autoZero|min|max"/>`) or a\nspecific numeric value (`<c:valAx><c:crossesAt val="N"/>`). The two\nforms are mutually exclusive — the reference desktop app emits one or the other.\nDefault is `autoZero` (the category axis sits at value 0 if the\nrange straddles zero, otherwise at the closer extreme).',
           },
           ValueAxisHidden: {
             type: 'boolean',
@@ -3223,7 +3223,7 @@ export const generatedTools: GeneratedTools = {
           ValueAxisMajorGridlineWidthEmu: {
             type: 'number',
             description:
-              'Authored width of the value-axis major gridlines in EMU — the `w` of\nthe same `<a:ln>` as `valueAxisMajorGridlineColor` (12700 = 1 pt).\n`undefined` leaves the width to the application (PowerPoint: 0.75 pt).',
+              'Authored width of the value-axis major gridlines in EMU — the `w` of\nthe same `<a:ln>` as `valueAxisMajorGridlineColor` (12700 = 1 pt).\n`undefined` leaves the width to the application (the reference desktop app: 0.75 pt).',
           },
           ValueAxisMajorGridlines: {
             type: 'boolean',
@@ -3273,7 +3273,7 @@ export const generatedTools: GeneratedTools = {
           ValueAxisTitleRotationDeg: {
             type: 'number',
             description:
-              'Rotation of the value-axis title, in degrees clockwise. PowerPoint\noften emits `-90` (or `vert270`) so the title reads bottom-to-top\nalongside the axis. Maps to `<c:valAx><c:title><c:tx><c:rich>\n<a:bodyPr rot="N"/>` (60000ths of a degree on the wire).',
+              'Rotation of the value-axis title, in degrees clockwise. The reference desktop app\noften emits `-90` (or `vert270`) so the title reads bottom-to-top\nalongside the axis. Maps to `<c:valAx><c:title><c:tx><c:rich>\n<a:bodyPr rot="N"/>` (60000ths of a degree on the wire).',
           },
           ValueAxisTitleStyle: {
             $ref: '#/$defs/ChartTextStyle',
@@ -3283,7 +3283,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { type: ['null', 'number'] },
             description:
-              "Numeric values, one per category. `null` slots become empty cells in\nthe embedded workbook (PowerPoint draws them as a gap). Lengths\nshorter than the category count are right-padded with `null`.\n\nFor `scatter` / `bubble` kinds there are no categories: `values`\nholds the series' y-channel (`<c:yVal>`), paired positionally with\n`xValues`. For `radar` it behaves like `line` (values per category).\n\nA `stock` chart reads its series by position, not by name: three\nseries are high, low, close; four are open, high, low, close\n(CT_StockChart allows exactly 3 or 4). A `surface` chart is a grid:\neach series is one row of depth, each category one column.",
+              "Numeric values, one per category. `null` slots become empty cells in\nthe embedded workbook (the reference desktop app draws them as a gap). Lengths\nshorter than the category count are right-padded with `null`.\n\nFor `scatter` / `bubble` kinds there are no categories: `values`\nholds the series' y-channel (`<c:yVal>`), paired positionally with\n`xValues`. For `radar` it behaves like `line` (values per category).\n\nA `stock` chart reads its series by position, not by name: three\nseries are high, low, close; four are open, high, low, close\n(CT_StockChart allows exactly 3 or 4). A `surface` chart is a grid:\neach series is one row of depth, each category one column.",
           },
           VaryColors: {
             type: 'boolean',
@@ -3293,12 +3293,12 @@ export const generatedTools: GeneratedTools = {
           View3D: {
             $ref: '#/$defs/ChartView3D',
             description:
-              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in PowerPoint).',
+              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in the reference desktop app).',
           },
           View3D2: {
             $ref: '#/$defs/ChartView3D',
             description:
-              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in PowerPoint).\nIts presence is what selects the 3-D element; a combo cannot be 3-D.',
+              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in the reference desktop app).\nIts presence is what selects the 3-D element; a combo cannot be 3-D.',
           },
           XErrorBars: {
             $ref: '#/$defs/ChartErrorBars',
@@ -3494,7 +3494,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'addSlideLayout',
       description:
-        'Insert Layout: adds PowerPoint\'s "Custom Layout" — a title and the date,\nfooter and slide-number placeholders — to `master`, at `index` in its layout\nlist (the end by default). Repeats are named "1_Custom Layout", and so on.',
+        'Insert Layout: adds the reference desktop app\'s "Custom Layout" — a title and the date,\nfooter and slide-number placeholders — to `master`, at `index` in its layout\nlist (the end by default). Repeats are named "1_Custom Layout", and so on.',
       args: [null, 'master', 'options'],
       input_schema: {
         type: 'object',
@@ -3699,7 +3699,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'addSlideMaster',
       description:
-        'Insert Slide Master: adds PowerPoint\'s default Office master, with its own\ncopy of the Office theme named "Custom Design" and the eleven Office\nlayouts, after the existing masters. The master is preserved, as PowerPoint\nmarks a master it inserts. Returns the new master\'s part name.',
+        'Insert Slide Master: adds the reference desktop app\'s default master, with its own\ncopy of the default theme named "Custom Design" and the eleven default\nlayouts, after the existing masters. The master is preserved, as the reference desktop app\nmarks a master it inserts. Returns the new master\'s part name.',
       args: [null],
       input_schema: { type: 'object', properties: {}, additionalProperties: false },
       output: { type: 'string' },
@@ -3841,7 +3841,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'addSlidePlaceholder',
       description:
-        "Adds the single placeholder of `type` that the layout defines and the slide\nis missing — how an editor inserts a slide number, date or footer into a\nslide without also restoring every other slot the author deleted.\n\n`type` is an ECMA-376 `ST_PlaceholderType` token (`sldNum`, `dt`, `ftr`,\n`title`, `body`, …), matched as `findSlidePlaceholder` matches it. Returns\nthe slide's placeholder of that type — the one just added or the one already\nthere — or `null` when the layout reserves no such slot. Like the added slots\nof `addMissingSlidePlaceholders`, it starts empty and inherits its geometry\nand text style from the layout and master.\nPass `source: 'master'` to create an unmatched slot that inherits directly\nfrom the master, without changing the layout (as PowerPoint does when\ndemoting outline text into a Title Only slide). Returns null if absent there.",
+        "Adds the single placeholder of `type` that the layout defines and the slide\nis missing — how an editor inserts a slide number, date or footer into a\nslide without also restoring every other slot the author deleted.\n\n`type` is an ECMA-376 `ST_PlaceholderType` token (`sldNum`, `dt`, `ftr`,\n`title`, `body`, …), matched as `findSlidePlaceholder` matches it. Returns\nthe slide's placeholder of that type — the one just added or the one already\nthere — or `null` when the layout reserves no such slot. Like the added slots\nof `addMissingSlidePlaceholders`, it starts empty and inherits its geometry\nand text style from the layout and master.\nPass `source: 'master'` to create an unmatched slot that inherits directly\nfrom the master, without changing the layout (as the reference desktop app does when\ndemoting outline text into a Title Only slide). Returns null if absent there.",
       args: ['slide', 'type', 'options'],
       input_schema: {
         type: 'object',
@@ -3987,7 +3987,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'addSlideTable',
       description:
-        'Adds a table to the slide. Cells render as plain text; `firstRow` /\n`bandRow` flags drive PowerPoint\'s banded-header look unless options say\notherwise.\n\nCell text color is baked from the deck\'s resolved body-text color so the\ntable stays readable even on templates with an inverted color map\n(`bg1="dk1" tx1="lt1"`), where the default `tx1` text token would otherwise\npaint the text the same as the background. Override per cell afterwards with\n`setTableCellTextFormat`.',
+        'Adds a table to the slide. Cells render as plain text; `firstRow` /\n`bandRow` flags drive the reference desktop app\'s banded-header look unless options say\notherwise.\n\nCell text color is baked from the deck\'s resolved body-text color so the\ntable stays readable even on templates with an inverted color map\n(`bg1="dk1" tx1="lt1"`), where the default `tx1` text token would otherwise\npaint the text the same as the background. Override per cell afterwards with\n`setTableCellTextFormat`.',
       args: ['slide', 'opts'],
       input_schema: {
         type: 'object',
@@ -4195,7 +4195,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'applySlideBackgroundToAll',
       description:
-        "Applies the source slide's effective background throughout its presentation.\nLike Mac PowerPoint, stores the fill on masters and clears slide/layout overrides.\nTheme colors and image relationships are preserved without flattening the fill.",
+        "Applies the source slide's effective background throughout its presentation.\nLike the reference desktop app on Mac, stores the fill on masters and clears slide/layout\noverrides. Theme colors and image relationships are preserved without flattening the fill.",
       args: [null, 'slide'],
       input_schema: {
         type: 'object',
@@ -4914,7 +4914,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'mergeTableCells',
       description:
-        "Merges a rectangular block of table cells into a single visual cell.\n\nThe block's top-left cell `(row, col)` becomes the anchor and carries\n`gridSpan` (= `colSpan`) / `rowSpan`; the cells it covers are marked\n`hMerge` / `vMerge` per ECMA-376 §21.1.3.18 (`CT_TableCell`) so the\ngrid stays rectangular while PowerPoint paints only the anchor. This\nis the write counterpart to {@link getTableCellSpan}.\n\nConstraints, enforced loudly (these are authoring-boundary inputs):\n\n  - `rowSpan` / `colSpan` must be ≥ 1, and at least one must be > 1\n    (a 1×1 \"merge\" is a no-op the caller didn't mean).\n  - The block must lie fully inside the table grid.\n  - No cell in the block may already participate in another merge —\n    overlapping merges corrupt the grid and trip PowerPoint's repair\n    dialog. Split the existing merge first.\n\nThe anchor cell's text is preserved. `coveredText: 'keep'` (the default)\nleaves each covered cell's `<a:txBody>` in the XML; `'drop'` removes it,\nso the covered cells carry no `<a:txBody>` at all (CT_TableCell allows\nthat), which is how PptxGenJS writes a merge; `getTableCellParagraphs`\nreads them as `[]`. `'append'` moves covered paragraphs into the anchor in\nrow-major order, preserving their formatting and leaving covered cells empty.",
+        "Merges a rectangular block of table cells into a single visual cell.\n\nThe block's top-left cell `(row, col)` becomes the anchor and carries\n`gridSpan` (= `colSpan`) / `rowSpan`; the cells it covers are marked\n`hMerge` / `vMerge` per ECMA-376 §21.1.3.18 (`CT_TableCell`) so the\ngrid stays rectangular while the reference desktop app paints only the anchor. This\nis the write counterpart to {@link getTableCellSpan}.\n\nConstraints, enforced loudly (these are authoring-boundary inputs):\n\n  - `rowSpan` / `colSpan` must be ≥ 1, and at least one must be > 1\n    (a 1×1 \"merge\" is a no-op the caller didn't mean).\n  - The block must lie fully inside the table grid.\n  - No cell in the block may already participate in another merge —\n    overlapping merges corrupt the grid and trip the reference desktop app's repair\n    dialog. Split the existing merge first.\n\nThe anchor cell's text is preserved. `coveredText: 'keep'` (the default)\nleaves each covered cell's `<a:txBody>` in the XML; `'drop'` removes it,\nso the covered cells carry no `<a:txBody>` at all (CT_TableCell allows\nthat), which is how PptxGenJS writes a merge; `getTableCellParagraphs`\nreads them as `[]`. `'append'` moves covered paragraphs into the anchor in\nrow-major order, preserving their formatting and leaving covered cells empty.",
       args: ['table', 'block', 'options'],
       input_schema: {
         type: 'object',
@@ -5046,7 +5046,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'removeSlide',
       description:
-        'Removes the given slide from the deck. Removes the `<p:sldId>`, the\n`presentation.xml.rels` entry, and the slide part + its `.rels` part.\nLinks to this slide from other slides are cleared to prevent accidental\nretargeting when a slide part name is reused.\n\nMedia parts are intentionally NOT cleaned up — they may be shared\nwith other slides. The freed `sldId` is NOT reused on subsequent\n`addSlide` calls (PowerPoint quirk, see plan §Risks).',
+        "Removes the given slide from the deck. Removes the `<p:sldId>`, the\n`presentation.xml.rels` entry, and the slide part + its `.rels` part.\nLinks to this slide from other slides are cleared to prevent accidental\nretargeting when a slide part name is reused.\n\nMedia parts are intentionally NOT cleaned up — they may be shared\nwith other slides. The freed `sldId` is NOT reused on subsequent\n`addSlide` calls (the reference desktop app's quirk, see plan §Risks).",
       args: [null, 'slide'],
       input_schema: {
         type: 'object',
@@ -5120,7 +5120,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'removeSlideLayout',
       description:
-        "Deletes a layout. Like PowerPoint's Delete, this refuses (throws) while any\nslide uses the layout, and for a master's only layout.",
+        "Deletes a layout. Like the reference desktop app's Delete, this refuses (throws) while any\nslide uses the layout, and for a master's only layout.",
       args: ['layout'],
       input_schema: {
         type: 'object',
@@ -5141,7 +5141,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'removeSlideMaster',
       description:
-        "Deletes a master with its layouts and, when nothing else uses it, its theme.\nLike PowerPoint's Delete, this refuses (throws) while any slide uses one of\nthe master's layouts, and for the presentation's only master.",
+        "Deletes a master with its layouts and, when nothing else uses it, its theme.\nLike the reference desktop app's Delete, this refuses (throws) while any slide uses one of\nthe master's layouts, and for the presentation's only master.",
       args: [null, 'master'],
       input_schema: {
         type: 'object',
@@ -5384,7 +5384,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'replaceTokensInSlide',
       description:
-        "Replaces `{{key}}` tokens in every text-bearing shape on this slide.\nReturns the number of substitutions performed.\n\nTokens must fit within a single text run (see `replaceTokensInTree`\nin `drawingml/`). Cross-run replacements aren't supported — use\n`findSlidePlaceholder` + a setText path when PowerPoint has\nfragmented the run sequence.",
+        "Replaces `{{key}}` tokens in every text-bearing shape on this slide.\nReturns the number of substitutions performed.\n\nTokens must fit within a single text run (see `replaceTokensInTree`\nin `drawingml/`). Cross-run replacements aren't supported — use\n`findSlidePlaceholder` + a setText path when the reference desktop app has\nfragmented the run sequence.",
       args: ['slide', 'tokens'],
       input_schema: {
         type: 'object',
@@ -5408,7 +5408,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'resetShapeImageColorEffects',
       description:
-        "Clears PowerPoint's image color corrections from a picture or image fill.\nThis removes grayscale (`grayscl`), duotone, bi-level recolor, and\nbrightness/contrast (`lum`) effects while preserving opacity, media\nreferences, and all other known or extension effects.",
+        "Clears the reference desktop app's image color corrections from a picture or image fill.\nThis removes grayscale (`grayscl`), duotone, bi-level recolor, and\nbrightness/contrast (`lum`) effects while preserving opacity, media\nreferences, and all other known or extension effects.",
       args: ['shape'],
       input_schema: {
         type: 'object',
@@ -5442,7 +5442,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'resetShapeVideoFormatting',
       description:
-        "Restores a video to PowerPoint's default shape formatting.\n\nThis is deliberately restricted to video media pictures. It clears the\nimage recolor/correction elements and the shape-level fill, line, effects,\nand 3-D style children, while preserving the poster/media relationship,\ncrop, transform, and unknown extension XML.",
+        "Restores a video to the reference desktop app's default shape formatting.\n\nThis is deliberately restricted to video media pictures. It clears the\nimage recolor/correction elements and the shape-level fill, line, effects,\nand 3-D style children, while preserving the poster/media relationship,\ncrop, transform, and unknown extension XML.",
       args: ['shape'],
       input_schema: {
         type: 'object',
@@ -5628,7 +5628,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setChartSpec',
       description:
-        'Replaces the chart definition on an existing graphic-frame chart\nshape. Updates the inline `<c:strCache>` / `<c:numCache>` blocks so\nPowerPoint renders the new data without opening the embedded\nworkbook. The shape\'s geometry (position / size / rotation) is\npreserved verbatim.\n\nThe embedded xlsx is re-written too — it\'s what the "Edit data"\naffordance opens. The previous workbook is replaced wholesale (no\nattempt to preserve styles a user added through Excel).\n\nPass any `ChartSpec`, including a different `kind` from the\noriginal; this acts as "change my column chart to a line chart with\nfresh data."',
+        'Replaces the chart definition on an existing graphic-frame chart\nshape. Updates the inline `<c:strCache>` / `<c:numCache>` blocks so\nthe reference desktop app renders the new data without opening the embedded\nworkbook. The shape\'s geometry (position / size / rotation) is\npreserved verbatim.\n\nThe embedded xlsx is re-written too — it\'s what the "Edit data"\naffordance opens. The previous workbook is replaced wholesale (no\nattempt to preserve styles a user added through Excel).\n\nPass any `ChartSpec`, including a different `kind` from the\noriginal; this acts as "change my column chart to a line chart with\nfresh data."',
       args: ['chart', 'spec'],
       input_schema: {
         type: 'object',
@@ -7416,18 +7416,18 @@ export const generatedTools: GeneratedTools = {
                   bubbleScale: {
                     type: 'number',
                     description:
-                      'Bubble-size scale percentage from `<c:bubbleChart><c:bubbleScale\nval="N"/>` (0..300, PowerPoint default 100). Scales every bubble\'s\nrendered radius proportionally.',
+                      'Bubble-size scale percentage from `<c:bubbleChart><c:bubbleScale\nval="N"/>` (0..300, the reference desktop app\'s default 100). Scales every bubble\'s\nrendered radius proportionally.',
                   },
                   bubbleSizeRepresents: {
                     type: 'string',
                     enum: ['area', 'width'],
                     description:
-                      "Whether a bubble's `<c:bubbleSize>` maps to the bubble's area or its\nwidth — `<c:bubbleChart><c:sizeRepresents val=\"area|w\"/>` (ECMA-376\nST_SizeRepresents; the `'w'` token is surfaced as `'width'`).\nPowerPoint's default is `'area'`, so radius scales with `sqrt(size)`;\n`'width'` scales radius linearly with size.",
+                      "Whether a bubble's `<c:bubbleSize>` maps to the bubble's area or its\nwidth — `<c:bubbleChart><c:sizeRepresents val=\"area|w\"/>` (ECMA-376\nST_SizeRepresents; the `'w'` token is surfaced as `'width'`).\nThe reference desktop app's default is `'area'`, so radius scales with `sqrt(size)`;\n`'width'` scales radius linearly with size.",
                   },
                   bubble3D: {
                     type: 'boolean',
                     description:
-                      'Shade bubbles as spheres — `<c:bubble3D val="1"/>` on each series of the\nbubble chart (PowerPoint\'s "3-D Bubble" subtype). Unlike the\nother 3-D variants it has no camera, so `view3D` does not apply.',
+                      'Shade bubbles as spheres — `<c:bubble3D val="1"/>` on each series of the\nbubble chart (the reference desktop app\'s "3-D Bubble" subtype). Unlike the\nother 3-D variants it has no camera, so `view3D` does not apply.',
                   },
                   showNegativeBubbles: {
                     type: 'boolean',
@@ -7512,7 +7512,7 @@ export const generatedTools: GeneratedTools = {
             type: 'string',
             enum: ['ctr', 'l', 'r'],
             description:
-              'Multi-line category-label alignment relative to the tick mark —\n`<c:catAx><c:lblAlgn val="ctr|l|r"/>`. PowerPoint defaults to\n`ctr` when omitted; the authored value wins.',
+              'Multi-line category-label alignment relative to the tick mark —\n`<c:catAx><c:lblAlgn val="ctr|l|r"/>`. The reference desktop app defaults to\n`ctr` when omitted; the authored value wins.',
           },
           CategoryAxisLabelOffset: {
             type: 'number',
@@ -7522,7 +7522,7 @@ export const generatedTools: GeneratedTools = {
           CategoryAxisLabelRotationDeg: {
             type: 'number',
             description:
-              'Authored rotation on the category-axis tick labels, in degrees. From\n`<c:catAx><c:txPr><a:bodyPr rot="N"/>` where N is in 60000ths of a\ndegree. Positive values rotate clockwise (PowerPoint convention),\nmatching the SVG `transform=rotate()` sense.',
+              'Authored rotation on the category-axis tick labels, in degrees. From\n`<c:catAx><c:txPr><a:bodyPr rot="N"/>` where N is in 60000ths of a\ndegree. Positive values rotate clockwise (the reference desktop app\'s convention),\nmatching the SVG `transform=rotate()` sense.',
           },
           CategoryAxisLabelStyle: {
             $ref: '#/$defs/ChartTextStyle',
@@ -7590,7 +7590,7 @@ export const generatedTools: GeneratedTools = {
           CategoryAxisNoMultiLevelLabel: {
             type: 'boolean',
             description:
-              'Toggle multi-level (hierarchical) category labels —\n`<c:catAx><c:noMultiLvlLbl val="0|1"/>`. PowerPoint defaults to\n`0` (multi-level labels stack). Set to `true` to flatten\nhierarchical categories into a single row.',
+              'Toggle multi-level (hierarchical) category labels —\n`<c:catAx><c:noMultiLvlLbl val="0|1"/>`. The reference desktop app defaults to\n`0` (multi-level labels stack). Set to `true` to flatten\nhierarchical categories into a single row.',
           },
           CategoryAxisNumberFormat: {
             type: 'string',
@@ -7601,7 +7601,7 @@ export const generatedTools: GeneratedTools = {
             type: 'string',
             enum: ['minMax', 'maxMin'],
             description:
-              "Category-axis order — `'minMax'` (the data's natural order) or\n`'maxMin'` (reversed). For bar charts PowerPoint typically emits\n`maxMin` so the first category sits at the top instead of the\nbottom; honour the authored value when present.",
+              "Category-axis order — `'minMax'` (the data's natural order) or\n`'maxMin'` (reversed). For bar charts the reference desktop app typically emits\n`maxMin` so the first category sits at the top instead of the\nbottom; honour the authored value when present.",
           },
           CategoryAxisScaling: {
             $ref: '#/$defs/ChartAxisScaling',
@@ -7916,7 +7916,7 @@ export const generatedTools: GeneratedTools = {
           ChartStyle: {
             type: 'number',
             description:
-              'PowerPoint built-in chart-style preset\n(`<c:chartSpace><c:style val="N"/>`), 1–48. Encodes a curated combo\nof theme accent colors, gradients, effects, and font sizes that\nPowerPoint applies when the user picks a chart style from the\n"Chart Styles" gallery. Surface for round-trip parity; renderers in',
+              'The reference desktop app\'s built-in chart-style preset\n(`<c:chartSpace><c:style val="N"/>`), 1–48. Encodes a curated combo\nof theme accent colors, gradients, effects, and font sizes that\nthe reference desktop app applies when the user picks a chart style from the\n"Chart Styles" gallery. Surface for round-trip parity; renderers in',
           },
           ChartTextStyle: {
             type: 'object',
@@ -7924,7 +7924,7 @@ export const generatedTools: GeneratedTools = {
               font: {
                 type: 'string',
                 description:
-                  'Font face applied to both the latin and east-asian typeface slots —\n`<a:rPr><a:latin typeface="…"/><a:ea typeface="…"/>`. East-asian is\nset alongside latin so a Japanese / CJK family (e.g. `\'Yu Gothic\'`)\nrenders the labels instead of the renderer\'s latin-only fallback.\nMirrors the latin/ea pairing PowerPoint emits for CJK chart fonts.',
+                  'Font face applied to both the latin and east-asian typeface slots —\n`<a:rPr><a:latin typeface="…"/><a:ea typeface="…"/>`. East-asian is\nset alongside latin so a Japanese / CJK family (e.g. `\'Yu Gothic\'`)\nrenders the labels instead of the renderer\'s latin-only fallback.\nMirrors the latin/ea pairing the reference desktop app emits for CJK chart fonts.',
               },
               fontComplexScript: {
                 type: 'string',
@@ -7953,7 +7953,7 @@ export const generatedTools: GeneratedTools = {
               name: {
                 type: 'string',
                 description:
-                  'Optional custom label for the trendline (`<c:trendline><c:name>…`).\nDefaults to PowerPoint\'s auto-generated label\n(e.g. "Linear (X)" / "MA(5) (X)") when omitted.',
+                  'Optional custom label for the trendline (`<c:trendline><c:name>…`).\nDefaults to the reference desktop app\'s auto-generated label\n(e.g. "Linear (X)" / "MA(5) (X)") when omitted.',
               },
               type: {
                 type: 'string',
@@ -8003,7 +8003,7 @@ export const generatedTools: GeneratedTools = {
               gapWidthPct: {
                 type: 'number',
                 description:
-                  "Bar width gap, 0..500 percent (`<c:gapWidth>`); PowerPoint's default is 150.",
+                  "Bar width gap, 0..500 percent (`<c:gapWidth>`); the reference desktop app's default is 150.",
               },
               upColor: {
                 type: 'string',
@@ -8027,12 +8027,12 @@ export const generatedTools: GeneratedTools = {
               rightAngleAxes: {
                 type: 'boolean',
                 description:
-                  "Right-angle axes (`<c:rAngAx>`): an oblique projection that ignores\n`perspective`. PowerPoint's default for bar / column / line / area.",
+                  "Right-angle axes (`<c:rAngAx>`): an oblique projection that ignores\n`perspective`. The reference desktop app's default for bar / column / line / area.",
               },
               perspective: {
                 type: 'number',
                 description:
-                  "Field of view, 0..240 (`<c:perspective>`); PowerPoint's default is 30.",
+                  "Field of view, 0..240 (`<c:perspective>`); the reference desktop app's default is 30.",
               },
               depthPercent: {
                 type: 'number',
@@ -8132,7 +8132,7 @@ export const generatedTools: GeneratedTools = {
           GapWidthPct: {
             type: 'number',
             description:
-              'Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units\n(0..500, percent of bar width). Default 150 (= 1.5×) in PowerPoint.',
+              'Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units\n(0..500, percent of bar width). Default 150 (= 1.5×) in the reference desktop app.',
           },
           Grouping: {
             $ref: '#/$defs/ChartGrouping',
@@ -8151,7 +8151,7 @@ export const generatedTools: GeneratedTools = {
           Language: {
             type: 'string',
             description:
-              "Language code for the chart's number / date formatters\n(`<c:chartSpace><c:lang val=\"…\"/>`). PowerPoint emits the user's\nOffice UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for\nround-trip parity; renderers in",
+              "Language code for the chart's number / date formatters\n(`<c:chartSpace><c:lang val=\"…\"/>`). The reference desktop app emits the user's\nAuthoring app UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for\nround-trip parity; renderers in",
           },
           Legend: {
             type: 'object',
@@ -8198,7 +8198,7 @@ export const generatedTools: GeneratedTools = {
           LineMarkers: {
             type: 'boolean',
             description:
-              'Whether a line chart draws point markers (`<c:lineChart><c:marker\nval="1"/>`). `true` is PowerPoint\'s "Line with Markers" subtype;\nabsent / `false` is the plain "Line" subtype (no markers). Only\nmeaningful for `kind: \'line\'`.',
+              'Whether a line chart draws point markers (`<c:lineChart><c:marker\nval="1"/>`). `true` is the reference desktop app\'s "Line with Markers" subtype;\nabsent / `false` is the plain "Line" subtype (no markers). Only\nmeaningful for `kind: \'line\'`.',
           },
           LineWidthEmu: {
             type: 'number',
@@ -8208,7 +8208,7 @@ export const generatedTools: GeneratedTools = {
           MarkerColor: {
             type: 'string',
             description:
-              "Optional marker fill + outline color (`<c:marker><c:spPr>`), as an sRGB\nhex. Defaults to `color`. The builder always writes it for line /\nscatter / radar series, because PowerPoint paints a marker without\n`<c:spPr>` in the theme's automatic color instead of the series color.",
+              "Optional marker fill + outline color (`<c:marker><c:spPr>`), as an sRGB\nhex. Defaults to `color`. The builder always writes it for line /\nscatter / radar series, because the reference desktop app paints a marker without\n`<c:spPr>` in the theme's automatic color instead of the series color.",
           },
           MarkerLineColor: {
             type: 'string',
@@ -8218,7 +8218,7 @@ export const generatedTools: GeneratedTools = {
           MarkerSizePt: {
             type: 'number',
             description:
-              'Marker size in points (`<c:marker><c:size val="N"/>`). PowerPoint\ndefault ~5. Only meaningful when `markerSymbol` isn\'t `none`.',
+              'Marker size in points (`<c:marker><c:size val="N"/>`). The reference desktop app\ndefault ~5. Only meaningful when `markerSymbol` isn\'t `none`.',
           },
           MarkerSymbol: {
             anyOf: [
@@ -8292,7 +8292,7 @@ export const generatedTools: GeneratedTools = {
           PlotVisibleCellsOnly: {
             type: 'boolean',
             description:
-              'When `false`, plot data from hidden cells in the embedded workbook\n— maps to `<c:plotVisOnly val="0"/>`. PowerPoint\'s default is\n`true` (only plot visible cells), so omitting this field emits\n`val="1"` to stay round-trip-safe with PowerPoint-authored files.',
+              'When `false`, plot data from hidden cells in the embedded workbook\n— maps to `<c:plotVisOnly val="0"/>`. The reference desktop app\'s default is\n`true` (only plot visible cells), so omitting this field emits\n`val="1"` to stay round-trip-safe with files the reference desktop app authored.',
           },
           PointColors: {
             type: 'array',
@@ -8304,7 +8304,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/ChartDataLabels' }] },
             description:
-              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`. PowerPoint draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
+              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
           },
           PointExplosions: {
             type: 'array',
@@ -8321,7 +8321,7 @@ export const generatedTools: GeneratedTools = {
           RoundedCorners: {
             type: 'boolean',
             description:
-              'Renders the chart area with rounded corners\n(`<c:chartSpace><c:roundedCorners val="1"/>`). PowerPoint\'s default\nis `false`; surface only when explicitly `true` so the round-trip\ndoesn\'t add a redundant `false`.',
+              'Renders the chart area with rounded corners\n(`<c:chartSpace><c:roundedCorners val="1"/>`). The reference desktop app\'s default\nis `false`; surface only when explicitly `true` so the round-trip\ndoesn\'t add a redundant `false`.',
           },
           SecondaryValueAxis: {
             $ref: '#/$defs/ChartSecondaryValueAxis',
@@ -8435,7 +8435,7 @@ export const generatedTools: GeneratedTools = {
             type: 'string',
             enum: ['between', 'midCat'],
             description:
-              'Whether the value axis crosses the category axis *between* tick\nmarks (the default for bar / column / area) or *at* each tick mark\n(the default for line / scatter). Maps to `<c:valAx>\n<c:crossBetween val="between|midCat"/>`. PowerPoint emits this when\nthe chart kind makes the default value non-obvious — surface it\nhere so the round-trip preserves the authored intent.',
+              'Whether the value axis crosses the category axis *between* tick\nmarks (the default for bar / column / area) or *at* each tick mark\n(the default for line / scatter). Maps to `<c:valAx>\n<c:crossBetween val="between|midCat"/>`. The reference desktop app emits this when\nthe chart kind makes the default value non-obvious — surface it\nhere so the round-trip preserves the authored intent.',
           },
           ValueAxisCrosses: {
             anyOf: [
@@ -8448,7 +8448,7 @@ export const generatedTools: GeneratedTools = {
               },
             ],
             description:
-              'Where the category axis crosses the value axis. Either an enum\nkeyword (`<c:valAx><c:crosses val="autoZero|min|max"/>`) or a\nspecific numeric value (`<c:valAx><c:crossesAt val="N"/>`). The two\nforms are mutually exclusive — PowerPoint emits one or the other.\nDefault is `autoZero` (the category axis sits at value 0 if the\nrange straddles zero, otherwise at the closer extreme).',
+              'Where the category axis crosses the value axis. Either an enum\nkeyword (`<c:valAx><c:crosses val="autoZero|min|max"/>`) or a\nspecific numeric value (`<c:valAx><c:crossesAt val="N"/>`). The two\nforms are mutually exclusive — the reference desktop app emits one or the other.\nDefault is `autoZero` (the category axis sits at value 0 if the\nrange straddles zero, otherwise at the closer extreme).',
           },
           ValueAxisHidden: {
             type: 'boolean',
@@ -8487,7 +8487,7 @@ export const generatedTools: GeneratedTools = {
           ValueAxisMajorGridlineWidthEmu: {
             type: 'number',
             description:
-              'Authored width of the value-axis major gridlines in EMU — the `w` of\nthe same `<a:ln>` as `valueAxisMajorGridlineColor` (12700 = 1 pt).\n`undefined` leaves the width to the application (PowerPoint: 0.75 pt).',
+              'Authored width of the value-axis major gridlines in EMU — the `w` of\nthe same `<a:ln>` as `valueAxisMajorGridlineColor` (12700 = 1 pt).\n`undefined` leaves the width to the application (the reference desktop app: 0.75 pt).',
           },
           ValueAxisMajorGridlines: {
             type: 'boolean',
@@ -8537,7 +8537,7 @@ export const generatedTools: GeneratedTools = {
           ValueAxisTitleRotationDeg: {
             type: 'number',
             description:
-              'Rotation of the value-axis title, in degrees clockwise. PowerPoint\noften emits `-90` (or `vert270`) so the title reads bottom-to-top\nalongside the axis. Maps to `<c:valAx><c:title><c:tx><c:rich>\n<a:bodyPr rot="N"/>` (60000ths of a degree on the wire).',
+              'Rotation of the value-axis title, in degrees clockwise. The reference desktop app\noften emits `-90` (or `vert270`) so the title reads bottom-to-top\nalongside the axis. Maps to `<c:valAx><c:title><c:tx><c:rich>\n<a:bodyPr rot="N"/>` (60000ths of a degree on the wire).',
           },
           ValueAxisTitleStyle: {
             $ref: '#/$defs/ChartTextStyle',
@@ -8547,7 +8547,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { type: ['null', 'number'] },
             description:
-              "Numeric values, one per category. `null` slots become empty cells in\nthe embedded workbook (PowerPoint draws them as a gap). Lengths\nshorter than the category count are right-padded with `null`.\n\nFor `scatter` / `bubble` kinds there are no categories: `values`\nholds the series' y-channel (`<c:yVal>`), paired positionally with\n`xValues`. For `radar` it behaves like `line` (values per category).\n\nA `stock` chart reads its series by position, not by name: three\nseries are high, low, close; four are open, high, low, close\n(CT_StockChart allows exactly 3 or 4). A `surface` chart is a grid:\neach series is one row of depth, each category one column.",
+              "Numeric values, one per category. `null` slots become empty cells in\nthe embedded workbook (the reference desktop app draws them as a gap). Lengths\nshorter than the category count are right-padded with `null`.\n\nFor `scatter` / `bubble` kinds there are no categories: `values`\nholds the series' y-channel (`<c:yVal>`), paired positionally with\n`xValues`. For `radar` it behaves like `line` (values per category).\n\nA `stock` chart reads its series by position, not by name: three\nseries are high, low, close; four are open, high, low, close\n(CT_StockChart allows exactly 3 or 4). A `surface` chart is a grid:\neach series is one row of depth, each category one column.",
           },
           VaryColors: {
             type: 'boolean',
@@ -8557,12 +8557,12 @@ export const generatedTools: GeneratedTools = {
           View3D: {
             $ref: '#/$defs/ChartView3D',
             description:
-              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in PowerPoint).',
+              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in the reference desktop app).',
           },
           View3D2: {
             $ref: '#/$defs/ChartView3D',
             description:
-              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in PowerPoint).\nIts presence is what selects the 3-D element; a combo cannot be 3-D.',
+              '3-D view. Its presence selects the 3-D plot-group element for `bar` /\n`column` / `line` / `area` / `pie`; for `surface` it only positions the\ncamera. Rejected for every other kind, and for combo charts (a 3-D\ngroup cannot share a plot area with another group in the reference desktop app).\nIts presence is what selects the 3-D element; a combo cannot be 3-D.',
           },
           XErrorBars: {
             $ref: '#/$defs/ChartErrorBars',
@@ -8643,7 +8643,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setCoreProperties',
       description:
-        "Writes selected fields on `/docProps/core.xml`. Unspecified fields\nare left as-is; pass `null` to clear a field that's currently set.\nBootstraps the part (and the `/_rels/.rels` entry + content-type\noverride) if the package didn't have one.\n\nNote: setting `created` / `modified` requires an ISO-8601 timestamp\nstring (e.g. `'2026-05-15T12:34:56Z'`). PowerPoint expects the\n`xsi:type=\"dcterms:W3CDTF\"` attribute on these elements but readers\nwe tested all accept missing-attribute output too; this helper\ntherefore omits the attribute for simplicity.",
+        "Writes selected fields on `/docProps/core.xml`. Unspecified fields\nare left as-is; pass `null` to clear a field that's currently set.\nBootstraps the part (and the `/_rels/.rels` entry + content-type\noverride) if the package didn't have one.\n\nNote: setting `created` / `modified` requires an ISO-8601 timestamp\nstring (e.g. `'2026-05-15T12:34:56Z'`). The reference desktop app expects the\n`xsi:type=\"dcterms:W3CDTF\"` attribute on these elements but readers\nwe tested all accept missing-attribute output too; this helper\ntherefore omits the attribute for simplicity.",
       args: [null, 'values'],
       input_schema: {
         type: 'object',
@@ -8854,7 +8854,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setNotesMasterPlaceholderIncluded',
       description:
-        "The Notes Master tab's placeholder checkboxes: removes a placeholder from\nthe notes master, or puts it back where PowerPoint's default puts it.\nCreates the default notes master when the presentation has none.",
+        "The Notes Master tab's placeholder checkboxes: removes a placeholder from\nthe notes master, or puts it back where the reference desktop app's default puts it.\nCreates the default notes master when the presentation has none.",
       args: [null, 'type', 'included'],
       input_schema: {
         type: 'object',
@@ -8875,7 +8875,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setNotesPageOrientation',
       description:
-        'Handout Orientation / Notes Page Orientation. Both turn the one notes page\n(`<p:notesSz>`) that notes pages and handouts share, and PowerPoint moves\nthe notes master, the handout master and every notes page with it.',
+        'Handout Orientation / Notes Page Orientation. Both turn the one notes page\n(`<p:notesSz>`) that notes pages and handouts share, and the reference desktop app moves\nthe notes master, the handout master and every notes page with it.',
       args: [null, 'orientation'],
       input_schema: {
         type: 'object',
@@ -9080,7 +9080,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setParagraphLevel',
       description:
-        "Sets the paragraph's nesting level (`<a:pPr lvl=\"N\"/>`). Levels are\n0-indexed; PowerPoint accepts 0 through 8. Pass `0` to clear an\nexisting level — `<a:pPr lvl=\"0\"/>` is the same as omitting the attr.\nIndents matching the previous level's default bullet pair follow the level;\nother indent values are preserved.\n\nA UTF-16 range selects all touched paragraphs (exclusive end; a caret selects\nits paragraph). Pass `{ offset }` to shift their existing levels, clamped to\n0 through 8. Range updates preserve run XML and commit the text body once.\n\nUsed in tandem with bullets to author nested lists:\n\n  setShapeText(shape, 'Item 1\\nNested\\nItem 2');\n  setShapeBulletStyle(shape, 'bullet');\n  setParagraphLevel(shape, 1, 1);  // indent the second line",
+        "Sets the paragraph's nesting level (`<a:pPr lvl=\"N\"/>`). Levels are\n0-indexed; the reference desktop app accepts 0 through 8. Pass `0` to clear an\nexisting level — `<a:pPr lvl=\"0\"/>` is the same as omitting the attr.\nIndents matching the previous level's default bullet pair follow the level;\nother indent values are preserved.\n\nA UTF-16 range selects all touched paragraphs (exclusive end; a caret selects\nits paragraph). Pass `{ offset }` to shift their existing levels, clamped to\n0 through 8. Range updates preserve run XML and commit the text body once.\n\nUsed in tandem with bullets to author nested lists:\n\n  setShapeText(shape, 'Item 1\\nNested\\nItem 2');\n  setShapeBulletStyle(shape, 'bullet');\n  setParagraphLevel(shape, 1, 1);  // indent the second line",
       args: ['shape', 'paragraphIndex', 'level'],
       input_schema: {
         type: 'object',
@@ -9222,7 +9222,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setParagraphSpacing',
       description:
-        'Sets the spacing before and/or after a paragraph, in points (where\na "point" is 1/72 inch). PowerPoint stores these as hundredths of a\npoint inside `<a:pPr><a:spcBef>/<a:spcAft><a:spcPts val="…"/>` —\nthe helper converts.\n\n  setParagraphSpacing(shape, 0, { beforePts: 6, afterPts: 3 });\n\nOmitting a side keeps the existing value (or layout default).\nPassing a side as `null` removes that spacing element.',
+        'Sets the spacing before and/or after a paragraph, in points (where\na "point" is 1/72 inch). The reference desktop app stores these as hundredths of a\npoint inside `<a:pPr><a:spcBef>/<a:spcAft><a:spcPts val="…"/>` —\nthe helper converts.\n\n  setParagraphSpacing(shape, 0, { beforePts: 6, afterPts: 3 });\n\nOmitting a side keeps the existing value (or layout default).\nPassing a side as `null` removes that spacing element.',
       args: ['shape', 'paragraphIndex', 'opts'],
       input_schema: {
         type: 'object',
@@ -9491,7 +9491,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShape3D',
       description:
-        "Sets the shape's own 3-D — `<a:scene3d>` (camera, rotation, lighting) and\n`<a:sp3d>` (bevels, depth, contour, material, distance from ground) in\n`<p:spPr>`, what PowerPoint's 3-D Format and 3-D Rotation write. Same\nvocabulary as `setShapeText3D`, which puts it on the text body instead. A\nfield left out removes what it describes; settings this API does not model\n(camera zoom, backdrop, ...) are kept while their element remains. `null`\nremoves both elements.",
+        "Sets the shape's own 3-D — `<a:scene3d>` (camera, rotation, lighting) and\n`<a:sp3d>` (bevels, depth, contour, material, distance from ground) in\n`<p:spPr>`, what the reference desktop app's 3-D Format and 3-D Rotation write. Same\nvocabulary as `setShapeText3D`, which puts it on the text body instead. A\nfield left out removes what it describes; settings this API does not model\n(camera zoom, backdrop, ...) are kept while their element remains. `null`\nremoves both elements.",
       args: ['shape', 'value'],
       input_schema: {
         type: 'object',
@@ -9576,12 +9576,12 @@ export const generatedTools: GeneratedTools = {
                       cameraRotation: {
                         $ref: '#/$defs/Rotation3D',
                         description:
-                          "The camera's `<a:rot>`, which overrides the preset's orientation —\nPowerPoint's X / Y / Z Rotation fields.",
+                          "The camera's `<a:rot>`, which overrides the preset's orientation —\nthe reference desktop app's X / Y / Z Rotation fields.",
                       },
                       fieldOfViewDeg: {
                         type: 'number',
                         description:
-                          "The camera's field of view (`fov`) in degrees, `[0, 180]`; PowerPoint's Perspective field.",
+                          "The camera's field of view (`fov`) in degrees, `[0, 180]`; the reference desktop app's Perspective field.",
                       },
                       lightRig: {
                         type: 'object',
@@ -9869,7 +9869,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeAdjustValues',
       description:
-        "Sets the shape's preset-geometry adjust values (`<a:prstGeom><a:avLst>`),\nreplacing any guides already authored. Keys are ECMA-376 guide names and\nvalues are the raw guide numbers (rounded to integers). The companion\nreader is {@link getShapeAdjustValues }.\n\nThe common use is the corner radius of the `roundRect` preset, whose `adj`\nguide runs `0..50000` (thousandths of a percent of the shorter side;\n`16667` ≈ the PowerPoint default, `0` = square corners, `50000` = fully\nrounded). For example, `setShapeAdjustValues(shape, { adj: 5000 })` gives a\nsubtle 5% rounding.\n\nThrows when the shape has no preset geometry (`<a:prstGeom>`) — a custom or\ninherited geometry has no adjust list to author.",
+        "Sets the shape's preset-geometry adjust values (`<a:prstGeom><a:avLst>`),\nreplacing any guides already authored. Keys are ECMA-376 guide names and\nvalues are the raw guide numbers (rounded to integers). The companion\nreader is {@link getShapeAdjustValues }.\n\nThe common use is the corner radius of the `roundRect` preset, whose `adj`\nguide runs `0..50000` (thousandths of a percent of the shorter side;\n`16667` ≈ the reference desktop app's default, `0` = square corners, `50000` = fully\nrounded). For example, `setShapeAdjustValues(shape, { adj: 5000 })` gives a\nsubtle 5% rounding.\n\nThrows when the shape has no preset geometry (`<a:prstGeom>`) — a custom or\ninherited geometry has no adjust list to author.",
       args: ['shape', 'values'],
       input_schema: {
         type: 'object',
@@ -9981,7 +9981,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeAnimation',
       description:
-        "Adds a single animation effect to the given shape.\n\nThe effect is *merged* into any existing `<p:timing>` on the slide rather\nthan replacing it: animating a second shape (or re-running on a template that\nalready has authored animations) preserves the existing effects, with cTn ids\nrenumbered to stay unique. To clear every animation first, call\n`clearSlideAnimations`.\n\n`effect` is any entry of PowerPoint's Entrance, Emphasis and Exit\ngalleries (see `AnimationEffect`), written exactly as PowerPoint writes it:\nthe same preset numbers and the same behaviours, so the deck plays the same\nin PowerPoint as an effect picked from its gallery.\n\nEffect Options are the options PowerPoint offers for the preset:\n\n  - `direction` — `'flyIn'` / `'flyOut'` take any edge or corner of the\n    slide (`'bottom'` by default); `'wipe…'` and `'peek…'` one of the four\n    edges; `'strips…'` one of the four corners (`'bottomLeft'` by default).\n  - `orientation` — blinds, random bars and checkerboard (`'horizontal'`)\n    and split (`'vertical'`).\n  - `inOut` — shape and split: close in on the centre (`'in'`) or open out\n    of it (`'out'`). PowerPoint's Shape exit defaults to `'out'`.\n  - `shape` — `'circle'` (the default), `'box'`, `'diamond'` or `'plus'`.\n  - `spokes` — wheel: 1 (the default), 2, 3, 4 or 8.\n  - `spinDirection` and `spinDegrees` — spin: `'clockwise'` (the default)\n    or `'counterclockwise'`, through any positive angle (360 by default).\n  - `scaleDirection` and `scalePercent` — grow/shrink: `'both'` axes (the\n    default), `'horizontal'` or `'vertical'`, to any positive size (150 %).\n  - `transparencyPercent` — transparency: 0–100 (50 by default).\n  - `color` — the colour emphasis effects (fill, font, line, brush and\n    object colour, colour pulse, grow with colour): a theme slot or\n    `#RRGGBB`, optionally with colour transforms. Accent 2 by default, and\n    Background 1 for colour pulse.\n\nAn option passed for an effect that does not take it is an error rather\nthan a no-op.\n\n`durationMs` defaults to PowerPoint's default for the preset\n(`defaultAnimationDurationMs`). An effect made of several behaviours — a\nBounce, a Teeter — is scaled as a whole, the way PowerPoint's Duration box\nscales it. `appear` and `disappear` are instantaneous and write no timed\nbehaviour; `transparency` and `boldReveal` hold until the slide ends and\ntake no duration.\n\n`start` decides where the effect lands. The default `'click'` gives it a\nclick stop of its own, so the viewer sees it on the next click.\n`'withPrevious'` and `'afterPrevious'` join the stop the last effect is in,\nrunning alongside it or once it has finished — both off the same click. As\nthe slide's first effect neither has a predecessor, so both run when the\nslide appears. `delayMs` waits that long once the start condition is met.\n\n`'afterPrevious'` throws when the slide's timing does not say when the effect\nbefore it ends — it runs indefinitely, states no duration, repeats, runs\nletter by letter, or starts from another node rather than at a fixed offset.\nThe slide is left untouched; `'click'` and `'withPrevious'` need no such\nmeasurement.\n\n`build` is PowerPoint's Effect Options \"Sequence\". `'asOneObject'` (the\ndefault) animates the shape with its text as one effect. `'allAtOnce'` and\n`'byParagraph'` give every paragraph its own effect: all of them starting\ntogether, or each on its own `start` — so the default `'click'` advances a\nparagraph per click. They share a single `<p:bldP>`, which is how PowerPoint\nand Google Slides both present the build as one animation.\n`getSlideAnimations` reports each paragraph as its own step, targeting a\nparagraph range.\n\nReading the result back, including the order and start condition of every\neffect on the slide, is `getSlideAnimations`.",
+        "Adds a single animation effect to the given shape.\n\nThe effect is *merged* into any existing `<p:timing>` on the slide rather\nthan replacing it: animating a second shape (or re-running on a template that\nalready has authored animations) preserves the existing effects, with cTn ids\nrenumbered to stay unique. To clear every animation first, call\n`clearSlideAnimations`.\n\n`effect` is any entry of the reference desktop app's Entrance, Emphasis and Exit\ngalleries (see `AnimationEffect`), written exactly as the reference desktop app writes it:\nthe same preset numbers and the same behaviours, so the deck plays the same\nin the reference desktop app as an effect picked from its gallery.\n\nEffect Options are the options the reference desktop app offers for the preset:\n\n  - `direction` — `'flyIn'` / `'flyOut'` take any edge or corner of the\n    slide (`'bottom'` by default); `'wipe…'` and `'peek…'` one of the four\n    edges; `'strips…'` one of the four corners (`'bottomLeft'` by default).\n  - `orientation` — blinds, random bars and checkerboard (`'horizontal'`)\n    and split (`'vertical'`).\n  - `inOut` — shape and split: close in on the centre (`'in'`) or open out\n    of it (`'out'`). The reference desktop app's Shape exit defaults to `'out'`.\n  - `shape` — `'circle'` (the default), `'box'`, `'diamond'` or `'plus'`.\n  - `spokes` — wheel: 1 (the default), 2, 3, 4 or 8.\n  - `spinDirection` and `spinDegrees` — spin: `'clockwise'` (the default)\n    or `'counterclockwise'`, through any positive angle (360 by default).\n  - `scaleDirection` and `scalePercent` — grow/shrink: `'both'` axes (the\n    default), `'horizontal'` or `'vertical'`, to any positive size (150 %).\n  - `transparencyPercent` — transparency: 0–100 (50 by default).\n  - `color` — the colour emphasis effects (fill, font, line, brush and\n    object colour, colour pulse, grow with colour): a theme slot or\n    `#RRGGBB`, optionally with colour transforms. Accent 2 by default, and\n    Background 1 for colour pulse.\n\nAn option passed for an effect that does not take it is an error rather\nthan a no-op.\n\n`durationMs` defaults to the reference desktop app's default for the preset\n(`defaultAnimationDurationMs`). An effect made of several behaviours — a\nBounce, a Teeter — is scaled as a whole, the way the reference desktop app's Duration box\nscales it. `appear` and `disappear` are instantaneous and write no timed\nbehaviour; `transparency` and `boldReveal` hold until the slide ends and\ntake no duration.\n\n`start` decides where the effect lands. The default `'click'` gives it a\nclick stop of its own, so the viewer sees it on the next click.\n`'withPrevious'` and `'afterPrevious'` join the stop the last effect is in,\nrunning alongside it or once it has finished — both off the same click. As\nthe slide's first effect neither has a predecessor, so both run when the\nslide appears. `delayMs` waits that long once the start condition is met.\n\n`'afterPrevious'` throws when the slide's timing does not say when the effect\nbefore it ends — it runs indefinitely, states no duration, repeats, runs\nletter by letter, or starts from another node rather than at a fixed offset.\nThe slide is left untouched; `'click'` and `'withPrevious'` need no such\nmeasurement.\n\n`build` is the reference desktop app's Effect Options \"Sequence\". `'asOneObject'` (the\ndefault) animates the shape with its text as one effect. `'allAtOnce'` and\n`'byParagraph'` give every paragraph its own effect: all of them starting\ntogether, or each on its own `start` — so the default `'click'` advances a\nparagraph per click. They share a single `<p:bldP>`, which is how the reference desktop app\nand Google Slides both present the build as one animation.\n`getSlideAnimations` reports each paragraph as its own step, targeting a\nparagraph range.\n\nReading the result back, including the order and start condition of every\neffect on the slide, is `getSlideAnimations`.",
       args: ['shape', 'opts'],
       input_schema: {
         type: 'object',
@@ -10104,18 +10104,18 @@ export const generatedTools: GeneratedTools = {
                   'bottomRight',
                 ],
                 description:
-                  "Which edge of the slide a `'flyIn'` comes from, or a `'flyOut'` leaves by\n— any of the eight. `'wipeIn'`, `'wipeOut'`, `'peekIn'` and `'peekOut'`\ntake one of the four edges, `'stripsIn'` and `'stripsOut'` one of the four\ncorners. Defaults to PowerPoint's own default for the preset (`'bottom'`;\n`'bottomLeft'` for strips). Passing it for an effect that takes no\ndirection is an error rather than a no-op: it would otherwise read as a\ndirection the file never records. The same holds for the options below.",
+                  "Which edge of the slide a `'flyIn'` comes from, or a `'flyOut'` leaves by\n— any of the eight. `'wipeIn'`, `'wipeOut'`, `'peekIn'` and `'peekOut'`\ntake one of the four edges, `'stripsIn'` and `'stripsOut'` one of the four\ncorners. Defaults to the reference desktop app's own default for the preset (`'bottom'`;\n`'bottomLeft'` for strips). Passing it for an effect that takes no\ndirection is an error rather than a no-op: it would otherwise read as a\ndirection the file never records. The same holds for the options below.",
               },
               orientation: {
                 $ref: '#/$defs/AnimationOrientation',
                 description:
-                  "For blinds, random bars and split: which way the bars run. For a\ncheckerboard, `'horizontal'` is PowerPoint's \"Across\" and `'vertical'` its\n\"Down\". Defaults to `'horizontal'` (`'vertical'` for split).",
+                  "For blinds, random bars and split: which way the bars run. For a\ncheckerboard, `'horizontal'` is the reference desktop app's \"Across\" and `'vertical'` its\n\"Down\". Defaults to `'horizontal'` (`'vertical'` for split).",
               },
               inOut: {
                 type: 'string',
                 enum: ['in', 'out'],
                 description:
-                  "For shape and split: open from the centre (`'out'`) or close in on it\n(`'in'`). Defaults to `'in'` — `'out'` for `'shapeOut'`, as in PowerPoint.",
+                  "For shape and split: open from the centre (`'out'`) or close in on it\n(`'in'`). Defaults to `'in'` — `'out'` for `'shapeOut'`, as in the reference desktop app.",
               },
               shape: {
                 type: 'string',
@@ -10135,7 +10135,7 @@ export const generatedTools: GeneratedTools = {
               spinDegrees: {
                 type: 'number',
                 description:
-                  "For `'spin'`: how far it turns, in degrees. PowerPoint's menu offers 90\n(Quarter Spin), 180 (Half Spin), 360 (Full Spin, the default) and 720\n(Two Spins); any positive angle can be written.",
+                  "For `'spin'`: how far it turns, in degrees. The reference desktop app's menu offers 90\n(Quarter Spin), 180 (Half Spin), 360 (Full Spin, the default) and 720\n(Two Spins); any positive angle can be written.",
               },
               scaleDirection: {
                 anyOf: [
@@ -10148,12 +10148,12 @@ export const generatedTools: GeneratedTools = {
               scalePercent: {
                 type: 'number',
                 description:
-                  "For `'growShrink'`: the size to reach, in percent of the shape's own.\nPowerPoint's menu offers 25 (Tiny), 50 (Smaller), 150 (Larger, the\ndefault) and 400 (Huge).",
+                  "For `'growShrink'`: the size to reach, in percent of the shape's own.\nThe reference desktop app's menu offers 25 (Tiny), 50 (Smaller), 150 (Larger, the\ndefault) and 400 (Huge).",
               },
               transparencyPercent: {
                 type: 'number',
                 description:
-                  "For `'transparency'`: how transparent the shape becomes, 0–100. PowerPoint\noffers 25, 50 (the default), 75 and 100.",
+                  "For `'transparency'`: how transparent the shape becomes, 0–100. The reference desktop app\noffers 25, 50 (the default), 75 and 100.",
               },
               color: {
                 anyOf: [
@@ -10222,12 +10222,12 @@ export const generatedTools: GeneratedTools = {
                   },
                 ],
                 description:
-                  "For the colour emphasis effects — `'fillColor'`, `'fontColor'`,\n`'lineColor'`, `'brushColor'`, `'objectColor'`, `'colorPulse'` and\n`'growWithColor'` — the colour to change to. Defaults to Accent 2, and to\nBackground 1 for `'colorPulse'`, as PowerPoint's gallery does.",
+                  "For the colour emphasis effects — `'fillColor'`, `'fontColor'`,\n`'lineColor'`, `'brushColor'`, `'objectColor'`, `'colorPulse'` and\n`'growWithColor'` — the colour to change to. Defaults to Accent 2, and to\nBackground 1 for `'colorPulse'`, as the reference desktop app's gallery does.",
               },
               durationMs: {
                 type: 'number',
                 description:
-                  "How long the effect runs, in milliseconds. Defaults to PowerPoint's default\nfor the preset (`defaultAnimationDurationMs`). An effect made of several\nbehaviours is scaled as a whole, the way PowerPoint's Duration box does.\n`'appear'` and `'disappear'` are instantaneous and write no timed\nbehaviour, so it does not reach them; `'transparency'` and `'boldReveal'`\nhold until the end of the slide and take none.",
+                  "How long the effect runs, in milliseconds. Defaults to the reference desktop app's default\nfor the preset (`defaultAnimationDurationMs`). An effect made of several\nbehaviours is scaled as a whole, the way the reference desktop app's Duration box does.\n`'appear'` and `'disappear'` are instantaneous and write no timed\nbehaviour, so it does not reach them; `'transparency'` and `'boldReveal'`\nhold until the end of the slide and take none.",
               },
               start: {
                 type: 'string',
@@ -10243,7 +10243,7 @@ export const generatedTools: GeneratedTools = {
                 type: 'string',
                 enum: ['asOneObject', 'allAtOnce', 'byParagraph'],
                 description:
-                  "How the shape's text is animated — PowerPoint's Effect Options \"Sequence\".\nDefaults to `'asOneObject'`, the gallery's own default. `'allAtOnce'` and\n`'byParagraph'` give every paragraph an effect of its own: started together\nfor the first, each on its own start (a click apiece by default) for the\nsecond. Fill Color and Line Color animate the shape and take neither.",
+                  "How the shape's text is animated — the reference desktop app's Effect Options \"Sequence\".\nDefaults to `'asOneObject'`, the gallery's own default. `'allAtOnce'` and\n`'byParagraph'` give every paragraph an effect of its own: started together\nfor the first, each on its own start (a click apiece by default) for the\nsecond. Fill Color and Line Color animate the shape and take neither.",
               },
             },
             required: ['effect'],
@@ -10597,7 +10597,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeCustomGeometry',
       description:
-        "Replaces the shape's geometry (preset or custom) with the given paths. The\ntext rectangle is the whole shape, as PowerPoint writes for freeforms.\nCoordinates are rounded to integers, which the schema requires.",
+        "Replaces the shape's geometry (preset or custom) with the given paths. The\ntext rectangle is the whole shape, as the reference desktop app writes for freeforms.\nCoordinates are rounded to integers, which the schema requires.",
       args: ['shape', 'geometry'],
       input_schema: {
         type: 'object',
@@ -11219,7 +11219,7 @@ export const generatedTools: GeneratedTools = {
                     brightness: {
                       type: 'number',
                       description:
-                        'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                        "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
                     },
                   },
                   required: ['offset', 'color'],
@@ -11271,7 +11271,7 @@ export const generatedTools: GeneratedTools = {
                 required: ['left', 'top', 'right', 'bottom'],
                 additionalProperties: false,
                 description:
-                  "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+                  "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
               },
             },
             required: ['stops'],
@@ -11307,7 +11307,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeHidden',
       description:
-        'Sets or clears `<p:cNvPr hidden="...">` on the shape. Hidden\nshapes remain in the document but PowerPoint doesn\'t render them.',
+        'Sets or clears `<p:cNvPr hidden="...">` on the shape. Hidden\nshapes remain in the document but the reference desktop app doesn\'t render them.',
       args: ['shape', 'hidden'],
       input_schema: {
         type: 'object',
@@ -11478,7 +11478,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeImageCompressionState',
       description:
-        'Records what a picture was compressed for, as Compress Pictures does: it\nsets `a:blip/@cstate` and adds the `a14:useLocalDpi` extension (without a\n`val`, meaning true) that PowerPoint writes alongside it. `null` removes\nboth. This only labels the picture; resample the pixels with\n`setShapeImage`.',
+        'Records what a picture was compressed for, as Compress Pictures does: it\nsets `a:blip/@cstate` and adds the `a14:useLocalDpi` extension (without a\n`val`, meaning true) that the reference desktop app writes alongside it. `null` removes\nboth. This only labels the picture; resample the pixels with\n`setShapeImage`.',
       args: ['shape', 'state'],
       input_schema: {
         type: 'object',
@@ -11738,7 +11738,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeImageOpacity',
       description:
-        "Sets picture or image-fill opacity (0–1; `1` is fully opaque).\nPass `null` to restore PowerPoint's default opacity.\nRejects shapes without an image and values outside `[0, 1]` without changing them.",
+        "Sets picture or image-fill opacity (0–1; `1` is fully opaque).\nPass `null` to restore the reference desktop app's default opacity.\nRejects shapes without an image and values outside `[0, 1]` without changing them.",
       args: ['shape', 'opacity'],
       input_schema: {
         type: 'object',
@@ -11772,7 +11772,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeImageRecolor',
       description:
-        'Applies a PowerPoint image recolor to a picture or image-filled shape.\n`none` removes the recolor while preserving opacity, media references, and\nunrelated DrawingML effects. Threshold is a percentage from 0 to 100.',
+        'Applies an image recolor from the reference desktop app to a picture or image-filled shape.\n`none` removes the recolor while preserving opacity, media references, and\nunrelated DrawingML effects. Threshold is a percentage from 0 to 100.',
       args: ['shape', 'recolor'],
       input_schema: {
         type: 'object',
@@ -12150,7 +12150,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeLocked',
       description:
-        "Locks or unlocks object geometry like PowerPoint's Selection Pane. Text,\nselection, aspect-ratio constraints and extension data remain unchanged.\nGroup children keep their own locks; pass all descendants for Lock All.\nArrays are committed once per slide, including selections across slides.",
+        "Locks or unlocks object geometry like the reference desktop app's Selection Pane. Text,\nselection, aspect-ratio constraints and extension data remain unchanged.\nGroup children keep their own locks; pass all descendants for Lock All.\nArrays are committed once per slide, including selections across slides.",
       args: ['shapes', 'locked'],
       input_schema: {
         type: 'object',
@@ -12216,7 +12216,8 @@ export const generatedTools: GeneratedTools = {
               },
               volume: {
                 type: 'number',
-                description: "Playback volume, 0–1. PowerPoint's own default is 0.8.",
+                description:
+                  "Playback volume, 0–1. The reference desktop app's own default is 0.8.",
               },
               muted: { type: 'boolean' },
               fullScreen: { type: 'boolean', description: 'Video only: plays filling the screen.' },
@@ -12395,7 +12396,7 @@ export const generatedTools: GeneratedTools = {
                           text: {
                             type: 'string',
                             description:
-                              'Run text, written verbatim — unlike `setShapeText`, newlines are not\nsplit into paragraphs (PowerPoint shows a CR LF inside a run as a line\nbreak, which some exporters rely on).',
+                              'Run text, written verbatim — unlike `setShapeText`, newlines are not\nsplit into paragraphs (the reference desktop app shows a CR LF inside a run as a line\nbreak, which some exporters rely on).',
                           },
                           format: { $ref: '#/$defs/TextFormat' },
                         },
@@ -12599,7 +12600,7 @@ export const generatedTools: GeneratedTools = {
               brightness: {
                 type: 'number',
                 description:
-                  'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                  "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
               },
             },
             required: ['offset', 'color'],
@@ -12691,7 +12692,7 @@ export const generatedTools: GeneratedTools = {
                 type: 'array',
                 items: { $ref: '#/$defs/ColorTransform' },
                 description:
-                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — PowerPoint's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
+                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — the reference desktop app's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
               },
               textFill: {
                 anyOf: [
@@ -12844,17 +12845,17 @@ export const generatedTools: GeneratedTools = {
               kern: {
                 type: 'number',
                 description:
-                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
+                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. The reference desktop app on Mac was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
               },
               normalizeHeight: {
                 type: 'boolean',
                 description:
-                  "Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height).",
+                  "Normalize character heights (`<a:rPr normalizeH>`; the reference desktop app's Equalize character height).",
               },
               baseline: {
                 type: 'number',
                 description:
-                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). PowerPoint emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
+                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). The reference desktop app emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
               },
               cap: {
                 type: 'string',
@@ -12886,7 +12887,7 @@ export const generatedTools: GeneratedTools = {
                       widthEmu: {
                         type: 'number',
                         description:
-                          "Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt).",
+                          "Line width in EMU. The reference desktop app's thinnest visible text outline is 9525 (0.75pt).",
                       },
                       fill: {
                         type: 'object',
@@ -12941,7 +12942,7 @@ export const generatedTools: GeneratedTools = {
                       scaleX: {
                         type: 'number',
                         description:
-                          "Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
+                          "Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
                       },
                       scaleY: {
                         type: 'number',
@@ -13099,7 +13100,7 @@ export const generatedTools: GeneratedTools = {
             required: ['left', 'top', 'right', 'bottom'],
             additionalProperties: false,
             description:
-              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
           },
         },
       },
@@ -13108,7 +13109,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapePatternFill',
       description:
-        'Sets a preset pattern fill on the shape (e.g. `pct50`, `dkUpDiag`).\n\n`foreground` is the pattern stroke color; `background` fills behind\nthe pattern. Both accept `#RRGGBB`, bare `RRGGBB`, or scheme tokens\n(`accent1`, `bg1`, ...). Omitted settings preserve existing pattern XML,\nincluding theme references and color transforms. A new pattern defaults to\n`pct5`, foreground `accent1` and background `bg1`, as in Mac PowerPoint.',
+        'Sets a preset pattern fill on the shape (e.g. `pct50`, `dkUpDiag`).\n\n`foreground` is the pattern stroke color; `background` fills behind\nthe pattern. Both accept `#RRGGBB`, bare `RRGGBB`, or scheme tokens\n(`accent1`, `bg1`, ...). Omitted settings preserve existing pattern XML,\nincluding theme references and color transforms. A new pattern defaults to\n`pct5`, foreground `accent1` and background `bg1`, as in the reference desktop app on Mac.',
       args: ['shape', 'options'],
       input_schema: {
         type: 'object',
@@ -13269,7 +13270,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapePictureStyle',
       description:
-        "Applies one of PowerPoint's built-in Picture Styles (see\n`BUILTIN_PICTURE_STYLES`) to a picture. Like PowerPoint, it replaces the\npicture's geometry, fill, border, effects and 3-D in `<p:spPr>` with the\nstyle's own markup — which names no theme color, so the result does not\nfollow the theme — and keeps the picture, its crop and its position. Throws\nwhen the shape is not a picture or `style` is not a built-in name.",
+        "Applies one of the reference desktop app's built-in Picture Styles (see\n`BUILTIN_PICTURE_STYLES`) to a picture. Like the reference desktop app, it replaces the\npicture's geometry, fill, border, effects and 3-D in `<p:spPr>` with the\nstyle's own markup — which names no theme color, so the result does not\nfollow the theme — and keeps the picture, its crop and its position. Throws\nwhen the shape is not a picture or `style` is not a built-in name.",
       args: ['shape', 'style'],
       input_schema: {
         type: 'object',
@@ -13654,7 +13655,7 @@ export const generatedTools: GeneratedTools = {
                 type: 'array',
                 items: { $ref: '#/$defs/ColorTransform' },
                 description:
-                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — PowerPoint's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
+                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — the reference desktop app's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
               },
               textFill: {
                 anyOf: [
@@ -13807,17 +13808,17 @@ export const generatedTools: GeneratedTools = {
               kern: {
                 type: 'number',
                 description:
-                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
+                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. The reference desktop app on Mac was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
               },
               normalizeHeight: {
                 type: 'boolean',
                 description:
-                  "Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height).",
+                  "Normalize character heights (`<a:rPr normalizeH>`; the reference desktop app's Equalize character height).",
               },
               baseline: {
                 type: 'number',
                 description:
-                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). PowerPoint emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
+                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). The reference desktop app emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
               },
               cap: {
                 type: 'string',
@@ -13849,7 +13850,7 @@ export const generatedTools: GeneratedTools = {
                       widthEmu: {
                         type: 'number',
                         description:
-                          "Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt).",
+                          "Line width in EMU. The reference desktop app's thinnest visible text outline is 9525 (0.75pt).",
                       },
                       fill: {
                         type: 'object',
@@ -13904,7 +13905,7 @@ export const generatedTools: GeneratedTools = {
                       scaleX: {
                         type: 'number',
                         description:
-                          "Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
+                          "Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
                       },
                       scaleY: {
                         type: 'number',
@@ -14211,7 +14212,7 @@ export const generatedTools: GeneratedTools = {
               brightness: {
                 type: 'number',
                 description:
-                  'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                  "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
               },
             },
             required: ['offset', 'color'],
@@ -14278,7 +14279,7 @@ export const generatedTools: GeneratedTools = {
             required: ['left', 'top', 'right', 'bottom'],
             additionalProperties: false,
             description:
-              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
           },
         },
       },
@@ -14520,7 +14521,7 @@ export const generatedTools: GeneratedTools = {
                   scaleX: {
                     type: 'number',
                     description:
-                      "Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
+                      "Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
                   },
                   scaleY: {
                     type: 'number',
@@ -14685,7 +14686,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeStroke',
       description:
-        "Updates outline color, width and/or opacity (0–1); omitted properties are\npreserved. `fill: { kind: 'gradient', ... }` paints a gradient line instead\nof `color` (PowerPoint's Gradient line); it takes the same options as\n`setShapeGradientFill` and is exclusive with `color` and `opacity`.",
+        "Updates outline color, width and/or opacity (0–1); omitted properties are\npreserved. `fill: { kind: 'gradient', ... }` paints a gradient line instead\nof `color` (the reference desktop app's Gradient line); it takes the same options as\n`setShapeGradientFill` and is exclusive with `color` and `opacity`.",
       args: ['shape', 'options'],
       input_schema: {
         type: 'object',
@@ -14780,7 +14781,7 @@ export const generatedTools: GeneratedTools = {
                         brightness: {
                           type: 'number',
                           description:
-                            'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                            "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
                         },
                       },
                       required: ['offset', 'color'],
@@ -14832,7 +14833,7 @@ export const generatedTools: GeneratedTools = {
                     required: ['left', 'top', 'right', 'bottom'],
                     additionalProperties: false,
                     description:
-                      "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+                      "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
                   },
                 },
                 required: ['kind', 'stops'],
@@ -15145,7 +15146,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeStrokeSketch',
       description:
-        "Sets PowerPoint's Sketched style on the outline (`'curved'`, `'freehand'`\nor `'scribble'`), or removes it with `null`. Stored as the Office 2021\n`ask:lineSketchStyleProps` extension of `<a:ln>`, which older readers\nignore. A new sketch gets a seed derived from the shape id, so the same\ndeck always saves the same bytes.\n\nOffice writes the hand-drawn outline into the shape's geometry and keeps the\noriginal beside the style; this library keeps the true geometry instead (and\nrestores it when editing a sketch Office wrote), leaving the roughening to\nthe renderer.",
+        "Sets the reference desktop app's Sketched style on the outline (`'curved'`, `'freehand'`\nor `'scribble'`), or removes it with `null`. Stored as the 2021\n`ask:lineSketchStyleProps` extension of `<a:ln>`, which older readers\nignore. A new sketch gets a seed derived from the shape id, so the same\ndeck always saves the same bytes.\n\nThe reference desktop app writes the hand-drawn outline into the shape's geometry and keeps the\noriginal beside the style; this library keeps the true geometry instead (and\nrestores it when editing a sketch the reference desktop app wrote), leaving the roughening to\nthe renderer.",
       args: ['shape', 'sketch'],
       input_schema: {
         type: 'object',
@@ -15342,7 +15343,8 @@ export const generatedTools: GeneratedTools = {
               colorTransforms: {
                 type: 'array',
                 items: { $ref: '#/$defs/ColorTransform' },
-                description: "Ordered DrawingML color transforms (for example PowerPoint's shade).",
+                description:
+                  "Ordered DrawingML color transforms (for example the reference desktop app's shade).",
               },
             },
             required: ['idx'],
@@ -15361,7 +15363,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeText',
       description:
-        "Replaces the shape's visible text with `value`. Newlines start a new\nparagraph by default; `newlines: 'break'` inserts paragraph-internal `<a:br>` instead.\nBy default, new paragraphs inherit the first existing run and\nparagraph properties (font, color, size, alignment and bullets). The paragraph-end\nformat (`<a:endParaRPr>`) is not kept by default; author it with `setShapeParagraphs`.\nSet `preserveFormatting` for incremental editing: unchanged prefix/suffix runs\nand paragraphs retain their XML; inserted text inherits the insertion point's\nformat. Multiple disjoint changes should be applied separately to retain the\nformatting between them. With `range`, `value` replaces exactly that UTF-16\nselection and unaffected formatting is always preserved.\nPass `{ case: 'upper' | 'lower' | 'sentence' | 'title' | 'toggle' }` to apply\nPowerPoint-style Change Case to the whole text or to `options.range`.",
+        "Replaces the shape's visible text with `value`. Newlines start a new\nparagraph by default; `newlines: 'break'` inserts paragraph-internal `<a:br>` instead.\nBy default, new paragraphs inherit the first existing run and\nparagraph properties (font, color, size, alignment and bullets). The paragraph-end\nformat (`<a:endParaRPr>`) is not kept by default; author it with `setShapeParagraphs`.\nSet `preserveFormatting` for incremental editing: unchanged prefix/suffix runs\nand paragraphs retain their XML; inserted text inherits the insertion point's\nformat. Multiple disjoint changes should be applied separately to retain the\nformatting between them. With `range`, `value` replaces exactly that UTF-16\nselection and unaffected formatting is always preserved.\nPass `{ case: 'upper' | 'lower' | 'sentence' | 'title' | 'toggle' }` to apply\nChange Case, as the reference desktop app does, to the whole text or to `options.range`.",
       args: ['shape', 'value', 'options'],
       input_schema: {
         type: 'object',
@@ -15441,7 +15443,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeText3D',
       description:
-        "Sets the 3-D on the shape's text body — `<a:scene3d>` and `<a:sp3d>` in\n`<a:bodyPr>`, where PowerPoint writes its WordArt bevels. `value.scene`\nwrites the camera and light rig; `bevelTop`, `extrusionHeightEmu`,\n`material` and `contourColor` write `<a:sp3d>` (replacing `<a:flatTx>`).\nA field left out removes what it describes; settings this API does not\nmodel (camera field of view, bottom bevel, extrusion color, ...) are kept\nwhile their element remains. `null` removes both elements. Throws for\nnon-text-bearing shape kinds.",
+        "Sets the 3-D on the shape's text body — `<a:scene3d>` and `<a:sp3d>` in\n`<a:bodyPr>`, where the reference desktop app writes its WordArt bevels. `value.scene`\nwrites the camera and light rig; `bevelTop`, `extrusionHeightEmu`,\n`material` and `contourColor` write `<a:sp3d>` (replacing `<a:flatTx>`).\nA field left out removes what it describes; settings this API does not\nmodel (camera field of view, bottom bevel, extrusion color, ...) are kept\nwhile their element remains. `null` removes both elements. Throws for\nnon-text-bearing shape kinds.",
       args: ['shape', 'value'],
       input_schema: {
         type: 'object',
@@ -15526,12 +15528,12 @@ export const generatedTools: GeneratedTools = {
                       cameraRotation: {
                         $ref: '#/$defs/Rotation3D',
                         description:
-                          "The camera's `<a:rot>`, which overrides the preset's orientation —\nPowerPoint's X / Y / Z Rotation fields.",
+                          "The camera's `<a:rot>`, which overrides the preset's orientation —\nthe reference desktop app's X / Y / Z Rotation fields.",
                       },
                       fieldOfViewDeg: {
                         type: 'number',
                         description:
-                          "The camera's field of view (`fov`) in degrees, `[0, 180]`; PowerPoint's Perspective field.",
+                          "The camera's field of view (`fov`) in degrees, `[0, 180]`; the reference desktop app's Perspective field.",
                       },
                       lightRig: {
                         type: 'object',
@@ -15819,7 +15821,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeTextAnchor',
       description:
-        "Sets vertical anchoring. `centered` centers the text block without changing\nparagraph alignment (PowerPoint's Top / Middle / Bottom Centered options).\nOmit it to preserve centering; pass null to restore inherited centering.",
+        "Sets vertical anchoring. `centered` centers the text block without changing\nparagraph alignment (the reference desktop app's Top / Middle / Bottom Centered options).\nOmit it to preserve centering; pass null to restore inherited centering.",
       args: ['shape', 'anchor', 'options'],
       input_schema: {
         type: 'object',
@@ -15898,7 +15900,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeTextBodyRotationDeg',
       description:
-        'Sets the shape\'s text-body rotation (`<a:bodyPr rot="N"/>`), measured\nin degrees. Positive rotates clockwise per PowerPoint\'s convention.\nPassing `null` clears the attribute so the shape inherits the default\n(`0`). Throws for non-text-bearing shape kinds.\n\nCompanion to `setShapeRotation`, which rotates the *whole* shape\nvia `<p:xfrm rot>`. `bodyPr rot` rotates only the text inside.',
+        'Sets the shape\'s text-body rotation (`<a:bodyPr rot="N"/>`), measured\nin degrees. Positive rotates clockwise per the reference desktop app\'s convention.\nPassing `null` clears the attribute so the shape inherits the default\n(`0`). Throws for non-text-bearing shape kinds.\n\nCompanion to `setShapeRotation`, which rotates the *whole* shape\nvia `<p:xfrm rot>`. `bodyPr rot` rotates only the text inside.',
       args: ['shape', 'rotationDeg'],
       input_schema: {
         type: 'object',
@@ -16041,7 +16043,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeTextField',
       description:
-        "Replaces the shape's text with a single field — text PowerPoint fills in\nwhen it opens the deck, rather than text the file states. `type` is an\nECMA-376 `ST_TextFieldType` token: `'slidenum'` for the slide's number,\n`'datetime'` (and its `datetime1`…`datetime13` variants) for the current\ndate, `'footer'`, `'headerfooter'`, … Unrecognised tokens are written\nthrough, since the list is open and renderers differ on what they honour.\n\n`options.text` is the cached value stored in `<a:t>`, which is what a reader\nthat does not evaluate fields shows — PowerPoint overwrites it on open, so\nit matters only for other consumers. The shape's first run's formatting is\ncarried onto the field, the way PowerPoint keeps a placeholder's look when\nit inserts one.\n\nThis replaces the whole text body: a field placeholder holds the field and\nnothing else, which is how PowerPoint writes slide numbers and dates.",
+        "Replaces the shape's text with a single field — text the reference desktop app fills in\nwhen it opens the deck, rather than text the file states. `type` is an\nECMA-376 `ST_TextFieldType` token: `'slidenum'` for the slide's number,\n`'datetime'` (and its `datetime1`…`datetime13` variants) for the current\ndate, `'footer'`, `'headerfooter'`, … Unrecognised tokens are written\nthrough, since the list is open and renderers differ on what they honour.\n\n`options.text` is the cached value stored in `<a:t>`, which is what a reader\nthat does not evaluate fields shows — the reference desktop app overwrites it on open, so\nit matters only for other consumers. The shape's first run's formatting is\ncarried onto the field, the way the reference desktop app keeps a placeholder's look when\nit inserts one.\n\nThis replaces the whole text body: a field placeholder holds the field and\nnothing else, which is how the reference desktop app writes slide numbers and dates.",
       args: ['shape', 'type', 'options'],
       input_schema: {
         type: 'object',
@@ -16083,7 +16085,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeTextFlat',
       description:
-        "Sets PowerPoint's Keep text flat (`<a:bodyPr><a:flatTx/>`): the text stays\nflat, out of the shape's 3-D scene, when the shape is rotated in 3-D.\n`<a:flatTx>` and the text body's own `<a:sp3d>` are one schema choice, so\nkeeping text flat removes a text bevel or extrusion set by\n`setShapeText3D`. Throws for non-text-bearing shape kinds.",
+        "Sets the reference desktop app's Keep text flat (`<a:bodyPr><a:flatTx/>`): the text stays\nflat, out of the shape's 3-D scene, when the shape is rotated in 3-D.\n`<a:flatTx>` and the text body's own `<a:sp3d>` are one schema choice, so\nkeeping text flat removes a text bevel or extrusion set by\n`setShapeText3D`. Throws for non-text-bearing shape kinds.",
       args: ['shape', 'flat'],
       input_schema: {
         type: 'object',
@@ -16153,7 +16155,7 @@ export const generatedTools: GeneratedTools = {
                 type: 'array',
                 items: { $ref: '#/$defs/ColorTransform' },
                 description:
-                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — PowerPoint's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
+                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — the reference desktop app's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
               },
               textFill: {
                 anyOf: [
@@ -16306,17 +16308,17 @@ export const generatedTools: GeneratedTools = {
               kern: {
                 type: 'number',
                 description:
-                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
+                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. The reference desktop app on Mac was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
               },
               normalizeHeight: {
                 type: 'boolean',
                 description:
-                  "Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height).",
+                  "Normalize character heights (`<a:rPr normalizeH>`; the reference desktop app's Equalize character height).",
               },
               baseline: {
                 type: 'number',
                 description:
-                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). PowerPoint emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
+                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). The reference desktop app emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
               },
               cap: {
                 type: 'string',
@@ -16348,7 +16350,7 @@ export const generatedTools: GeneratedTools = {
                       widthEmu: {
                         type: 'number',
                         description:
-                          "Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt).",
+                          "Line width in EMU. The reference desktop app's thinnest visible text outline is 9525 (0.75pt).",
                       },
                       fill: {
                         type: 'object',
@@ -16403,7 +16405,7 @@ export const generatedTools: GeneratedTools = {
                       scaleX: {
                         type: 'number',
                         description:
-                          "Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
+                          "Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
                       },
                       scaleY: {
                         type: 'number',
@@ -16733,7 +16735,7 @@ export const generatedTools: GeneratedTools = {
               brightness: {
                 type: 'number',
                 description:
-                  'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                  "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
               },
             },
             required: ['offset', 'color'],
@@ -16800,7 +16802,7 @@ export const generatedTools: GeneratedTools = {
             required: ['left', 'top', 'right', 'bottom'],
             additionalProperties: false,
             description:
-              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
           },
         },
       },
@@ -16843,7 +16845,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeTextMargins',
       description:
-        "Sets the internal margins of the shape's text frame in EMU. Each\nside is independent; omitted sides keep their current value (or the\nlayout-inherited default when the attribute is absent).\n\nPowerPoint's defaults for a textbox: left/right 91440 (0.1in),\ntop/bottom 45720 (0.05in).\n\n  setShapeTextMargins(shape, { left: 0, right: 0 }); // flush-left text",
+        "Sets the internal margins of the shape's text frame in EMU. Each\nside is independent; omitted sides keep their current value (or the\nlayout-inherited default when the attribute is absent).\n\nThe reference desktop app's defaults for a textbox: left/right 91440 (0.1in),\ntop/bottom 45720 (0.05in).\n\n  setShapeTextMargins(shape, { left: 0, right: 0 }); // flush-left text",
       args: ['shape', 'margins'],
       input_schema: {
         type: 'object',
@@ -16889,7 +16891,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeTextWrap',
       description:
-        'Sets the text-body word-wrap mode.\n\n  - `\'square\'` writes `wrap="square"` — PowerPoint default for textboxes.\n  - `\'none\'`   writes `wrap="none"`  — text can overflow horizontally.\n\nThrows for non-text-bearing shape kinds.',
+        "Sets the text-body word-wrap mode.\n\n  - `'square'` writes `wrap=\"square\"` — the reference desktop app's default for textboxes.\n  - `'none'`   writes `wrap=\"none\"`  — text can overflow horizontally.\n\nThrows for non-text-bearing shape kinds.",
       args: ['shape', 'wrap'],
       input_schema: {
         type: 'object',
@@ -17176,7 +17178,7 @@ export const generatedTools: GeneratedTools = {
                     brightness: {
                       type: 'number',
                       description:
-                        'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                        "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
                     },
                   },
                   required: ['offset', 'color'],
@@ -17228,7 +17230,7 @@ export const generatedTools: GeneratedTools = {
                 required: ['left', 'top', 'right', 'bottom'],
                 additionalProperties: false,
                 description:
-                  "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+                  "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
               },
             },
             required: ['stops'],
@@ -17251,7 +17253,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideBackgroundGraphicsHidden',
       description:
-        "Hide inherited decoration without removing shapes or changing background fills.\nPowerPoint's Hide Background Graphics suppresses layout decoration as well as\nmaster shapes, despite the attribute's name. Slide placeholders remain visible.",
+        "Hide inherited decoration without removing shapes or changing background fills.\nThe reference desktop app's Hide Background Graphics suppresses layout decoration as well as\nmaster shapes, despite the attribute's name. Slide placeholders remain visible.",
       args: ['slide', 'hidden'],
       input_schema: {
         type: 'object',
@@ -17400,7 +17402,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideBackgroundPatternFill',
       description:
-        "Updates a slide pattern background, preserving unspecified colors and transforms.\nInherited patterns become a slide override; the layout and master stay unchanged.\nA new pattern uses Mac PowerPoint's defaults: pct5, accent1 foreground, bg1 background.",
+        "Updates a slide pattern background, preserving unspecified colors and transforms.\nInherited patterns become a slide override; the layout and master stay unchanged.\nA new pattern uses the reference desktop app's defaults: pct5, accent1 foreground, bg1\nbackground.",
       args: ['slide', 'options'],
       input_schema: {
         type: 'object',
@@ -17569,7 +17571,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideHidden',
       description:
-        'Toggles the slide\'s visibility in the slideshow. Hiding adds\n`show="0"`; showing removes the attribute (PowerPoint treats absence\nas the default `show="1"`).',
+        'Toggles the slide\'s visibility in the slideshow. Hiding adds\n`show="0"`; showing removes the attribute (the reference desktop app treats absence\nas the default `show="1"`).',
       args: ['slide', 'hidden'],
       input_schema: {
         type: 'object',
@@ -17590,7 +17592,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideLayout',
       description:
-        "Rebinds the slide to a different layout. The slide's own content\n(shapes, text, geometry) is preserved verbatim; only the\n`slideLayout` rel is updated so PowerPoint re-renders with the new\nlayout's placeholder positions and theme.\n\nThe new layout must already be a part of the package — pass one\nreturned by `getSlideLayouts(pres)` or `findSlideLayout(pres, name)`.",
+        "Rebinds the slide to a different layout. The slide's own content\n(shapes, text, geometry) is preserved verbatim; only the\n`slideLayout` rel is updated so the reference desktop app re-renders with the new\nlayout's placeholder positions and theme.\n\nThe new layout must already be a part of the package — pass one\nreturned by `getSlideLayouts(pres)` or `findSlideLayout(pres, name)`.",
       args: ['slide', 'layout'],
       input_schema: {
         type: 'object',
@@ -17680,7 +17682,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideLayoutName',
       description:
-        'Renames the layout. This is the name PowerPoint shows in the\n"New Slide" gallery and in the layout pane, so it is what an author\npicks a layout by — it is not an identifier, and nothing references\nit.',
+        'Renames the layout. This is the name the reference desktop app shows in the\n"New Slide" gallery and in the layout pane, so it is what an author\npicks a layout by — it is not an identifier, and nothing references\nit.',
       args: ['layout', 'name'],
       input_schema: {
         type: 'object',
@@ -17701,7 +17703,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideLayoutPlaceholderBounds',
       description:
-        "Moves and resizes one of the layout's placeholder slots, identified by\nits position in `getSlideLayoutPlaceholders`.\n\nSlides inherit the new box wherever they have not pushed the\nplaceholder around themselves: a slide placeholder carrying its own\n`<a:xfrm>` keeps it, exactly as PowerPoint behaves when you edit a\nlayout under slides that were already nudged.",
+        "Moves and resizes one of the layout's placeholder slots, identified by\nits position in `getSlideLayoutPlaceholders`.\n\nSlides inherit the new box wherever they have not pushed the\nplaceholder around themselves: a slide placeholder carrying its own\n`<a:xfrm>` keeps it, exactly as the reference desktop app behaves when you edit a\nlayout under slides that were already nudged.",
       args: ['layout', 'index', 'bounds'],
       input_schema: {
         type: 'object',
@@ -17761,7 +17763,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideMasterBackgroundStyle',
       description:
-        "Choose one of PowerPoint's twelve Background Styles (numbered row by row).\nChanges the owning master, so every slide using that master inherits the\nstyle. Existing slide and layout background overrides remain in place.\nThe theme must provide the referenced background fill style.",
+        "Choose one of the reference desktop app's twelve Background Styles (numbered row by row).\nChanges the owning master, so every slide using that master inherits the\nstyle. Existing slide and layout background overrides remain in place.\nThe theme must provide the referenced background fill style.",
       args: ['slide', 'style'],
       input_schema: {
         type: 'object',
@@ -17794,7 +17796,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideMasterPlaceholderIncluded',
       description:
-        "Master Layout: removes one of the master's five placeholders, or puts it\nback where PowerPoint's default master has it.",
+        "Master Layout: removes one of the master's five placeholders, or puts it\nback where the reference desktop app's default master has it.",
       args: [null, 'master', 'type', 'included'],
       input_schema: {
         type: 'object',
@@ -17897,7 +17899,7 @@ export const generatedTools: GeneratedTools = {
                 type: 'array',
                 items: { $ref: '#/$defs/ColorTransform' },
                 description:
-                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — PowerPoint's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
+                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — the reference desktop app's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
               },
               textFill: {
                 anyOf: [
@@ -18050,17 +18052,17 @@ export const generatedTools: GeneratedTools = {
               kern: {
                 type: 'number',
                 description:
-                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
+                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. The reference desktop app on Mac was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
               },
               normalizeHeight: {
                 type: 'boolean',
                 description:
-                  "Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height).",
+                  "Normalize character heights (`<a:rPr normalizeH>`; the reference desktop app's Equalize character height).",
               },
               baseline: {
                 type: 'number',
                 description:
-                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). PowerPoint emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
+                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). The reference desktop app emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
               },
               cap: {
                 type: 'string',
@@ -18092,7 +18094,7 @@ export const generatedTools: GeneratedTools = {
                       widthEmu: {
                         type: 'number',
                         description:
-                          "Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt).",
+                          "Line width in EMU. The reference desktop app's thinnest visible text outline is 9525 (0.75pt).",
                       },
                       fill: {
                         type: 'object',
@@ -18147,7 +18149,7 @@ export const generatedTools: GeneratedTools = {
                       scaleX: {
                         type: 'number',
                         description:
-                          "Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
+                          "Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
                       },
                       scaleY: {
                         type: 'number',
@@ -18478,7 +18480,7 @@ export const generatedTools: GeneratedTools = {
               brightness: {
                 type: 'number',
                 description:
-                  'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                  "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
               },
             },
             required: ['offset', 'color'],
@@ -18532,7 +18534,7 @@ export const generatedTools: GeneratedTools = {
             required: ['left', 'top', 'right', 'bottom'],
             additionalProperties: false,
             description:
-              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
           },
         },
       },
@@ -18614,7 +18616,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideSections',
       description:
-        "Replaces the deck's section list with `sections`. Each section is\ngiven a fresh GUID `id` attribute (PowerPoint generates one per\nsection; we synthesize a deterministic-ish one based on index +\ntimestamp for v1).\n\nPass `[]` to clear all sections — the helper drops the\n`<p14:sectionLst>` extension entirely when no sections remain.",
+        "Replaces the deck's section list with `sections`. Each section is\ngiven a fresh GUID `id` attribute (the reference desktop app generates one per\nsection; we synthesize a deterministic-ish one based on index +\ntimestamp for v1).\n\nPass `[]` to clear all sections — the helper drops the\n`<p14:sectionLst>` extension entirely when no sections remain.",
       args: [null, 'sections'],
       input_schema: {
         type: 'object',
@@ -18720,7 +18722,7 @@ export const generatedTools: GeneratedTools = {
               showMediaControls: {
                 type: 'boolean',
                 description:
-                  "Show Media Controls: whether hovering a video or audio clip in the show\nreveals its play bar. PowerPoint 2010 stores it as `p14:showMediaCtrls`\nin the show properties' extension list; omit it to leave the file as is.",
+                  "Show Media Controls: whether hovering a video or audio clip in the show\nreveals its play bar. The reference desktop app stores it as `p14:showMediaCtrls`\nin the show properties' extension list; omit it to leave the file as is.",
               },
             },
             required: ['mode', 'slides', 'loop', 'showNarration', 'showAnimation', 'useTimings'],
@@ -18791,7 +18793,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideTransition',
       description:
-        "Sets the slide's transition effect. A sound set with\n`setSlideTransitionSound` is kept, as PowerPoint keeps it when the effect\nchanges.",
+        "Sets the slide's transition effect. A sound set with\n`setSlideTransitionSound` is kept, as the reference desktop app keeps it when the effect\nchanges.",
       args: ['slide', 'options'],
       input_schema: {
         type: 'object',
@@ -18857,7 +18859,7 @@ export const generatedTools: GeneratedTools = {
               direction: {
                 type: 'string',
                 description:
-                  'Direction, valid only for effects that carry a `dir` attribute and only\nwithin that effect\'s domain (validated on write). The side tokens name\nthe way the slide moves, so PowerPoint\'s "From Right" is `l`.\n  - `blinds`/`checker`/`comb`/`randomBar`/`doors`/`window`: `horz` | `vert`\n  - `push`/`wipe`/`vortex`/`pan`/`glitter`/`prism`: `l` | `r` | `u` | `d`\n  - `cover`/`pull`: the above plus `lu` | `ru` | `ld` | `rd`\n  - `strips`: `lu` | `ru` | `ld` | `rd`\n  - `ripple`: `center` | `lu` | `ru` | `ld` | `rd`\n  - `switch`/`flip`/`ferris`/`gallery`/`conveyor`/`reveal`: `l` | `r`\n  - `zoom`/`split`/`warp`/`flythrough`/`shred`: `in` | `out`\nA mismatched effect/direction pair throws; on any other effect a stray\n`direction` is ignored.',
+                  'Direction, valid only for effects that carry a `dir` attribute and only\nwithin that effect\'s domain (validated on write). The side tokens name\nthe way the slide moves, so the reference desktop app\'s "From Right" is `l`.\n  - `blinds`/`checker`/`comb`/`randomBar`/`doors`/`window`: `horz` | `vert`\n  - `push`/`wipe`/`vortex`/`pan`/`glitter`/`prism`: `l` | `r` | `u` | `d`\n  - `cover`/`pull`: the above plus `lu` | `ru` | `ld` | `rd`\n  - `strips`: `lu` | `ru` | `ld` | `rd`\n  - `ripple`: `center` | `lu` | `ru` | `ld` | `rd`\n  - `switch`/`flip`/`ferris`/`gallery`/`conveyor`/`reveal`: `l` | `r`\n  - `zoom`/`split`/`warp`/`flythrough`/`shred`: `in` | `out`\nA mismatched effect/direction pair throws; on any other effect a stray\n`direction` is ignored.',
               },
               spokes: {
                 type: 'number',
@@ -18877,16 +18879,17 @@ export const generatedTools: GeneratedTools = {
                 type: 'string',
                 enum: ['diamond', 'hexagon', 'strip', 'rectangle'],
                 description:
-                  'For `glitter`: `diamond` (the default) or `hexagon`. For `shred`: `strip`\n(the default) or `rectangle` — PowerPoint\'s "Strips" and "Particles".',
+                  'For `glitter`: `diamond` (the default) or `hexagon`. For `shred`: `strip`\n(the default) or `rectangle` — the reference desktop app\'s "Strips" and "Particles".',
               },
               isContent: {
                 type: 'boolean',
                 description:
-                  "For `prism`: the slide's content turns rather than the slide itself\n(PowerPoint's Rotate and Orbit, against Cube and Box).",
+                  "For `prism`: the slide's content turns rather than the slide itself\n(the reference desktop app's Rotate and Orbit, against Cube and Box).",
               },
               isInverted: {
                 type: 'boolean',
-                description: "For `prism`: the turn faces inwards (PowerPoint's Box and Orbit).",
+                description:
+                  "For `prism`: the turn faces inwards (the reference desktop app's Box and Orbit).",
               },
               hasBounce: {
                 type: 'boolean',
@@ -18927,7 +18930,8 @@ export const generatedTools: GeneratedTools = {
               },
               advanceOnClick: {
                 type: 'boolean',
-                description: "Whether clicking advances; default `true` (PowerPoint's default).",
+                description:
+                  "Whether clicking advances; default `true` (the reference desktop app's default).",
               },
               advanceAfterMs: {
                 type: 'number',
@@ -18937,7 +18941,7 @@ export const generatedTools: GeneratedTools = {
               durationMs: {
                 type: 'number',
                 description:
-                  "Effect duration in milliseconds (PowerPoint 2010's `p14:dur`). ECMA-376\nonly has the three `speed` steps, so the transition is written as\nPowerPoint writes it:\n  - `spd` is the fastest speed at least this long (≤ 500 ms `fast`,\n    ≤ 750 ms `med`, otherwise `slow`) unless `speed` is given; a derived\n    `fast` is left out, being the schema default.\n  - A duration equal to its speed's own (500, 750 or 1000 ms) is that\n    speed alone: no `p14:dur`, and it reads back as `speed`.\n  - Any other duration is an `mc:AlternateContent` whose `p14` choice\n    carries `p14:dur` and whose fallback carries only `spd`.",
+                  "Effect duration in milliseconds (`p14:dur`, [MS-PPTX]). ECMA-376\nonly has the three `speed` steps, so the transition is written as\nthe reference desktop app writes it:\n  - `spd` is the fastest speed at least this long (≤ 500 ms `fast`,\n    ≤ 750 ms `med`, otherwise `slow`) unless `speed` is given; a derived\n    `fast` is left out, being the schema default.\n  - A duration equal to its speed's own (500, 750 or 1000 ms) is that\n    speed alone: no `p14:dur`, and it reads back as `speed`.\n  - Any other duration is an `mc:AlternateContent` whose `p14` choice\n    carries `p14:dur` and whose fallback carries only `spd`.",
               },
             },
             required: ['effect'],
@@ -18960,7 +18964,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setSlideTransitionSound',
       description:
-        'Sets (or with `null` removes) the sound played when the slide\'s transition\nstarts. A slide without a transition gets one with no effect, which is how\nPowerPoint stores a sound on a "None" transition.',
+        'Sets (or with `null` removes) the sound played when the slide\'s transition\nstarts. A slide without a transition gets one with no effect, which is how\nthe reference desktop app stores a sound on a "None" transition.',
       args: ['slide', 'sound'],
       input_schema: {
         type: 'object',
@@ -19392,7 +19396,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setTableCellMargins',
       description:
-        "Sets the cell's inset margins (`<a:tcPr marL marR marT marB>`) in\nEMU. Sides set to `null` are stripped from the XML so they fall back\nto PowerPoint's defaults. Creates `<a:tcPr>` if absent.\n\nPass `null` for the whole `margins` arg to drop every authored side\nat once.",
+        "Sets the cell's inset margins (`<a:tcPr marL marR marT marB>`) in\nEMU. Sides set to `null` are stripped from the XML so they fall back\nto the reference desktop app's defaults. Creates `<a:tcPr>` if absent.\n\nPass `null` for the whole `margins` arg to drop every authored side\nat once.",
       args: ['cell', 'margins'],
       input_schema: {
         type: 'object',
@@ -19473,7 +19477,7 @@ export const generatedTools: GeneratedTools = {
                       text: {
                         type: 'string',
                         description:
-                          'Run text, written verbatim — unlike `setShapeText`, newlines are not\nsplit into paragraphs (PowerPoint shows a CR LF inside a run as a line\nbreak, which some exporters rely on).',
+                          'Run text, written verbatim — unlike `setShapeText`, newlines are not\nsplit into paragraphs (the reference desktop app shows a CR LF inside a run as a line\nbreak, which some exporters rely on).',
                       },
                       format: { $ref: '#/$defs/TextFormat' },
                     },
@@ -19666,7 +19670,7 @@ export const generatedTools: GeneratedTools = {
               brightness: {
                 type: 'number',
                 description:
-                  'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                  "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
               },
             },
             required: ['offset', 'color'],
@@ -19739,7 +19743,7 @@ export const generatedTools: GeneratedTools = {
                 type: 'array',
                 items: { $ref: '#/$defs/ColorTransform' },
                 description:
-                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — PowerPoint's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
+                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — the reference desktop app's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
               },
               textFill: {
                 anyOf: [
@@ -19892,17 +19896,17 @@ export const generatedTools: GeneratedTools = {
               kern: {
                 type: 'number',
                 description:
-                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
+                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. The reference desktop app on Mac was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
               },
               normalizeHeight: {
                 type: 'boolean',
                 description:
-                  "Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height).",
+                  "Normalize character heights (`<a:rPr normalizeH>`; the reference desktop app's Equalize character height).",
               },
               baseline: {
                 type: 'number',
                 description:
-                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). PowerPoint emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
+                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). The reference desktop app emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
               },
               cap: {
                 type: 'string',
@@ -19934,7 +19938,7 @@ export const generatedTools: GeneratedTools = {
                       widthEmu: {
                         type: 'number',
                         description:
-                          "Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt).",
+                          "Line width in EMU. The reference desktop app's thinnest visible text outline is 9525 (0.75pt).",
                       },
                       fill: {
                         type: 'object',
@@ -19989,7 +19993,7 @@ export const generatedTools: GeneratedTools = {
                       scaleX: {
                         type: 'number',
                         description:
-                          "Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
+                          "Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
                       },
                       scaleY: {
                         type: 'number',
@@ -20147,7 +20151,7 @@ export const generatedTools: GeneratedTools = {
             required: ['left', 'top', 'right', 'bottom'],
             additionalProperties: false,
             description:
-              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
           },
         },
       },
@@ -20312,7 +20316,7 @@ export const generatedTools: GeneratedTools = {
                 type: 'array',
                 items: { $ref: '#/$defs/ColorTransform' },
                 description:
-                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — PowerPoint's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
+                  "Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,\n...), written as children of its color element — the reference desktop app's theme\ntints, such as Accent 2 Lighter 60%. Same field as on gradient stops;\nrequires `color`, and replaces any transforms the run's color had.",
               },
               textFill: {
                 anyOf: [
@@ -20465,17 +20469,17 @@ export const generatedTools: GeneratedTools = {
               kern: {
                 type: 'number',
                 description:
-                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
+                  'Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same\nunit as `spc`): `0` disables kerning, `1200` = apply kerning for runs\n≥12pt. Mirrors `<a:rPr kern="…"/>`. The reference desktop app on Mac was observed to\nsave the value as `kern="0"` when its Use kerning checkbox is cleared.',
               },
               normalizeHeight: {
                 type: 'boolean',
                 description:
-                  "Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height).",
+                  "Normalize character heights (`<a:rPr normalizeH>`; the reference desktop app's Equalize character height).",
               },
               baseline: {
                 type: 'number',
                 description:
-                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). PowerPoint emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
+                  'Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,\n`-0.25` = subscript). The reference desktop app emits ST_Percentage; this getter\nreturns the unit-fraction form for ergonomic comparisons.',
               },
               cap: {
                 type: 'string',
@@ -20507,7 +20511,7 @@ export const generatedTools: GeneratedTools = {
                       widthEmu: {
                         type: 'number',
                         description:
-                          "Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt).",
+                          "Line width in EMU. The reference desktop app's thinnest visible text outline is 9525 (0.75pt).",
                       },
                       fill: {
                         type: 'object',
@@ -20562,7 +20566,7 @@ export const generatedTools: GeneratedTools = {
                       scaleX: {
                         type: 'number',
                         description:
-                          "Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
+                          "Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets\nboth scales, and its perspective presets flatten the shadow with `sy`.",
                       },
                       scaleY: {
                         type: 'number',
@@ -20907,7 +20911,7 @@ export const generatedTools: GeneratedTools = {
               brightness: {
                 type: 'number',
                 description:
-                  'PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.',
+                  "The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged.",
               },
             },
             required: ['offset', 'color'],
@@ -20961,7 +20965,7 @@ export const generatedTools: GeneratedTools = {
             required: ['left', 'top', 'right', 'bottom'],
             additionalProperties: false,
             description:
-              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. Mac PowerPoint uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
+              "Gradient tile bounds as fractional insets from the shape's edges.\nNegative values extend the tile beyond that edge. The reference desktop app on Mac uses\nright/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.",
           },
         },
       },
@@ -20970,7 +20974,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setTableColumnWidth',
       description:
-        "Sets a single column's width on the table grid. Throws on\nout-of-range column indices or non-table shapes. The total table\nwidth is not auto-adjusted — callers are responsible for keeping\nthe sum consistent with the table's `<a:xfrm>` extent if PowerPoint\nis to render the table without clipping.",
+        "Sets a single column's width on the table grid. Throws on\nout-of-range column indices or non-table shapes. The total table\nwidth is not auto-adjusted — callers are responsible for keeping\nthe sum consistent with the table's `<a:xfrm>` extent if the reference desktop app\nis to render the table without clipping.",
       args: ['table', 'col', 'width'],
       input_schema: {
         type: 'object',
@@ -21052,7 +21056,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setTableStyleFlags',
       description:
-        'Sets one or more boolean style flags on `<a:tblPr>`. Only the keys\npresent in `flags` are touched — omitted keys are left at their\ncurrent state. A flag set to `false` strips the attribute (rather\nthan emitting `="0"`), matching how PowerPoint round-trips defaults.\n\nSee `getTableStyleFlags` for the meaning of each flag.',
+        'Sets one or more boolean style flags on `<a:tblPr>`. Only the keys\npresent in `flags` are touched — omitted keys are left at their\ncurrent state. A flag set to `false` strips the attribute (rather\nthan emitting `="0"`), matching how the reference desktop app round-trips defaults.\n\nSee `getTableStyleFlags` for the meaning of each flag.',
       args: ['table', 'flags'],
       input_schema: {
         type: 'object',
@@ -21100,7 +21104,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setTableStyleId',
       description:
-        "Applies a table style by writing `<a:tbl><a:tblPr><a:tableStyleId>`.\n`styleId` is a style GUID with its curly braces — e.g.\n`'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` — or the English name of one\nof PowerPoint's built-in styles (`'Medium Style 2 - Accent 1'`; see\n`BUILTIN_TABLE_STYLES`). For a built-in style, PowerPoint's definition is\nadded to `ppt/tableStyles.xml` (creating the part if needed) unless the\ndeck already defines that GUID, as PowerPoint does when you pick a style.\nPass `null` to remove the element so the table falls back to the deck's\ndefault style. Creates `<a:tblPr>` if absent. Throws when the shape isn't\na table graphic frame or `styleId` is neither a GUID nor a built-in name.",
+        "Applies a table style by writing `<a:tbl><a:tblPr><a:tableStyleId>`.\n`styleId` is a style GUID with its curly braces — e.g.\n`'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` — or the English name of one\nof the reference desktop app's built-in styles (`'Medium Style 2 - Accent 1'`; see\n`BUILTIN_TABLE_STYLES`). For a built-in style, the reference desktop app's definition is\nadded to `ppt/tableStyles.xml` (creating the part if needed) unless the\ndeck already defines that GUID, as the reference desktop app does when you pick a style.\nPass `null` to remove the element so the table falls back to the deck's\ndefault style. Creates `<a:tblPr>` if absent. Throws when the shape isn't\na table graphic frame or `styleId` is neither a GUID nor a built-in name.",
       args: ['table', 'styleId'],
       input_schema: {
         type: 'object',
@@ -21316,7 +21320,8 @@ export const generatedTools: GeneratedTools = {
     },
     {
       name: 'transformSlideNotesCase',
-      description: 'Applies PowerPoint-style Change Case to a speaker-notes range.',
+      description:
+        'Applies Change Case, as the reference desktop app does, to a speaker-notes range.',
       args: ['slide', 'value', 'options'],
       input_schema: {
         type: 'object',
@@ -21666,7 +21671,7 @@ export const generatedTools: GeneratedTools = {
               durationMs: {
                 type: 'number',
                 description:
-                  "How long the effect runs. Left out, a changed effect keeps the duration\nthe slide gave it, unless the patch changes the preset itself: a new\npreset takes its own default length, as picking one from PowerPoint's\ngallery does.",
+                  "How long the effect runs. Left out, a changed effect keeps the duration\nthe slide gave it, unless the patch changes the preset itself: a new\npreset takes its own default length, as picking one from the reference desktop app's\ngallery does.",
               },
               start: { type: 'string', enum: ['click', 'withPrevious', 'afterPrevious'] },
               delayMs: { type: 'number' },

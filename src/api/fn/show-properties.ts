@@ -31,7 +31,7 @@ export interface SlideShowProperties {
   useTimings: boolean;
   /**
    * Show Media Controls: whether hovering a video or audio clip in the show
-   * reveals its play bar. PowerPoint 2010 stores it as `p14:showMediaCtrls`
+   * reveals its play bar. The reference desktop app stores it as `p14:showMediaCtrls`
    * in the show properties' extension list; omit it to leave the file as is.
    */
   showMediaControls?: boolean;
@@ -134,7 +134,7 @@ export function getSlideShowProperties(pres: PresentationData): SlideShowPropert
     showNarration: flag(show, 'showNarration', false),
     showAnimation: flag(show, 'showAnimation', true),
     useTimings: flag(show, 'useTimings', true),
-    // PowerPoint shows the play bar unless a deck turns it off.
+    // The reference desktop app shows the play bar unless a deck turns it off.
     showMediaControls: flag(mediaControls, 'val', true),
   };
 }

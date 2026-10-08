@@ -1,6 +1,6 @@
 // getSlideLayoutPlaceholders — enumerate placeholder slots on a layout.
 //
-// The blank.pptx fixture ships PowerPoint's default eleven layouts;
+// The blank.pptx fixture ships the reference desktop app's default eleven layouts;
 // "Title and Content" has a title placeholder + a body placeholder,
 // "Blank" has none. The helper filters out non-placeholder shapes.
 
@@ -23,7 +23,7 @@ describe('fn API: getSlideLayoutPlaceholders', () => {
     const layout = findSlideLayout(pres, 'Title and Content')!;
     const phs = getSlideLayoutPlaceholders(layout);
     // Must have at least one placeholder, and at least one of them is
-    // the title slot (PowerPoint may emit `type="title"` or `ctrTitle`).
+    // the title slot (the reference desktop app may emit `type="title"` or `ctrTitle`).
     expect(phs.length).toBeGreaterThan(0);
     const hasTitle = phs.some((p) => p.type === 'title' || p.type === 'ctrTitle');
     expect(hasTitle).toBe(true);
@@ -33,7 +33,7 @@ describe('fn API: getSlideLayoutPlaceholders', () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     const blank = findSlideLayout(pres, 'Blank')!;
     const phs = getSlideLayoutPlaceholders(blank);
-    // PowerPoint's default Blank layout ships three placeholders for
+    // The reference desktop app's default Blank layout ships three placeholders for
     // date / slide-number / footer that the user can opt into via
     // "Insert > Header & Footer", but no title or body slot.
     const types = phs.map((p) => p.type).sort();

@@ -277,7 +277,7 @@ const NAME_P_PH = qname('p', 'ph', NS.pml);
 
 // A shape participates in placeholder inheritance only when it actually carries
 // a `<p:ph>`. A plain text box (no `<p:ph>`) must NOT inherit the slide master's
-// titleStyle / bodyStyle / otherStyle — PowerPoint resolves it against the
+// titleStyle / bodyStyle / otherStyle — the reference desktop app resolves it against the
 // presentation's default text style (≈18pt), not the master body style.
 // `getShapePlaceholderType()` returns null both for "placeholder with no type"
 // (which DOES default to body) and "not a placeholder at all" (which does not),
@@ -357,7 +357,7 @@ export const getShapeRunFormatEffective = (
     ),
   };
 
-  // Mac PowerPoint's Colored Fill Quick Style changes a title placeholder
+  // The reference desktop app's Colored Fill Quick Style changes a title placeholder
   // to the minor font and light text even when its master specifies major/dark.
   // Direct run and paragraph formatting above still takes precedence.
   mergeRPrLayer(result, readShapeStyleFontFormat(pres, shape));
@@ -437,7 +437,7 @@ export const getShapeRunFormatEffective = (
   //
   // When no layer in the cascade supplied a font at all, pick the
   // major font for title-class placeholders and the minor font for
-  // everything else, matching PowerPoint's defaults.
+  // everything else, matching the reference desktop app's defaults.
   const fonts =
     fontsFromThemeRoot(getShapeStyleTheme(pres, shape).root) ?? getPresentationFonts(pres);
   if (fonts) {
@@ -560,7 +560,7 @@ export interface ParagraphProperties {
   rtl: boolean | null;
   /**
    * Bullet resolved through the cascade (`<a:buChar>` / `<a:buAutoNum>` /
-   * `<a:buNone>`). Master `bodyStyle` levels author the PowerPoint default
+   * `<a:buNone>`). Master `bodyStyle` levels author the reference desktop app's default
    * "•", so body placeholders get their bullet from here even when no
    * slide-level `<a:pPr>` carries one.
    */

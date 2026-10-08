@@ -214,7 +214,7 @@ interface LayoutCtx {
   readonly mode: TextLayoutMode;
   readonly measure: TextMeasurer;
   // Product of the scale factors of every enclosing group (`<a:ext>` over
-  // `<a:chExt>`). Geometry scales with the group; text does not — PowerPoint
+  // `<a:chExt>`). Geometry scales with the group; text does not — the reference desktop app
   // and LibreOffice both keep a group child's glyphs at their authored size
   // and aspect when the group is resized, so the text path renders into the
   // group-scaled rect and cancels the scale back out (see `renderShape`).
@@ -253,8 +253,8 @@ const clickActionHref = (
   return destinations[action.kind];
 };
 
-// Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
-// default since 2013. See ECMA-376 §19.3.1.39 `SlideSizeType`.
+// Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the default of the reference desktop app
+// since 2013. See ECMA-376 §19.3.1.39 `SlideSizeType`.
 const DEFAULT_SIZE = { width: 12_192_000, height: 6_858_000 };
 
 // The renderer projects EMU coordinates onto a CSS-pixel-at-96-DPI grid
@@ -269,7 +269,7 @@ export const EMU_PER_PX = 9525;
 // CSS px per typographic point.
 const PX_PER_PT = 96 / 72;
 
-// PowerPoint's stock master defaults — we now honour
+// The reference desktop app's stock master defaults — we now honour
 // `<a:normAutofit fontScale=…>` when it's set on the shape's text
 // body, so the title can claim its full 44pt size without
 // auto-shrinking blindly. A heuristic autofit still kicks in only
@@ -284,13 +284,13 @@ const DEFAULT_TITLE_PT = 44;
 const DEFAULT_FONT = "Calibri, 'Helvetica Neue', Arial, sans-serif";
 const browserFontFamily = (family: string | null): string =>
   family ? `${JSON.stringify(family)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
-// Bullet font when no buFont is authored or inherited. The stock PowerPoint
+// Bullet font when no buFont is authored or inherited. The stock
 // template's master bodyStyle sets buFont="Arial", and its '•'/'◦' glyphs are
 // smaller and higher than the theme minor face (Calibri) — so Arial, not the
 // body text face, is the right default.
 const DEFAULT_BULLET_FONT = 'Arial';
 
-// Default body inset (PowerPoint default), per ECMA-376: 91440 EMU
+// Default body inset (the reference desktop app's default), per ECMA-376: 91440 EMU
 // horizontal × 45720 EMU vertical.
 const DEFAULT_INSET_X = 91_440;
 const DEFAULT_INSET_Y = 45_720;
@@ -384,7 +384,7 @@ const renderPicture = (
   if (bytes && mime) {
     const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
     // Apply <a:srcRect> crop, brightness/contrast (lum),
-    // and opacity (alphaModFix) so PowerPoint's "Picture Format >
+    // and opacity (alphaModFix) so the reference desktop app's "Picture Format >
     // Corrections" matches what the playground paints.
     const crop = getShapeImageCrop(shape);
     const layout = getShapeImageFillLayout(shape);
@@ -406,7 +406,7 @@ const renderPicture = (
     const cropB = crop?.bottom ?? 0;
     if (cropL !== 0 || cropT !== 0 || cropR !== 0 || cropB !== 0) {
       // ECMA-376 <a:srcRect> sides are fractions of the source image;
-      // PowerPoint crops by adjusting the visible region. We project
+      // the reference desktop app crops by adjusting the visible region. We project
       // the same effect by scaling and positioning the <image>, clipping it
       // to the shape's bounds.
       const scaleX = 1 / Math.max(0.001, 1 - cropL - cropR);
@@ -443,7 +443,7 @@ const renderPicture = (
       const fid = mintId();
       const prims: string[] = [];
       if (brightness !== 0 || contrast !== 0) {
-        // PowerPoint applies picture brightness in two halves: one before and
+        // The reference desktop app applies picture brightness in two halves: one before and
         // one after contrast. This is the MSO-compatible branch of
         // LibreOffice's Bitmap::Adjust (vcl/source/bitmap/bitmap.cxx), rather
         // than the simpler CSS-style `slope = 1 + contrast` approximation.
@@ -481,7 +481,7 @@ const renderPicture = (
         // DrawingML's biLevel effect compares the pixel luminance with the
         // threshold, then emits an achromatic black or white pixel.  Reducing
         // each channel independently would leave saturated colours (for
-        // example, pure red) partially coloured, which is not PowerPoint's
+        // example, pure red) partially coloured, which is not the reference desktop app's
         // "Black and White" picture recolour.
         // Always reduce to luminance immediately before biLevel.  A preceding
         // duotone can reintroduce saturated RGB values even when the source
@@ -758,7 +758,7 @@ const resolveColor = (
   if (token !== null) {
     if (theme) {
       // Remap the slide token through the effective color map first, then index
-      // the theme — so an inverted map (tx1→lt1) paints what PowerPoint paints.
+      // the theme — so an inverted map (tx1→lt1) paints what the reference desktop app paints.
       const mapped = activeColorMap?.[token] ?? token;
       const key = SCHEME_TO_THEME[mapped] ?? SCHEME_TO_THEME[token];
       if (key) return normalizeHex(theme[key]);
@@ -783,7 +783,7 @@ let nextDefId = 0;
 const mintId = (): string => `pkdef-${(nextDefId++).toString(36)}`;
 
 // Effective color map (`<p:clrMap>` overlaid by `<p:clrMapOvr>`) for the slide
-// currently rendering. PowerPoint remaps the slide tokens (`tx1`, `bg1`, …) to
+// currently rendering. The reference desktop app remaps the slide tokens (`tx1`, `bg1`, …) to
 // theme slots through this map before the theme lookup; an inverted map
 // (`bg1="dk1" tx1="lt1"`) is common in Google-Slides / Canva exports and makes
 // `tx1` resolve to the light slot. `renderSlideSvg` sets this at the start of
@@ -791,7 +791,7 @@ const mintId = (): string => `pkdef-${(nextDefId++).toString(36)}`;
 // `nextDefId` above, every entry overwrites it, so it needs no reset.
 let activeColorMap: Readonly<Record<string, string>> | null = null;
 
-// Default body-text color for the slide currently rendering. PowerPoint takes
+// Default body-text color for the slide currently rendering. The reference desktop app takes
 // the fallback text color from the master's `bodyStyle` (e.g. `schemeClr bg1`),
 // not from the `tx1` token — and in an inverted color map `tx1` resolves to the
 // background slot, which would paint default text the same color as the surface
@@ -843,7 +843,7 @@ const gradientDef = (
     const fr = 1 - focus.right;
     const fb = 1 - focus.bottom;
     // Each side interpolates perpendicular to its edge. Together the four
-    // trapezoids produce rectangular contours, including PowerPoint's corner
+    // trapezoids produce rectangular contours, including the reference desktop app's corner
     // presets whose tiles extend beyond the shape. Inverted imported rectangles
     // keep the radial fallback below.
     if (l <= fl && fl <= fr && fr <= r && t <= ft && ft <= fb && fb <= b && l < r && t < b) {
@@ -877,10 +877,10 @@ const gradientDef = (
     // Shape-following paths still use an elliptical approximation.
     const focus = grad.focus ?? { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 };
     // fillToRect describes insets from each edge, not absolute coordinates.
-    // PowerPoint's bottom-right focus has l=t=1 and r=b=0.
+    // The reference desktop app's bottom-right focus has l=t=1 and r=b=0.
     const cx = (focus.left + 1 - focus.right) / 2;
     const cy = (focus.top + 1 - focus.bottom) / 2;
-    // Mac PowerPoint places the first stop at the focus, as SVG does.
+    // The reference desktop app on Mac places the first stop at the focus, as SVG does.
     const defs = `<defs><radialGradient id="${id}" gradientUnits="${units}"${box ? transform : ''} cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${stops}</radialGradient></defs>`;
     return { defs, fillAttr: `url(#${id})` };
   }
@@ -1054,7 +1054,7 @@ const textFillPaint =
   (box) => {
     if (fill.kind === 'none') return { defs: '', fill: 'none' };
     if (fill.kind === 'image') {
-      // PowerPoint stretches a text picture fill over the whole text block,
+      // The reference desktop app stretches a text picture fill over the whole text block,
       // like a gradient. A picture the reader could not reach paints solid.
       if (!fill.bytes) return { defs: '', fill: solid };
       const id = mintId();
@@ -1088,7 +1088,7 @@ interface PaintResult {
 }
 
 // ECMA-376 `<a:prstDash val="…"/>` → SVG `stroke-dasharray` (in stroke widths).
-// PowerPoint scales the pattern by the line width; the multipliers below were
+// The reference desktop app scales the pattern by the line width; the multipliers below were
 // reverse-engineered from real PPTX exports so the visual cadence matches.
 const DASH_PATTERNS: Record<string, string> = {
   solid: '',
@@ -1152,7 +1152,7 @@ const unrotatedGradientTransform = (
   if (grad.rotateWithShape !== false || !shape || !bounds || bounds.w <= 0 || bounds.h <= 0) {
     return '';
   }
-  // Mac PowerPoint anchors a non-rotating gradient to the rotated shape's
+  // The reference desktop app on Mac anchors a non-rotating gradient to the rotated shape's
   // axis-aligned bounding box. Undo the shape transform in physical space;
   // rotating the unit square alone distorts wide or tall shapes.
   const angle = (getShapeRotation(shape) * Math.PI) / 180;
@@ -1233,7 +1233,7 @@ const paint = (
   } else if (fill.kind === 'image') {
     fillColor = '#DDD6FE';
   } else {
-    // Unresolved fills remain transparent, matching PowerPoint / LibreOffice
+    // Unresolved fills remain transparent, matching the reference desktop app and LibreOffice
     // rendering of unstyled text boxes, content placeholders, and bare autoshapes
     // (verified against ground truth), and never paints a spurious grey box
     // over real content. (`isPlaceholder` no longer changes the fill: a
@@ -1293,7 +1293,7 @@ const paint = (
       if (dash && dash !== 'solid') {
         const pattern = DASH_PATTERNS[dash];
         if (pattern) {
-          // Scale by stroke width in CSS pixels so the cadence matches PowerPoint.
+          // Scale by stroke width in CSS pixels so the cadence matches the reference desktop app.
           const swPx = strokeWidth / EMU_PER_PX;
           const arr = pattern
             .split(' ')
@@ -1363,7 +1363,7 @@ const ANCHOR_TO_CSS: Record<string, string> = {
   bottom: 'flex-end',
 };
 
-// PowerPoint's stock master defaults per placeholder type. Used when
+// The reference desktop app's stock master defaults per placeholder type. Used when
 // the run has no `<a:rPr sz=…>` of its own — @office-kit/pptx doesn't walk
 // the lstStyle cascade to find the resolved size, so we mirror the
 // well-known master defaults here.
@@ -1428,7 +1428,7 @@ const renderRun = (
   }
   const styles: string[] = [];
   styles.push(`font-size:${(effectivePt * PX_PER_PT).toFixed(2)}px`);
-  // PowerPoint uses tight line-height (~1.0) by default for placeholders;
+  // The reference desktop app uses tight line-height (~1.0) by default for placeholders;
   // the previous 1.2 left enough vertical slack to push the top/bottom of
   // glyphs outside short placeholders.
   styles.push(
@@ -1480,7 +1480,7 @@ const renderRun = (
     styles.push(`background-color:${resolveColor(format.highlight, theme, '#FFFF00')}`);
   }
   // Character-level `<a:ln>` and `<a:effectLst>`. The outline is drawn behind
-  // the glyph fill, the way PowerPoint draws it — `paint-order` is the SVG
+  // the glyph fill, the way the reference desktop app draws it — `paint-order` is the SVG
   // spelling and `-webkit-text-stroke` the HTML one, and only the latter has
   // any effect inside a `<foreignObject>`.
   const outline = format?.outline;
@@ -1540,10 +1540,10 @@ const renderRun = (
 // `line-height` declaration in renderRun.
 const LINE_HEIGHT = 1.05;
 
-// `<a:normAutofit/>` shrink-to-fit search bounds. PowerPoint reduces the font
+// `<a:normAutofit/>` shrink-to-fit search bounds. The reference desktop app reduces the font
 // in discrete steps until the body fits its box; we sweep from 1.0 down to the
 // floor in fixed decrements. The floor stops a pathologically small box from
-// collapsing text to an unreadable size (PowerPoint clamps similarly).
+// collapsing text to an unreadable size (the reference desktop app clamps similarly).
 const AUTOFIT_FLOOR = 0.25;
 const AUTOFIT_STEP = 0.05;
 
@@ -1662,7 +1662,7 @@ const alignOf = (a: string): ParaInput['align'] =>
 // `vertical-lr` family (columns left-to-right) rotates 270°. `wordArtVert`
 // (ST_TextVerticalType, §21.1.2.1.1) means "one letter on top of another" —
 // glyphs stay UPRIGHT and stack, not rotated — matching the browser path's
-// `text-orientation:upright` and PowerPoint/LibreOffice.
+// `text-orientation:upright` and the reference desktop app and LibreOffice.
 //
 // KNOWN DIVERGENCE (overflow only): when an upright run is taller than its box,
 // the browser path wraps the overflow into a second column (CSS writing-mode),
@@ -1748,7 +1748,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         const hlinkColor = a.theme ? normalizeHex(a.theme.hyperlink) : '#0563C1';
         fmt = {
           ...fmt,
-          // PowerPoint and LibreOffice override a hyperlink run's direct
+          // The reference desktop app and LibreOffice override a hyperlink run's direct
           // solidFill with the theme hlink color — the explicit run color
           // does NOT win for a link run, so the theme color is unconditional.
           color: hlinkColor,
@@ -2105,7 +2105,7 @@ export const resolveTextBodyModel = (
       margins: getShapeTextMargins(shape) ?? { left: null, top: null, right: null, bottom: null },
     };
   }
-  // Default text alignment depends on the shape kind, matching PowerPoint /
+  // Default text alignment depends on the shape kind, matching the reference desktop app and
   // LibreOffice: autoshapes (preset geometry that is neither a placeholder nor
   // a text box) center text horizontally and anchor it middle by default,
   // whereas text boxes and placeholder bodies default to left / top. Authored
@@ -2239,7 +2239,7 @@ export const resolveTextBodyModel = (
         runs.push({ text: '\n', fmt, sizePt: fmt.size ?? defaultPt });
         continue;
       }
-      // A `slidenum` field shows the slide's own number, which PowerPoint
+      // A `slidenum` field shows the slide's own number, which the reference desktop app
       // recomputes on open; the cached `<a:t>` is whatever it last wrote, and
       // is empty for a field the deck just gained. Every other field type
       // keeps its cached text — `datetime` in particular has thirteen
@@ -2304,17 +2304,17 @@ export const resolveTextBodyModel = (
   }
   if (!hasAnyText) return null;
 
-  // Prefer the *authored* autofit factor when PowerPoint already
+  // Prefer the *authored* autofit factor when the reference desktop app already
   // computed one (`<a:normAutofit fontScale=…/>`). That's the same
-  // multiplier PowerPoint applies on-screen, so honouring it is what
+  // multiplier the reference desktop app applies on-screen, so honouring it is what
   // brings the rendered size into 1:1 agreement with the deck.
   //
-  // No estimation happens for shapes WITHOUT `<a:normAutofit>`: PowerPoint
+  // No estimation happens for shapes WITHOUT `<a:normAutofit>`: the reference desktop app
   // never shrinks those — `<a:noAutofit>` (and no autofit at all) simply
   // overflows the box, and `<a:spAutoFit>` grows the box instead of the text.
   // An earlier heuristic shrank such shapes to fit their authored box, which
   // rendered template placeholders (size inherited from layout/master, box
-  // sized by the template author) at up to 0.4× of their PowerPoint size.
+  // sized by the template author) at up to 0.4× of their size in the reference desktop app.
   const authoredAutofit = effectiveBody.autoFitParams;
   let autoFitScale = authoredAutofit?.fontScale ?? 1;
   const lineHeightScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
@@ -2327,7 +2327,7 @@ export const resolveTextBodyModel = (
   const numberLabels = paragraphNumberLabels(paraData);
 
   // A bare `<a:normAutofit/>` (no baked `fontScale`, so it defaults to 1) means
-  // "shrink text to fit the box" — PowerPoint computes that reduction at display
+  // "shrink text to fit the box" — the reference desktop app computes that reduction at display
   // time. Compute it ONCE here, before either render path runs, so the
   // foreignObject (browser) and pure-SVG (server) paths shrink by the SAME
   // factor: the server==browser parity this preview maintains. An explicit baked
@@ -2335,7 +2335,7 @@ export const resolveTextBodyModel = (
   // yield no authoredAutofit and never shrink here. The shrink is measured with
   // the SVG layout engine (our only real line-breaker); the foreignObject path
   // then reuses the resulting scale rather than computing its own.
-  // Mac PowerPoint opens placeholders with an inherited bare normAutofit at
+  // The reference desktop app on Mac opens placeholders with an inherited bare normAutofit at
   // their authored size (for example the two-line title in 01-title-only).
   // Inheritance exposes the editing policy, but is not a saved shrink request.
   // Keep inherited baked scales above; estimate only a shape-local request.
@@ -2484,7 +2484,7 @@ const renderHtmlParagraphs = (
               }
             : {}),
           // Theme hlink color overrides a hyperlink run's direct fill (see
-          // the SVG path above) — match PowerPoint / LibreOffice.
+          // the SVG path above) — match the reference desktop app and LibreOffice.
           color: hlinkColor,
           underline: runFmt?.underline ?? true,
         };
@@ -2581,7 +2581,7 @@ const renderHtmlParagraphs = (
         ? para.bulletStyle.char
         : null;
     const numberLabel = numberLabels[pi];
-    // PowerPoint retains an empty paragraph's bullet settings but hides its
+    // The reference desktop app retains an empty paragraph's bullet settings but hides its
     // marker outside text editing. Match the SVG layout's empty-line behavior.
     const showBullet =
       para.runs.some((run) => run.text.length > 0) &&
@@ -2727,7 +2727,7 @@ const renderTextBody = (
       svgVert === 'none' && svgCols && svgCols.count >= 2
         ? {
             count: svgCols.count,
-            // Mac PowerPoint uses zero spacing when spcCol is absent.
+            // The reference desktop app on Mac uses zero spacing when spcCol is absent.
             gapPx: svgCols.gapEmu !== undefined ? svgCols.gapEmu / EMU_PER_PX : 0,
           }
         : null;
@@ -2895,7 +2895,7 @@ const renderTextBody = (
     }
   }
   // <a:bodyPr rot="N"/> rotates the text body around its own center
-  // (PowerPoint pivots on the shape's text-anchor midpoint). Wrap the
+  // (the reference desktop app pivots on the shape's text-anchor midpoint). Wrap the
   // foreignObject in a transform-aware <g> so the surrounding shape
   // geometry stays put.
   const bodyRotDeg = getShapeTextBodyRotationDeg(shape);
@@ -3037,7 +3037,7 @@ const accentSequence = (theme: PresentationTheme | null): string[] => {
   return hexes.length > 0 ? hexes : fallbacks;
 };
 
-// PowerPoint's stock chart-title size when the deck authors no explicit size.
+// The reference desktop app's stock chart-title size when the deck authors no explicit size.
 const DEFAULT_CHART_TITLE_PT = 13;
 
 // Project EMU bounds → CSS-px chart frame. Title and legend get fixed
@@ -3151,7 +3151,7 @@ const layoutChart = (
 
 // Pick ~5 "nice" tick values between min and max. The step is rounded
 // to a 1 / 2 / 5 × 10ⁿ that gives 4-6 ticks total — same rule
-// Excel / PowerPoint use.
+// spreadsheet and presentation apps use.
 const niceStep = (range: number, target = 5): number => {
   if (range <= 0) return 1;
   const rawStep = range / target;
@@ -3322,13 +3322,13 @@ const DISPLAY_UNIT_LABEL: Record<NonNullable<AxisSpec['displayUnits']>, string> 
   trillions: 'Trillions',
 };
 
-// PowerPoint draws axis spines and major tick marks for every non-deleted
+// The reference desktop app draws axis spines and major tick marks for every non-deleted
 // axis. When the chart authors no `<c:spPr><a:ln>` and no `<c:style>` part
-// (which is what @office-kit/pptx emits), PowerPoint falls back to a near-black
+// (which is what @office-kit/pptx emits), the reference desktop app falls back to a near-black
 // line, so that is the renderer's default spine / tick color.
 const DEFAULT_AXIS_COLOR = '#000000';
 // Default major-gridline color when the axis authors none — a light gray,
-// matching PowerPoint's default value-axis gridline.
+// matching the reference desktop app's default value-axis gridline.
 const DEFAULT_GRID_COLOR = '#D9D9D9';
 // Major tick marks read at ~5px against the 1280px-wide reference raster.
 const AXIS_TICK_LEN = 5;
@@ -3341,7 +3341,7 @@ const AXIS_MINOR_TICK_LEN = 3;
 const chartFontPx = (sizePt: number): string => (sizePt * PX_PER_PT).toFixed(1);
 
 // Builds the `font-family / font-size / fill / weight` SVG attribute string
-// for axis tick labels. Defaults match PowerPoint's stock 10pt muted-gray
+// for axis tick labels. Defaults match the reference desktop app's stock 10pt muted-gray
 // look; authored `<c:txPr>` overrides take over.
 const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
   const sz = style?.sizePt ?? 10;
@@ -3368,8 +3368,8 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
           axis.numberFormat,
         );
   // Major gridlines render only when the axis authors `<c:majorGridlines>`.
-  // @office-kit/pptx emits none, and PowerPoint draws none in that case, so the
-  // default is off (a default-on grid is a divergence from PowerPoint).
+  // @office-kit/pptx emits none, and the reference desktop app draws none in that case, so the
+  // default is off (a default-on grid is a divergence from the reference desktop app).
   const showGrid = axis.majorGridlines ?? false;
   const gridStroke = axis.majorGridlineColor ?? DEFAULT_GRID_COLOR;
   const axisColor = axis.lineColor ?? DEFAULT_AXIS_COLOR;
@@ -3547,7 +3547,7 @@ const renderCategoryAxis = (
   if (orientation === 'horizontal') {
     // Categories along x-axis (column / line / area charts).
     const step = pointCount > 1 ? f.plotW / pointCount : 0;
-    // Rotated labels need a longer truncation budget — PowerPoint
+    // Rotated labels need a longer truncation budget — the reference desktop app
     // doesn't ellipsize rotated labels until they actually overflow.
     const truncLen = labelRotationDeg && Math.abs(labelRotationDeg) >= 30 ? 28 : 14;
     for (let i = 0; i < pointCount; i++) {
@@ -3594,7 +3594,7 @@ const renderCategoryAxis = (
       );
     }
   } else {
-    // Categories down the y-axis (bar chart). PowerPoint's bar category axis
+    // Categories down the y-axis (bar chart). The reference desktop app's bar category axis
     // runs bottom-to-top, so the first category's label sits at the bottom.
     const step = pointCount > 0 ? f.plotH / pointCount : 0;
     const truncLen = labelRotationDeg && Math.abs(labelRotationDeg) >= 30 ? 28 : 14;
@@ -3696,7 +3696,7 @@ const seriesMinMax = (spec: ReadChartSpec): { min: number; max: number; step: nu
   if (!Number.isFinite(min)) min = 0;
   if (!Number.isFinite(max)) max = 1;
   if (max === min) max = min + 1;
-  if (min > 0) min = 0; // include the zero line, like PowerPoint does
+  if (min > 0) min = 0; // include the zero line, like the reference desktop app does
   // percentStacked is always exactly 0..100% with 20% ticks — it gets no
   // Excel-style headroom (which would push the axis to 120% and leave the
   // full-height bar short of the plot top).
@@ -3705,12 +3705,12 @@ const seriesMinMax = (spec: ReadChartSpec): { min: number; max: number; step: nu
   }
   // Excel-style headroom: the auto axis maximum is the first major-unit
   // multiple strictly above the data max (data 300 with step 50 → axis 350),
-  // so the tallest bar never touches the plot edge. Matches PowerPoint and
+  // so the tallest bar never touches the plot edge. Matches the reference desktop app and
   // LibreOffice auto-scaling; an authored max below overrides this.
   const step = niceStep(max - min);
   max = (Math.floor(max / step) + 1) * step;
   // Authored <c:valAx><c:scaling> overrides the computed range so the
-  // chart matches what the deck author saw in PowerPoint.
+  // chart matches what the deck author saw in the reference desktop app.
   if (spec.valueAxis?.min !== undefined) min = spec.valueAxis.min;
   if (spec.valueAxis?.max !== undefined) max = spec.valueAxis.max;
   if (max === min) max = min + 1;
@@ -3722,7 +3722,7 @@ const seriesMinMax = (spec: ReadChartSpec): { min: number; max: number; step: nu
 
 const renderChartTitle = (f: ChartFrame, title: string, style?: ChartTextStyle): string => {
   if (!title) return '';
-  // Defaults match PowerPoint's stock title look (~14pt semibold dark
+  // Defaults match the reference desktop app's stock title look (~14pt semibold dark
   // gray); authored <a:rPr sz/b/i> + solidFill overrides take over.
   const sz = style?.sizePt ?? DEFAULT_CHART_TITLE_PT;
   const fill = style?.color ?? '#1F2937';
@@ -3852,7 +3852,7 @@ const renderChartLegend = (
 };
 
 // Charts can ship without an explicit `<c:cat>` channel — the series'
-// `<c:val>` array alone is enough; PowerPoint then labels the x-axis
+// `<c:val>` array alone is enough; the reference desktop app then labels the x-axis
 // 1, 2, 3, ... Use the longest series as the point count when
 // `spec.categories` is empty so those charts still plot.
 const pointCount = (spec: ReadChartSpec): number => {
@@ -4010,8 +4010,8 @@ const renderColumnChart = (
         // invertIfNegative paints the negative bars in the inverted shade
         // of the series color (typically a darker / muted variant).
         // varyColors (single-series): each data point gets a distinct
-        // accent color, mirroring PowerPoint's "Vary colors by point". A
-        // per-point `<c:dPt>` color beats both, as it does in PowerPoint.
+        // accent color, mirroring the reference desktop app's "Vary colors by point". A
+        // per-point `<c:dPt>` color beats both, as it does in the reference desktop app.
         const baseColor = chartPointBaseColor(spec, colors, s, c);
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
@@ -4192,7 +4192,7 @@ const linearFit = (
 
 // Emit an SVG path through `pts` with cubic Bézier control points
 // derived from each pair's neighbours (Catmull-Rom-to-Bezier). The
-// `tension` is fixed at 0.5 — close to what PowerPoint's smooth-line
+// `tension` is fixed at 0.5 — close to what the reference desktop app's smooth-line
 // preset produces visually.
 const smoothPath = (pts: ReadonlyArray<[number, number]>): string => {
   if (pts.length < 2) return '';
@@ -4215,9 +4215,9 @@ const smoothPath = (pts: ReadonlyArray<[number, number]>): string => {
   return parts.join(' ');
 };
 
-// PowerPoint's automatic marker-symbol rotation for line / scatter series
+// The reference desktop app's automatic marker-symbol rotation for line / scatter series
 // whose `<c:marker>` authors no explicit `<c:symbol>` (or authors `auto`).
-// Confirmed against a PowerPoint export for series 0–3 (diamond, square,
+// Confirmed against an export from the reference desktop app for series 0–3 (diamond, square,
 // triangle, x); the tail extends the rotation with the remaining glyphs.
 const AUTO_MARKER_SYMBOLS = [
   'diamond',
@@ -4411,7 +4411,7 @@ const renderBarChart = (
         }
         const base = v >= 0 ? posAcc : negAcc;
         const stackedTop = base + v;
-        // PowerPoint's bar-chart category axis runs bottom-to-top, so the
+        // The reference desktop app's bar-chart category axis runs bottom-to-top, so the
         // first category sits at the bottom — map slot c from the bottom up.
         const y0 = f.plotY + (N - 1 - c) * groupH + (groupH - barH) / 2;
         const x0 = f.plotX + ((Math.min(base, stackedTop) - min) / range) * f.plotW;
@@ -4442,7 +4442,7 @@ const renderBarChart = (
       }
     } else {
       const clusterH = barH * clusterUnitsB;
-      // First category at the bottom (PowerPoint's bottom-to-top cat axis).
+      // First category at the bottom (the reference desktop app's bottom-to-top cat axis).
       const clusterStartY = f.plotY + (N - 1 - c) * groupH + (groupH - clusterH) / 2;
       const strideB = barH * (1 - overlapPctB);
       for (let s = 0; s < spec.series.length; s++) {
@@ -4498,7 +4498,7 @@ const renderLineChart = (
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
   // Area charts honour `<c:grouping>` stacked / percentStacked the same
-  // way column charts do. Line charts can be stacked too in PowerPoint;
+  // way column charts do. Line charts can be stacked too in the reference desktop app;
   // we treat them identically.
   const grouping = spec.grouping ?? 'clustered';
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
@@ -4509,7 +4509,7 @@ const renderLineChart = (
   const range = max - min || 1;
   // Category line charts (crossBetween="between") plot points at BAND CENTERS
   // with a half-band margin on each side — matching the category-axis labels
-  // and PowerPoint/LibreOffice. Area charts (crossBetween="midCat") instead
+  // and the reference desktop app and LibreOffice. Area charts (crossBetween="midCat") instead
   // span edge-to-edge, first point on the value-axis spine and last on the
   // right edge.
   // A single category degenerates to band 0 for both modes, putting the lone
@@ -4601,9 +4601,9 @@ const renderLineChart = (
       : '';
     perSeries.push({ s, series, color, ptsRaw, pts, areaPath, dPath });
   }
-  // Area fills are opaque in PowerPoint (the authored solidFill at full
+  // Area fills are opaque in the reference desktop app (the authored solidFill at full
   // alpha). Overlapping (non-stacked) areas paint back-to-front — series and
-  // stroke together, as PowerPoint treats each series as one atomic unit —
+  // stroke together, as the reference desktop app treats each series as one atomic unit —
   // so the FIRST authored series ends up on top and fully occludes a shorter
   // series behind it, fill AND outline. Stacked areas are disjoint cumulative
   // bands — they never overlap, so authored order is fine (and is what the
@@ -4637,7 +4637,7 @@ const renderLineChart = (
     // (<c:lineChart><c:marker val="1"/> → spec.lineMarkers) or when the
     // series authors an explicit symbol. Area charts (`fill`) never show
     // them by default, and `markerSymbol='none'` always hides. This keeps
-    // plain imported line charts marker-free, matching PowerPoint.
+    // plain imported line charts marker-free, matching the reference desktop app.
     const explicitSymbol =
       series.markerSymbol !== undefined &&
       series.markerSymbol !== 'auto' &&
@@ -4758,7 +4758,7 @@ const renderPieChart = (
     acc = end;
     const largeArc = angle > Math.PI ? 1 : 0;
     // <c:dPt><c:explosion val="N"/> shoves the slice outward along the
-    // mid-angle by N% of the radius (PowerPoint clamps to a sane max
+    // mid-angle by N% of the radius (the reference desktop app clamps to a sane max
     // around 400, but in practice authors stay 0–60).
     const explPct = series.pointExplosions?.[i] ?? 0;
     const explOffset = (explPct / 100) * radius;
@@ -4807,7 +4807,7 @@ const renderPieChart = (
     }
     const labelX = sx + labelR * Math.cos(labelMid);
     const labelY = sy + labelR * Math.sin(labelMid);
-    // PowerPoint/LibreOffice order a pie/doughnut label as category, then
+    // The reference desktop app and LibreOffice order a pie/doughnut label as category, then
     // value, then percent (e.g. "Web — 48%"), not the reverse.
     const labels: string[] = [];
     if (labelOptions.showSeriesName && series.name) labels.push(series.name);
@@ -4857,7 +4857,7 @@ const scatterAxisBounds = (vals: ReadonlyArray<number>): { min: number; max: num
 
 // Pairs a scatter / bubble series' x-channel (`xValues`, or the 1-based
 // index when absent) with its y-channel (`values`) and bubble size,
-// dropping points whose x or y is null / non-finite (PowerPoint skips
+// dropping points whose x or y is null / non-finite (the reference desktop app skips
 // those too).
 const xyPoints = (series: ChartSeries): Array<{ x: number; y: number; size: number }> => {
   const hasX = series.xValues !== undefined && series.xValues.length > 0;
@@ -4883,7 +4883,7 @@ const xyPoints = (series: ChartSeries): Array<{ x: number; y: number; size: numb
 // Two value axes (x horizontal, y vertical) shared by scatter / bubble.
 // Honours the authored `<c:valAx><c:scaling>` min / max + numberFormat on
 // the y axis; the x axis is auto-scaled (our model carries only one
-// value-axis scaling block, which PowerPoint applies to the primary
+// value-axis scaling block, which the reference desktop app applies to the primary
 // (y) axis).
 const renderScatterAxes = (
   f: ChartFrame,
@@ -4941,7 +4941,7 @@ const renderScatterChart = (
   const projY = (y: number): number => f.plotY + f.plotH - ((y - yB.min) / yRange) * f.plotH;
   const out: string[] = [renderScatterAxes(f, spec, xB, yB)];
   // scatterStyle governs lines vs markers. Default (absent) = markers
-  // only, matching PowerPoint's stock "Scatter" subtype.
+  // only, matching the reference desktop app's stock "Scatter" subtype.
   const style = spec.scatterStyle;
   const showLine =
     style === 'line' || style === 'lineMarker' || style === 'smooth' || style === 'smoothMarker';
@@ -5173,7 +5173,7 @@ const renderChart = (
   // plot box. The shared category-axis block below stays gated on
   // `isCartesian` so it doesn't run for the xy(z) kinds.
   const hasAxes = isCartesian || spec.kind === 'scatter' || spec.kind === 'bubble';
-  // No `<c:legend>` in the chart XML means no legend — PowerPoint and
+  // No `<c:legend>` in the chart XML means no legend — the reference desktop app and
   // LibreOffice both render none. An authored legend with `position: null`
   // (`<c:delete/>`-style) is also hidden.
   const hasLegend = spec.legend !== undefined && spec.legend.position !== null;
@@ -5518,10 +5518,10 @@ const renderChart = (
     `<g${transform}>`,
     // Chart-area backdrop honors <c:chartSpace><c:spPr><a:solidFill> /
     // <a:ln>. plot-area gets its own tinted rect + border when
-    // <c:plotArea><c:spPr> authors them. PowerPoint draws no chart-area
+    // <c:plotArea><c:spPr> authors them. The reference desktop app draws no chart-area
     // border unless the chartSpace authors an <a:ln>, so the default is
     // `none` — an invented light-gray frame is the most visible single
-    // divergence from PowerPoint's actual rendering.
+    // divergence from the reference desktop app's actual rendering.
     `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="${spec.chartAreaStrokeColor ?? 'none'}" stroke-width="0.6"${spec.roundedCorners ? ' rx="6" ry="6"' : ''}/>`,
     spec.plotAreaFill || spec.plotAreaStrokeColor
       ? `<rect x="${px(f.plotX)}" y="${px(f.plotY)}" width="${px(f.plotW)}" height="${px(f.plotH)}" fill="${spec.plotAreaFill ?? 'none'}" stroke="${spec.plotAreaStrokeColor ?? 'none'}" stroke-width="0.6"/>`
@@ -5558,7 +5558,7 @@ const renderChart = (
 // Builds the per-paragraph layout model the shared text engine consumes from a
 // cell's structured paragraphs and shared DrawingML paragraph properties. A run's effective point
 // size resolves through the run, paragraph, and table-style cascade. Cells with
-// no authored size fall back to PowerPoint's default for a new table (18 pt).
+// no authored size fall back to the reference desktop app's default for a new table (18 pt).
 const cellParaData = (
   paragraphs: ReadonlyArray<TableCellParagraph>,
   cell: Parameters<typeof getTableCellParagraphs>[0],
@@ -5583,7 +5583,7 @@ const cellParaData = (
       if (el.text.trim()) hasText = true;
       const href = el.clickAction ? clickActionHref(pres, el.clickAction) : null;
       // Table-cell readers expose the literal run format. Resolve the same
-      // paragraph/body defaults as PowerPoint applies before rendering so
+      // paragraph/body defaults as the reference desktop app applies before rendering so
       // `pPr/defRPr` and `lstStyle` also affect SVG and foreignObject text.
       const fmt = getTableCellRunFormatEffective(
         pres,
@@ -5741,7 +5741,7 @@ const renderTableCellText = (
   return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>${fillOverlay()}${bevelOverlay()}`;
 };
 
-// Mac PowerPoint 16.113 does not blend a two-stop linear table background at
+// The reference desktop app (Mac 16.113) does not blend a two-stop linear table background at
 // a constant rate. Its exports of Themed Style 2 (theme fill style 3: two
 // stops, `lin ang="16200000" scaled="0"`) over all six accents follow the
 // straight sRGB line between the stops, but the first stop's weight is
@@ -5750,7 +5750,7 @@ const renderTableCellText = (
 // gradient spanning the table frame this matches every sampled pixel within
 // 2 levels; a constant rate is up to 21 levels darker in the middle rows, and
 // blending in linear light is wrong too (the channels then move at different
-// rates, which PowerPoint's do not). The cause is not known. Themed Style 1's
+// rates, which the reference desktop app's do not). The cause is not known. Themed Style 1's
 // three-stop background, in the same exports, is blended at a constant rate,
 // so only two-stop linear backgrounds get the curve.
 const TWO_STOP_TABLE_GRADIENT_EXPONENT = 1.85;
@@ -5841,12 +5841,12 @@ const renderTable = (
   // (an inverted map would paint the `tx1` token white-on-white).
   const textColor = activeDeckTextColor;
   // Default table-cell face is the theme's body (minor) font, the same default
-  // PowerPoint applies when a cell run carries no explicit typeface.
+  // the reference desktop app applies when a cell run carries no explicit typeface.
   const tableThemeFace = getPresentationFonts(pres)?.minorLatin ?? null;
   const out: string[] = [];
   out.push(`<g${transform}>`);
   // The table background (`a:tblPr` fill or the style's `a:tblBg`) shows
-  // through every cell without a fill of its own — PowerPoint's Themed Styles
+  // through every cell without a fill of its own — the reference desktop app's Themed Styles
   // paint their theme gradient this way.
   const background = getTableBackgroundEffective(pres, shape);
   const tableW = (colXs[dims.cols] ?? xPx) - xPx;
@@ -5912,7 +5912,7 @@ const renderTable = (
       // a known limitation of the preview renderer.
       const borders = appearance.borders;
       // Project the OOXML `<a:prstDash>` token onto an SVG stroke-dasharray.
-      // Scaled by the border's width so the dash visually matches PowerPoint.
+      // Scaled by the border's width so the dash visually matches the reference desktop app.
       const dashAttr = (dash: string | null | undefined, widthPx: number): string => {
         if (!dash || dash === 'solid') return '';
         const pat = DASH_PATTERNS[dash];
@@ -5969,7 +5969,7 @@ const renderTable = (
       const cellParagraphs = getTableCellParagraphs(
         cell as Parameters<typeof getTableCellParagraphs>[0],
       );
-      // ECMA-376 default cell anchor is top ('t'), which is what PowerPoint /
+      // ECMA-376 default cell anchor is top ('t'), which is what the reference desktop app and
       // LibreOffice render when `<a:tcPr anchor>` is absent.
       const vAnchor = getTableCellAnchor(typedCell) ?? 'top';
       const cellMargins = getTableCellMargins(typedCell);
@@ -6149,7 +6149,7 @@ const geometryPathData = (path: GeomPath, x: number, y: number, w: number, h: nu
 // `ST_PathFillMode` shades a path's fill without naming a color: a cube's
 // lit top and shaded side, a curved arrow's underside. A translucent black or
 // white wash over the fill does that for every fill kind (solid, gradient,
-// pattern, picture) alike; the strengths follow PowerPoint's rendering.
+// pattern, picture) alike; the strengths follow the reference desktop app's rendering.
 const PATH_SHADE: Readonly<Record<Exclude<PathFillMode, 'none' | 'norm'>, string>> = {
   darken: 'fill="#000" fill-opacity="0.4"',
   darkenLess: 'fill="#000" fill-opacity="0.2"',
@@ -6158,7 +6158,7 @@ const PATH_SHADE: Readonly<Record<Exclude<PathFillMode, 'none' | 'norm'>, string
 };
 
 // How far a sketched outline strays from the true geometry, as a fraction of
-// the shape's size. PowerPoint generates its hand-drawn path itself and does
+// the shape's size. The reference desktop app generates its hand-drawn path itself and does
 // not document the algorithm; these only approximate how far each style
 // wanders.
 const SKETCH_AMPLITUDE: Record<LineSketch, number> = {
@@ -6185,7 +6185,7 @@ const seededRandom = (seed: number): (() => number) => {
 /**
  * An approximation of a sketched outline (`ask:lineSketchStyleProps`): every
  * edge of `geom` is redrawn as a seeded hand-drawn wobble. Only used for a
- * preset geometry the writer left crisp; Office-written sketches already
+ * preset geometry the writer left crisp; sketches the reference desktop app wrote already
  * carry their hand-drawn path as custom geometry.
  */
 const sketchGeometry = (
@@ -6365,11 +6365,11 @@ const renderShapeContent = (
   if (flip.horizontal) transforms.push(`translate(${E(2 * cx)} 0) scale(-1 1)`);
   if (flip.vertical) transforms.push(`translate(0 ${E(2 * cy)}) scale(1 -1)`);
   const transform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
-  // Text follows the shape's ROTATION but not its flips — PowerPoint mirrors a
+  // Text follows the shape's ROTATION but not its flips — the reference desktop app mirrors a
   // shape's geometry on flip while keeping its text upright and readable.
   // flip.vertical alone (or combined with flip.horizontal) still needs an
   // extra half-turn to keep the label right-reading-up, though: flipping a
-  // shape top-to-bottom turns its (unflipped) text upside down, so PowerPoint
+  // shape top-to-bottom turns its (unflipped) text upside down, so the reference desktop app
   // adds 180° to the text's rotation specifically for a vertical flip.
   // flip.horizontal never needs this — mirroring left-right keeps reading
   // direction (and text-upright-ness) unchanged. Verified against real
@@ -6385,7 +6385,7 @@ const renderShapeContent = (
   const textTransform = textTransforms.length > 0 ? ` transform="${textTransforms.join(' ')}"` : '';
 
   // A group's scale moves and resizes its children but leaves their text at the
-  // authored point size — resizing a group in PowerPoint never reflows the type,
+  // authored point size — resizing a group in the reference desktop app never reflows the type,
   // and LibreOffice renders it the same way. Laying the text out inside the
   // group-scaled rect and cancelling the scale back out keeps the box where the
   // geometry is while the glyphs stay undistorted; a non-uniform group scale
@@ -6422,7 +6422,7 @@ const renderShapeContent = (
   }
 
   // Shapes with an image fill (`<p:sp>` + `<a:blipFill>` instead of a
-  // solid / gradient / pattern). PowerPoint's "Insert Picture from
+  // solid / gradient / pattern). The reference desktop app's "Insert Picture from
   // File" and several third-party tools emit pictures this way rather
   // than as top-level `<p:pic>`.
   if (kind === 'shape' && fill.kind === 'image') {
@@ -6477,7 +6477,7 @@ const renderShapeContent = (
     // bentConnector{2,3,4,5} are L-shaped, step, and double-step paths;
     // curvedConnector{2,3,4,5} are quadratic / cubic Bézier curves. We
     // route them between the bounding box's diagonal endpoints in
-    // CSS-px so the cadence matches PowerPoint within visual tolerance.
+    // CSS-px so the cadence matches the reference desktop app within visual tolerance.
     const preset = getShapePreset(shape) ?? 'line';
     if (preset === 'straightConnector1' || preset === 'line') {
       return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${sa}${ma}${connectorTransform}/>`;
@@ -6719,7 +6719,7 @@ const renderShapeContent = (
 
   // Effects (`<a:effectLst>`): outerShdw / innerShdw / glow / softEdge
   // / reflection / blur. Build a single SVG <filter> chain so multiple
-  // effects compose the way PowerPoint composes them.
+  // effects compose the way the reference desktop app composes them.
   const fx = buildEffectsFilter(pres, shape);
   const filterAttr = fx ? ` filter="url(#${fx.id})"` : '';
   let fxDefs = fx ? fx.defs : '';
@@ -6733,16 +6733,16 @@ const renderShapeContent = (
   geomSvg = `<g${filterAttr}>${geomSvg}</g>`;
   if (reflection) {
     // Paint the reflection behind the shape; it sits below the bottom edge
-    // so they don't overlap, but keeping it first matches PowerPoint's z-order.
+    // so they don't overlap, but keeping it first matches the reference desktop app's z-order.
     geomSvg = reflection.svg + geomSvg;
     fxDefs += reflection.defs;
   }
 
   // Expose the shape's authored name as a data attribute so DevTools /
   // Selenium / a11y inspections can identify a shape without having to
-  // parse SVG geometry. The PowerPoint alt-title / alt-description feed
+  // parse SVG geometry. The alt-title / alt-description feed
   // `aria-label` so screen readers announce decks the same way
-  // PowerPoint's Accessibility Inspector reports them.
+  // the reference desktop app's Accessibility Inspector reports them.
   const shapeName = (() => {
     try {
       return getShapeName(shape);
@@ -6768,7 +6768,7 @@ const renderShapeContent = (
   const nameAttr = shapeName ? ` data-pptx-shape-name="${escapeXml(shapeName)}"` : '';
   const ariaAttr = a11yLabel ? ` role="img" aria-label="${escapeXml(a11yLabel)}"` : '';
   // Geometry carries rotation + flips; text carries rotation only so it stays
-  // upright when the shape is flipped (matching PowerPoint).
+  // upright when the shape is flipped (matching the reference desktop app).
   const placedText = textOverlay ? `<g${textTransform}>${textOverlay}</g>` : '';
   const custGeomAttr = isCustGeom ? ' data-pptx-fallback="custGeom"' : '';
   const inner = `${p.defs}${fxDefs}<g${nameAttr}${ariaAttr}${custGeomAttr}><g${transform}>${geomSvg}</g>${placedText}</g>`;
@@ -6836,7 +6836,7 @@ interface ReflectionResult {
 
 // Builds the reflection: a vertically mirrored copy of the shape's raw
 // geometry placed below its bottom edge, faded by a vertical opacity mask.
-// PowerPoint encodes the mirror as a negative `sy`; `stA`/`endA` give the
+// The reference desktop app encodes the mirror as a negative `sy`; `stA`/`endA` give the
 // alpha at the near (contact) and far edges, `dist` the gap below the shape.
 const buildReflection = (
   pres: PresentationData,
@@ -6941,7 +6941,7 @@ const buildEffectsFilter = (
       );
       innerShadows.push(`innerOut${i}`);
     } else if (e.kind === 'glow') {
-      // PowerPoint / LibreOffice keep the glow color near-opaque for most of
+      // The reference desktop app and LibreOffice keep the glow color near-opaque for most of
       // the `rad` reach and feather only at the outer edge. Compositing flood
       // 'in' a single wide Gaussian caps peak alpha at ~0.5 and over-diffuses,
       // so decouple the saturated band (a large dilation) from the feather (a
@@ -7062,7 +7062,7 @@ export const renderSlideSvg = (
 
 /**
  * Draws a slide layout — or, with `master`, its slide master — the way
- * PowerPoint's Slide Master view shows it behind the placeholders: the
+ * the reference desktop app's Slide Master view shows it behind the placeholders: the
  * background and the decorative (non-placeholder) shapes of the master and,
  * for a layout, of the layout itself. A layout that hides background graphics
  * leaves the master's shapes out. Placeholders are not drawn; an editor draws

@@ -1,4 +1,4 @@
-// Regression: real .pptx files produced by some tools (notably PowerPoint
+// Regression: real .pptx files produced by some tools (notably the reference desktop app
 // on Windows and certain third-party libraries) include explicit
 // directory entries in the ZIP central directory. These are zero-byte
 // entries whose names end with "/" (e.g. `_rels/`, `ppt/`,
@@ -21,7 +21,7 @@ const ENC = new TextEncoder();
 
 // Build a `.pptx` byte stream that copies every entry from `source` and
 // adds a few zero-byte directory entries up front, mimicking what
-// PowerPoint-on-Windows / Office Open XML SDK / docx4j sometimes write.
+// The reference desktop app on Windows / Office Open XML SDK / docx4j sometimes write.
 const withDirectoryEntries = (source: Uint8Array): Uint8Array => {
   const entries = unzipSync(source);
   const augmented: Record<string, Uint8Array> = {};

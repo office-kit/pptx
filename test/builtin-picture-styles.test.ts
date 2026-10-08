@@ -44,7 +44,7 @@ describe('built-in picture styles', () => {
   });
 
   it.each(BUILTIN_PICTURE_STYLES.map((name, index) => [name, index] as const))(
-    'writes exactly what PowerPoint writes for %s',
+    'writes exactly what the reference desktop app writes for %s',
     async (name, index) => {
       const pres = await loadPresentation(blank);
       const before = await slideXml(pres);
@@ -104,7 +104,7 @@ describe('picture compression state', () => {
     ['print', '4-print-220-ppi.xml'],
     ['screen', '5-on-screen-150-ppi.xml'],
     ['email', '6-email-96-ppi.xml'],
-  ] as const)('writes PowerPoint’s %s blip', async (state, file) => {
+  ] as const)('writes the reference desktop app’s %s blip', async (state, file) => {
     const pres = await loadPresentation(blank);
     setShapeImageCompressionState(picture(pres), state);
     const xml = await slideXml(pres);

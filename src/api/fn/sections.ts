@@ -25,7 +25,7 @@ import { getSlides } from './slide-query.ts';
 // ---------------------------------------------------------------------------
 // Slide sections (p14 extension).
 //
-// PowerPoint 2010+ supports grouping slides into named sections. The
+// The reference desktop app (2010 and later) supports grouping slides into named sections. The
 // data lives in `<p:presentation>/<p:extLst>/<p:ext uri="{…}">/<p14:sectionLst>`.
 // We expose it as a flat array of `SlideSection` objects, each
 // carrying the section name and the slides in display order.
@@ -137,7 +137,7 @@ export const getSlideSections = (pres: PresentationData): ReadonlyArray<SlideSec
 
 /**
  * Replaces the deck's section list with `sections`. Each section is
- * given a fresh GUID `id` attribute (PowerPoint generates one per
+ * given a fresh GUID `id` attribute (the reference desktop app generates one per
  * section; we synthesize a deterministic-ish one based on index +
  * timestamp for v1).
  *

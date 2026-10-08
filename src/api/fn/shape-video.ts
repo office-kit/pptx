@@ -5,7 +5,7 @@ import { getShapeMedia } from './media.ts';
 import { setShapePreset } from './shape-fill-stroke.ts';
 import { resetShapeImageColorEffects } from './shape-image-effects.ts';
 
-// PowerPoint's Video Format > Reset clears the shape-level style while leaving
+// The reference desktop app's Video Format > Reset clears the shape-level style while leaving
 // the media picture fill (poster), crop, and transform intact; geometry is
 // restored to the rectangle preset.
 const VIDEO_FORMAT_CHILDREN = new Set([
@@ -23,7 +23,7 @@ const VIDEO_FORMAT_CHILDREN = new Set([
 ]);
 
 /**
- * Restores a video to PowerPoint's default shape formatting.
+ * Restores a video to the reference desktop app's default shape formatting.
  *
  * This is deliberately restricted to video media pictures. It clears the
  * image recolor/correction elements and the shape-level fill, line, effects,
@@ -36,7 +36,7 @@ export const resetShapeVideoFormatting = (shape: SlideShapeData): void => {
   }
 
   // Validate the media before touching the live tree. The existing image
-  // reset owns the exact set of PowerPoint color-correction children.
+  // reset owns the exact set of the reference desktop app's color-correction children.
   setShapePreset(shape, 'rect');
   resetShapeImageColorEffects(shape);
 

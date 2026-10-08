@@ -50,7 +50,7 @@ export const getSlideShapes = (slide: SlideData): ReadonlyArray<SlideShapeData> 
 /**
  * Rebinds the slide to a different layout. The slide's own content
  * (shapes, text, geometry) is preserved verbatim; only the
- * `slideLayout` rel is updated so PowerPoint re-renders with the new
+ * `slideLayout` rel is updated so the reference desktop app re-renders with the new
  * layout's placeholder positions and theme.
  *
  * The new layout must already be a part of the package — pass one
@@ -441,7 +441,7 @@ export const findShapeInPresentation = (
  *
  * Tokens must fit within a single text run (see `replaceTokensInTree`
  * in `drawingml/`). Cross-run replacements aren't supported — use
- * `findSlidePlaceholder` + a setText path when PowerPoint has
+ * `findSlidePlaceholder` + a setText path when the reference desktop app has
  * fragmented the run sequence.
  */
 export const replaceTokensInSlide = (slide: SlideData, tokens: Record<string, string>): number => {

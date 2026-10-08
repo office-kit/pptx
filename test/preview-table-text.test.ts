@@ -199,7 +199,7 @@ describe('table cell text rendering', () => {
       rows: [['Plain']],
     });
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
-    // 18 pt → 18 * 96/72 = 24 px, PowerPoint's default for a freshly
+    // 18 pt → 18 * 96/72 = 24 px, the reference desktop app's default for a freshly
     // inserted table cell (no explicit <a:rPr sz>).
     expect(svg).toContain('font-size="24"');
   });

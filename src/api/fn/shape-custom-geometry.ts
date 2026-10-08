@@ -90,7 +90,7 @@ function path(input: CustomGeometryPathInput, index: number): XmlElement {
 
 /**
  * Replaces the shape's geometry (preset or custom) with the given paths. The
- * text rectangle is the whole shape, as PowerPoint writes for freeforms.
+ * text rectangle is the whole shape, as the reference desktop app writes for freeforms.
  * Coordinates are rounded to integers, which the schema requires.
  */
 export const setShapeCustomGeometry = (

@@ -221,7 +221,7 @@ describe('gradient tile rectangle', () => {
       setShapeGradientFill(getSlideShapes(getSlides(pres)[0]!)[0]!, { stops, path });
       const parts = unzipSync(await savePresentation(pres));
       const name = 'ppt/slides/slide1.xml';
-      // Mac PowerPoint's Radial > From Bottom Right Corner uses these insets.
+      // The reference desktop app's Radial > From Bottom Right Corner uses these insets.
       parts[name] = strToU8(
         strFromU8(parts[name]!).replace(
           '</a:gradFill>',

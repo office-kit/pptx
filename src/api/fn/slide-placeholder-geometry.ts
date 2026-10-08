@@ -208,7 +208,7 @@ function insertShapes(slide: SlideData, additions: XmlElement[]): void {
  * of `addMissingSlidePlaceholders`, it starts empty and inherits its geometry
  * and text style from the layout and master.
  * Pass `source: 'master'` to create an unmatched slot that inherits directly
- * from the master, without changing the layout (as PowerPoint does when
+ * from the master, without changing the layout (as the reference desktop app does when
  * demoting outline text into a Title Only slide). Returns null if absent there.
  */
 export const addSlidePlaceholder = (

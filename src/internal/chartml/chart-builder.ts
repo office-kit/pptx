@@ -4,7 +4,7 @@
 // plot-group element of CT_PlotArea. The chart references an embedded
 // xlsx via `<c:externalData r:id="rId1">`; the calling layer is
 // responsible for wiring that rel and writing the xlsx bytes. Inline
-// `<c:strCache>` / `<c:numCache>` blocks carry the values so PowerPoint
+// `<c:strCache>` / `<c:numCache>` blocks carry the values so the reference desktop app
 // can render the chart without ever opening the workbook.
 
 import {
@@ -92,7 +92,7 @@ const numRef = (
 // `<c:multiLvlStrRef>` — `levels[0]` is the innermost level (the category
 // labels themselves), as CT_MultiLvlStrData orders its `<c:lvl>` children.
 // An outer level's empty entries mean "same group as before" and are left
-// out, which is how PowerPoint spans one label over several categories.
+// out, which is how the reference desktop app spans one label over several categories.
 const multiLvlStrRef = (
   formula: string,
   levels: ReadonlyArray<ReadonlyArray<string>>,
@@ -222,7 +222,7 @@ const spPrChildren = (fill: string | undefined, stroke: string | undefined): Xml
   return elem(c('spPr'), { children: out });
 };
 
-// Default theme accent palette (matches Office 2013+ default theme).
+// Default theme accent palette (matches 2013+ default theme).
 const DEFAULT_ACCENT_COLORS = [
   '4472C4', // accent1
   'ED7D31', // accent2
@@ -238,7 +238,7 @@ const DEFAULT_ACCENT_COLORS = [
 const seriesSpPr = (
   color: string,
   // `null` hides the connecting line (`<a:ln><a:noFill/>`). That, not the
-  // chart-level style token, is what PowerPoint honors for a markers-only
+  // chart-level style token, is what the reference desktop app honors for a markers-only
   // scatter series and for the invisible series of a stock chart.
   lineColor: string | null,
   lineWidthEmu: number | undefined,
@@ -264,7 +264,7 @@ const seriesSpPr = (
   return elem(c('spPr'), { children: [solidFill(color, fillOpacity), ln] });
 };
 
-// `<c:marker>` for a series. PowerPoint paints a marker without <c:spPr> in
+// `<c:marker>` for a series. The reference desktop app paints a marker without <c:spPr> in
 // the theme's automatic series color, not the series' own color, so the fill
 // and outline colors are always written.
 const markerElement = (
@@ -291,7 +291,7 @@ const markerElement = (
 // Build the array of `<c:dPt>` overrides for a series — combines the
 // sparse pointColors and pointExplosions maps. Each authored index
 // emits a `<c:dPt>` with `<c:idx>` + `<c:bubble3D val="0"/>` (required
-// by PowerPoint) + optional explosion + optional spPr/solidFill color.
+// by the reference desktop app) + optional explosion + optional spPr/solidFill color.
 const dPtElements = (
   colors: ReadonlyArray<string | null> | undefined,
   explosions: ReadonlyArray<number | null> | undefined,
@@ -308,7 +308,7 @@ const dPtElements = (
     if (color === null && (expl === null || !Number.isFinite(expl))) continue;
     const children: XmlElement[] = [
       valNode(c('idx'), i),
-      // PowerPoint expects bubble3D on every dPt, 0 outside 3-D bubble charts.
+      // The reference desktop app expects bubble3D on every dPt, 0 outside 3-D bubble charts.
       valNode(c('bubble3D'), bubble3D ? '1' : '0'),
     ];
     if (expl !== null) children.push(valNode(c('explosion'), Math.round(expl)));
@@ -357,7 +357,7 @@ const trendlineElement = (
 
 // `<c:errBars>` (CT_ErrBars). `direction` is written for the xy kinds only:
 // their series take one element per direction, while a category series has
-// a single value direction and PowerPoint leaves `<c:errDir>` out.
+// a single value direction and the reference desktop app leaves `<c:errDir>` out.
 const errBarsElement = (bars: ChartErrorBars, direction: 'x' | 'y' | null): XmlElement => {
   const children: XmlElement[] = [];
   if (direction !== null) children.push(valNode(c('errDir'), direction));
@@ -521,9 +521,9 @@ const seriesElement = (
   // spPr shape depends on what the series actually paints. A line series'
   // visible element is its stroke, so the color MUST live on <a:ln>; a bare
   // <a:solidFill> (correct for bar/area fills) leaves the line uncolored and
-  // PowerPoint falls back to its automatic series palette — the line then
+  // the reference desktop app falls back to its automatic series palette — the line then
   // renders in the wrong color. seriesSpPr emits the color on both <a:ln>
-  // and <a:solidFill>, so it colors the line for PowerPoint while keeping the
+  // and <a:solidFill>, so it colors the line for the reference desktop app while keeping the
   // solidFill the reader round-trips. Bar / column / pie keep the legacy
   // solid-fill-only shape for tight round-trip compatibility with fixtures.
   const scatterStyle = spec.scatterStyle ?? 'marker';
@@ -615,7 +615,7 @@ const seriesElement = (
         `chart: series '${series.name}' sets xErrorBars, which only scatter / bubble series have an x channel for`,
       );
     }
-    // CT_ErrBars order is free between the two, PowerPoint writes x then y.
+    // CT_ErrBars order is free between the two, the reference desktop app writes x then y.
     if (series.xErrorBars !== undefined) children.push(errBarsElement(series.xErrorBars, 'x'));
     if (series.errorBars !== undefined) {
       children.push(errBarsElement(series.errorBars, isXy ? 'y' : null));
@@ -625,8 +625,8 @@ const seriesElement = (
   children.push(...channels);
   // Line series always get an explicit <c:smooth>: the schema default for an
   // absent element is val="1", so LibreOffice draws an unauthored line as a
-  // smooth curve while PowerPoint draws it straight. PowerPoint itself always
-  // writes the element; doing the same keeps every renderer straight unless
+  // smooth curve while the reference desktop app draws it straight. The reference desktop app
+  // itself always writes the element; doing the same keeps every renderer straight unless
   // smoothing was asked for. (Only CT_LineSer / CT_ScatterSer carry smooth —
   // emitting it on a bar/pie series would be schema-invalid.)
   if (shape === 'line') {
@@ -638,7 +638,7 @@ const seriesElement = (
   return elem(c('ser'), { children });
 };
 
-// Axis ids — arbitrary distinct positive 32-bit integers PowerPoint just
+// Axis ids — arbitrary distinct positive 32-bit integers the reference desktop app just
 // needs them stable within the chart for the `<c:crossAx>` back-pointer.
 const CAT_AX_ID = 111111111;
 const VAL_AX_ID = 222222222;
@@ -664,7 +664,7 @@ const effectiveSeriesKind = (spec: ChartSpec, seriesIdx: number): ChartSpec['kin
  * Splits the series into plot groups keyed by (effective kind, axis).
  * Primary-axis groups come first so secondary overlays paint on top,
  * and bar groups precede line/area within each axis for the same reason
- * (matching PowerPoint's combo emit order).
+ * (matching the reference desktop app's combo emit order).
  */
 const comboPlotGroups = (
   spec: ChartSpec,
@@ -787,7 +787,7 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   children.push(valNode(c('crossAx'), VAL_AX_ID));
   if (dateAxis !== undefined) {
     // CT_DateAx tail: auto, lblOffset, then the unit pairs. `auto` is off —
-    // with it on PowerPoint re-decides between a text and a date axis from
+    // with it on the reference desktop app re-decides between a text and a date axis from
     // the data and may discard the authored units.
     children.push(valNode(c('auto'), '0'));
     if (spec.categoryAxisLabelOffset !== undefined) {
@@ -970,7 +970,7 @@ const valueAxisElement = (
 };
 
 // Horizontal bars swap the axis positions: categories run down the left
-// edge and values along the bottom. PowerPoint and PptxGenJS both write
+// edge and values along the bottom. The reference desktop app and PptxGenJS both write
 // `catAx axPos="l"` / `valAx axPos="b"` for `barDir="bar"`.
 const isHorizontalBar = (spec: ChartSpec): boolean => spec.kind === 'bar';
 
@@ -1218,10 +1218,10 @@ const buildBarChart = (g: PlotGroup, direction: 'col' | 'bar'): XmlElement => {
     return elem(c('bar3DChart'), { children });
   }
   // Stacked / 100%-stacked bars must overlap fully (overlap=100), otherwise
-  // PowerPoint draws each series in its own sub-slot and the "stack" spreads
-  // sideways across the category. PowerPoint always writes overlap=100 for
+  // the reference desktop app draws each series in its own sub-slot and the "stack" spreads
+  // sideways across the category. The reference desktop app always writes overlap=100 for
   // these groupings; default to it when the caller didn't set an explicit
-  // overlap. Clustered keeps PowerPoint's own default (no element emitted).
+  // overlap. Clustered keeps the reference desktop app's own default (no element emitted).
   const overlapPct =
     spec.overlapPct ?? (grouping === 'stacked' || grouping === 'percentStacked' ? 100 : undefined);
   if (overlapPct !== undefined) {
@@ -1237,7 +1237,7 @@ const lineAreaGrouping = (spec: ChartSpec): 'standard' | 'stacked' | 'percentSta
   spec.grouping === 'stacked' || spec.grouping === 'percentStacked' ? spec.grouping : 'standard';
 
 // `<c:upDownBars>`; an empty <c:upBars/> / <c:downBars/> takes the
-// application's automatic fill (white up, black down in PowerPoint).
+// application's automatic fill (white up, black down in the reference desktop app).
 const upDownBarsElement = (bars: NonNullable<ChartSpec['upDownBars']>): XmlElement => {
   const bar = (name: 'upBars' | 'downBars', color: string | undefined): XmlElement =>
     elem(c(name), { children: color !== undefined ? [solidFillSpPr(color)] : [] });
@@ -1396,7 +1396,7 @@ const buildScatterChart = (g: PlotGroup): XmlElement =>
   elem(c('scatterChart'), {
     children: [
       // The token is written as authored so it reads back unchanged, but
-      // PowerPoint draws from the per-series line / marker properties —
+      // the reference desktop app draws from the per-series line / marker properties —
       // `seriesElement` sets those to match.
       valNode(c('scatterStyle'), g.spec.scatterStyle ?? 'marker'),
       valNode(c('varyColors'), g.spec.varyColors ? '1' : '0'),
@@ -1414,7 +1414,7 @@ const buildBubbleChart = (g: PlotGroup): XmlElement => {
     ...groupDLbls(g),
   ];
   // `spec.bubble3D` is written per series only. CT_BubbleChart allows a
-  // chart-level `<c:bubble3D>`, but PowerPoint (16.x, macOS) offers to repair
+  // chart-level `<c:bubble3D>`, but the reference desktop app (16.x, macOS) offers to repair
   // any deck that has one, whatever its value.
   if (spec.bubbleScale !== undefined) {
     children.push(
@@ -1512,8 +1512,8 @@ const buildPlotGroup = (g: PlotGroup, kind: ChartSpec['kind']): XmlElement => {
 
 /**
  * Secondary value axis (`axPos="r"`, crossing at the category maximum) —
- * the right-hand axis PowerPoint pairs with `secondaryAxis` series.
- * Formatting comes from `spec.secondaryValueAxis`; PowerPoint's defaults
+ * the right-hand axis the reference desktop app pairs with `secondaryAxis` series.
+ * Formatting comes from `spec.secondaryValueAxis`; the reference desktop app's defaults
  * apply for everything left out.
  */
 const secondaryValAxis = (spec: ChartSpec): XmlElement => {
@@ -1553,7 +1553,7 @@ const secondaryValAxis = (spec: ChartSpec): XmlElement => {
 };
 
 /**
- * Deleted companion category axis for the secondary pair. PowerPoint
+ * Deleted companion category axis for the secondary pair. The reference desktop app
  * requires every plot group's axId pair to resolve to a cat+val pair,
  * so the secondary group gets its own (hidden) category axis.
  */
@@ -1667,7 +1667,7 @@ const titleElement = (
     children: [runRPr, elem(a('t'), { children: [text(title)] })],
   });
   const para = elem(a('p'), { children: [pPr, tRun] });
-  // `rot` and `vert` are only written when authored: PowerPoint reads a
+  // `rot` and `vert` are only written when authored: the reference desktop app reads a
   // `vert="horz"` without `rot` as "not rotated" and lays a value-axis title
   // out horizontally instead of applying its vertical default.
   const rich = elem(c('rich'), {
@@ -1699,7 +1699,7 @@ const titleElement = (
   });
 };
 
-// Camera defaults PowerPoint itself writes for each 3-D chart family. They
+// Camera defaults the reference desktop app itself writes for each 3-D chart family. They
 // are spelled out so the view never depends on what a consuming application
 // falls back to for an empty <c:view3D/>.
 const view3DDefaults = (spec: ChartSpec): ChartView3D => {
@@ -1765,7 +1765,7 @@ const AXISLESS_KINDS: ReadonlySet<ChartSpec['kind']> = new Set(['pie', 'doughnut
 const XY_KINDS: ReadonlySet<ChartSpec['kind']> = new Set(['scatter', 'bubble']);
 
 // Cross-field rules of a spec that no single element builder owns. Each one
-// would otherwise serialize into a chart PowerPoint repairs or misdraws.
+// would otherwise serialize into a chart the reference desktop app repairs or misdraws.
 // `ChartSpec` already rules most of them out at compile time; this is the
 // guard for the specs that reach the builder untyped (JS callers, a spec
 // `isChartSpec` has not narrowed).
@@ -1781,7 +1781,7 @@ const validateSpec = (spec: ReadChartSpec, usesComboFields: boolean): void => {
         `chart kind '${spec.kind}' has no 3-D variant; view3D applies to bar / column / line / area / pie / surface`,
       );
     }
-    // PowerPoint cannot mix a 3-D plot group with any other group.
+    // The reference desktop app cannot mix a 3-D plot group with any other group.
     if (usesComboFields) throw new Error('chart: view3D cannot be combined with a combo chart');
   }
   if (
@@ -1839,7 +1839,7 @@ const validateSpec = (spec: ReadChartSpec, usesComboFields: boolean): void => {
   }
 };
 
-// `<c:dTable>`. All four toggles are always written, as PowerPoint does, so a
+// `<c:dTable>`. All four toggles are always written, as the reference desktop app does, so a
 // consumer's default for an absent toggle never decides how the table looks.
 const dataTableElement = (table: NonNullable<ChartSpec['dataTable']>): XmlElement => {
   const children: XmlElement[] = [

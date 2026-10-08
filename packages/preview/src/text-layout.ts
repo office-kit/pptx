@@ -100,7 +100,7 @@ export const isCjk = (cp: number): boolean =>
   (cp >= 0xac00 && cp <= 0xd7af);
 
 // Mean glyph width as a fraction of size for a typical sans-serif — the same
-// 0.55 PowerPoint's autofit estimator uses. Used by the heuristic measurer
+// 0.55 the reference desktop app's autofit estimator uses. Used by the heuristic measurer
 // and by the fontkit measurer's missing-glyph fallback.
 export const AVG_GLYPH_W_RATIO = 0.55;
 
@@ -123,7 +123,7 @@ const FALLBACK_ASCENT = 0.9;
 const FALLBACK_DESCENT = 0.22;
 const FALLBACK_LINEGAP = 0.08;
 
-// First-baseline leading calibration — see the use site. LibreOffice/PowerPoint
+// First-baseline leading calibration — see the use site. LibreOffice and the reference desktop app
 // place the first baseline a fraction of a line's (ascent+descent) BELOW the
 // win-metric line box top (frameY + winAscent), independent of vertical anchor.
 // Fitted to ground truth as ≈0.036; verified against center/bottom anchoring
@@ -307,7 +307,7 @@ export interface BulletInput {
 }
 
 export interface ParaInput {
-  /** OOXML `latinLnBrk`; Office's omitted/default value is false. */
+  /** OOXML `latinLnBrk`; the omitted/default value in the reference desktop app is false. */
   readonly latinLineBreak?: boolean | undefined;
   readonly tabStops?: readonly {
     positionPx: number;
@@ -337,7 +337,7 @@ export interface ParaInput {
 export type VerticalLayout = 'none' | 'cw90' | 'cw270' | 'upright';
 
 export interface ColumnLayout {
-  readonly count: number; // PowerPoint clamps to >= 2 before this point
+  readonly count: number; // the reference desktop app clamps to >= 2 before this point
   readonly gapPx: number;
 }
 
@@ -416,7 +416,7 @@ type LineBuilder = (contentLeft: number, contentRight: number) => { lines: Line[
 
 // East Asian text carries no spaces, so a whole CJK clause arrives as one
 // `\S+` "word". Treating it as unbreakable pushes the entire clause to the
-// next line (leaving e.g. a lone bullet glyph behind) — PowerPoint instead
+// next line (leaving e.g. a lone bullet glyph behind) — the reference desktop app instead
 // breaks East Asian runs between any two characters. Split CJK runs into
 // per-character tokens, gluing closing punctuation to its predecessor and
 // opening brackets to their successor (simple kinsoku).
@@ -588,7 +588,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
               partOffset = 0;
             }
           }
-          // PowerPoint still breaks an overlong Latin word when the OOXML
+          // The reference desktop app still breaks an overlong Latin word when the OOXML
           // flag is omitted/false; the flag controls breaking a word merely
           // because only part of the current line remains. Keep CJK clauses
           // on their existing kinsoku path.
@@ -675,7 +675,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           if (m.d > descent) descent = m.d;
           if (m.g > lineGap) lineGap = m.g;
         }
-        // PowerPoint uses a break's font metrics for an otherwise empty line,
+        // The reference desktop app uses a break's font metrics for an otherwise empty line,
         // but a formatted break does not enlarge a line that already has text.
         const emptyLineBreak = toks.find((token) => token.isBreak && token.piece.sizePx > 0);
         if (ascent === 0 && emptyLineBreak) {
@@ -690,7 +690,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           lineGap = para.fallbackSizePx * FALLBACK_LINEGAP;
         }
         const isFirst = li === 0;
-        // Bulleted hanging indent (firstIndent < 0): PowerPoint puts the
+        // Bulleted hanging indent (firstIndent < 0): the reference desktop app puts the
         // bullet at marL+indent and starts the text at marL itself, so the
         // first line aligns with the wrapped lines. The bullet-width floor
         // keeps a bullet wider than the hang from overlapping its text.
@@ -718,7 +718,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
         }
         if (isFirst && bullet) {
           // The bullet hangs to the LEFT of the aligned text block and travels
-          // with it: on a centered / right-aligned paragraph PowerPoint keeps
+          // with it: on a centered / right-aligned paragraph the reference desktop app keeps
           // the bullet immediately left of the text, not pinned to the margin.
           // Offset it from the rendered text's left edge by the same gap it has
           // on a left-aligned line (lineLeft - firstLeft).
@@ -759,7 +759,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
       : { x: cx - input.boxHpx / 2, y: cy - input.boxWpx / 2, w: input.boxHpx, h: input.boxWpx };
 
   // Columns apply to horizontal text only — a faithful rotated-column layout is
-  // disproportionate and PowerPoint itself barely supports vert + numCol, so we
+  // disproportionate and the reference desktop app itself barely supports vert + numCol, so we
   // keep the rotation and drop numCol rather than emit a wrong combined layout.
   const columns = vert === 'none' ? (input.columns ?? null) : null;
 
@@ -837,7 +837,7 @@ const lineContentExtent = (line: Line, dx: number): { left: number; width: numbe
 // glyph, reflection and decoration emitters all paint the same gradient,
 // pattern or picture without knowing about it.
 //
-// ECMA-376 §20.1.8.33 does not say what box a text gradient fills. PowerPoint
+// ECMA-376 §20.1.8.33 does not say what box a text gradient fills. The reference desktop app
 // spreads it once across the text block — every line of the body, not each
 // line or run separately — so the bounds are the union of the laid-out lines'
 // ink boxes (ascent to descent, drawn content width).
@@ -905,7 +905,7 @@ export const measureTextBodyHeight = (input: TextBodyInput, measure: TextMeasure
   layoutCore(input, measure).requiredH;
 
 // Vertical block offset for an anchor, plus the first-baseline leading drop
-// (see site/fidelity/README.md): LibreOffice & PowerPoint sit the first line
+// (see site/fidelity/README.md): LibreOffice & the reference desktop app sit the first line
 // ≈0.036 of a line's (ascent+descent) lower than the win-metric line box
 // predicts — for ALL anchors, top included (top-anchored text is otherwise
 // biased that much too high).
@@ -951,7 +951,7 @@ const placeColumns = (
   const gap = columns.gapPx;
   const colW = Math.max(1, (frame.w - (columns.count - 1) * gap) / columns.count);
   const { lines } = buildLines(frame.x, frame.x + colW);
-  // Sequential fill, matching PowerPoint (not CSS column-fill:balance): fill
+  // Sequential fill, matching the reference desktop app (not CSS column-fill:balance): fill
   // column 1 down to the box height, then column 2, and so on; once every
   // column in a row is full (autofit "none" doesn't stop the text, it just
   // stops growing the box), start a new row of columns directly below it,
@@ -967,7 +967,7 @@ const placeColumns = (
   for (const line of lines) {
     // Break on the line's actual ink (ascent+descent), not its full advance —
     // the trailing half-leading below the last line doesn't visually overflow
-    // the box, and PowerPoint/LibreOffice let that last line's ink sit in it.
+    // the box, and the reference desktop app and LibreOffice let that last line's ink sit in it.
     const localInkBottom = line.topY - colStartTopY + line.ascent + line.descent;
     if (localInkBottom > frame.h && curColHasLine) {
       if (col + 1 < columns.count) {
@@ -986,7 +986,7 @@ const placeColumns = (
   }
   // Vertical anchor applies to the whole body via its tallest column block —
   // with sequential fill the filled columns reach the box height, so this
-  // matches PowerPoint/LibreOffice anchoring the body as one unit.
+  // matches the reference desktop app and LibreOffice anchoring the body as one unit.
   const offsetY = anchorOffsetY(frame.y, frame.h, tallest, anchor, lines[0]);
   return {
     placements: placed.map(({ line, localTopY, col: c }) => ({
@@ -1226,7 +1226,7 @@ const emitTextReflections = (
     const maskId = `${id}-mask`;
     const filterId = `${id}-blur`;
     const blurPx = Math.max(0, (reflection.blurEmu ?? 0) / EMU_PER_PX / 2);
-    // PowerPoint's default fade is the vertical near-to-far ramp used below.
+    // The reference desktop app's default fade is the vertical near-to-far ramp used below.
     // For authored directions, use the DrawingML clockwise angle in the
     // objectBoundingBox coordinate system rather than silently dropping it.
     const fadeDirection = reflection.fadeDirection;
@@ -1449,7 +1449,7 @@ const SUPER_SUB_SIZE_RATIO = 0.65;
 // Small caps keep authored uppercase glyphs at the run size and draw lowercase
 // source letters as smaller capitals. OOXML leaves the exact face-specific
 // scale to the renderer, so this is an explicit preview approximation rather
-// than a claim about PowerPoint's font metrics.
+// than a claim about the reference desktop app's font metrics.
 const SMALL_CAPS_LOWERCASE_RATIO = 0.8;
 const renderedSizePxOf = (p: PieceInput): number =>
   p.sizePx *
@@ -1716,7 +1716,7 @@ const tspan = (g: Group): string => {
   if (p.italic) attrs.push('font-style="italic"');
   if (p.kerning !== undefined) attrs.push(`font-kerning="${p.kerning ? 'normal' : 'none'}"`);
   if (p.outlineHex !== undefined && (p.outlineWidthPx ?? 0) > 0) {
-    // PowerPoint centres a text outline on the glyph edge but draws the fill
+    // The reference desktop app centres a text outline on the glyph edge but draws the fill
     // over it, which `paint-order` reproduces; without it the stroke would eat
     // half the letterform.
     attrs.push(`stroke="${p.outlineHex}"`);
@@ -1793,7 +1793,7 @@ const wrapTokens = (
         else hi = mid;
       }
       const stop = stops[lo];
-      // Mac PowerPoint defaults to one-inch intervals. Zero disables that grid.
+      // The reference desktop app on Mac defaults to one-inch intervals. Zero disables that grid.
       const interval = para.defaultTabSizePx ?? 96;
       const next =
         stop?.positionPx ??

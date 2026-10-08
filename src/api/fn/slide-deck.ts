@@ -171,7 +171,7 @@ export const addContentSlide = (
 /**
  * Sugar over `addSlide` + `setSlideTitle` for the section-divider
  * pattern. Picks `<p:sldLayout type="secHead">` when present (the
- * PowerPoint "Section Header" layout); otherwise falls back to a
+ * the reference desktop app's "Section Header" layout); otherwise falls back to a
  * `title`-typed layout or the first available layout.
  */
 export const addSectionHeaderSlide = (pres: PresentationData, title: string): SlideData => {
@@ -297,7 +297,7 @@ function insertSlides(
  *
  * A slide-jump click action stores a `slide` relationship on the *referring*
  * slide. Removing the target leaves that relationship pointing at a deleted
- * part, which PowerPoint rejects and which makes a later `duplicateSlide` of
+ * part, which the reference desktop app rejects and which makes a later `duplicateSlide` of
  * the referring slide fail on the missing dependency.
  */
 const dropRelsPointingAtSlide = (pkg: OpcPackage, removed: PartName): void => {
@@ -355,7 +355,7 @@ const stripSlideReferences = (element: XmlElement, relIds: ReadonlySet<string>):
  *
  * Media parts are intentionally NOT cleaned up — they may be shared
  * with other slides. The freed `sldId` is NOT reused on subsequent
- * `addSlide` calls (PowerPoint quirk, see plan §Risks).
+ * `addSlide` calls (the reference desktop app's quirk, see plan §Risks).
  */
 export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
   const pkg = pres[INTERNAL_PACKAGE];
@@ -452,7 +452,7 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
  *
  * Internally walks `<p:sldIdLst>` and re-emits its `<p:sldId>` children
  * in the new order. Slide parts and rels are untouched — only the
- * order in which PowerPoint plays them changes.
+ * order in which the reference desktop app plays them changes.
  */
 export const sortSlides = (
   pres: PresentationData,

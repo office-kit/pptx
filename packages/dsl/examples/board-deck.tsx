@@ -310,7 +310,7 @@ export default (
       />
       {kpis.map(([value, label], i) => {
         const y = 1.85 + i * 1.62;
-        // Grouped, so the card moves and resizes as one object in PowerPoint.
+        // Grouped, so the card moves and resizes as one object in the reference desktop app.
         return (
           <Group name={label}>
             <Block preset="roundRect" box={[9.4, y, 3.23, 1.42]} color={PANEL} />

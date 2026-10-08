@@ -28,7 +28,7 @@ import { scaleSlideContent } from './_scale-slide-content.ts';
 // Slide size.
 
 /**
- * Width × height of the slide canvas, in EMU. `type` is PowerPoint's
+ * Width × height of the slide canvas, in EMU. `type` is the reference desktop app's
  * aspect-ratio hint (`screen4x3`, `screen16x9`, ...); the actual size
  * is always `width` × `height`.
  */
@@ -54,7 +54,7 @@ export const getSlideSize = (pres: PresentationData): SlideSize | null => {
 };
 
 /**
- * The number PowerPoint prints on the first slide — `<p:presentation
+ * The number the reference desktop app prints on the first slide — `<p:presentation
  * firstSlideNum="N"/>`, or `1` when the deck does not say. A `slidenum` field
  * on the n-th slide shows this plus n − 1, so a renderer that substitutes live
  * field values has to start counting here rather than at one.
@@ -170,7 +170,7 @@ export const SLIDE_SIZE_4_3: SlideSize = {
   type: 'screen4x3',
 };
 
-/** 13.333in × 7.5in (`screen16x9`) — Office 2013+ default. */
+/** 13.333in × 7.5in (`screen16x9`) — the default since 2013. */
 export const SLIDE_SIZE_16_9: SlideSize = {
   width: emuValue(12192000),
   height: emuValue(6858000),

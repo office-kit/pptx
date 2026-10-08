@@ -121,7 +121,7 @@ export const setShapeRotation = (shape: SlideShapeData, degrees: number): void =
  *
  * The common use is the corner radius of the `roundRect` preset, whose `adj`
  * guide runs `0..50000` (thousandths of a percent of the shorter side;
- * `16667` ≈ the PowerPoint default, `0` = square corners, `50000` = fully
+ * `16667` ≈ the reference desktop app's default, `0` = square corners, `50000` = fully
  * rounded). For example, `setShapeAdjustValues(shape, { adj: 5000 })` gives a
  * subtle 5% rounding.
  *
@@ -214,7 +214,7 @@ export const setShapeGradientFill = (shape: SlideShapeData, options: GradientFil
  * the pattern. Both accept `#RRGGBB`, bare `RRGGBB`, or scheme tokens
  * (`accent1`, `bg1`, ...). Omitted settings preserve existing pattern XML,
  * including theme references and color transforms. A new pattern defaults to
- * `pct5`, foreground `accent1` and background `bg1`, as in Mac PowerPoint.
+ * `pct5`, foreground `accent1` and background `bg1`, as in the reference desktop app on Mac.
  */
 export const setShapePatternFill = (
   shape: SlideShapeData,
@@ -241,7 +241,7 @@ const isPatternPreset = (token: string | null): token is PatternPreset =>
  * e.g. `'pct50'`, `'dkUpDiag'`, `'cross'`, `'wave'`. Renderers can map it onto
  * an SVG `<pattern>` definition, and the result can be handed straight back to
  * `setShapePatternFill`. A missing or unrecognised `prst` reads as `'pct50'`,
- * which is what PowerPoint paints when the attribute is absent.
+ * which is what the reference desktop app paints when the attribute is absent.
  */
 export const getShapePatternFill = (
   pres: PresentationData,
@@ -374,7 +374,7 @@ export const clearShapeFill = (shape: SlideShapeData): void => {
 /**
  * Updates outline color, width and/or opacity (0–1); omitted properties are
  * preserved. `fill: { kind: 'gradient', ... }` paints a gradient line instead
- * of `color` (PowerPoint's Gradient line); it takes the same options as
+ * of `color` (the reference desktop app's Gradient line); it takes the same options as
  * `setShapeGradientFill` and is exclusive with `color` and `opacity`.
  */
 export const setShapeStroke = (
@@ -386,15 +386,15 @@ export const setShapeStroke = (
 };
 
 /**
- * Sets PowerPoint's Sketched style on the outline (`'curved'`, `'freehand'`
- * or `'scribble'`), or removes it with `null`. Stored as the Office 2021
+ * Sets the reference desktop app's Sketched style on the outline (`'curved'`, `'freehand'`
+ * or `'scribble'`), or removes it with `null`. Stored as the 2021
  * `ask:lineSketchStyleProps` extension of `<a:ln>`, which older readers
  * ignore. A new sketch gets a seed derived from the shape id, so the same
  * deck always saves the same bytes.
  *
- * Office writes the hand-drawn outline into the shape's geometry and keeps the
+ * The reference desktop app writes the hand-drawn outline into the shape's geometry and keeps the
  * original beside the style; this library keeps the true geometry instead (and
- * restores it when editing a sketch Office wrote), leaving the roughening to
+ * restores it when editing a sketch the reference desktop app wrote), leaving the roughening to
  * the renderer.
  */
 export const setShapeStrokeSketch = (shape: SlideShapeData, sketch: LineSketch | null): void => {

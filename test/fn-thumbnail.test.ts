@@ -1,5 +1,5 @@
 // getThumbnail / setThumbnail / removeThumbnail — package-level
-// thumbnail image (the one PowerPoint, Finder, etc. show as the
+// thumbnail image (the one the reference desktop app, Finder, etc. show as the
 // file preview).
 
 import { readFile } from 'node:fs/promises';

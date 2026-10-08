@@ -1,13 +1,13 @@
 // Text-body bevel (`<a:bodyPr><a:scene3d>…<a:sp3d><a:bevelT/>`) → the lighting
 // parameters the text engine shades glyphs with.
 //
-// PowerPoint renders a beveled text body as real 3-D geometry. The preview
+// The reference desktop app renders a beveled text body as real 3-D geometry. The preview
 // approximates it in 2-D: the glyph alpha becomes a height field whose edge
 // profile follows the bevel preset, lit by one distant light derived from the
 // light rig. Everything below is a coarse, hand-tuned approximation, not a
-// port of PowerPoint's lighting model:
+// port of the reference desktop app's lighting model:
 //
-// - Each light rig is one distant light (PowerPoint's rigs have two to four)
+// - Each light rig is one distant light (the reference desktop app's rigs have two to four)
 //   whose elevation and contrast stand in for the rig's character.
 // - The camera is always treated as orthographicFront. Perspective and
 //   isometric cameras would tilt the text; that is not drawn.
@@ -25,7 +25,7 @@ type Material = NonNullable<ReadText3D['material']>;
 // CT_Bevel defaults (ECMA-376 dml-main.xsd): circle, 76200 × 76200 EMU.
 const DEFAULT_BEVEL_EMU = 76200;
 const DEFAULT_PRESET: BevelPreset = 'circle';
-// A text body with sp3d but no scene3d keeps PowerPoint's default rig.
+// A text body with sp3d but no scene3d keeps the reference desktop app's default rig.
 const DEFAULT_RIG: LightRig = { type: 'threePt', direction: 't' };
 const PROFILE_SAMPLES = 9;
 
@@ -94,12 +94,12 @@ const MATERIAL_LOOK: Partial<Record<Material, MaterialLook>> = {
   softEdge: { contrastScale: 0.9, specular: { constant: 0.25, exponent: 10 } },
   powder: { contrastScale: 0.8, specular: null },
   translucentPowder: { contrastScale: 0.7, specular: null },
-  // `flat` drops all shading, as PowerPoint's Flat material does.
+  // `flat` drops all shading, as the reference desktop app's Flat material does.
   flat: { contrastScale: 0, specular: null },
 };
 
 // The authored h / w slope reads too shallow once squeezed into a few pixels
-// of blurred alpha; PowerPoint's renders show a clearly embossed edge.
+// of blurred alpha; the reference desktop app's renders show a clearly embossed edge.
 const RELIEF = 2.5;
 
 /**

@@ -1,5 +1,5 @@
 // Format pane line and text paint the editor used to show disabled: gradient
-// lines (shape outline and text outline), PowerPoint's Sketched style, text
+// lines (shape outline and text outline), the reference desktop app's Sketched style, text
 // No fill / Picture fill, and Keep text flat.
 
 import { describe, expect, it } from 'vitest';
@@ -89,9 +89,9 @@ const reload = async (pres: PresentationData) => {
   return getSlideShapes(getSlides(reloaded)[0]!)[0]!;
 };
 
-// The Office-written form, from a document Word 2021 saved: the sketched path
-// replaces the geometry and the original preset stays inside the props.
-const OFFICE_SKETCH =
+// The vendor-written form, from a word-processor document saved by its 2021 release: the
+// sketched path replaces the geometry and the original preset stays inside the props.
+const VENDOR_SKETCH =
   `<a:ln xmlns:a="${NS.dml}" w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill>` +
   `<a:extLst><a:ext uri="{FFFF0000-0000-0000-0000-000000000000}"><x:other xmlns:x="urn:example"/></a:ext>` +
   `<a:ext uri="{C807C97D-BFC1-408E-A445-0C87EB9F89A2}">` +
@@ -120,7 +120,7 @@ const officeSketched = () => {
   spPr.children = spPr.children.filter(
     (child) => !(child.kind === 'element' && child.name.localName === 'ln'),
   );
-  spPr.children.push(parseFragment(OFFICE_SKETCH));
+  spPr.children.push(parseFragment(VENDOR_SKETCH));
   return made;
 };
 
@@ -195,7 +195,7 @@ describe('gradient line', () => {
 });
 
 describe('sketched line style', () => {
-  it('writes the Office extension with a stable seed and reads the preset', async () => {
+  it('writes the sketch extension with a stable seed and reads the preset', async () => {
     const { pres, shape } = rect();
     setShapeStroke(shape, { color: '#000000' });
     setShapeStrokeSketch(shape, 'freehand');
@@ -224,7 +224,7 @@ describe('sketched line style', () => {
     expect(ln(shape)).toMatch(/^<a:ln><a:prstDash val="dash"\/><a:extLst>/);
   });
 
-  it('restores the geometry Office kept and preserves unknown extensions', async () => {
+  it('restores the geometry the sketch extension kept and preserves unknown extensions', async () => {
     const { pres, shape } = officeSketched();
     expect(getShapeStrokeSketch(shape)).toBe('scribble');
     setShapeStrokeSketch(shape, 'curved');

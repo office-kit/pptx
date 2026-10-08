@@ -1,7 +1,7 @@
 // Shape effects — `<a:effectLst>` builders.
 //
-// Covers the PowerPoint effects: outer and inner shadow, glow, reflection and soft edge. The
-// element ordering on `<p:spPr>` is `xfrm → geometry → fill → ln →
+// Covers the shape effects of the reference desktop app: outer and inner shadow, glow, reflection
+// and soft edge. The element ordering on `<p:spPr>` is `xfrm → geometry → fill → ln →
 // effectLst → scene3d → sp3d → extLst`. Callers locate the right
 // insertion slot using `effectInsertionIndex`.
 
@@ -74,7 +74,7 @@ export interface ShadowOptions {
   /** Whether the shadow rotates with its shape; defaults to false. */
   readonly rotateWithShape?: boolean;
   /**
-   * Horizontal scale (`sx`); defaults to one. PowerPoint's Size field sets
+   * Horizontal scale (`sx`); defaults to one. The reference desktop app's Size field sets
    * both scales, and its perspective presets flatten the shadow with `sy`.
    */
   readonly scaleX?: number;
@@ -228,7 +228,7 @@ const effectLstOf = (host: XmlElement): XmlElement | null => {
 /**
  * Puts `effect` into `host`'s effect list, replacing the one of its own kind
  * and leaving every other effect alone — a shape can carry a shadow and a glow
- * at once, and PowerPoint routinely writes both. `clearEffects` is how a caller
+ * at once, and the reference desktop app routinely writes both. `clearEffects` is how a caller
  * asks for the list to be emptied.
  */
 const putEffect = (
@@ -270,7 +270,7 @@ const putEffect = (
 };
 
 // The effect's color element: the transforms in the caller's order, then the
-// opacity as a trailing `<a:alpha>` — the order PowerPoint writes
+// opacity as a trailing `<a:alpha>` — the order the reference desktop app writes
 // (`<a:lumMod/><a:alpha/>`). An opacity the transforms already state is not
 // repeated, so a color read back from a deck writes back unchanged.
 const effectColor = (

@@ -10,7 +10,7 @@ export type AudioFormat = 'mp3' | 'wav' | 'm4a' | 'ogg' | 'wma';
 
 const VIDEO_CONTENT_TYPES: Readonly<Record<VideoFormat, string>> = {
   mp4: 'video/mp4',
-  // PowerPoint registers .m4v under the mp4 type rather than video/x-m4v.
+  // The reference desktop app registers .m4v under the mp4 type rather than video/x-m4v.
   m4v: 'video/mp4',
   mov: 'video/quicktime',
   webm: 'video/webm',
@@ -20,7 +20,7 @@ const VIDEO_CONTENT_TYPES: Readonly<Record<VideoFormat, string>> = {
 
 const AUDIO_CONTENT_TYPES: Readonly<Record<AudioFormat, string>> = {
   mp3: 'audio/mpeg',
-  // PowerPoint writes the legacy `x-wav` token, not RFC 2361's `audio/wav`.
+  // The reference desktop app writes the legacy `x-wav` token, not RFC 2361's `audio/wav`.
   wav: 'audio/x-wav',
   m4a: 'audio/mp4',
   ogg: 'audio/ogg',

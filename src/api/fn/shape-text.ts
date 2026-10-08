@@ -93,7 +93,7 @@ export type { TextCase };
  * formatting between them. With `range`, `value` replaces exactly that UTF-16
  * selection and unaffected formatting is always preserved.
  * Pass `{ case: 'upper' | 'lower' | 'sentence' | 'title' | 'toggle' }` to apply
- * PowerPoint-style Change Case to the whole text or to `options.range`.
+ * Change Case, as the reference desktop app does, to the whole text or to `options.range`.
  */
 export const setShapeText = (
   shape: SlideShapeData,
@@ -117,7 +117,7 @@ export const setShapeText = (
 };
 
 /**
- * Replaces the shape's text with a single field — text PowerPoint fills in
+ * Replaces the shape's text with a single field — text the reference desktop app fills in
  * when it opens the deck, rather than text the file states. `type` is an
  * ECMA-376 `ST_TextFieldType` token: `'slidenum'` for the slide's number,
  * `'datetime'` (and its `datetime1`…`datetime13` variants) for the current
@@ -125,13 +125,13 @@ export const setShapeText = (
  * through, since the list is open and renderers differ on what they honour.
  *
  * `options.text` is the cached value stored in `<a:t>`, which is what a reader
- * that does not evaluate fields shows — PowerPoint overwrites it on open, so
+ * that does not evaluate fields shows — the reference desktop app overwrites it on open, so
  * it matters only for other consumers. The shape's first run's formatting is
- * carried onto the field, the way PowerPoint keeps a placeholder's look when
+ * carried onto the field, the way the reference desktop app keeps a placeholder's look when
  * it inserts one.
  *
  * This replaces the whole text body: a field placeholder holds the field and
- * nothing else, which is how PowerPoint writes slide numbers and dates.
+ * nothing else, which is how the reference desktop app writes slide numbers and dates.
  */
 export const setShapeTextField = (
   shape: SlideShapeData,
@@ -214,7 +214,7 @@ export type TextAnchor = 'top' | 'center' | 'bottom';
 const NAME_A_BODY_PR = qname('a', 'bodyPr', NS.dml);
 
 /**
- * Word wrap mode on a text body. `'square'` (PowerPoint default for
+ * Word wrap mode on a text body. `'square'` (the reference desktop app's default for
  * textboxes) wraps lines at the shape's width; `'none'` lets text
  * overflow horizontally.
  */
@@ -241,7 +241,7 @@ const requireBodyPr = (shape: SlideShapeData): XmlElement => {
 /**
  * Sets the text-body word-wrap mode.
  *
- *   - `'square'` writes `wrap="square"` — PowerPoint default for textboxes.
+ *   - `'square'` writes `wrap="square"` — the reference desktop app's default for textboxes.
  *   - `'none'`   writes `wrap="none"`  — text can overflow horizontally.
  *
  * Throws for non-text-bearing shape kinds.
@@ -296,7 +296,7 @@ export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): v
 
 /**
  * Sets the 3-D on the shape's text body — `<a:scene3d>` and `<a:sp3d>` in
- * `<a:bodyPr>`, where PowerPoint writes its WordArt bevels. `value.scene`
+ * `<a:bodyPr>`, where the reference desktop app writes its WordArt bevels. `value.scene`
  * writes the camera and light rig; `bevelTop`, `extrusionHeightEmu`,
  * `material` and `contourColor` write `<a:sp3d>` (replacing `<a:flatTx>`).
  * A field left out removes what it describes; settings this API does not
@@ -310,7 +310,7 @@ export const setShapeText3D = (shape: SlideShapeData, value: Text3D | null): voi
 };
 
 /**
- * Sets PowerPoint's Keep text flat (`<a:bodyPr><a:flatTx/>`): the text stays
+ * Sets the reference desktop app's Keep text flat (`<a:bodyPr><a:flatTx/>`): the text stays
  * flat, out of the shape's 3-D scene, when the shape is rotated in 3-D.
  * `<a:flatTx>` and the text body's own `<a:sp3d>` are one schema choice, so
  * keeping text flat removes a text bevel or extrusion set by
@@ -350,7 +350,7 @@ export const getShapeText3D = (shape: SlideShapeData): ReadText3D | null => {
 
 /**
  * Reads back the bodyPr auto-fit child, or `null` when none is
- * present (PowerPoint applies a layout-inherited default in that case).
+ * present (the reference desktop app applies a layout-inherited default in that case).
  */
 export const getShapeTextAutoFit = (shape: SlideShapeData): TextAutoFit | null => {
   const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
@@ -367,7 +367,7 @@ export const getShapeTextAutoFit = (shape: SlideShapeData): TextAutoFit | null =
 };
 
 /**
- * Reads the scale parameters PowerPoint stores on `<a:normAutofit>`
+ * Reads the scale parameters the reference desktop app stores on `<a:normAutofit>`
  * once it has shrunk a text body to fit. Returns `null` if the body
  * doesn't carry `<a:normAutofit>` or the attributes are absent. Both
  * fields are unitless ratios in `[0, 1]`:
@@ -376,7 +376,7 @@ export const getShapeTextAutoFit = (shape: SlideShapeData): TextAutoFit | null =
  *   - `lnSpcReduction` — subtract from the line-height ratio. Default `0`.
  *
  * Companion to `getShapeTextAutoFit`. Renderers that want to match
- * PowerPoint's actual on-screen text size apply these factors to the
+ * the reference desktop app's actual on-screen text size apply these factors to the
  * authored font sizes; without them, every long title overflows.
  */
 export const getShapeTextAutoFitParams = (
@@ -429,7 +429,7 @@ export const getShapeTextAnchor = (shape: SlideShapeData): TextAnchor | null => 
 
 /**
  * Reads back the internal margins of the shape's text frame. Sides
- * that are absent in the XML default to `null` (PowerPoint applies
+ * that are absent in the XML default to `null` (the reference desktop app applies
  * its built-in default for the missing side).
  */
 /**
@@ -498,7 +498,7 @@ export const setShapeTextColumns = (
  * Reads the shape's text-body rotation from `<a:bodyPr rot="N"/>`.
  * `rot` is stored in 60000ths of a degree (OOXML angle units); the
  * returned value is in degrees. Positive values rotate clockwise per
- * PowerPoint's convention. Returns `null` when the attribute is
+ * the reference desktop app's convention. Returns `null` when the attribute is
  * absent.
  *
  * Distinct from the shape's own `<p:xfrm rot=…>` (the geometry
@@ -518,7 +518,7 @@ export const getShapeTextBodyRotationDeg = (shape: SlideShapeData): number | nul
 
 /**
  * Sets the shape's text-body rotation (`<a:bodyPr rot="N"/>`), measured
- * in degrees. Positive rotates clockwise per PowerPoint's convention.
+ * in degrees. Positive rotates clockwise per the reference desktop app's convention.
  * Passing `null` clears the attribute so the shape inherits the default
  * (`0`). Throws for non-text-bearing shape kinds.
  *
@@ -803,7 +803,7 @@ export const getShapeBodyPrEffective = (
 
 /**
  * Sets vertical anchoring. `centered` centers the text block without changing
- * paragraph alignment (PowerPoint's Top / Middle / Bottom Centered options).
+ * paragraph alignment (the reference desktop app's Top / Middle / Bottom Centered options).
  * Omit it to preserve centering; pass null to restore inherited centering.
  */
 export const setShapeTextAnchor = (
@@ -840,7 +840,7 @@ export const setShapeTextAnchor = (
  * side is independent; omitted sides keep their current value (or the
  * layout-inherited default when the attribute is absent).
  *
- * PowerPoint's defaults for a textbox: left/right 91440 (0.1in),
+ * The reference desktop app's defaults for a textbox: left/right 91440 (0.1in),
  * top/bottom 45720 (0.05in).
  *
  *   setShapeTextMargins(shape, { left: 0, right: 0 }); // flush-left text

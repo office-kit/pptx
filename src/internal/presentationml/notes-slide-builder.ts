@@ -1,4 +1,4 @@
-// Builds the canonical empty notes-slide part PowerPoint emits.
+// Builds the canonical empty notes-slide part the reference desktop app emits.
 //
 // The part's root element is `<p:notes>` (ECMA-376 §19.3.1.26 — the global
 // element for CT_NotesSlide is named `notes`, not `notesSlide`; the
@@ -6,7 +6,7 @@
 // `<p:notesSlide>` here makes the part fail pml.xsd validation.
 //
 // Notes slides carry two placeholders: a `sldImg` placeholder that
-// PowerPoint renders as the slide thumbnail, and a `body` placeholder
+// the reference desktop app renders as the slide thumbnail, and a `body` placeholder
 // (idx="1") that holds the speaker-notes text. We emit both with no
 // geometry of their own so they inherit position from the notes master.
 

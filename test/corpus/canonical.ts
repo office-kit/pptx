@@ -3,14 +3,14 @@
 // The PptxGenJS-parity corpus authors the same slide in both libraries and
 // compares the result. Two independent emitters never produce byte-identical
 // XML, so before comparing we fold away everything that renders identically in
-// PowerPoint — either because it is volatile metadata or because one emitter
-// writes a value PowerPoint would otherwise supply as a default:
+// the reference desktop app — either because it is volatile metadata or because one emitter
+// writes a value the reference desktop app would otherwise supply as a default:
 //
 //   - shape ids / names / `descr`, relationship ids, `@dirty` / `@smtClean`,
 //     `p14:modId`, `p:cSld@name`, `<p:extLst>` — metadata, not rendering
 //   - explicit black run color, default cell insets, `w="0"` noFill borders,
 //     the default table-grid style ref + flags, `<a:endParaRPr>`, empty
-//     `<a:pPr>` / `<a:buNone>` bullet resets, default `prstDash` — PowerPoint
+//     `<a:pPr>` / `<a:buNone>` bullet resets, default `prstDash` — the reference desktop app
 //     defaults a missing value to exactly these
 //   - `<p:cxnSp>` vs `<p:sp prstGeom="line">` — the same straight line
 //
@@ -57,12 +57,12 @@ const canonicalName = (el: XmlElement): string => {
 
 const isWhitespaceText = (n: XmlNode): boolean => n.kind === 'text' && n.data.trim().length === 0;
 
-// Attributes that are pure authoring hints PowerPoint round-trips and that
+// Attributes that are pure authoring hints the reference desktop app round-trips and that
 // carry no rendering meaning. Dropped on every element.
 const VOLATILE_ATTR_LOCALS = new Set(['dirty', 'smtClean', 'noProof']);
 
 // `<a:hlinkClick>` attributes PptxGenJS writes out at their default value (or
-// empty); PowerPoint omits them. Folded when empty or equal to the default.
+// empty); the reference desktop app omits them. Folded when empty or equal to the default.
 const HLINK_DEFAULTS: Record<string, string> = {
   endSnd: '0',
   highlightClick: '0',
@@ -109,12 +109,12 @@ const canonicalAttrs = (el: XmlElement): string[] => {
     // cNvPr id/name are arbitrary; descr is an accessibility label PptxGenJS
     // stamps from the source filename.
     if (local === 'cNvPr' && (an === 'id' || an === 'name' || an === 'descr')) continue;
-    // `txBox="1"` is the "this is a text box" hint PowerPoint sets and
+    // `txBox="1"` is the "this is a text box" hint the reference desktop app sets and
     // PptxGenJS omits — invisible either way.
     if (local === 'cNvSpPr' && an === 'txBox') continue;
     if (local === 'cSld' && an === 'name') continue;
     // Vertical anchor: PptxGenJS defaults text boxes to centered, @office-kit/pptx to
-    // PowerPoint's top. A default-choice difference, not counted.
+    // the reference desktop app's top. A default-choice difference, not counted.
     if (local === 'bodyPr' && (an === 'anchor' || an === 'anchorCtr')) continue;
     // Font-family metadata PptxGenJS hard-codes regardless of the actual face.
     if (
@@ -124,7 +124,7 @@ const canonicalAttrs = (el: XmlElement): string[] => {
       continue;
     // No-op bullet reset (`marL="0" indent="0"` alongside `<a:buNone/>`).
     if (local === 'pPr' && (an === 'marL' || an === 'indent') && a.value === '0') continue;
-    // Row height is an advisory minimum PowerPoint recomputes from content.
+    // Row height is an advisory minimum the reference desktop app recomputes from content.
     if (local === 'tr' && an === 'h') continue;
     // Shadow no-op geometry: `sx="100000" sy="100000"` (100% scale), `kx="0"
     // ky="0"` (no skew), and `algn` — which only shifts the shadow when it is
@@ -135,7 +135,7 @@ const canonicalAttrs = (el: XmlElement): string[] => {
       if ((an === 'kx' || an === 'ky') && a.value === '0') continue;
       if (an === 'algn') continue;
     }
-    // Hyperlink no-op defaults PptxGenJS spells out and PowerPoint omits.
+    // Hyperlink no-op defaults PptxGenJS spells out and the reference desktop app omits.
     if (local === 'hlinkClick' || local === 'hlinkHover') {
       if (HLINK_DEFAULT_ATTRS.has(an) && (a.value === '' || a.value === HLINK_DEFAULTS[an])) {
         continue;
@@ -168,7 +168,7 @@ const isInvisibleBorder = (el: XmlElement): boolean => {
   return elementChildren(el).every((k) => k.name.localName === 'noFill');
 };
 
-// Whole child elements folded away because they encode a PowerPoint default or
+// Whole child elements folded away because they encode a default of the reference desktop app or
 // pure metadata: an emitter that omits them produces the identical rendering.
 const shouldDropChild = (parentLocal: string, child: XmlElement, lineFlag: boolean): boolean => {
   const c = child.name.localName;

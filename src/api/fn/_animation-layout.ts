@@ -49,7 +49,7 @@ const ATTR_VAL = qname('', 'val', '');
 const isPml = (el: XmlElement, local: string): boolean =>
   el.name.namespaceURI === NS.pml && el.name.localName === local;
 
-// ST_TLTimeNodeType tokens, both ways. The node type is what PowerPoint's UI
+// ST_TLTimeNodeType tokens, both ways. The node type is what the reference desktop app's UI
 // reads back as the effect's start, so a layout that moves a step has to keep
 // the two in step.
 const START_OF_NODE_TYPE: Record<string, AnimationStartCondition> = {
@@ -97,7 +97,7 @@ export const isPlainWrapper = (par: XmlElement): boolean => {
   // The wrapper is re-emitted with `fill="hold"`; any other fill would be
   // changed by that, so it is not a wrapper we can reproduce.
   if (getAttrValue(cTn, ATTR_FILL) !== 'hold') return false;
-  // `<p:iterate>` is how PowerPoint writes the by-letter effects (Drop, Flip,
+  // `<p:iterate>` is how the reference desktop app writes the by-letter effects (Drop, Flip,
   // Whip, Underline …), and comes with the preset.
   if (
     !elementChildren(cTn).every(
@@ -169,7 +169,7 @@ const mainSeqCTn = (timing: XmlElement): XmlElement | null => {
 
 /**
  * Reads the main sequence as click stop > group > effect, the shape this
- * library writes and PowerPoint emits.
+ * library writes and the reference desktop app emits.
  *
  * `null` when the sequence is nested some other way, or holds an effect whose
  * `nodeType` does not say when it starts. Laying such a tree out again would
@@ -428,7 +428,7 @@ export const buildKeyOf = (effectCTn: XmlElement, spid: number): string =>
  * and whether the shape's fill and outline animate with it. A group with no
  * entry yet gets one. `ST_TLParaBuildType` defaults to `whole`, so as one
  * object is the absence of `build` rather than a token of its own; `animBg` is
- * what PowerPoint writes for a shape that draws a background and animates as
+ * what the reference desktop app writes for a shape that draws a background and animates as
  * one object, and leaves off a paragraph build.
  */
 export const writeBuildEntry = (
@@ -494,7 +494,7 @@ const fillOf = (parent: XmlElement | null): XmlElement | undefined =>
 
 /**
  * Whether a shape draws a background its text sits on — a fill or an outline,
- * stated on the shape or taken from its style. PowerPoint animates that
+ * stated on the shape or taken from its style. The reference desktop app animates that
  * background with the text (`<p:bldP animBg="1">`) and writes nothing for a
  * text box that draws none.
  */
@@ -547,7 +547,7 @@ export const isPlainEffect = (par: XmlElement, effect: AnimationEffect | null): 
   if (!cTn.attrs.every((a) => a.name.namespaceURI === '' && EFFECT_ATTRS.has(a.name.localName))) {
     return false;
   }
-  // `<p:iterate>` is how PowerPoint writes the by-letter effects (Drop, Flip,
+  // `<p:iterate>` is how the reference desktop app writes the by-letter effects (Drop, Flip,
   // Whip, Underline …), and comes with the preset.
   if (
     !elementChildren(cTn).every(

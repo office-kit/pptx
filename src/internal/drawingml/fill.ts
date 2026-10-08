@@ -69,7 +69,7 @@ export const removeAnyFill = (host: XmlElement): void => {
  * geometry element; for `<p:bgPr>` it's the start.
  *
  * The schema is more nuanced (xfrm → geometry → fill → ln → effects →
- * scene3d → sp3d → extLst) but PowerPoint tolerates any of those slots
+ * scene3d → sp3d → extLst) but the reference desktop app tolerates any of those slots
  * being absent, and we only care about staying ahead of `a:ln`.
  */
 const fillInsertionIndex = (host: XmlElement): number => {
@@ -123,7 +123,7 @@ export interface GradientStop {
   readonly colorTransforms?: readonly ColorTransform[];
   /** Opacity from 0 (transparent) to 1 (opaque). */
   readonly opacity?: number;
-  /** PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged. */
+  /** The reference desktop app's brightness from -1 (black) to 1 (white); 0 leaves the color unchanged. */
   readonly brightness?: number;
 }
 
@@ -162,7 +162,7 @@ export interface GradientFillOptions {
   };
   /**
    * Gradient tile bounds as fractional insets from the shape's edges.
-   * Negative values extend the tile beyond that edge. Mac PowerPoint uses
+   * Negative values extend the tile beyond that edge. The reference desktop app on Mac uses
    * right/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.
    */
   readonly tileRect?: GradientFillOptions['focus'];
@@ -387,7 +387,7 @@ export const buildGradientFill = (options: GradientFillOptions, caller: string):
               ['lumMod', 'lumOff'].includes(child.name.localName)
             ),
         );
-        // Mac PowerPoint uses luminance modulation plus an offset for positive
+        // The reference desktop app on Mac uses luminance modulation plus an offset for positive
         // brightness, and modulation alone for negative brightness.
         color.children.push(
           elem(qname('a', 'lumMod', NS.dml), {

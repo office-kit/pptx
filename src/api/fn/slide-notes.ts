@@ -1007,7 +1007,7 @@ export const setSlideNotes = (
   if (options.newlines === 'break') setSlideNotes(slide, value, options);
 };
 
-/** Applies PowerPoint-style Change Case to a speaker-notes range. */
+/** Applies Change Case, as the reference desktop app does, to a speaker-notes range. */
 export const transformSlideNotesCase = (
   slide: SlideData,
   value: TextCase,
@@ -1032,7 +1032,7 @@ export const setSlideNotesFormat = (
   if (options.paragraphEnd !== undefined) {
     if (!Number.isInteger(options.paragraphEnd) || options.paragraphEnd < 0)
       throw new RangeError(`paragraph index out of range: ${options.paragraphEnd}`);
-    // An empty notes paragraph is a real PowerPoint editing target even when
+    // An empty notes paragraph is a real editing target in the reference desktop app even when
     // the OOXML notes part has not been created yet. Create that part before
     // delegating to the XML formatter; only paragraph zero exists initially.
     if (findNotesPartName(slide) === null) {

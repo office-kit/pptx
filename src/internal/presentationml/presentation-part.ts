@@ -32,7 +32,7 @@ export interface SlideMasterId {
 }
 
 export interface SlideId {
-  /** Allocated id, in [256, 2³¹-1024] per the spec + PowerPoint quirk. */
+  /** Allocated id, in [256, 2³¹-1024] per the spec + the reference desktop app's quirk. */
   readonly id: number;
   /** Relationship id pointing at the slide part. */
   readonly rId: string;
@@ -48,7 +48,7 @@ export interface SlideSize {
   /** Height in EMU. */
   readonly cy: number;
   /**
-   * Aspect-ratio hint. PowerPoint emits one of the standard tokens —
+   * Aspect-ratio hint. The reference desktop app emits one of the standard tokens —
    * `screen4x3`, `screen16x9`, `letter`, `A4`, `custom`, etc. — but the
    * value is informational; the actual size is `cx`/`cy`.
    */

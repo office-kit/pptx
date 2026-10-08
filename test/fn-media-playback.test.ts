@@ -1,5 +1,5 @@
 // How a clip plays: the `<p:cMediaNode>` attributes and the start condition
-// of its time node. PowerPoint's Playback tab, as far as the core schema
+// of its time node. The reference desktop app's Playback tab, as far as the core schema
 // states it — trimming lives in a 2010 extension and is not covered.
 
 import { describe, expect, it } from 'vitest';
@@ -336,7 +336,7 @@ describe('media playback', () => {
     expect(getShapeMediaPlayback(saved)).toEqual(before);
   });
 
-  it('reads PowerPoint trim and fade offsets and preserves unknown extension children', async () => {
+  it('reads the reference desktop app’s trim and fade offsets and preserves unknown extension children', async () => {
     const { pres } = deckWith('audio');
     const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
     const source = new TextDecoder().decode(slidePart.data);
@@ -373,7 +373,7 @@ describe('media playback', () => {
     });
   });
 
-  it('reads the native Mac PowerPoint trim/fade XML sample', async () => {
+  it('reads the native the reference desktop app trim/fade XML sample', async () => {
     const { pres } = deckWith('audio');
     const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
     const source = new TextDecoder().decode(slidePart.data);

@@ -560,7 +560,7 @@ const ATTR_SHOW = qname('', 'show', '');
 
 /**
  * Returns `true` when the slide carries `show="0"` on its root
- * `<p:sld>` element. PowerPoint hides such slides from the slideshow
+ * `<p:sld>` element. The reference desktop app hides such slides from the slideshow
  * but keeps them in the editing surface.
  */
 export const isSlideHidden = (slide: SlideData): boolean => {
@@ -584,7 +584,7 @@ export const isSlideLayoutBackgroundGraphicsHidden = (layout: SlideLayoutData): 
 
 /**
  * Hide inherited decoration without removing shapes or changing background fills.
- * PowerPoint's Hide Background Graphics suppresses layout decoration as well as
+ * The reference desktop app's Hide Background Graphics suppresses layout decoration as well as
  * master shapes, despite the attribute's name. Slide placeholders remain visible.
  */
 export const setSlideBackgroundGraphicsHidden = (slide: SlideData, hidden: boolean): void => {
@@ -609,7 +609,7 @@ export const slideHasAnimations = (slide: SlideData): boolean => readSlideTiming
 
 /**
  * Toggles the slide's visibility in the slideshow. Hiding adds
- * `show="0"`; showing removes the attribute (PowerPoint treats absence
+ * `show="0"`; showing removes the attribute (the reference desktop app treats absence
  * as the default `show="1"`).
  */
 export const setSlideHidden = (slide: SlideData, hidden: boolean): void => {

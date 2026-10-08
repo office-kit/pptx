@@ -56,7 +56,7 @@ it('emergency-wraps overlong Latin words in SVG even with latinLnBrk disabled', 
     h: inches(2),
     text: 'ABCDE',
   });
-  // Mac PowerPoint still splits words wider than the whole text box when
+  // The reference desktop app on Mac still splits words wider than the whole text box when
   // latinLnBrk is false; that flag only keeps words intact when they can fit.
   setParagraphTypography(box, 0, { latinLineBreak: false });
   const kept = renderSlideToSvg(pres, slide, { textLayout: 'svg' });

@@ -1,4 +1,4 @@
-// Builds the `<p:transition>` element that controls how PowerPoint
+// Builds the `<p:transition>` element that controls how the reference desktop app
 // animates from this slide to the next.
 //
 // Per ECMA-376 Part 1 §19.3.1.50 the transition carries:
@@ -15,10 +15,10 @@
 // Emitting an attribute on an effect that doesn't allow it is schema-invalid, so
 // buildEffectElement gates each attribute by the effect that accepts it.
 //
-// PowerPoint 2010 and later add effects outside ECMA-376 ([MS-PPTX] §2.2.1):
+// The reference desktop app (2010 and later) adds effects outside ECMA-376 ([MS-PPTX] §2.2.1):
 // nineteen in the p14 namespace (Vortex, Ripple, Shred, ...), the preset
 // transitions of p15 (`p15:prstTrans`: Curtains, Origami, ...) and Morph in
-// p159. They are written as PowerPoint writes them — an `mc:AlternateContent`
+// p159. They are written as the reference desktop app writes them — an `mc:AlternateContent`
 // whose choice requires the extension's namespace and whose fallback is the
 // same transition with `<p:fade/>` ([MS-PPTX] §3.1), so a reader that knows
 // only ECMA-376 still gets a valid fade.
@@ -59,12 +59,11 @@ const NAME_FALLBACK = qname('mc', 'Fallback', NS.mc);
 
 type TransitionSpeed = 'slow' | 'med' | 'fast';
 
-// PowerPoint's own durations for the three ECMA-376 speeds.
+// The reference desktop app's own durations for the three ECMA-376 speeds.
 const SPEED_MS: Readonly<Record<TransitionSpeed, number>> = { fast: 500, med: 750, slow: 1000 };
-// The `spd` PowerPoint writes for a duration: the fastest speed whose own
-// duration is at least as long. Mac PowerPoint 16's 48 gallery defaults all
-// follow it — Cut
-// (100 ms) has no `spd` (fast), Fade (700) and Uncover (750) are `med`, Shape
+// The `spd` the reference desktop app writes for a duration: the fastest speed whose own
+// duration is at least as long. The 48 gallery defaults of the reference desktop app
+// (Mac 16) all follow it — Cut (100 ms) has no `spd` (fast), Fade (700) and Uncover (750) are `med`, Shape
 // (800) and Zoom (900) are `slow` — which rules out rounding to the nearest
 // speed (800 would be `med`).
 const speedForDuration = (ms: number): TransitionSpeed =>
@@ -99,7 +98,7 @@ export const ECMA_TRANSITION_EFFECTS = [
 ] as const;
 
 /**
- * The PowerPoint 2010 effects [MS-PPTX] §2.2.1 adds to that choice, in the
+ * The p14 effects [MS-PPTX] §2.2.1 adds to that choice, in the
  * p14 namespace (`<p14:{token}/>`). Cube, Box, Rotate and Orbit are all
  * `prism`, told apart by `isContent` / `isInverted`; the gallery's Zoom is
  * `warp`; Clock's Counterclockwise is `wheelReverse`.
@@ -134,9 +133,9 @@ const P14_TRANSITION_EFFECTS = [
 export const TRANSITION_EFFECTS = [
   ...ECMA_TRANSITION_EFFECTS,
   ...P14_TRANSITION_EFFECTS,
-  // PowerPoint 2013's preset transitions (`p15:prstTrans`, [MS-PPTX] §2.4.3.8).
+  // The p15 preset transitions (`p15:prstTrans`, [MS-PPTX] §2.4.3.8).
   'prstTrans',
-  // PowerPoint 2016's Morph (`p159:morph`, [MS-PPTX] §2.6.1.1).
+  // The p159 Morph (`p159:morph`, [MS-PPTX] §2.6.1.1).
   'morph',
 ] as const;
 
@@ -151,7 +150,7 @@ export type TransitionEffect = 'none' | (typeof TRANSITION_EFFECTS)[number];
 /**
  * The `prst` names [MS-PPTX] §2.4.3.8 defines for `p15:prstTrans`. The
  * attribute is an `xsd:string` naming "the internal resource to use", so a
- * name outside this list is one PowerPoint has no transition for.
+ * name outside this list is one the reference desktop app has no transition for.
  */
 export const TRANSITION_PRESETS = [
   'fallOver',
@@ -184,7 +183,7 @@ export interface TransitionOptions {
   /**
    * Direction, valid only for effects that carry a `dir` attribute and only
    * within that effect's domain (validated on write). The side tokens name
-   * the way the slide moves, so PowerPoint's "From Right" is `l`.
+   * the way the slide moves, so the reference desktop app's "From Right" is `l`.
    *   - `blinds`/`checker`/`comb`/`randomBar`/`doors`/`window`: `horz` | `vert`
    *   - `push`/`wipe`/`vortex`/`pan`/`glitter`/`prism`: `l` | `r` | `u` | `d`
    *   - `cover`/`pull`: the above plus `lu` | `ru` | `ld` | `rd`
@@ -204,15 +203,15 @@ export interface TransitionOptions {
   thruBlack?: boolean;
   /**
    * For `glitter`: `diamond` (the default) or `hexagon`. For `shred`: `strip`
-   * (the default) or `rectangle` — PowerPoint's "Strips" and "Particles".
+   * (the default) or `rectangle` — the reference desktop app's "Strips" and "Particles".
    */
   pattern?: 'diamond' | 'hexagon' | 'strip' | 'rectangle';
   /**
    * For `prism`: the slide's content turns rather than the slide itself
-   * (PowerPoint's Rotate and Orbit, against Cube and Box).
+   * (the reference desktop app's Rotate and Orbit, against Cube and Box).
    */
   isContent?: boolean;
-  /** For `prism`: the turn faces inwards (PowerPoint's Box and Orbit). */
+  /** For `prism`: the turn faces inwards (the reference desktop app's Box and Orbit). */
   isInverted?: boolean;
   /** For `flythrough`: the slides bounce at the end. */
   hasBounce?: boolean;
@@ -224,7 +223,7 @@ export interface TransitionOptions {
   invertY?: boolean;
   /** For `morph`: what is matched between the slides. Defaults to `byObject`. */
   morphOption?: MorphOption;
-  /** Whether clicking advances; default `true` (PowerPoint's default). */
+  /** Whether clicking advances; default `true` (the reference desktop app's default). */
   advanceOnClick?: boolean;
   /**
    * Milliseconds to auto-advance after this slide. Omit for click-only
@@ -232,9 +231,9 @@ export interface TransitionOptions {
    */
   advanceAfterMs?: number;
   /**
-   * Effect duration in milliseconds (PowerPoint 2010's `p14:dur`). ECMA-376
+   * Effect duration in milliseconds (`p14:dur`, [MS-PPTX]). ECMA-376
    * only has the three `speed` steps, so the transition is written as
-   * PowerPoint writes it:
+   * the reference desktop app writes it:
    *   - `spd` is the fastest speed at least this long (≤ 500 ms `fast`,
    *     ≤ 750 ms `med`, otherwise `slow`) unless `speed` is given; a derived
    *     `fast` is left out, being the schema default.
@@ -313,7 +312,7 @@ const P14_EFFECTS: ReadonlySet<string> = new Set(P14_TRANSITION_EFFECTS);
 
 interface Extension {
   readonly ns: string;
-  /** The prefix PowerPoint declares for it, which is also what `Requires` names. */
+  /** The prefix the reference desktop app declares for it, which is also what `Requires` names. */
   readonly prefix: string;
 }
 const P14: Extension = { ns: NS.p14, prefix: 'p14' };
@@ -395,7 +394,8 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
     );
   }
   if (effect === 'morph') {
-    // `option` is required on CT_MorphTransition; byObject is PowerPoint's "Objects".
+    // `option` is required on CT_MorphTransition; byObject is the reference desktop app's
+    // "Objects".
     const option = oneOf(
       opts.morphOption ?? 'byObject',
       MORPH_OPTIONS,
@@ -409,7 +409,7 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
 /**
  * Returns the slide-level transition node: a `<p:transition>`, or the
  * `mc:AlternateContent` around two of them when it carries a `p14:dur` or
- * the effect is a PowerPoint extension. `sound` is the `<p:sndAc>` to keep (it
+ * The effect is an extension of the reference desktop app. `sound` is the `<p:sndAc>` to keep (it
  * follows the effect element).
  */
 export const buildTransition = (
@@ -423,7 +423,7 @@ export const buildTransition = (
       ? undefined
       : unsignedIntMs(opts.durationMs, 'setSlideTransition: durationMs');
   const speed = opts.speed ?? (requested === undefined ? undefined : speedForDuration(requested));
-  // PowerPoint leaves out `p14:dur` when the speed already says it (Push,
+  // The reference desktop app leaves out `p14:dur` when the speed already says it (Push,
   // Wipe, Cover … at 1 s; Uncover at 0.75 s; Flash keeps its wrapper for its
   // p14 element but has no `p14:dur`), and `spd` when it is the default
   // `fast` (Cut at 0.1 s).
@@ -464,7 +464,7 @@ export const buildTransition = (
           transition(duration === undefined ? [] : [attr(ATTR_P14_DUR, String(duration))], effect),
         ],
       }),
-      // An extension effect falls back to a fade, as PowerPoint writes it.
+      // An extension effect falls back to a fade, as the reference desktop app writes it.
       elem(NAME_FALLBACK, {
         children: [transition([], extension === null ? effect : elem(NAME_FADE))],
       }),

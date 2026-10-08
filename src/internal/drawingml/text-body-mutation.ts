@@ -108,9 +108,9 @@ const TOKEN_PATTERN = /\{\{([^{}]+)\}\}/g;
  * want to know whether anything matched.
  *
  * Limitation: a token must fit entirely within one `<a:t>` element to
- * match. PowerPoint normally serializes contiguous user text as a single
+ * match. The reference desktop app normally serializes contiguous user text as a single
  * `<a:t>`, so the limitation only bites when a placeholder was edited
- * character-by-character (causing PowerPoint to split runs). For those
+ * character-by-character (causing the reference desktop app to split runs). For those
  * cases, fall back to `setText()`.
  */
 export const replaceTokensInTree = (root: XmlElement, tokens: Record<string, string>): number => {
@@ -277,7 +277,7 @@ const buildBulletElement = (n: NormalizedBullet): XmlElement => {
     case 'char':
       return elem(NAME_BU_CHAR, { attrs: [attr(ATTR_CHAR, n.char)] });
     case 'autoNum':
-      // `startAt="1"` is the default, but PowerPoint and PptxGenJS write it
+      // `startAt="1"` is the default, but the reference desktop app and PptxGenJS write it
       // explicitly on an authored numbered list.
       return elem(NAME_BU_AUTO_NUM, {
         attrs: [attr(ATTR_START_AT, '1'), attr(ATTR_BU_TYPE, n.type)],
@@ -398,11 +398,11 @@ export const applyAlignmentTokenToAllParagraphs = (txBody: XmlElement, token: st
  * existing bullet child element (`a:buChar`, `a:buAutoNum`, `a:buNone`)
  * before inserting the new one. Creates `<a:pPr>` if absent.
  */
-// PowerPoint's default hanging indent for a bulleted paragraph, by list level
+// The reference desktop app's default hanging indent for a bulleted paragraph, by list level
 // (0-based). These mirror the master `bodyStyle` lvlNpPr defaults, so a bullet
 // authored on a *text box* — which inherits the `otherStyle` (marL=0), not the
 // body style — still gets the standard bullet/text gap instead of the glyph
-// jammed against the text. PptxGenJS and PowerPoint both write these explicitly.
+// jammed against the text. PptxGenJS and the reference desktop app both write these explicitly.
 const BULLET_INDENT_BY_LEVEL: ReadonlyArray<{ marL: number; indent: number }> = [
   { marL: 342900, indent: -342900 },
   { marL: 742950, indent: -285750 },
@@ -473,7 +473,7 @@ const applyNormalizedBullet = (paragraph: XmlElement, style: NormalizedBullet): 
   }
 
   // A numbered list needs a bullet font so the number glyph has a face —
-  // PowerPoint and PptxGenJS emit `<a:buFont typeface="+mj-lt"/>` (the theme's
+  // the reference desktop app and PptxGenJS emit `<a:buFont typeface="+mj-lt"/>` (the theme's
   // major font) ahead of `<a:buAutoNum>`. A character bullet carries its glyph
   // directly and needs none. `<a:buFont>` precedes the bullet child per the
   // CT_TextParagraphProperties element order.
@@ -509,7 +509,7 @@ export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyl
  * properties) are cloned into every new paragraph so that font, color, size,
  * alignment, and bullet style survive the replacement. If the source had
  * mixed formatting per run, that gets collapsed into the first-run formatting
- * across the entire new text — matching what PowerPoint does when you select
+ * across the entire new text — matching what the reference desktop app does when you select
  * all and type.
  *
  * The `bodyPr` and `lstStyle` children (if any) are preserved untouched.
@@ -565,7 +565,7 @@ export const setTextBody = (
 export interface RunSpec {
   /**
    * Run text, written verbatim — unlike `setShapeText`, newlines are not
-   * split into paragraphs (PowerPoint shows a CR LF inside a run as a line
+   * split into paragraphs (the reference desktop app shows a CR LF inside a run as a line
    * break, which some exporters rely on).
    */
   readonly text: string;

@@ -14,7 +14,7 @@ tests, which use a semantic-equivalence comparator, not byte-equal.
 Why python-pptx and not our own writer? Because at this phase of @office-kit/pptx
 we have no PresentationML authoring yet — we need *some* real PPTX bytes
 to load and assert against. python-pptx is the de-facto reference in OSS
-and produces files PowerPoint opens without complaint.
+and produces files the reference desktop app opens without complaint.
 """
 
 import io

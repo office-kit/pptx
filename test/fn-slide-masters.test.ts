@@ -67,7 +67,7 @@ describe('slide masters', () => {
     expect(placeholders[0]!.bounds).not.toBeNull();
   });
 
-  it('Insert Slide Master adds the Office master with eleven layouts and its own theme', async () => {
+  it('Insert Slide Master adds the default master with eleven layouts and its own theme', async () => {
     const pres = await template();
     const before = getSlideMasterPartNames(pres);
     const master = addSlideMaster(pres);
@@ -97,7 +97,7 @@ describe('slide masters', () => {
     ]);
     expect(getSlideMasterName(pres, master)).toBe('Custom Design');
     expect(isSlideMasterPreserved(pres, master)).toBe(true);
-    // A second insert is numbered as PowerPoint numbers it.
+    // A second insert is numbered as the reference desktop app numbers it.
     expect(getSlideMasterName(pres, addSlideMaster(pres))).toBe('1_Custom Design');
 
     const reloaded = await expectPackageValid(pres);
@@ -212,7 +212,7 @@ describe('slide layouts', () => {
       'Title Slide',
       'Custom Layout',
     ]);
-    // PowerPoint marks layouts it inserts as user-drawn and preserved.
+    // The reference desktop app marks layouts it inserts as user-drawn and preserved.
     expect(decode(readPackagePart(reloaded, getSlideLayoutPartName(layout)))).toContain(
       'preserve="1" userDrawn="1"',
     );

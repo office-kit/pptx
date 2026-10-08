@@ -44,7 +44,7 @@ const encoder = new TextEncoder();
 
 /**
  * Replaces slide 1's `<p:timing>` with `timing` and reloads the deck. The
- * spliced slide is schema-checked first: a fixture PowerPoint could never
+ * spliced slide is schema-checked first: a fixture the reference desktop app could never
  * hand us would test the parser against nothing real. (`nodeType="interactive"`
  * looked right and is not in ST_TLTimeNodeType — this is what caught it.)
  * Pass `malformed` for the cases whose whole point is a tree that breaks the
@@ -211,7 +211,7 @@ describe('fn API: getSlideAnimations', () => {
 });
 
 // A `<p:cTn>` carrying an animation behaviour, with a click node type and no
-// preset attributes — a custom effect PowerPoint or another tool authored.
+// preset attributes — a custom effect the reference desktop app or another tool authored.
 const customEffect = (id: number, spid: number): string =>
   `<p:par><p:cTn id="${id}" nodeType="clickEffect" fill="hold">` +
   `<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>` +
@@ -287,7 +287,7 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     expect(steps[1]!.editable).toBe(true);
   });
 
-  // A preset effect written the way PowerPoint writes one: a `<p:set>` that
+  // A preset effect written the way the reference desktop app writes one: a `<p:set>` that
   // puts the shape on the slide, then the fade itself. `fill` says what becomes
   // of each node's value once it has run, and `null` leaves the attribute out —
   // which CT_TLCommonTimeNodeData allows and gives no default for.
@@ -339,7 +339,7 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     const spid = await firstShapeId();
     // The fade carries no fill of its own. It ends on the opacity the
     // visibility set already implies, so nothing about where the shape ends up
-    // is left unsaid — the ordinary shape of a PowerPoint entrance must not be
+    // is left unsaid — the ordinary shape of an entrance from the reference desktop app must not be
     // read as something this library cannot play.
     const { slide } = await withTiming(timingRoot(mainSeq(heldEffect(3, spid))));
     const steps = getSlideAnimations(slide);
@@ -498,7 +498,7 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
 
   it('lists a preset it cannot name, read-only, without disabling its neighbour', async () => {
     const spid = await firstShapeId();
-    // presetID 2 / entr is PowerPoint's "fly in" — a real preset, not one of
+    // presetID 2 / entr is the reference desktop app's "fly in" — a real preset, not one of
     // the four this library authors.
     const { slide } = await withTiming(
       timingRoot(mainSeq(presetEffect(3, spid, { presetId: '2' }) + presetEffect(10, spid))),
@@ -905,7 +905,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
     expect(new Set(steps.map((s) => s.id)).size).toBe(3);
   });
 
-  // PowerPoint ties an effect to its build through grpId, and the build is
+  // The reference desktop app ties an effect to its build through grpId, and the build is
   // what says "paragraph by paragraph" — one entry for the whole body, not one
   // per paragraph, or the later ones would each re-declare the same build.
   it('gives the whole build a single `<p:bldP build="p">`', () => {
@@ -981,7 +981,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
   });
 
   // The build is one group; a shape animated as a whole is another. Sharing a
-  // grpId would make PowerPoint reveal the text with the other shape's effect.
+  // grpId would make the reference desktop app reveal the text with the other shape's effect.
   it('keeps a build and a whole-shape effect in separate groups', () => {
     const { pres, slide, shape } = deck(['One', 'Two']);
     const other = addSlideShape(slide, { preset: 'rect', ...box });
@@ -1100,7 +1100,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
 /**
  * An authored slide can time an effect in ways this library does not model.
  * Guessing an end for one of those would place the next effect at a moment
- * PowerPoint never plays it, so the call is refused and the tree left alone.
+ * the reference desktop app never plays it, so the call is refused and the tree left alone.
  */
 describe('fn API: setShapeAnimation — timing an after-previous effect cannot measure', () => {
   const slideXml = (pres: PresentationData): string =>
@@ -1144,7 +1144,7 @@ describe('fn API: setShapeAnimation — timing an after-previous effect cannot m
   });
 
   // `autoRev` is not here: it runs a behaviour once forwards and once back,
-  // which is a length the tree states (PowerPoint's Pulse is written that way).
+  // which is a length the tree states (the reference desktop app's Pulse is written that way).
   it('refuses when a behaviour is rescaled by speed', async () => {
     await refuses(behaviour(6, '{spid}', ' dur="500" spd="50%" fill="hold"'));
   });
@@ -1216,7 +1216,7 @@ const clickStop = (effect: string): string =>
   `<p:childTnLst>${effect}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
 
 describe('fn API: an emphasis preset is read from its own behaviour', () => {
-  // `presetClass="emph" presetID="8"` is PowerPoint's Spin whatever angle it
+  // `presetClass="emph" presetID="8"` is the reference desktop app's Spin whatever angle it
   // turns through: the amount is on `<p:animRot>`, in sixtieth-thousandths of a
   // degree, and negative for a counter-clockwise turn. The angle and direction
   // are read off that behaviour as Spin's Effect Options; a tree that fixes

@@ -21,7 +21,8 @@
 //   - XSD-level structural problems (use the Layer-1 test path for that).
 //   - Theme / colorMap consistency.
 //   - Chart / xlsx round-trip integrity.
-//   - PowerPoint-vs-spec quirks (handled by the planned quirks module).
+//   - quirks where the reference desktop app departs from the spec (handled by
+//     the planned quirks module).
 
 import { type PartName, type Relationship, partName, resolveTarget } from '../opc/index.ts';
 import type { OpcPackage } from '../parts/index.ts';
@@ -250,7 +251,7 @@ export const validatePresentationPackage = (pkg: OpcPackage): ValidationIssue[] 
   }
 
   // Per-slide: duplicate `<p:cNvPr id="N">` collisions inside
-  // `<p:spTree>`. PowerPoint requires every shape's non-visual ID to be
+  // `<p:spTree>`. The reference desktop app requires every shape's non-visual ID to be
   // unique within the slide; duplicates often appear when callers paste
   // shapes from another slide without re-allocating IDs.
   for (const slideName of slidePartNames) {

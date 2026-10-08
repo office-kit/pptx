@@ -64,8 +64,8 @@ const chartXmlOf = (bytes: Uint8Array): string | null => {
  * name and values — read back with @office-kit/pptx's own reader. Charts can't be
  * compared as raw XML: PptxGenJS stamps dozens of opinionated chrome defaults
  * (data-label blocks, gridlines, its own palette, `multiLvlStrRef` categories)
- * that PowerPoint treats as optional and @office-kit/pptx leaves to inheritance. What
- * must match is the data and the chart type, which is what this extracts —
+ * that the reference desktop app treats as optional and @office-kit/pptx leaves to inheritance.
+ * What must match is the data and the chart type, which is what this extracts —
  * from *either* library's output, since @office-kit/pptx can read any PPTX.
  */
 export interface ChartSemantics {

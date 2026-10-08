@@ -962,7 +962,8 @@ const editImageBackground = (slide: SlideData, edit: (fill: XmlElement) => void)
 /**
  * Updates a slide pattern background, preserving unspecified colors and transforms.
  * Inherited patterns become a slide override; the layout and master stay unchanged.
- * A new pattern uses Mac PowerPoint's defaults: pct5, accent1 foreground, bg1 background.
+ * A new pattern uses the reference desktop app's defaults: pct5, accent1 foreground, bg1
+ * background.
  */
 export const setSlideBackgroundPatternFill = (
   slide: SlideData,
@@ -1070,8 +1071,8 @@ export const copySlideBackground = (targetSlide: SlideData, sourceSlide: SlideDa
 
 /**
  * Applies the source slide's effective background throughout its presentation.
- * Like Mac PowerPoint, stores the fill on masters and clears slide/layout overrides.
- * Theme colors and image relationships are preserved without flattening the fill.
+ * Like the reference desktop app on Mac, stores the fill on masters and clears slide/layout
+ * overrides. Theme colors and image relationships are preserved without flattening the fill.
  */
 export const applySlideBackgroundToAll = (pres: PresentationData, slide: SlideData): void => {
   const pkg = pres[INTERNAL_PACKAGE];

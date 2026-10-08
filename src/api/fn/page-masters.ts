@@ -1,11 +1,11 @@
 // The notes master and the handout master (ECMA-376 Part 1 §19.3.1.27
 // `notesMaster`, §19.3.1.24 `handoutMaster`): the printed-page counterparts of
-// the slide master. PowerPoint's Notes Master and Handout Master views edit
+// the slide master. The reference desktop app's Notes Master and Handout Master views edit
 // their placeholders, the page orientation and the handout's slides per page.
 //
 // A presentation has at most one of each (`<p:notesMasterIdLst>` and
 // `<p:handoutMasterIdLst>` hold one entry). Neither is required, so the
-// setters create the master PowerPoint would — its default placeholders and
+// setters create the master the reference desktop app would — its default placeholders and
 // its own copy of the slide theme — the first time it is edited.
 
 import {
@@ -79,7 +79,7 @@ const ATTR_CX = qname('', 'cx', '');
 const ATTR_CY = qname('', 'cy', '');
 const ATTR_PRN_WHAT = qname('', 'prnWhat', '');
 
-// `<p:notesSz>` is required, but a hand-built deck may still omit it; PowerPoint
+// `<p:notesSz>` is required, but a hand-built deck may still omit it; the reference desktop app
 // then lays notes and handouts out on its 7.5 × 10 in portrait page.
 const DEFAULT_PAGE = { w: 6858000, h: 9144000 };
 const DEFAULT_SLIDE = { w: 12192000, h: 6858000 };
@@ -129,7 +129,7 @@ const slideCanvas = (pres: PresentationData): { w: number; h: number } => {
   return size ? { w: size.width, h: size.height } : DEFAULT_SLIDE;
 };
 
-/** The slide theme, which a new page master copies as PowerPoint does. */
+/** The slide theme, which a new page master copies as the reference desktop app does. */
 const slideTheme = (pkg: OpcPackage, presentation: XmlElement): Uint8Array | null => {
   const rels = pkg.getRels(PRES_PART_NAME)?.items ?? [];
   const firstMaster = firstChildElement(presentation, NAME_SLD_MASTER_ID_LST)?.children.find(
@@ -144,7 +144,7 @@ const slideTheme = (pkg: OpcPackage, presentation: XmlElement): Uint8Array | nul
   return theme ? theme.data : null;
 };
 
-/** The master's part name, creating PowerPoint's default master first when absent. */
+/** The master's part name, creating the reference desktop app's default master first when absent. */
 const ensurePageMaster = (pres: PresentationData, kind: PageMasterKind): PartName => {
   const pkg = pres[INTERNAL_PACKAGE];
   const existing = pageMasterName(pkg, kind);
@@ -272,7 +272,7 @@ const setIncluded = (
 
 /**
  * The Notes Master tab's placeholder checkboxes: removes a placeholder from
- * the notes master, or puts it back where PowerPoint's default puts it.
+ * the notes master, or puts it back where the reference desktop app's default puts it.
  * Creates the default notes master when the presentation has none.
  */
 export const setNotesMasterPlaceholderIncluded = (
@@ -357,7 +357,7 @@ const turnPage = (root: XmlElement, sx: number, sy: number): void => {
 
 /**
  * Handout Orientation / Notes Page Orientation. Both turn the one notes page
- * (`<p:notesSz>`) that notes pages and handouts share, and PowerPoint moves
+ * (`<p:notesSz>`) that notes pages and handouts share, and the reference desktop app moves
  * the notes master, the handout master and every notes page with it.
  */
 export const setNotesPageOrientation = (

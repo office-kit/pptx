@@ -6,7 +6,7 @@
 // `<a:xfrm>` values live in. At creation time the children already carry
 // real slide-space coordinates, so the child space is set 1:1 with the
 // outer `<a:off>` / `<a:ext>` (`chOff == off`, `chExt == ext`) — the same
-// convention PowerPoint itself uses right after a fresh "Group" action,
+// convention the reference desktop app itself uses right after a fresh "Group" action,
 // before the group is subsequently moved or resized.
 
 import { emuCoordinate, emuExtent } from '../bounds.ts';

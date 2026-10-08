@@ -3,7 +3,7 @@
 // Companion to `chart-builder.ts`. Lets callers introspect or edit
 // chart data on existing templates without dropping to XML. The reader
 // uses inline `<c:strCache>` / `<c:numCache>` blocks rather than the
-// embedded workbook — the cache is what PowerPoint renders from
+// embedded workbook — the cache is what the reference desktop app renders from
 // anyway, and it's always present in charts @office-kit/pptx emits.
 
 import {
@@ -127,7 +127,7 @@ const readPtCount = (host: XmlElement): number => {
   return raw !== null ? Number.parseInt(raw, 10) : Number.NaN;
 };
 
-// CT_Boolean: an absent `val` means true (schema default); PowerPoint writes
+// CT_Boolean: an absent `val` means true (schema default); the reference desktop app writes
 // "0" / "1", other writers spell "true" / "false".
 const readXmlBool = (el: XmlElement): boolean => {
   const v = getAttrValue(el, ATTR_VAL);
@@ -179,7 +179,7 @@ const readPtArray = (cache: XmlElement, countHost: XmlElement = cache): string[]
 
 // `<c:strRef>` (cell range) and `<c:strLit>` (literal array) both serialise
 // their points the same way: `<c:pt idx="...">...<c:v>text</c:v></c:pt>`.
-// PowerPoint authors usually emit `strRef` with a `strCache`; other writers
+// Decks the reference desktop app authors usually carry `strRef` with a `strCache`; other writers
 // (python-pptx, pptxgenjs's older paths, hand-edited XML) skip the cache or
 // drop the workbook entirely and emit `strLit`. Either way the cached points
 // are enough to render the chart, so we accept both.
@@ -191,7 +191,7 @@ const readStringChannel = (parent: XmlElement): string[] | null => {
   }
   const lit = firstChildElement(parent, NAME_STR_LIT);
   if (lit) return readPtArray(lit);
-  // `<c:multiLvlStrRef>` is what PowerPoint and PptxGenJS emit for categories
+  // `<c:multiLvlStrRef>` is what the reference desktop app and PptxGenJS emit for categories
   // (it supports grouped axis labels). A flat chart has a single `<c:lvl>`;
   // read that level's points so single-level categories round-trip. (For a
   // genuinely multi-level axis we surface the innermost level, which is the
@@ -828,7 +828,7 @@ const readValueAxisScaling = (valAx: XmlElement): ChartAxisScaling | undefined =
   if (scaling) {
     min = readNumOn(scaling, 'min');
     max = readNumOn(scaling, 'max');
-    // <c:logBase val="N"/> — PowerPoint requires N in [2, 1000].
+    // <c:logBase val="N"/> — the reference desktop app requires N in [2, 1000].
     const lb = readNumOn(scaling, 'logBase');
     if (lb !== undefined && lb >= 2 && lb <= 1000) logBase = lb;
   }
@@ -1410,7 +1410,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
   // Both axes of a scatter / bubble chart are <c:valAx>. The plot group
   // lists the x axis' id first (CT_ScatterChart / CT_BubbleChart), so that
   // one stands in for the category axis and the other is the value axis;
-  // document order cannot tell them apart, since PowerPoint writes x first.
+  // document order cannot tell them apart, since the reference desktop app writes x first.
   const isXyKind = kind === 'scatter' || kind === 'bubble';
   let xValAx: XmlElement | null = null;
   if (isXyKind) {
@@ -1470,7 +1470,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
   }
 
   // <c:gapWidth> and <c:overlap> live on the plotted-kind element and
-  // tune the bar / column spacing. PowerPoint defaults: gapWidth=150
+  // tune the bar / column spacing. The reference desktop app defaults: gapWidth=150
   // (1.5× bar width gap), overlap=0 (clustered) or 100 (stacked).
   let gapWidthPct: number | undefined;
   let overlapPct: number | undefined;
@@ -1727,7 +1727,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
     }
     // <c:crosses val> and <c:crossesAt val> are mutually exclusive per
     // the schema; crossesAt wins when both are emitted (matches the
-    // PowerPoint priority).
+    // the reference desktop app's priority).
     const crossesAtEl = firstChildElement(valAx, qname('c', 'crossesAt', NS_C));
     if (crossesAtEl) {
       const v = getAttrValue(crossesAtEl, ATTR_VAL);
@@ -1843,7 +1843,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
     const v = getAttrValue(dbaEl, ATTR_VAL);
     if (v === 'gap' || v === 'zero' || v === 'span') dispBlanksAs = v;
   }
-  // <c:plotVisOnly val="0|1"/> — PowerPoint default is 1. Surface as
+  // <c:plotVisOnly val="0|1"/> — the reference desktop app's default is 1. Surface as
   // `plotVisibleCellsOnly: false` only when explicitly 0 so the round-trip
   // doesn't add a redundant `false` for every default-shaped chart.
   let plotVisibleCellsOnly: boolean | undefined;
@@ -1860,7 +1860,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
     const v = getAttrValue(rcEl, ATTR_VAL);
     if (v === '1' || v === 'true') roundedCorners = true;
   }
-  // <c:chartSpace><c:style val="N"/> — PowerPoint chart-style preset
+  // <c:chartSpace><c:style val="N"/> — the reference desktop app's chart-style preset
   // (1..48). Surface for round-trip parity; renderers don't act on it.
   let chartStyle: number | undefined;
   const styleEl = firstChildElement(root, qname('c', 'style', NS_C));
@@ -1871,7 +1871,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
       if (Number.isFinite(n) && n >= 1 && n <= 48) chartStyle = n;
     }
   }
-  // <c:chartSpace><c:lang val="…"/> + <c:date1904 val="…"/> — Office
+  // <c:chartSpace><c:lang val="…"/> + <c:date1904 val="…"/> — authoring-app
   // metadata. Surface for round-trip parity.
   let language: string | undefined;
   const langEl = firstChildElement(root, qname('c', 'lang', NS_C));
@@ -1887,7 +1887,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
   }
 
   // <c:legend> sits on the chart element (not the plotArea). Read the
-  // position; PowerPoint defaults to 'r' (right) when the element is
+  // position; the reference desktop app defaults to 'r' (right) when the element is
   // present but has no legendPos. Absent legend element means renderers
   // fall back to whatever they show by default.
   let legend: ReadChartSpec['legend'];
@@ -2026,7 +2026,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
   // element is absent.
   const plottedName = plotted.name.localName;
   const view3DEl = readView3D(chart);
-  // A 3-D camera on a flat plot group means nothing; PowerPoint leaves a
+  // A 3-D camera on a flat plot group means nothing; the reference desktop app leaves a
   // stale <c:view3D> behind when a chart is switched from 3-D back to 2-D.
   const view3D = plottedName.endsWith('3DChart') || kind === 'surface' ? view3DEl : undefined;
   const bar3DShape =
@@ -2041,7 +2041,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
         ])
       : undefined;
   const gapDepthPct = view3D !== undefined ? childNumber(plotted, 'gapDepth') : undefined;
-  // The flag lives on each series: PowerPoint repairs a deck whose
+  // The flag lives on each series: the reference desktop app repairs a deck whose
   // `<c:bubbleChart>` carries its own `<c:bubble3D>`, so nothing writes that one.
   const bubble3D =
     kind === 'bubble' &&

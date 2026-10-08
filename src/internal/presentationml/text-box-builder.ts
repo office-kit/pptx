@@ -63,7 +63,7 @@ export interface TextBoxOptions {
 /**
  * Returns a `<p:sp>` element representing a text-box shape positioned at
  * `(x, y)` with extent `(w, h)`. The shape carries a `txBox="1"` marker
- * and a `prstGeom prst="rect"` so PowerPoint renders it as a plain text
+ * and a `prstGeom prst="rect"` so the reference desktop app renders it as a plain text
  * frame without fill or outline.
  */
 export const buildTextBox = (opts: TextBoxOptions): XmlElement => {
@@ -103,7 +103,7 @@ export const buildTextBox = (opts: TextBoxOptions): XmlElement => {
   // Build one `<a:p>` per line of `opts.text`. Each `<a:t>` therefore
   // contains at most one line, so we never need `xml:space="preserve"`
   // (the strict ECMA schema disallows that attribute on `<a:t>`, even
-  // though PowerPoint sometimes emits it). Leading/trailing-space
+  // though the reference desktop app sometimes emits it). Leading/trailing-space
   // preservation is handled by the bodyPr, not by xml:space.
   const lines = opts.text.split('\n');
   const paragraphs: XmlElement[] = lines.map((line) => {

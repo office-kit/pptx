@@ -3,7 +3,7 @@
 //
 // The assertions are about the saved XML as much as the read model: reordering
 // rewrites the click stops and the offsets inside them, and the point of these
-// calls is that what PowerPoint plays changes with them.
+// calls is that what the reference desktop app plays changes with them.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

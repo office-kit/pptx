@@ -1,7 +1,7 @@
 import { unzipSync } from 'fflate';
 // Free-function slide-size API.
 //
-// PowerPoint stores the slide canvas as `<p:sldSz cx="..." cy="..."/>`
+// The reference desktop app stores the slide canvas as `<p:sldSz cx="..." cy="..."/>`
 // on `presentation.xml`. We expose it as EMU width/height plus an
 // optional aspect-ratio hint, with presets for the two common ratios.
 

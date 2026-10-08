@@ -19,7 +19,7 @@ import { setOpcDefault } from './_helpers.ts';
 // Document thumbnail (`/docProps/thumbnail.jpeg` typically).
 
 /**
- * The package's thumbnail image, when present. PowerPoint, the OS
+ * The package's thumbnail image, when present. The reference desktop app, the OS
  * file picker, and SharePoint preview decks via this. Format is
  * what's encoded in the thumbnail part — usually JPEG.
  */

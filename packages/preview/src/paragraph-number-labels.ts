@@ -99,7 +99,7 @@ const formatAutoNum = (token: string, n: number): string => {
 export const paragraphNumberLabels = (
   paraData: ReadonlyArray<{ bulletStyle: BulletStyle | null; level: number }>,
 ): Array<string | null> => {
-  // Numbering pre-pass — assign an autonum index per paragraph. PowerPoint
+  // Numbering pre-pass — assign an autonum index per paragraph. The reference desktop app
   // keeps one counter per indent level: a nested list (level 1) between two
   // level-0 items does not restart the outer list, so "1. / a. / b. / 2."
   // renders as such. A paragraph resets the counters of every deeper level;

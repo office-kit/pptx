@@ -42,8 +42,8 @@ import {
 
 const decoder = new TextDecoder();
 
-// The standard Office theme's per-script font lists, in document order.
-// Transcribed from a PowerPoint-authored theme1.xml, the same source the
+// The standard default theme's per-script font lists, in document order.
+// Transcribed from a theme1.xml the reference desktop app authored, the same source the
 // blank deck's THEME_XML uses; the test below pins the deck against them.
 const MAJOR_SCRIPT_FONTS: ReadonlyArray<readonly [string, string]> = [
   ['Jpan', '游ゴシック Light'],
@@ -160,7 +160,7 @@ describe('fn API: createPresentation', () => {
     expect(findSlideLayoutByType(pres, 'obj')).not.toBeNull();
   });
 
-  it("defaults the slide size to 16:9 (PowerPoint's modern default)", () => {
+  it("defaults the slide size to 16:9 (the reference desktop app's modern default)", () => {
     const pres = createPresentation();
     const size = getSlideSize(pres);
     expect(size).not.toBeNull();
@@ -254,7 +254,7 @@ describe('fn API: createPresentation', () => {
     expect(validatePresentation(pres)).toEqual([]);
   });
 
-  it("carries Office's per-script font lists in the theme font scheme", async () => {
+  it("carries the default theme's per-script font lists in the theme font scheme", async () => {
     const pres = createPresentation();
     setPresentationFonts(pres, { minorLatin: 'Arial' });
     const loaded = await loadPresentation(await savePresentation(pres));

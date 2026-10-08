@@ -52,11 +52,11 @@ export interface ConnectorOptions {
   to: { x: number; y: number };
   /**
    * Line color. Same accepted forms as `setFill` — `#RRGGBB`, scheme
-   * tokens, etc. When omitted PowerPoint applies the layout's default
+   * tokens, etc. When omitted the reference desktop app applies the layout's default
    * line color.
    */
   color?: Color;
-  /** Line width in EMU. PowerPoint's hairline default is `9525` (0.75pt). */
+  /** Line width in EMU. The reference desktop app's hairline default is `9525` (0.75pt). */
   widthEmu?: number;
 }
 
@@ -124,8 +124,8 @@ export const buildConnector = (opts: ConnectorOptions): XmlElement => {
 
   const children: XmlElement[] = [nvCxnSpPr, spPr];
   // A connector is a stroke-only open path. With no explicit <a:ln> AND no
-  // <p:style>, PowerPoint has no outline to draw and the line is invisible.
-  // Emit PowerPoint's default connector style (lnRef idx="1" → the theme's
+  // <p:style>, the reference desktop app has no outline to draw and the line is invisible.
+  // Emit the reference desktop app's default connector style (lnRef idx="1" → the theme's
   // first line style in accent1) so an unstyled line still renders.
   if (!hasExplicitLine) {
     const styleRef = (name: typeof NAME_LN_REF, idx: string, clr: string): XmlElement =>

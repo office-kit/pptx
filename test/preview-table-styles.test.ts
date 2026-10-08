@@ -1,9 +1,9 @@
-// Preview rendering of PowerPoint's built-in table styles: cell fills, the
+// Preview rendering of the reference desktop app's built-in table styles: cell fills, the
 // table background, borders and text across the six style options.
 //
-// The expected colors were sampled from Mac PowerPoint 16.113's exports of
-// tables in the Office 2007 theme the blank deck uses (header row + banded
-// rows on), so they are PowerPoint's colors rather than restated formulas.
+// The expected colors were sampled from the reference desktop app's exports (Mac 16.113) of
+// tables in the 2007 default theme the blank deck uses (header row + banded
+// rows on), so they are the reference desktop app's colors rather than restated formulas.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -79,7 +79,7 @@ describe('built-in table styles in the preview', () => {
     ['Medium Style 4 - Accent 1', ['E9EDF4', 'D0D8E8', 'E9EDF4', 'D0D8E8', 'E9EDF4']],
     ['Dark Style 1', ['000000', 'CBCBCB', 'E7E7E7', 'CBCBCB', 'E7E7E7']],
     ['Dark Style 2 - Accent 1/Accent 2', ['C0504D', 'D0D8E8', 'E9EDF4', 'D0D8E8', 'E9EDF4']],
-  ] as const)('%s paints PowerPoint’s header and banded rows', (style, expected) => {
+  ] as const)('%s paints the reference desktop app’s header and banded rows', (style, expected) => {
     const { svg } = render(style, { firstRow: true, bandRow: true });
     for (let c = 0; c < 4; c++) expect(column(svg(), c)).toEqual(expected);
   });
@@ -143,12 +143,12 @@ describe('built-in table styles in the preview', () => {
     expect(getTableCellRunFormatEffective(pres, body, 0, 0).bold).toBeUndefined();
   });
 
-  // Medium Style 2's bands are accent1 tinted 40% / 20%. In the Office 2023
-  // theme (accent1 #156082) PowerPoint paints them #CCD2D8 / #E6EAED (native
+  // Medium Style 2's bands are accent1 tinted 40% / 20%. In the 2023 default
+  // theme (accent1 #156082) the reference desktop app paints them #CCD2D8 / #E6EAED (native
   // Table Design screenshot, Display P3 converted to sRGB); an sRGB tint
   // would give the much bluer #A1BFCD / #D0DFE6. One level of tolerance for
   // the color-space conversion.
-  it('paints Medium Style 2’s tinted bands as PowerPoint does in the Office 2023 theme', () => {
+  it('paints Medium Style 2’s tinted bands as the reference desktop app does in the 2023 default theme', () => {
     const { pres, svg } = render('Medium Style 2 - Accent 1', { firstRow: true, bandRow: true });
     setPresentationTheme(pres, { accent1: '#156082' });
     const expected = ['156082', 'CCD2D8', 'E6EAED', 'CCD2D8', 'E6EAED'];
@@ -160,26 +160,29 @@ describe('built-in table styles in the preview', () => {
 
   // The Themed Styles' backgrounds are the theme's gradient fills, whose
   // stops saturate accents with satMod 130–350%. Expected stop colors come
-  // from Mac PowerPoint 16.113's exports (Office 2007 theme), sampled 3 px
+  // from the reference desktop app's exports (Mac 16.113, 2007 default theme), sampled 3 px
   // from each end of the table; 2 levels of tolerance for that offset.
   it.each([
     ['Themed Style 1 - Accent 6', 'FFBE87', undefined],
     ['Themed Style 1 - Accent 1', 'A3C4FF', undefined],
     ['Themed Style 2 - Accent 6', 'FF932C', 'FFB977'],
     ['Themed Style 2 - Accent 5', '3AB8D8', '95EEFF'],
-  ] as const)('saturates %s’s background gradient like PowerPoint', (style, first, last) => {
-    const { svg } = render(style, { firstRow: true, bandRow: true });
-    const out = svg();
-    const gradient = out.slice(out.indexOf('<linearGradient'), out.indexOf('</linearGradient>'));
-    const stops = [...gradient.matchAll(/stop-color="#([0-9A-F]{6})"/gi)].map((m) => m[1]!);
-    expect(channelDistance(stops[0]!, first), stops[0]).toBeLessThanOrEqual(2);
-    if (last !== undefined)
-      expect(channelDistance(stops.at(-1)!, last), stops.at(-1)).toBeLessThanOrEqual(2);
-  });
+  ] as const)(
+    'saturates %s’s background gradient like the reference desktop app',
+    (style, first, last) => {
+      const { svg } = render(style, { firstRow: true, bandRow: true });
+      const out = svg();
+      const gradient = out.slice(out.indexOf('<linearGradient'), out.indexOf('</linearGradient>'));
+      const stops = [...gradient.matchAll(/stop-color="#([0-9A-F]{6})"/gi)].map((m) => m[1]!);
+      expect(channelDistance(stops[0]!, first), stops[0]).toBeLessThanOrEqual(2);
+      if (last !== undefined)
+        expect(channelDistance(stops.at(-1)!, last), stops.at(-1)).toBeLessThanOrEqual(2);
+    },
+  );
 
   // Themed Style 2's two-stop background does not blend at a constant rate in
-  // PowerPoint. Reference pixels: Mac PowerPoint 16.113's 1200 × 700 exports,
-  // column x = 1000 of a table spanning y = 100–500, in the header and the two
+  // the reference desktop app. Reference pixels: its Mac 16.113 1200 ×
+  // 700 exports, column x = 1000 of a table spanning y = 100–500, in the header and the two
   // unbanded body rows; keys are the pixel centres as a fraction of the table
   // height from its top. 2 levels of tolerance: the fitted curve's worst
   // residual over all six accents is 1.6.
@@ -206,38 +209,41 @@ describe('built-in table styles in the preview', () => {
         [0.9513, 'FF9632'],
       ],
     ],
-  ] as const)('blends %s’s background down the table as PowerPoint does', (style, samples) => {
-    const { svg } = render(style, { firstRow: true, bandRow: true });
-    const out = svg();
-    const gradient = out.slice(out.indexOf('<linearGradient'), out.indexOf('</linearGradient>'));
-    const attr = (name: string) => Number(new RegExp(` ${name}="([-\\d.]+)"`).exec(gradient)![1]);
-    // A vertical gradient in the table's bounding box.
-    expect(attr('x1')).toBe(attr('x2'));
-    const [y1, y2] = [attr('y1'), attr('y2')];
-    const stops = [...gradient.matchAll(/offset="([\d.]+)" stop-color="#([0-9A-F]{6})"/gi)].map(
-      (m) => ({
-        offset: Number(m[1]),
-        rgb: [0, 2, 4].map((i) => parseInt(m[2]!.slice(i, i + 2), 16)),
-      }),
-    );
-    // SVG interpolates between stops in sRGB, as PowerPoint does here.
-    const colorAt = (fraction: number): string => {
-      const offset = (fraction - y1) / (y2 - y1);
-      const after = stops.findIndex((stop) => stop.offset >= offset);
-      const b = stops[after]!;
-      const a = stops[Math.max(0, after - 1)]!;
-      const t = b.offset === a.offset ? 0 : (offset - a.offset) / (b.offset - a.offset);
-      return a.rgb
-        .map((v, k) => Math.round(v + (b.rgb[k]! - v) * t))
-        .map((v) => v.toString(16).padStart(2, '0'))
-        .join('')
-        .toUpperCase();
-    };
-    for (const [fraction, expected] of samples) {
-      const actual = colorAt(fraction);
-      expect(channelDistance(actual, expected), `${fraction}: ${actual}`).toBeLessThanOrEqual(2);
-    }
-  });
+  ] as const)(
+    'blends %s’s background down the table as the reference desktop app does',
+    (style, samples) => {
+      const { svg } = render(style, { firstRow: true, bandRow: true });
+      const out = svg();
+      const gradient = out.slice(out.indexOf('<linearGradient'), out.indexOf('</linearGradient>'));
+      const attr = (name: string) => Number(new RegExp(` ${name}="([-\\d.]+)"`).exec(gradient)![1]);
+      // A vertical gradient in the table's bounding box.
+      expect(attr('x1')).toBe(attr('x2'));
+      const [y1, y2] = [attr('y1'), attr('y2')];
+      const stops = [...gradient.matchAll(/offset="([\d.]+)" stop-color="#([0-9A-F]{6})"/gi)].map(
+        (m) => ({
+          offset: Number(m[1]),
+          rgb: [0, 2, 4].map((i) => parseInt(m[2]!.slice(i, i + 2), 16)),
+        }),
+      );
+      // SVG interpolates between stops in sRGB, as the reference desktop app does here.
+      const colorAt = (fraction: number): string => {
+        const offset = (fraction - y1) / (y2 - y1);
+        const after = stops.findIndex((stop) => stop.offset >= offset);
+        const b = stops[after]!;
+        const a = stops[Math.max(0, after - 1)]!;
+        const t = b.offset === a.offset ? 0 : (offset - a.offset) / (b.offset - a.offset);
+        return a.rgb
+          .map((v, k) => Math.round(v + (b.rgb[k]! - v) * t))
+          .map((v) => v.toString(16).padStart(2, '0'))
+          .join('')
+          .toUpperCase();
+      };
+      for (const [fraction, expected] of samples) {
+        const actual = colorAt(fraction);
+        expect(channelDistance(actual, expected), `${fraction}: ${actual}`).toBeLessThanOrEqual(2);
+      }
+    },
+  );
 
   it('paints the Themed Styles’ theme gradient behind translucent bands', () => {
     const { svg } = render('Themed Style 1 - Accent 1', { firstRow: true, bandRow: true });

@@ -1,5 +1,5 @@
 // Text-body bevels (`<a:bodyPr><a:scene3d>…<a:sp3d><a:bevelT/>`), as Mac
-// PowerPoint's Soft Bevel and Sharp Bevel WordArt presets write them — see
+// the reference desktop app's Soft Bevel and Sharp Bevel WordArt presets write them — see
 // test/fixtures/native/wordart-capture.md.
 
 import { readFileSync } from 'node:fs';

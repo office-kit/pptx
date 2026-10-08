@@ -153,7 +153,7 @@ describe('renderSlideToSvg: custom geometry', () => {
     expect(triPath!.toLowerCase()).toMatch(/fill="#ff0000"/);
   });
 
-  // The 2-inch square sits at (96, 96) px and spans 192 px. PowerPoint's
+  // The 2-inch square sits at (96, 96) px and spans 192 px. The reference desktop app's
   // default insets are 0.1 in horizontally (9.6 px) and 0.05 in vertically
   // (4.8 px), and they come off the text rect, not the shape box.
   describe('its own text rectangle', () => {

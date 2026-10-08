@@ -69,7 +69,7 @@ export interface AuditTextLayoutOptions {
    *  `@office-kit/pptx-preview/node` for real glyph metrics. */
   readonly measureText?: TextMeasurer;
   /** Overflow at or below this many px (96 DPI) is ignored. Default 1 —
-   *  measurement and PowerPoint disagree by sub-pixel amounts routinely. */
+   *  measurement and the reference desktop app disagree by sub-pixel amounts routinely. */
   readonly tolerancePx?: number;
   /** Also report paragraphs that wrap onto more lines than their explicit
    *  breaks author (段落ち). Off by default: wrapping is normal for body
