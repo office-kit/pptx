@@ -1,19 +1,19 @@
 <script lang="ts">
   // The reference desktop app's (Mac) Shape Format tab, in its order and sizes: Insert Shapes
   // (shape strip, Text Box ▾, Edit Shape ▾, Merge Shapes ▾), Shape Styles
-  // (style strip, Shape Fill, Shape Outline ▾, Shape Effects ▾), WordArt Styles
-  // (WordArt strip, Text Fill, Text Outline ▾, Text Effects ▾), Alt Text,
+  // (style strip, Shape Fill, Shape Outline ▾, Shape Effects ▾), Text Art Styles
+  // (Text Art strip, Text Fill, Text Outline ▾, Text Effects ▾), Alt Text,
   // Arrange, Size and Format Pane. Below 1300 pt Insert Shapes becomes Shapes
   // plus three icon menus and Arrange collapses into one button.
   import { addSlideTextBox, getPresentationTheme, getShapeId, getShapeKind, inches, setShapePreset, setShapeText3D, setShapeTextDirection, setShapeTextFormat, type Color, type PresetShape, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { SHAPE_GALLERY, galleryShapeLabel, shapeSprite, type GalleryShape } from '../core/shape-gallery.ts';
-  import { WORDART_PRESETS, applyWordArtPreset, type WordArtPreset } from '../core/wordart-presets.ts';
-  import { wordArtSwatchStyle } from '../core/wordart-swatch.ts';
+  import { TEXT_ART_PRESETS, applyTextArtPreset, type TextArtPreset } from '../core/text-art-presets.ts';
+  import { textArtSwatchStyle } from '../core/text-art-swatch.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import Icon from '../ui/Icon.svelte';
-  import WordArtGallery from '../ui/WordArtGallery.svelte';
+  import TextArtGallery from '../ui/TextArtGallery.svelte';
   import ArrangeGroup from './ArrangeGroup.svelte';
   import MenuButton from './MenuButton.svelte';
   import ShapeFillPicker from './ShapeFillPicker.svelte';
@@ -32,8 +32,8 @@
   const paintable = $derived(editable && shapes.every((shape) => ['shape', 'connector'].includes(getShapeKind(shape))));
   const texty = $derived(editable && shapes.some((shape) => getShapeKind(shape) === 'shape'));
   const theme = $derived.by(() => { doc.version; return getPresentationTheme(doc.pres); });
-  let wordArtOpen = $state(false);
-  let wordArtButton = $state<HTMLButtonElement>();
+  let textArtOpen = $state(false);
+  let textArtButton = $state<HTMLButtonElement>();
 
   // The in-ribbon shape strip: six columns by three rows per page, like
   // the reference desktop app's 120 × 60 pt gallery.
@@ -46,8 +46,8 @@
   const stripVisible = $derived(stripShapes.slice(stripPage * STRIP_COLUMNS * STRIP_ROWS, (stripPage + 1) * STRIP_COLUMNS * STRIP_ROWS));
   const sprite = $derived(compact ? null : shapeSprite());
 
-  // The in-ribbon WordArt strip shows three swatches; the arrow opens all twenty.
-  const WORDART_STRIP = WORDART_PRESETS.slice(0, 3);
+  // The in-ribbon Text Art strip shows three swatches; the arrow opens all twenty.
+  const TEXT_ART_STRIP = TEXT_ART_PRESETS.slice(0, 3);
 
   const CHANGE_SHAPES: readonly [PresetShape, string][] = [
     ['rect', 'Rectangle'],
@@ -72,14 +72,14 @@
   function textFormat(format: TextFormat) {
     editor.invoke('setShapeTextFormat', { format, options: { reset: false } });
   }
-  function wordArt(preset: WordArtPreset) {
-    wordArtOpen = false;
-    doc.transact(t('WordArt Styles'), () => { for (const shape of shapes) if (getShapeKind(shape) === 'shape') applyWordArtPreset(shape, preset); });
+  function textArt(preset: TextArtPreset) {
+    textArtOpen = false;
+    doc.transact(t('Text Art Styles'), () => { for (const shape of shapes) if (getShapeKind(shape) === 'shape') applyTextArtPreset(shape, preset); });
   }
-  // Clear WordArt removes the run effects and outline and the bevel's 3-D, and keeps the fill.
-  function clearWordArt() {
-    wordArtOpen = false;
-    doc.transact(t('Clear WordArt'), () => {
+  // Clear Text Art removes the run effects and outline and the bevel's 3-D, and keeps the fill.
+  function clearTextArt() {
+    textArtOpen = false;
+    doc.transact(t('Clear Text Art'), () => {
       for (const shape of shapes) {
         if (getShapeKind(shape) !== 'shape') continue;
         setShapeTextFormat(shape, { outline: null, shadow: null, innerShadow: null, glow: null, reflection: null });
@@ -183,17 +183,17 @@
     </div>
   </section>
 
-  <section class="ctx-group ctx-shrink" aria-label={t('WordArt Styles')}>
-    <div class="ctx-gallery" role="group" aria-label={t('WordArt Styles')}>
+  <section class="ctx-group ctx-shrink" aria-label={t('Text Art Styles')}>
+    <div class="ctx-gallery" role="group" aria-label={t('Text Art Styles')}>
       <span class="ctx-gallery-arrow hidden" aria-hidden="true"></span>
-      <div class="ctx-gallery-items wordart-strip">
-        {#each WORDART_STRIP as preset (preset.label)}
-          <button aria-label={t(preset.label)} title={t(preset.label)} disabled={!texty} onclick={() => wordArt(preset)}><span class="letter" aria-hidden="true" style={wordArtSwatchStyle(preset, theme)}>A</span></button>
+      <div class="ctx-gallery-items text-art-strip">
+        {#each TEXT_ART_STRIP as preset (preset.label)}
+          <button aria-label={t(preset.label)} title={t(preset.label)} disabled={!texty} onclick={() => textArt(preset)}><span class="letter" aria-hidden="true" style={textArtSwatchStyle(preset, theme)}>A</span></button>
         {/each}
       </div>
-      <button class="ctx-gallery-arrow" bind:this={wordArtButton} aria-label={t('WordArt Quick Styles')} title={t('WordArt Quick Styles')} aria-haspopup="menu" aria-expanded={wordArtOpen} disabled={!texty} onclick={() => (wordArtOpen = !wordArtOpen)}>›</button>
-      {#if wordArtOpen && wordArtButton}
-        <WordArtGallery anchor={wordArtButton} label={t('WordArt Quick Styles')} choose={wordArt} close={() => (wordArtOpen = false)} clear={clearWordArt} />
+      <button class="ctx-gallery-arrow" bind:this={textArtButton} aria-label={t('Text Art Quick Styles')} title={t('Text Art Quick Styles')} aria-haspopup="menu" aria-expanded={textArtOpen} disabled={!texty} onclick={() => (textArtOpen = !textArtOpen)}>›</button>
+      {#if textArtOpen && textArtButton}
+        <TextArtGallery anchor={textArtButton} label={t('Text Art Quick Styles')} choose={textArt} close={() => (textArtOpen = false)} clear={clearTextArt} />
       {/if}
     </div>
     <span class="ctx-paint ctx-big" class:disabled={!texty}><span class="ctx-icon-row"><Icon name="font-color" size={32} /></span><span class="ctx-caption">{captionLines(t('Text Fill'))}</span><ColorPicker compact label={t('Text Fill')} disabled={!texty} choose={(color) => textFormat({ color })} /></span>
@@ -221,9 +221,9 @@
 <style>
   .ctx-gallery-items.shape-strip { display: grid; grid-template-columns: repeat(6, 20px); grid-auto-rows: 18px; align-content: center; box-sizing: border-box; background: #fff; }
   .shape-strip button { width: 20px; height: 18px; padding: 1px 2px; border-radius: 2px; background-repeat: no-repeat; background-origin: content-box; box-sizing: border-box; }
-  .ctx-gallery-items.wordart-strip { width: 174px; justify-content: space-around; background: #fff; }
-  .wordart-strip button { display: flex; align-items: center; justify-content: center; width: 56px; height: 54px; padding: 0; overflow: hidden; }
-  .wordart-strip button:hover:not(:disabled) { outline: 2px solid var(--ok-accent); outline-offset: -2px; background: none; }
+  .ctx-gallery-items.text-art-strip { width: 174px; justify-content: space-around; background: #fff; }
+  .text-art-strip button { display: flex; align-items: center; justify-content: center; width: 56px; height: 54px; padding: 0; overflow: hidden; }
+  .text-art-strip button:hover:not(:disabled) { outline: 2px solid var(--ok-accent); outline-offset: -2px; background: none; }
   .letter { font: 34px/1 Calibri, Carlito, Arial, sans-serif; color: transparent; }
   .ctx-gallery { position: relative; }
 </style>

@@ -9,7 +9,7 @@ const textFill = {
   background: '#FFFFFF',
 };
 
-test('choosing a font color replaces an inherited WordArt fill while typing', () => {
+test('choosing a font color replaces an inherited Text Art fill while typing', () => {
   assert.deepEqual(mergeTextFormat({ textFill, bold: true }, { color: '#123456' }), {
     color: '#123456',
     bold: true,
@@ -17,7 +17,7 @@ test('choosing a font color replaces an inherited WordArt fill while typing', ()
   assert.deepEqual(mergeTextFormat({ textFill }, { color: null }), { color: null });
 });
 
-test('choosing a WordArt fill replaces a pending solid color while unrelated formatting retains it', () => {
+test('choosing a Text Art fill replaces a pending solid color while unrelated formatting retains it', () => {
   assert.deepEqual(mergeTextFormat({ color: '#123456', italic: true }, { textFill }), {
     textFill,
     italic: true,

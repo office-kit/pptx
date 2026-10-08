@@ -1,6 +1,6 @@
 // Text-body bevels (`<a:bodyPr><a:scene3d>…<a:sp3d><a:bevelT/>`), as Mac
-// the reference desktop app's Soft Bevel and Sharp Bevel WordArt presets write them — see
-// test/fixtures/native/wordart-capture.md.
+// the reference desktop app's Soft Bevel and Sharp Bevel text-art presets write them — see
+// test/fixtures/native/text-art-capture.md.
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -49,8 +49,8 @@ const nativeText3D = (name: string): Text3D => {
   } = read;
   return rest;
 };
-const SOFT = 'wordart-accent4-soft-bevel-shape.xml';
-const SHARP = 'wordart-accent3-sharp-bevel-shape.xml';
+const SOFT = 'text-art-accent4-soft-bevel-shape.xml';
+const SHARP = 'text-art-accent3-sharp-bevel-shape.xml';
 
 const deck = (text3d: Text3D | null) => {
   const pres = createPresentation();

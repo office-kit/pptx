@@ -21,7 +21,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Hello</Text></Slide><Slide><Text x={1} y={1} width={4} height={1}>Two</Text></Slide></Presentation>`;
 
 test(
-  'Insert tab matches the reference desktop app: footer, WordArt, Symbol, Video and unavailable commands',
+  'Insert tab matches the reference desktop app: footer, Text Art, Symbol, Video and unavailable commands',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-insert-tab-'));
@@ -77,7 +77,7 @@ test(
         'Comment',
         'Text Box',
         'Header & Footer',
-        'WordArt',
+        'Text Art',
         'Date & Time',
         'Slide Number',
         'Object',
@@ -162,10 +162,10 @@ test(
         assert.equal(getShapeText(footer), 'Confidential');
       }
 
-      await button('WordArt').click();
+      await button('Text Art').click();
       await changed(() =>
         editor
-          .getByRole('menu', { name: 'WordArt', exact: true })
+          .getByRole('menu', { name: 'Text Art', exact: true })
           .getByRole('menuitem', { name: 'Fill: Blue, Accent color 1; Shadow', exact: true })
           .click(),
       );

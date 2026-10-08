@@ -265,7 +265,7 @@
       {/if}
     </div>
     {@render big('Header & Footer', 'header-footer', { disabled: !hasSlide, onclick: () => (editor.activeDialog = 'headerFooter') })}
-    {@render big('WordArt', 'wordart', { gallery: true, disabled: !hasSlide, onclick: (button) => editor.openWordArtGallery(button) })}
+    {@render big('Text Art', 'text-art', { gallery: true, disabled: !hasSlide, onclick: (button) => editor.openTextArtGallery(button) })}
     {#if small}
       <div class="stack tools">
         <button class="tool" aria-label={t('Date & Time')} title={t('Date & Time')} disabled={!editor.canRun('setShapeTextField')} onclick={() => editor.runOrPrompt('setShapeTextField')}><Icon name="calendar" size={18} /></button>

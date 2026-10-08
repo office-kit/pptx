@@ -15443,7 +15443,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setShapeText3D',
       description:
-        "Sets the 3-D on the shape's text body — `<a:scene3d>` and `<a:sp3d>` in\n`<a:bodyPr>`, where the reference desktop app writes its WordArt bevels. `value.scene`\nwrites the camera and light rig; `bevelTop`, `extrusionHeightEmu`,\n`material` and `contourColor` write `<a:sp3d>` (replacing `<a:flatTx>`).\nA field left out removes what it describes; settings this API does not\nmodel (camera field of view, bottom bevel, extrusion color, ...) are kept\nwhile their element remains. `null` removes both elements. Throws for\nnon-text-bearing shape kinds.",
+        "Sets the 3-D on the shape's text body — `<a:scene3d>` and `<a:sp3d>` in\n`<a:bodyPr>`, where the reference desktop app writes its text-art bevels. `value.scene`\nwrites the camera and light rig; `bevelTop`, `extrusionHeightEmu`,\n`material` and `contourColor` write `<a:sp3d>` (replacing `<a:flatTx>`).\nA field left out removes what it describes; settings this API does not\nmodel (camera field of view, bottom bevel, extrusion color, ...) are kept\nwhile their element remains. `null` removes both elements. Throws for\nnon-text-bearing shape kinds.",
       args: ['shape', 'value'],
       input_schema: {
         type: 'object',

@@ -1,4 +1,4 @@
-# WordArt captures (reference desktop app, Mac)
+# Text Art captures (reference desktop app, Mac)
 
 Captured on 2026-10-03 from the Shape Format ribbon in the reference desktop app on Mac.
 The selected object was the title placeholder in
@@ -8,29 +8,29 @@ The final slide XML was byte-identical to the pre-capture slide XML.
 
 | Fixture | Native gallery label |
 | --- | --- |
-| `wordart-black-shadow-shape.xml` | Fill: Black, Text color 1; Shadow |
-| `wordart-accent1-shadow-shape.xml` | Fill: Blue, Accent color 1; Shadow |
-| `wordart-accent2-outline-shape.xml` | Fill: Red, Accent color 2; Outline: Red, Accent color 2 |
-| `wordart-white-accent5-shadow-shape.xml` | Fill: White; Outline: Aqua, Accent color 5; Shadow |
-| `wordart-gray-gradient-shape.xml` | Gradient Fill, Gray |
-| `wordart-accent4-soft-bevel-shape.xml` | Fill: Purple, Accent color 4; Soft Bevel |
-| `wordart-accent5-gradient-reflection-shape.xml` | Gradient Fill: Aqua, Accent color 5; Reflection |
-| `wordart-accent4-gradient-outline-shape.xml` | Gradient Fill: Purple, Accent color 4; Outline: Purple, Accent color 4 |
-| `wordart-white-accent1-glow-shape.xml` | Fill: White; Outline: Blue, Accent color 1; Glow: Blue, Accent color 1 |
-| `wordart-accent3-sharp-bevel-shape.xml` | Fill: Olive Green, Accent color 3; Sharp Bevel |
-| `wordart-black-white-hard-shadow-shape.xml` | Fill: Black, Text color 1; Outline: White, Background color 1; Hard Shadow: White, Background color 1 |
-| `wordart-black-accent5-hard-shadow-shape.xml` | Fill: Black, Text color 1; Outline: White, Background color 1; Hard Shadow: Aqua, Accent color 5 |
-| `wordart-accent5-hard-shadow-shape.xml` | Fill: Aqua, Accent color 5; Outline: White, Background color 1; Hard Shadow: Aqua, Accent color 5 |
-| `wordart-white-accent2-hard-shadow-shape.xml` | Fill: White; Outline: Red, Accent color 2; Hard Shadow: Red, Accent color 2 |
-| `wordart-background2-inner-shadow-shape.xml` | Fill: Tan, Background color 2; Inner Shadow |
-| `wordart-white-pattern-shadow-shape.xml` | Pattern Fill: White; Dark Upward Diagonal Stripe; Shadow |
-| `wordart-accent3-pattern-inner-shadow-shape.xml` | Pattern Fill: Olive Green, Accent color 3, Narrow Horizontal Stripe; Inner Shadow |
-| `wordart-accent1-pattern-hard-shadow-shape.xml` | Pattern Fill: Blue, Accent color 1, 50%; Hard Shadow: Blue, Accent color 1 |
-| `wordart-accent5-pattern-outline-shape.xml` | Pattern Fill: Aqua, Accent color 5, Light Downward Diagonal Stripe; Outline: Aqua, Accent color 5 |
-| `wordart-dark-blue-pattern-hard-shadow-shape.xml` | Pattern Fill: Dark Blue, Dark Upward Diagonal Stripe; Hard Shadow |
+| `text-art-black-shadow-shape.xml` | Fill: Black, Text color 1; Shadow |
+| `text-art-accent1-shadow-shape.xml` | Fill: Blue, Accent color 1; Shadow |
+| `text-art-accent2-outline-shape.xml` | Fill: Red, Accent color 2; Outline: Red, Accent color 2 |
+| `text-art-white-accent5-shadow-shape.xml` | Fill: White; Outline: Aqua, Accent color 5; Shadow |
+| `text-art-gray-gradient-shape.xml` | Gradient Fill, Gray |
+| `text-art-accent4-soft-bevel-shape.xml` | Fill: Purple, Accent color 4; Soft Bevel |
+| `text-art-accent5-gradient-reflection-shape.xml` | Gradient Fill: Aqua, Accent color 5; Reflection |
+| `text-art-accent4-gradient-outline-shape.xml` | Gradient Fill: Purple, Accent color 4; Outline: Purple, Accent color 4 |
+| `text-art-white-accent1-glow-shape.xml` | Fill: White; Outline: Blue, Accent color 1; Glow: Blue, Accent color 1 |
+| `text-art-accent3-sharp-bevel-shape.xml` | Fill: Olive Green, Accent color 3; Sharp Bevel |
+| `text-art-black-white-hard-shadow-shape.xml` | Fill: Black, Text color 1; Outline: White, Background color 1; Hard Shadow: White, Background color 1 |
+| `text-art-black-accent5-hard-shadow-shape.xml` | Fill: Black, Text color 1; Outline: White, Background color 1; Hard Shadow: Aqua, Accent color 5 |
+| `text-art-accent5-hard-shadow-shape.xml` | Fill: Aqua, Accent color 5; Outline: White, Background color 1; Hard Shadow: Aqua, Accent color 5 |
+| `text-art-white-accent2-hard-shadow-shape.xml` | Fill: White; Outline: Red, Accent color 2; Hard Shadow: Red, Accent color 2 |
+| `text-art-background2-inner-shadow-shape.xml` | Fill: Tan, Background color 2; Inner Shadow |
+| `text-art-white-pattern-shadow-shape.xml` | Pattern Fill: White; Dark Upward Diagonal Stripe; Shadow |
+| `text-art-accent3-pattern-inner-shadow-shape.xml` | Pattern Fill: Olive Green, Accent color 3, Narrow Horizontal Stripe; Inner Shadow |
+| `text-art-accent1-pattern-hard-shadow-shape.xml` | Pattern Fill: Blue, Accent color 1, 50%; Hard Shadow: Blue, Accent color 1 |
+| `text-art-accent5-pattern-outline-shape.xml` | Pattern Fill: Aqua, Accent color 5, Light Downward Diagonal Stripe; Outline: Aqua, Accent color 5 |
+| `text-art-dark-blue-pattern-hard-shadow-shape.xml` | Pattern Fill: Dark Blue, Dark Upward Diagonal Stripe; Hard Shadow |
 
 These are native shape XML extracts, with namespace declarations added to make
-each extract self-contained. They are evidence for implementing the WordArt
+each extract self-contained. They are evidence for implementing the Text Art
 style gallery, not evidence that the editor already supports that gallery.
 
 Observed payloads:
@@ -74,5 +74,5 @@ All 20 entries in the native gallery now have captures. Additional observations:
 
 Still verify how presets treat manually applied fonts, font size, italics,
 paragraph formatting, selected text ranges, inherited non-black text colors,
-and existing 3D properties. A whole-format reset may clear more than native
-WordArt does. Captures alone do not establish gallery or rendering parity.
+and existing 3D properties. A whole-format reset may clear more than the native
+presets do. Captures alone do not establish gallery or rendering parity.

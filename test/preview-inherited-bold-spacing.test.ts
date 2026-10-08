@@ -1,4 +1,4 @@
-// WordArt presets remove `b` and `spc` from the runs, as the reference desktop app does, so
+// Text-art presets remove `b` and `spc` from the runs, as the reference desktop app does, so
 // the text falls back to the weight and spacing its list style gives it. The
 // preview has to draw that inherited bold and tracking, which an explicit
 // `b="0"` / `spc="0"` would have overridden.

@@ -28,7 +28,7 @@ const INSERT = [
   'Comment',
   'Text Box',
   'Header & Footer',
-  'WordArt',
+  'Text Art',
   'Date & Time',
   'Slide Number',
   'Object',
@@ -141,7 +141,7 @@ test(
         '3D Models',
         'Chart',
         'Zoom',
-        'WordArt',
+        'Text Art',
         'Video',
         'Audio',
       ])

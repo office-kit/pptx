@@ -470,12 +470,12 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       };
     case 'insert/comment':
       return run('addSlideComment');
-    case 'insert/wordart':
+    case 'insert/text-art':
       return {
         disabled: !slide,
         run: () => {
           const anchor = host.anchor();
-          if (anchor) editor.openWordArtGallery(anchor);
+          if (anchor) editor.openTextArtGallery(anchor);
         },
       };
     case 'insert/date-and-time':

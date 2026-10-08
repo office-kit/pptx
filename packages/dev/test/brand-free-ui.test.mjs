@@ -5,7 +5,7 @@ import test from 'node:test';
 import ts from 'typescript';
 
 // The editor and the dev tool must not show a third-party trademark
-// (PowerPoint, Microsoft, OneDrive, SharePoint, Excel, Word) or our own brand
+// (PowerPoint, Microsoft, OneDrive, SharePoint, Excel, Word, WordArt) or our own brand
 // (Office Kit) as UI text. Templates, i18n tables, menu data, tooltips and thrown
 // messages all end up as string literals in the built bundles, so this scans
 // every string literal there — which a source grep cannot do reliably for
@@ -41,11 +41,14 @@ const FORBIDDEN = [
   /powerpoint|パワーポイント/i,
   /microsoft|マイクロソフト|onedrive|sharepoint/i,
   // Case-sensitive: the `vnd.ms-excel` content types are not UI text, and
-  // `\b` skips the `Microsoft_Excel_Worksheet` part name, `WordArt` and
+  // `\b` skips the `Microsoft_Excel_Worksheet` part name and
   // `WordprocessingML`. ワード alone is too common in Japanese (パスワード,
   // キーワード), so only product-shaped uses count there.
   /\bExcel\b|\bEXCEL\b|エクセル/,
   /\bWord\b|(?:MS|マイクロソフト) ?ワード|ワード(?:文書|ファイル|形式)/,
+  // "WordArt" is that app's feature name; the editor's is "Text Art" /
+  // 「テキスト アート」.
+  /word[ -]?art|ワードアート/i,
   /office kit/i,
   />[^<>{}()=;'"`]*office-kit[^<>{}()=;'"`]*</i,
 ];
@@ -58,6 +61,9 @@ const visibleText = (text) =>
     .replace(/application\/vnd\.ms-powerpoint[\w.+-]*/g, '')
     .replace(/typeface="[^"]*"/g, '')
     .replace(/Microsoft_Excel_Worksheet/g, '')
+    // ECMA-376 values the core bundle reads and writes: `ST_TextVerticalType`
+    // `wordArtVert` / `wordArtVertRtl` and the `fromWordArt` attribute.
+    .replace(/\bwordArtVert(?:Rtl)?\b|\bfromWordArt\b/g, '')
     .replace(/\b(?:Each|Whole) Words?\b/g, '')
     .replace(/<(dc:creator|cp:lastModifiedBy|Application)>[^<]*<\/\1>/g, '');
 

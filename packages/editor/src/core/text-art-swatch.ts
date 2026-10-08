@@ -1,5 +1,5 @@
-// CSS for a WordArt preset's "A" swatch, previewed from the deck theme. Used
-// by the WordArt gallery and the Shape Format tab's in-ribbon WordArt strip.
+// CSS for a Text Art preset's "A" swatch, previewed from the deck theme. Used
+// by the Text Art gallery and the Shape Format tab's in-ribbon Text Art strip.
 import {
   asColor,
   type Color,
@@ -9,7 +9,7 @@ import {
   type TextFormat,
 } from '@office-kit/pptx';
 import { resolveColor } from './theme-color.ts';
-import type { WordArtPreset } from './wordart-presets.ts';
+import type { TextArtPreset } from './text-art-presets.ts';
 
 // Swatch scale: one point of the preset draws one CSS pixel.
 const EMU_PER_PX = 12700;
@@ -26,7 +26,7 @@ const PATTERNS: Partial<Record<PatternPreset, (fg: string, bg: string) => string
   pct50: (fg, bg) => `repeating-conic-gradient(${fg} 0 25%, ${bg} 0 50%) 0 0 / 2px 2px`,
 };
 
-export function wordArtSwatchStyle(preset: WordArtPreset, theme: PresentationTheme | null): string {
+export function textArtSwatchStyle(preset: TextArtPreset, theme: PresentationTheme | null): string {
   const paint = (color: Color, transforms: readonly ColorTransform[] = []) =>
     resolveColor(color, transforms, theme) ?? '#000000';
   const fill = (format: TextFormat): string => {

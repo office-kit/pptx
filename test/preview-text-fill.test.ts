@@ -1,6 +1,6 @@
 // Gradient and pattern glyph fills (`<a:gradFill>` / `<a:pattFill>` on a run),
-// as the reference desktop app's WordArt presets write them — see
-// test/fixtures/native/wordart-capture.md.
+// as the reference desktop app's text-art presets write them — see
+// test/fixtures/native/text-art-capture.md.
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -62,8 +62,8 @@ const paintId = (svg: string, element: string): string => {
 };
 
 describe('renderSlideToSvg: gradient and pattern text fills', () => {
-  it('paints the gray WordArt gradient across the text block', () => {
-    const { pres, slide } = deck(nativeFormat('wordart-gray-gradient-shape.xml'));
+  it('paints the gray text-art gradient across the text block', () => {
+    const { pres, slide } = deck(nativeFormat('text-art-gray-gradient-shape.xml'));
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
     const id = paintId(svg, 'linearGradient');
     const gradient = new RegExp(`<linearGradient id="${id}"[^>]*>.*?</linearGradient>`).exec(
@@ -81,7 +81,7 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
 
   it('spans the gradient over every line of the body, not each line', () => {
     const { pres, slide } = deck(
-      nativeFormat('wordart-gray-gradient-shape.xml'),
+      nativeFormat('text-art-gray-gradient-shape.xml'),
       'First line\nSecond line',
     );
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
@@ -98,7 +98,7 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
   });
 
   it('resolves scheme stops and their transforms through the theme', () => {
-    const { pres, slide } = deck(nativeFormat('wordart-accent5-gradient-reflection-shape.xml'));
+    const { pres, slide } = deck(nativeFormat('text-art-accent5-gradient-reflection-shape.xml'));
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
     const gradient = /<linearGradient id="[^"]+"[^>]*>.*?<\/linearGradient>/.exec(svg)![0];
     expect(gradient).not.toContain('scheme');
@@ -109,7 +109,7 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
   });
 
   it('paints a pattern preset with its resolved colors', () => {
-    const { pres, slide } = deck(nativeFormat('wordart-white-pattern-shadow-shape.xml'));
+    const { pres, slide } = deck(nativeFormat('text-art-white-pattern-shadow-shape.xml'));
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
     const id = paintId(svg, 'pattern');
     const pattern = new RegExp(`<pattern id="${id}"[^>]*>.*?</pattern>`).exec(svg)![0];
@@ -120,10 +120,10 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
   });
 
   it.each([
-    'wordart-accent1-pattern-hard-shadow-shape.xml',
-    'wordart-accent3-pattern-inner-shadow-shape.xml',
-    'wordart-accent5-pattern-outline-shape.xml',
-    'wordart-dark-blue-pattern-hard-shadow-shape.xml',
+    'text-art-accent1-pattern-hard-shadow-shape.xml',
+    'text-art-accent3-pattern-inner-shadow-shape.xml',
+    'text-art-accent5-pattern-outline-shape.xml',
+    'text-art-dark-blue-pattern-hard-shadow-shape.xml',
   ])('paints %s with a pattern', (name) => {
     const { pres, slide } = deck(nativeFormat(name));
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
@@ -143,7 +143,7 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
   });
 
   it('draws browser-layout glyphs in an SVG layer over transparent HTML', () => {
-    const { pres, slide } = deck(nativeFormat('wordart-gray-gradient-shape.xml'));
+    const { pres, slide } = deck(nativeFormat('text-art-gray-gradient-shape.xml'));
     const svg = renderSlideToSvg(pres, slide);
     // The editable HTML keeps the glyphs for layout and selection only.
     expect(svg).toMatch(/<span style="[^"]*color:transparent[^"]*">Outline title<\/span>/);
@@ -153,7 +153,7 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
   });
 
   it('includes the fill layer in the editor text-effects overlay', () => {
-    const { pres, slide, shape } = deck(nativeFormat('wordart-white-pattern-shadow-shape.xml'));
+    const { pres, slide, shape } = deck(nativeFormat('text-art-white-pattern-shadow-shape.xml'));
     const overlay = renderTextEffectsSvg(pres, slide, shape, { w: inches(6), h: inches(2) });
     const id = paintId(overlay, 'pattern');
     expect(overlay).toMatch(painted(id, 'Outline title'));
@@ -173,7 +173,7 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
     });
     setTableCellTextFormat(
       getTableCells(table)[0]![0]!,
-      nativeFormat('wordart-gray-gradient-shape.xml'),
+      nativeFormat('text-art-gray-gradient-shape.xml'),
     );
     for (const textLayout of ['svg', 'foreignObject'] as const) {
       const svg = renderSlideToSvg(pres, slide, { textLayout });

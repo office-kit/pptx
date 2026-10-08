@@ -132,7 +132,7 @@ test(
         [
           ['Insert Shapes', 10],
           ['Shape Styles', 302],
-          ['WordArt Styles', 621],
+          ['Text Art Styles', 621],
           ['Accessibility', 940],
           ['Arrange', 997],
           ['Size', 1312],
@@ -207,7 +207,7 @@ test(
         [
           ['Table Style Options', 10],
           ['Table Styles', 240],
-          ['WordArt Styles', 898],
+          ['Text Art Styles', 898],
           ['Draw Borders', 1003],
         ],
         'Table Design',
@@ -300,7 +300,7 @@ test(
         [
           ['Insert Shapes', 10],
           ['Shape Styles', 115],
-          ['WordArt Styles', 434],
+          ['Text Art Styles', 434],
         ],
         'Shape Format at 1200',
       );

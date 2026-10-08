@@ -103,10 +103,10 @@ describe('DrawingML color transform percentage lexical forms', () => {
     });
   });
 
-  it('preserves the native WordArt shadow anchor and rotation', async () => {
+  it('preserves the native text-art shadow anchor and rotation', async () => {
     const xml = parseXml(
       await readFile(
-        new URL('./fixtures/native/wordart-accent1-shadow-shape.xml', import.meta.url),
+        new URL('./fixtures/native/text-art-accent1-shadow-shape.xml', import.meta.url),
         'utf8',
       ),
     ).root;
@@ -121,10 +121,13 @@ describe('DrawingML color transform percentage lexical forms', () => {
     });
   });
 
-  it('reads the captured native WordArt reflection fixture', async () => {
+  it('reads the captured native text-art reflection fixture', async () => {
     const xml = parseXml(
       await readFile(
-        new URL('./fixtures/native/wordart-accent5-gradient-reflection-shape.xml', import.meta.url),
+        new URL(
+          './fixtures/native/text-art-accent5-gradient-reflection-shape.xml',
+          import.meta.url,
+        ),
         'utf8',
       ),
     ).root;

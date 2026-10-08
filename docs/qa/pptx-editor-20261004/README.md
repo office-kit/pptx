@@ -1,7 +1,7 @@
-# WordArt font color — editor screenshots (2026-10-04)
+# Text Art font color — editor screenshots (2026-10-04)
 
 Real Chromium captures of the development editor choosing a font color for text
-that carries a WordArt pattern fill (`textFill`), on the main canvas and in the
+that carries a text-art pattern fill (`textFill`), on the main canvas and in the
 speaker notes. All four images come from one run against one deck.
 
 | File                | Step                                                                                      |
@@ -42,7 +42,7 @@ and opened through `<Presentation source={bytes} />`:
 ## Limits
 
 - The editor does not paint gradient or pattern text fills yet
-  (`packages/dev/NATIVE_PARITY.md`, "Font color replacement on WordArt").
+  (`packages/dev/NATIVE_PARITY.md`, "Font color replacement on Text Art").
   The pattern-filled "Pattern" therefore shows as plain black in every image;
   the pattern is proven only by the saved-deck checks above.
 - Not compared with the reference desktop app, Keynote or another native app.

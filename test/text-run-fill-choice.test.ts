@@ -52,7 +52,7 @@ describe('text run fill choice', () => {
     }
   });
 
-  it.each(['wordart-gray-gradient-shape.xml', 'wordart-white-pattern-shadow-shape.xml'])(
+  it.each(['text-art-gray-gradient-shape.xml', 'text-art-white-pattern-shadow-shape.xml'])(
     'round-trips a font color change on native %s',
     async (name) => {
       const native = await readFile(new URL(`./fixtures/native/${name}`, import.meta.url), 'utf8');
@@ -78,9 +78,9 @@ describe('text run fill choice', () => {
   );
 
   it.each([
-    ['wordart-gray-gradient-shape.xml', 'gradient'],
-    ['wordart-white-pattern-shadow-shape.xml', 'pattern'],
-  ] as const)('reads native WordArt %s as a text fill', async (name, kind) => {
+    ['text-art-gray-gradient-shape.xml', 'gradient'],
+    ['text-art-white-pattern-shadow-shape.xml', 'pattern'],
+  ] as const)('reads native text-art %s as a text fill', async (name, kind) => {
     const native = await readFile(new URL(`./fixtures/native/${name}`, import.meta.url), 'utf8');
     const bytes = await readFile(
       new URL('./fixtures/minimal/one-text-slide.pptx', import.meta.url),
@@ -106,7 +106,7 @@ describe('text run fill choice', () => {
 
   it('round-trips an authored gradient text fill through PPTX XML', async () => {
     const native = await readFile(
-      new URL('./fixtures/native/wordart-gray-gradient-shape.xml', import.meta.url),
+      new URL('./fixtures/native/text-art-gray-gradient-shape.xml', import.meta.url),
       'utf8',
     );
     const bytes = await readFile(

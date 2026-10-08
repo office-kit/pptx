@@ -225,7 +225,7 @@ test('a pasted format survives the save/load round trip', async () => {
 
 test('character effects travel with the text format through save/load', async () => {
   const { pres, slide } = deck();
-  const source = box(slide, 1, 'WordArt');
+  const source = box(slide, 1, 'Styled');
   setShapeTextFormat(source, {
     outline: { color: '#FF0000', widthEmu: 12700 },
     shadow: { color: '#000000', blurEmu: 50800, offsetEmu: 38100, angleDeg: 45 },
