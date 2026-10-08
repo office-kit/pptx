@@ -254,6 +254,21 @@ describe('fn API: createPresentation', () => {
     expect(validatePresentation(pres)).toEqual([]);
   });
 
+  it('names the default theme and its schemes neutrally', async () => {
+    const loaded = await loadPresentation(await savePresentation(createPresentation()));
+    const theme = decoder.decode(readPackagePart(loaded, '/ppt/theme/theme1.xml')!);
+    expect(
+      [...theme.matchAll(/<a:(theme|clrScheme|fontScheme|fmtScheme)\b[^>]*\bname="([^"]*)"/g)].map(
+        ([, tag, name]) => [tag, name],
+      ),
+    ).toEqual([
+      ['theme', 'Default Theme'],
+      ['clrScheme', 'Default'],
+      ['fontScheme', 'Default'],
+      ['fmtScheme', 'Default'],
+    ]);
+  });
+
   it("carries the default theme's per-script font lists in the theme font scheme", async () => {
     const pres = createPresentation();
     setPresentationFonts(pres, { minorLatin: 'Arial' });

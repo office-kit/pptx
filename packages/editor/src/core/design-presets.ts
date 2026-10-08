@@ -39,10 +39,10 @@ const set = (
 };
 
 // In the reference desktop app's Colors ▸ All Colors order; values from the reference desktop app's
-// own `Theme Colors/*.xml` (the 'Office' set from `Office Theme.thmx`).
+// own `Theme Colors/*.xml` (the 'Standard' set from its current default theme).
 export const COLOR_SETS: readonly ColorSet[] = [
   set(
-    'Office',
+    'Standard',
     '#0E2841',
     '#E8E8E8',
     ['#156082', '#E97132', '#196B24', '#0F9ED5', '#A02B93', '#4EA72E'],
@@ -50,7 +50,7 @@ export const COLOR_SETS: readonly ColorSet[] = [
     '#96607D',
   ),
   set(
-    'Office 2013 - 2022',
+    'Classic',
     '#44546A',
     '#E7E6E6',
     ['#4472C4', '#ED7D31', '#A5A5A5', '#FFC000', '#5B9BD5', '#70AD47'],
@@ -58,7 +58,7 @@ export const COLOR_SETS: readonly ColorSet[] = [
     '#954F72',
   ),
   set(
-    'Office 2007 - 2010',
+    'Legacy',
     '#1F497D',
     '#EEECE1',
     ['#4F81BD', '#C0504D', '#9BBB59', '#8064A2', '#4BACC6', '#F79646'],
@@ -242,11 +242,11 @@ export interface FontPair extends PresentationFontsInput {
 }
 
 // In the reference desktop app's Fonts ▸ All Fonts order, from its `Theme Fonts/*.xml`.
-// The reference desktop app (Mac) lists 'Office 2007 - 2010' as Calibri / Calibri.
+// The reference desktop app (Mac) lists 'Legacy' (its 2007 - 2010 pair) as Calibri / Calibri.
 export const FONT_PAIRS: readonly FontPair[] = [
-  { name: 'Office', majorLatin: 'Aptos Display', minorLatin: 'Aptos' },
-  { name: 'Office 2013 - 2022', majorLatin: 'Calibri Light', minorLatin: 'Calibri' },
-  { name: 'Office 2007 - 2010', majorLatin: 'Calibri', minorLatin: 'Calibri' },
+  { name: 'Standard', majorLatin: 'Aptos Display', minorLatin: 'Aptos' },
+  { name: 'Classic', majorLatin: 'Calibri Light', minorLatin: 'Calibri' },
+  { name: 'Legacy', majorLatin: 'Calibri', minorLatin: 'Calibri' },
   { name: 'Calibri', majorLatin: 'Calibri', minorLatin: 'Calibri' },
   { name: 'Arial', majorLatin: 'Arial', minorLatin: 'Arial' },
   { name: 'Corbel', majorLatin: 'Corbel', minorLatin: 'Corbel' },
@@ -298,17 +298,17 @@ const pick = <T extends { name: string }>(list: readonly T[], name: string): T =
   list.find((item) => item.name === name)!;
 
 export const THEMES: readonly ThemePreset[] = [
-  { name: 'Office Theme', colors: pick(COLOR_SETS, 'Office'), fonts: pick(FONT_PAIRS, 'Office') },
   {
-    name: 'Office 2013 - 2022 Theme',
-    colors: pick(COLOR_SETS, 'Office 2013 - 2022'),
-    fonts: pick(FONT_PAIRS, 'Office 2013 - 2022'),
+    name: 'Standard Theme',
+    colors: pick(COLOR_SETS, 'Standard'),
+    fonts: pick(FONT_PAIRS, 'Standard'),
   },
   {
-    name: 'Office 2007 - 2010 Theme',
-    colors: pick(COLOR_SETS, 'Office 2007 - 2010'),
-    fonts: pick(FONT_PAIRS, 'Office 2007 - 2010'),
+    name: 'Classic Theme',
+    colors: pick(COLOR_SETS, 'Classic'),
+    fonts: pick(FONT_PAIRS, 'Classic'),
   },
+  { name: 'Legacy Theme', colors: pick(COLOR_SETS, 'Legacy'), fonts: pick(FONT_PAIRS, 'Legacy') },
   { name: 'Blue', colors: pick(COLOR_SETS, 'Blue'), fonts: pick(FONT_PAIRS, 'Corbel') },
   { name: 'Green', colors: pick(COLOR_SETS, 'Green'), fonts: pick(FONT_PAIRS, 'Trebuchet MS') },
   { name: 'Red', colors: pick(COLOR_SETS, 'Red'), fonts: pick(FONT_PAIRS, 'Georgia') },
@@ -318,6 +318,19 @@ export const THEMES: readonly ThemePreset[] = [
     fonts: pick(FONT_PAIRS, 'Times New Roman-Arial'),
   },
 ];
+
+// Decks made by the reference desktop app name its three built-in color sets
+// with its own brand (the keys below; the neutral-wording guard allowlists
+// them for this map only). The editor lists those sets under neutral names,
+// so a deck's color-scheme name is mapped before it is shown and reads as the
+// gallery entry. Which entry is ticked compares the colors, not the names.
+const REFERENCE_APP_NAMES: ReadonlyMap<string, string> = new Map([
+  ['Office', 'Standard'],
+  ['Office 2013 - 2022', 'Classic'],
+  ['Office 2007 - 2010', 'Legacy'],
+]);
+
+export const presetName = (name: string): string => REFERENCE_APP_NAMES.get(name) ?? name;
 
 export const accentsOf = (
   colors: Pick<ColorSet, 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6'>,

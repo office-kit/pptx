@@ -76,14 +76,14 @@ test(
 
       // A theme rewrites the deck theme's colors and fonts.
       await changed(() =>
-        panel.getByRole('option', { name: 'Office 2013 - 2022 Theme', exact: true }).click(),
+        panel.getByRole('option', { name: 'Classic Theme', exact: true }).click(),
       );
       let deck = await pres();
       assert.equal(getPresentationTheme(deck).accent1.toUpperCase(), '#4472C4');
       assert.equal(getPresentationFonts(deck).majorLatin, 'Calibri Light');
       assert.equal(
         await panel
-          .getByRole('option', { name: 'Office 2013 - 2022 Theme', exact: true })
+          .getByRole('option', { name: 'Classic Theme', exact: true })
           .getAttribute('aria-selected'),
         'true',
       );
@@ -97,9 +97,9 @@ test(
           .getByRole('menuitemradio')
           .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label'))),
         [
-          'Office',
-          'Office 2013 - 2022',
-          'Office 2007 - 2010',
+          'Standard',
+          'Classic',
+          'Legacy',
           'Grayscale',
           'Blue Warm',
           'Blue',
