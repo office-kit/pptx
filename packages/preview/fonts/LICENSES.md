@@ -1,7 +1,7 @@
 # Bundled font licenses
 
 These TrueType fonts are **metric-compatible open substitutes** for the
-proprietary Microsoft fonts that real `.pptx` files reference. The preview
+proprietary fonts that real `.pptx` files reference. The preview
 fidelity harness loads them so resvg can rasterize text, and so that our
 render matches LibreOffice's ground truth (LibreOffice ships and renders with
 these very fonts when the proprietary originals are absent).

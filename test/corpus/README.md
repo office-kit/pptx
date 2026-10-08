@@ -4,7 +4,7 @@ Makes "is @office-kit/pptx's _generated_ output any good?" a falsifiable number.
 
 [PptxGenJS](https://github.com/gitbrent/PptxGenJS) is the most widely-used PPTX
 generator in the JS ecosystem; its output is battle-tested to open cleanly in
-PowerPoint, Keynote, Google Slides, and LibreOffice. This corpus authors the
+common presentation apps (Keynote, Google Slides, LibreOffice Impress, …). This corpus authors the
 **same slide twice** — once through PptxGenJS, once through @office-kit/pptx — and
 compares the two drawing trees.
 
@@ -42,7 +42,7 @@ corpus doesn't yet cover.)
 3. **Chart semantics.** A chart part can't be compared as raw XML — PptxGenJS
    stamps dozens of opinionated chrome defaults (data-label blocks, gridlines,
    tick marks, its own palette, `multiLvlStrRef` categories, an `Arial 12pt`
-   `txPr`) that PowerPoint treats as optional and @office-kit/pptx leaves to
+   `txPr`) that the reference desktop app treats as optional and @office-kit/pptx leaves to
    inheritance. What _must_ match is the data: read both charts back with
    @office-kit/pptx (it parses any PPTX) and assert equal chart type, categories, and
    per-series values.
@@ -85,34 +85,34 @@ Reaching zero combined two things:
 1. **Real @office-kit/pptx fixes the corpus surfaced** — each a defect that made
    generated slides look broken:
    - Tables emitted `firstRow` / `bandRow` flags but no `<a:tableStyleId>`, and
-     `createPresentation` shipped no `tableStyles.xml`, so PowerPoint painted an
+     `createPresentation` shipped no `tableStyles.xml`, so the reference desktop app painted an
      unstyled, borderless block. Tables now reference the "No Style, Table Grid"
      built-in and the blank deck ships `tableStyles.xml`.
    - Bulleted text boxes got the bullet glyph but no hanging indent (the glyph
      jammed against the text), because a text box inherits the master
      `otherStyle` (marL=0), not the body style. `setShapeBulletStyle` /
-     `setParagraphBullet` now write PowerPoint's per-level `marL` / `indent`.
+     `setParagraphBullet` now write the reference desktop app's per-level `marL` / `indent`.
    - The chart reader returned empty categories for `<c:multiLvlStrRef>`, which
-     is what PowerPoint and PptxGenJS emit. It now reads them — so the chart
+     is what the reference desktop app and PptxGenJS emit. It now reads them — so the chart
      cases' semantic comparison (type + categories + values) holds.
 
 2. **Folding render-invisible differences in the comparator** (`canonical.ts`),
-   each justified as either a PowerPoint default or pure metadata. The
+   each justified as either a reference-desktop-app default or pure metadata. The
    substantive ones:
 
-   | difference                                                | why it's folded                                                                                                             |
-   | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-   | `txBox="1"` on text boxes                                 | invisible "is a text box" hint; @office-kit/pptx sets it (so does PowerPoint), PptxGenJS omits it                           |
-   | `bodyPr@anchor`                                           | PptxGenJS centers text-box content by default, @office-kit/pptx follows PowerPoint's top default — a default choice         |
-   | explicit black run `<a:solidFill>`                        | equals the theme's `tx1` default resolution; @office-kit/pptx inherits it                                                   |
-   | `<a:ea>`/`<a:cs>` + `charset`/`pitchFamily`               | font metadata PptxGenJS hard-codes for every face; @office-kit/pptx emits just `<a:latin>`                                  |
-   | default `<a:tcPr>` insets + `w="0"` noFill borders        | PowerPoint's built-in cell defaults; omitting them renders identically                                                      |
-   | `<a:tableStyleId>` + `firstRow`/`bandRow`                 | @office-kit/pptx names the package's default grid style explicitly; PptxGenJS inherits the same GUID from `tableStyles.xml` |
-   | `<a:endParaRPr>`, empty `<a:pPr>`, `<a:buNone>`           | empty-paragraph / bullet-reset no-ops                                                                                       |
-   | `<a:buSzPct val="100000">`                                | bullet sized at 100% of the text — the default                                                                              |
-   | hyperlink `<a:hlinkClick>` default attrs + shape mirror   | `endSnd/history/...` defaults; PptxGenJS also mirrors the run link onto `cNvPr`, redundant for a text box                   |
-   | `<p:cxnSp>` vs `<p:sp prstGeom="line">`                   | both render an identical straight line                                                                                      |
-   | `@dirty`, `@smtClean`, `descr`, `p14:modId`, `<p:extLst>` | authoring hints / app-private extensions                                                                                    |
+   | difference                                                | why it's folded                                                                                                                    |
+   | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+   | `txBox="1"` on text boxes                                 | invisible "is a text box" hint; @office-kit/pptx sets it (so does the reference desktop app), PptxGenJS omits it                   |
+   | `bodyPr@anchor`                                           | PptxGenJS centers text-box content by default, @office-kit/pptx follows the reference desktop app's top default — a default choice |
+   | explicit black run `<a:solidFill>`                        | equals the theme's `tx1` default resolution; @office-kit/pptx inherits it                                                          |
+   | `<a:ea>`/`<a:cs>` + `charset`/`pitchFamily`               | font metadata PptxGenJS hard-codes for every face; @office-kit/pptx emits just `<a:latin>`                                         |
+   | default `<a:tcPr>` insets + `w="0"` noFill borders        | The reference desktop app's built-in cell defaults; omitting them renders identically                                              |
+   | `<a:tableStyleId>` + `firstRow`/`bandRow`                 | @office-kit/pptx names the package's default grid style explicitly; PptxGenJS inherits the same GUID from `tableStyles.xml`        |
+   | `<a:endParaRPr>`, empty `<a:pPr>`, `<a:buNone>`           | empty-paragraph / bullet-reset no-ops                                                                                              |
+   | `<a:buSzPct val="100000">`                                | bullet sized at 100% of the text — the default                                                                                     |
+   | hyperlink `<a:hlinkClick>` default attrs + shape mirror   | `endSnd/history/...` defaults; PptxGenJS also mirrors the run link onto `cNvPr`, redundant for a text box                          |
+   | `<p:cxnSp>` vs `<p:sp prstGeom="line">`                   | both render an identical straight line                                                                                             |
+   | `@dirty`, `@smtClean`, `descr`, `p14:modId`, `<p:extLst>` | authoring hints / app-private extensions                                                                                           |
 
 The goal is **not** byte-identical output — that is impossible between two
 emitters and undesirable where @office-kit/pptx is the more theme-correct of the two.

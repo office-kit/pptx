@@ -8,7 +8,7 @@ Install the Claude Code skill to let the agent handle project setup, or run
 For an existing TypeScript project, install `@office-kit/pptx-dsl` and
 `@office-kit/pptx` from npm.
 
-Typed, declarative PowerPoint authoring in TSX. This package uses its own JSX
+Typed, declarative PPTX authoring in TSX. This package uses its own JSX
 runtime; React and Vue are not dependencies. It creates native editable PPTX
 objects through `@office-kit/pptx`. Rendering belongs to `@office-kit/pptx-preview`.
 
@@ -94,7 +94,7 @@ the list; `tsc` rejects any other number.
 
 A `Line` runs from (`x1`, `y1`) to (`x2`, `y2`) instead of taking bounds. A
 `Group` holds two or more visual elements and may contain other groups; the
-result moves and resizes as one object in PowerPoint.
+result moves and resizes as one object in presentation apps.
 
 A table cell style sets `fill`, `format`, `anchor`, `align` and `borders` (per
 side, `width` in points). Styles merge in this order, later ones winning per

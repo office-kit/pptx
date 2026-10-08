@@ -1,6 +1,6 @@
-# Mac PowerPoint WordArt captures
+# WordArt captures (reference desktop app, Mac)
 
-Captured on 2026-10-03 from the Shape Format ribbon in Mac desktop PowerPoint.
+Captured on 2026-10-03 from the Shape Format ribbon in the reference desktop app on Mac.
 The selected object was the title placeholder in
 `/tmp/pptx-outline-audit/reference.pptx`, containing `Outline title`.
 Each style was applied independently, saved, copied, undone, and saved again.

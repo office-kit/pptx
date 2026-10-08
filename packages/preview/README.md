@@ -6,7 +6,7 @@ it to a **PNG / RGBA image in Node — with no headless browser**.
 
 > **Experimental (0.x).** This package lives in the `@office-kit/pptx` monorepo and
 > also powers the docs-site playground and the fidelity harness. The renderer
-> is an _approximation_ of PowerPoint / LibreOffice output and is still
+> is an _approximation_ of desktop presentation app / LibreOffice output and is still
 > evolving; the API may change between minor versions, and `0.x` semver applies
 > (a minor bump may break). See [fidelity](#fidelity) below.
 
@@ -125,23 +125,23 @@ Options:
   wrapping is normal for body text; turn it on when auditing titles or labels
   meant to stay on one line.
 
-Accuracy: the bundled fonts are metric-compatible with the Office defaults, so
+Accuracy: the bundled fonts are metric-compatible with the common default fonts, so
 verdicts for Calibri / Cambria / Arial / Times / Courier decks match real glyph
 widths; for any other font (custom brand fonts, Japanese fonts), register the
 real files via `buildFontkitMeasurer({ fonts })` — a registered font is used
 both for runs that name it and as a glyph fallback for CJK text in runs that
-resolve to a Latin face. Line-break positions can differ from PowerPoint by a
+resolve to a Latin face. Line-break positions can differ from the reference desktop app by a
 few characters in edge cases (kinsoku, hyphenation), which is what the default
 1 px tolerance absorbs. Table cell text is not audited yet.
 
 ## Fidelity
 
-This is a high-fidelity preview, not a spec-complete PowerPoint renderer.
+This is a high-fidelity preview, not a spec-complete presentation renderer.
 Preset and custom geometry, solid/gradient/pattern/image fills (including the
 placeholder layout/master cascade), strokes, rotation, effects (shadow, glow,
 soft edge, reflection), images with adjustments, charts (column, bar, line,
 area, pie, doughnut, scatter, radar, bubble), tables with per-run cell text and
-every part of their table style (PowerPoint's 74 built-in styles included:
+every part of their table style (the 74 built-in table styles included:
 fills, translucent bands, borders, text, the Themed Styles' background, and
 the six style options; the background's shadow is not drawn),
 vertical and multi-column text in both text-layout modes, picture bullets, and
