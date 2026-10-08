@@ -134,7 +134,7 @@ function moveSlide(step,skipHidden=presenting,focusThumbnail=false){
  const nextPosition=skipHidden&&presenting?nextShowPosition(step):-1;
  const next=skipHidden&&presenting?(nextPosition<0?-1:showOrder[nextPosition]):findSlide(index+step,step,skipHidden);
  // Arriving backwards lands on a slide that has already played out, the way
- // PowerPoint shows it; arriving forwards starts its build from the top.
+ // the reference desktop app shows it; arriving forwards starts its build from the top.
  if(next>=0){
   selectSlide(next,focusThumbnail,true,step<0?'end':'start',nextPosition);
   if(presenting&&step>0&&nextPosition>=0&&nextPosition<=previousShowCursor&&loopShow())scheduleKioskRestart();
@@ -702,7 +702,7 @@ stage.onclick=event=>{
 };
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
-  // As in PowerPoint's Reading View, Esc goes back to Normal view, unless it
+  // As in the reference desktop app's Reading View, Esc goes back to Normal view, unless it
   // is closing the viewer's own text field or area selection first.
   if(event.key==='Escape'&&!document.body.classList.contains('editing')&&!event.target.closest('select,input,textarea,[contenteditable]')&&document.querySelector('.slide-edit-panel')?.hidden!==false){event.preventDefault();chooseView(true);return;}
   if(presenting&&state.showProperties?.mode?.kind==='kiosk')return;
@@ -738,7 +738,7 @@ const editorFrame=byId('editor-frame');
 let editorFocus;
 // The preview revision the editor last saw; it reports this apart from its focus.
 let editorRevision=0;
-// The Agents task pane opens on demand, like PowerPoint's panes; the editor's
+// The Agents task pane opens on demand, like the reference desktop app's panes; the editor's
 // Agents button (in its tab row) mirrors that state, so every change is reported back.
 const agentsKey='office-kit-agents-open';
 function agentsOpen(){return !document.body.classList.contains('chat-hidden');}

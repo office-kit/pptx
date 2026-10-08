@@ -18,7 +18,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={6} height={1} text="Title" /></Slide></Presentation>`;
 
 test(
-  'Shape Format tab matches PowerPoint: Edit Shape, WordArt styles, text effects, size and Format Pane',
+  'Shape Format tab matches the reference desktop app: Edit Shape, WordArt styles, text effects, size and Format Pane',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-shape-format-'));

@@ -328,7 +328,7 @@ test(
 );
 
 test(
-  'outline title-to-body Shift+Enter splits slides like PowerPoint',
+  'outline title-to-body Shift+Enter splits slides like the reference desktop app',
   { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));
@@ -374,7 +374,7 @@ test(
 );
 
 test(
-  'outline cross-slide Shift+Enter preserves the title boundary like PowerPoint',
+  'outline cross-slide Shift+Enter preserves the title boundary like the reference desktop app',
   { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-outline-shift-enter-'));
@@ -624,7 +624,7 @@ for (const title of ['Heading', 'First\nSecond'])
 
 for (const action of ['cut', 'type', 'beforeinput', 'ime', 'ime-cancel'])
   test(
-    `outline title-to-body ${action} ${action === 'ime-cancel' ? 'preserves the original text' : 'joins the suffix like PowerPoint'}`,
+    `outline title-to-body ${action} ${action === 'ime-cancel' ? 'preserves the original text' : 'joins the suffix like the reference desktop app'}`,
     { timeout: 60000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));
@@ -710,7 +710,7 @@ for (const action of ['cut', 'type', 'beforeinput', 'ime', 'ime-cancel'])
 
 for (const action of ['paste', 'multiline', 'rich'])
   test(
-    `outline title-to-body ${action} joins the suffix like PowerPoint`,
+    `outline title-to-body ${action} joins the suffix like the reference desktop app`,
     { timeout: 60000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));

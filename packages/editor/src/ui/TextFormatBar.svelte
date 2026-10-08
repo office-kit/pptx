@@ -86,10 +86,10 @@
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
   {/snippet}
   {#if ribbon}
-    <!-- Mac PowerPoint's second Font row: Character Spacing and Change Case
+    <!-- The reference desktop app's (Mac) second Font row: Character Spacing and Change Case
          follow the toggles; Text Highlight Color and Font Color come last,
          after a separator. The Font dialog opens from Character Spacing ▸
-         More Spacing... and Cmd+T, as PowerPoint has no Font button here. -->
+         More Spacing... and Cmd+T, as the reference desktop app has no Font button here. -->
     <CharacterSpacingMenu {formats} disabled={!(selected || typing)} {onformat} />
     {#if oncase}<ChangeCaseMenu disabled={!(selected || typing)} onchange={oncase} />{/if}
     <span class="sep" aria-hidden="true"></span>
@@ -141,7 +141,7 @@
   button[aria-pressed='true'] { background: var(--ok-accent); color: white; }
   .font-controls, .font-fields, .font-buttons { display: contents; }
   .font-ribbon { border: 0; padding: 0; background: transparent; }
-  /* Mac PowerPoint's Font group: two 26 pt rows on a 32 pt pitch, starting
+  /* The reference desktop app's (Mac) Font group: two 26 pt rows on a 32 pt pitch, starting
      4 pt below the top of the 72 pt command area. */
   .font-ribbon { align-self: flex-start; margin-top: 4px; }
   .font-ribbon .font-controls { display: flex; flex-direction: column; gap: 6px; }

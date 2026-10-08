@@ -1,4 +1,4 @@
-// The WordArt gallery's presets against the run XML Mac PowerPoint wrote for
+// The WordArt gallery's presets against the run XML the reference desktop app (Mac) wrote for
 // each one (test/fixtures/native/wordart-*-shape.xml).
 
 import assert from 'node:assert/strict';
@@ -198,7 +198,7 @@ test('the gallery lists the twenty native presets in order', () => {
 
 for (const [index, name] of FIXTURES.entries()) {
   const preset = WORDART_PRESETS[index];
-  test(`${preset.label} writes what PowerPoint wrote`, async () => {
+  test(`${preset.label} writes what the reference desktop app wrote`, async () => {
     const { box } = deck();
     const shape = box();
     applyWordArtPreset(shape, preset);

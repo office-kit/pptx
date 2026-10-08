@@ -233,7 +233,7 @@ test(
         true,
       );
       await gridDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-      // Notes are shown by default in Normal view, as in PowerPoint.
+      // Notes are shown by default in Normal view, as in the reference desktop app.
       const notesToggle = viewPanel.getByRole('button', { name: 'Notes', exact: true });
       const notesBox = editor.getByRole('textbox', { name: 'Notes content', exact: true });
       await notesBox.waitFor();
@@ -286,7 +286,7 @@ test(
         'true',
       );
       await editor.getByRole('tab', { name: 'Home', exact: true }).press('End');
-      // PowerPoint ends the tab row with View.
+      // The reference desktop app ends the tab row with View.
       const lastTab = editor.getByRole('tab', { name: 'View', exact: true });
       assert.equal(await lastTab.getAttribute('aria-selected'), 'true');
       assert.equal(await lastTab.evaluate((node) => node === document.activeElement), true);

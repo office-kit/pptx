@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Reading View for an editor without a host viewer. Mac PowerPoint opens it
+  // Reading View for an editor without a host viewer. The reference desktop app (Mac) opens it
   // as a separate "Slide Show - [document]" window: a 32 pt title bar and the
   // slide letterboxed on black below it. Here it fills the editor's window.
   // Click, Space, → and ↓ advance; ← and ↑ go back; Esc returns to the editing

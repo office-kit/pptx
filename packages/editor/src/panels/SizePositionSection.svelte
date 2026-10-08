@@ -7,7 +7,7 @@
 
   const editor = getEditor();
   const doc = editor.doc;
-  const maxDimension = 5963.92; // Mac PowerPoint's Size and Position input limit, in cm.
+  const maxDimension = 5963.92; // the reference desktop app's (Mac) Size and Position input limit, in cm.
   const locked = $derived(editor.selectionLocked());
   const geometry = $derived.by(() => {
     doc.version;
@@ -50,7 +50,7 @@
     if (geometry.some(item => Math.abs(item.bounds[axis] + delta) > cm(maxDimension))) {
       input.value = origins[axis]; return;
     }
-    // Mac PowerPoint keeps the entered number and moves the object when the
+    // The reference desktop app (Mac) keeps the entered number and moves the object when the
     // origin changes. Undo restores geometry but keeps this panel preference.
     origins[axis] = next;
     doc.transact(t('Set bounds'), () => {
@@ -146,7 +146,7 @@
 
 <style>
   .geometry { display: flex; flex-direction: column; font-size: 12px; }
-  /* Mac PowerPoint: 30 pt rows, 26 pt controls, 82 pt Size/Position boxes. */
+  /* The reference desktop app (Mac): 30 pt rows, 26 pt controls, 82 pt Size/Position boxes. */
   label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
   .number { display: flex; align-items: center; gap: 3px; width: 82px; flex: 0 0 82px; }
   .number .ok-input { box-sizing: border-box; width: 64px; height: 26px; min-width: 0; padding: 2px 4px; font-size: inherit; }

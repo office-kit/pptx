@@ -21,8 +21,8 @@ import {
 const INCH = 914400;
 const plan = (input) => planCompression({ crop: null, ppi: null, deleteCropped: false, ...input });
 
-test('quality choices follow Mac PowerPoint’s Compress Pictures sheet', () => {
-  // cstate: what PowerPoint 16.113 wrote on the blip for each choice
+test('quality choices follow the reference desktop app’s (Mac) Compress Pictures sheet', () => {
+  // cstate: what the reference desktop app (16.113) wrote on the blip for each choice
   // (test/fixtures/native/compress-pictures/).
   assert.deepEqual(
     PICTURE_QUALITIES.map((quality) => [quality.label, quality.ppi, quality.cstate]),
@@ -38,7 +38,7 @@ test('quality choices follow Mac PowerPoint’s Compress Pictures sheet', () => 
 });
 
 test('keeps resampled pixels only when they shrink the file or drop cropped areas', () => {
-  // PowerPoint's capture: a 1200 × 630 PNG shown 5 in wide (240 ppi).
+  // The reference desktop app's capture: a 1200 × 630 PNG shown 5 in wide (240 ppi).
   const frame = {
     pixelWidth: 1200,
     pixelHeight: 630,

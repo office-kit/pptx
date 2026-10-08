@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint's Symbol opens the system Character Viewer; the browser has
+  // The reference desktop app's (Mac) Symbol opens the system Character Viewer; the browser has
   // no such panel, so this is a small one with the characters decks use most.
   // Buttons never take focus, so the text cursor stays where it was.
   import { getEditor } from '../core/context.ts';

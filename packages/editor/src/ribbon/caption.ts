@@ -1,4 +1,4 @@
-// Mac PowerPoint sets a large-button caption of more than one word on two
+// The reference desktop app (Mac) sets a large-button caption of more than one word on two
 // lines, broken where the wider line is narrowest ("New / Slide",
 // "Insert Row / Above", "Insert / Column Right"); a tie breaks after the later
 // word. Width is the rendered width at the ribbon's 11 pt, not the character

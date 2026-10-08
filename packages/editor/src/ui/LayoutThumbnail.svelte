@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A layout drawn the way PowerPoint's New Slide and Layout galleries show it:
+  // A layout drawn the way the reference desktop app's New Slide and Layout galleries show it:
   // the layout (or master) background with its title and content placeholders
   // as boxes of prompt lines. Footer placeholders are left out, as natively.
   import { getSlideMasterPartName, getSlideSize, type PresentationData, type SlideLayoutData } from '@office-kit/pptx';
@@ -11,7 +11,7 @@
   const TITLE_TYPES = new Set(['title', 'ctrTitle']);
   const size = $derived(getSlideSize(pres) ?? { width: 12192000, height: 6858000 });
   const background = $derived(solidBackground(pres, layout));
-  // Prompt lines contrast with the background, as PowerPoint's do.
+  // Prompt lines contrast with the background, as the reference desktop app's do.
   const ink = $derived(contrastInk(background, '#595959', '#d9d9d9'));
   const boxes = $derived.by(() => {
     const master = getSlideMasterPartName(layout);

@@ -30,7 +30,7 @@ export async function decodeFirstVideoFrame(
   bytes: Uint8Array,
   contentType: string,
 ): Promise<Uint8Array> {
-  // Mac PowerPoint's Reset replaces the poster with the first decoded frame.
+  // The reference desktop app's (Mac) Reset replaces the poster with the first decoded frame.
   // Use a separate decoder so the selected player's position is not changed.
   const video = document.createElement('video');
   const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: contentType }));

@@ -21,7 +21,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Hello</Text></Slide><Slide><Text x={1} y={1} width={4} height={1}>Two</Text></Slide></Presentation>`;
 
 test(
-  'Insert tab matches PowerPoint: footer, WordArt, Symbol, Video and unavailable commands',
+  'Insert tab matches the reference desktop app: footer, WordArt, Symbol, Video and unavailable commands',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-insert-tab-'));
@@ -89,7 +89,7 @@ test(
       for (const name of ['Cameo', 'Icons', 'SmartArt', 'Equation', 'Symbol'])
         assert.equal(await button(name).isDisabled(), true, name);
 
-      // PowerPoint's ▾ menus, with what the browser cannot do disabled.
+      // The reference desktop app's ▾ menus, with what the browser cannot do disabled.
       const items = async (name) => {
         await button(name).click();
         const menu = panel.getByRole('menu', { name, exact: true });

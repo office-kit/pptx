@@ -1,5 +1,5 @@
 // Insert-tab commands that need more than one library call: pick a file or a
-// screen, size the object the way PowerPoint does, select it.
+// screen, size the object the way the reference desktop app does, select it.
 
 import {
   addSlideImage,
@@ -102,7 +102,7 @@ export async function insertScreenshot(editor: EditorController, label: string) 
 
 const WORDART_PT = 54;
 
-/** Insert ▸ WordArt: PowerPoint's "Your text here" box in the style chosen from the gallery. */
+/** Insert ▸ WordArt: the reference desktop app's "Your text here" box in the style chosen from the gallery. */
 export function insertWordArt(
   editor: EditorController,
   label: string,
@@ -160,10 +160,10 @@ export function insertTable(
 const TEXT_BOX_EMU = { w: inches(4), h: inches(1) };
 
 /**
- * Insert ▸ Text Box ▸ Draw Horizontal / Vertical Text Box. PowerPoint draws
+ * Insert ▸ Text Box ▸ Draw Horizontal / Vertical Text Box. The reference desktop app draws
  * the box with the mouse; the editor drops a 4 × 1 in box (1 × 4 in when
  * vertical) in the middle of the slide. A vertical box rotates its text 90°
- * (`vert="vert"`), as PowerPoint's Mac command writes.
+ * (`vert="vert"`), as the reference desktop app's Mac command writes.
  */
 export function insertTextBox(
   editor: EditorController,

@@ -80,7 +80,7 @@ test(
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await readCells(), before);
-      // PowerPoint opens the Font dialog with Cmd+T; the Home ribbon has no Font button.
+      // The reference desktop app opens the Font dialog with Cmd+T; the Home ribbon has no Font button.
       await page.keyboard.press('ControlOrMeta+t');
       const dialog = editor.getByRole('dialog', { name: 'Font', exact: true });
       await dialog.waitFor();

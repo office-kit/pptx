@@ -96,7 +96,7 @@ test(
           }),
       );
 
-      // PowerPoint keeps media transport on Video Format. Verify the command
+      // The reference desktop app keeps media transport on Video Format. Verify the command
       // controls the actual selected <video>, rather than a visual-only state.
       const play = panel.getByRole('button', { name: 'Play', exact: true });
       assert.equal(await play.count(), 1);
@@ -181,7 +181,7 @@ test(
       await lock.uncheck();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.equal(await readAspectLock(), false);
-      // PowerPoint does not add a history entry for changing this checkbox.
+      // The reference desktop app does not add a history entry for changing this checkbox.
       assert.equal(await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).isDisabled(), true);
 
       // Reloading must hydrate the checkbox from the saved OOXML value.

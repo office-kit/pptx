@@ -786,7 +786,7 @@ test(
 /**
  * What the player does with a timing tree it cannot fully read. The steps are
  * written by hand because the authoring API refuses to produce them — that is
- * the point: they are what a deck from PowerPoint or Google Slides brings.
+ * the point: they are what a deck from the reference desktop app or Google Slides brings.
  */
 test('the player runs only what the deck states', { timeout: 120000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'office-animations-rules-'));

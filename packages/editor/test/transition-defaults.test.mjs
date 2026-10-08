@@ -14,7 +14,7 @@ import {
   transitionSpeed,
 } from '../src/ribbon/transition-gallery.ts';
 
-// Mac PowerPoint 16.113.3's own save of each gallery tile, in gallery order,
+// The reference desktop app's (Mac, 16.113.3) own save of each gallery tile, in gallery order,
 // headed by the Duration its ribbon showed after applying it.
 const CAPTURES = new URL('../../../test/fixtures/native/transitions/', import.meta.url);
 const NO_TRANSITION = '(no transition)';
@@ -36,7 +36,7 @@ const captures = async () => {
   );
 };
 
-// Where a namespace is declared is the serializer's choice (PowerPoint puts
+// Where a namespace is declared is the serializer's choice (the reference desktop app puts
 // p14 on the p:transition beside a p15 / p159 effect, the library on the
 // mc:Choice); everything else must match.
 const normalise = (xml) =>
@@ -53,7 +53,7 @@ const transitionXml = (slide) => {
   return found === null ? NO_TRANSITION : found[0];
 };
 
-test('every gallery tile writes what Mac PowerPoint writes for it', async () => {
+test('every gallery tile writes what the reference desktop app (Mac) writes for it', async () => {
   const native = await captures();
   assert.equal(native.length, TRANSITION_TILES.length);
   const pres = createPresentation();
@@ -71,7 +71,7 @@ test('every gallery tile writes what Mac PowerPoint writes for it', async () => 
   }
 });
 
-test('a Duration edit writes spd and p14:dur by the rule PowerPoint’s defaults follow', () => {
+test('a Duration edit writes spd and p14:dur by the rule the reference desktop app’s defaults follow', () => {
   const slide = addBlankSlide(createPresentation());
   const written = (durationMs) => {
     setSlideTransition(slide, { effect: 'push', direction: 'u', durationMs });
@@ -104,7 +104,7 @@ test('a Duration edit writes spd and p14:dur by the rule PowerPoint’s defaults
 });
 
 test('a transition without spd runs at the schema default, fast', () => {
-  // Cut as PowerPoint saves it (p14:dur only), and a bare transition.
+  // Cut as the reference desktop app saves it (p14:dur only), and a bare transition.
   assert.equal(transitionSpeed({ effect: 'cut', durationMs: 100 }), 'fast');
   assert.equal(transitionSpeed({ effect: 'fade' }), 'fast');
   assert.equal(shownDurationMs({ effect: 'fade' }), 500);

@@ -8,7 +8,7 @@ import { getSlides, getSlideTransition, loadPresentation } from '@office-kit/ppt
 import { startPreview } from '../helpers/server.mjs';
 
 // Transitions, Animations, Slide Show, Record, Review and View measured from
-// Mac PowerPoint 16 through the accessibility API in 1512 × 900 and
+// the reference desktop app (Mac, 16) through the accessibility API in 1512 × 900 and
 // 1200 × 900 pt windows (2026-10-07). CSS px equal Mac points; button widths
 // are the AX widths, as for the Home ribbon in native-geometry.test.mjs.
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={4} y={4} width={3} height={1.5} text="One" /></Slide><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
@@ -75,7 +75,7 @@ const WIDTHS = {
   },
 };
 
-// The command order, with `|` where PowerPoint draws a rule between groups.
+// The command order, with `|` where the reference desktop app draws a rule between groups.
 const ORDER = {
   'Slide Show': [
     'Play from Start',
@@ -153,7 +153,7 @@ const box = (locator) =>
   });
 
 test(
-  'Transitions, Animations, Slide Show, Record, Review and View follow Mac PowerPoint',
+  'Transitions, Animations, Slide Show, Record, Review and View follow the reference desktop app (Mac)',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-show-tabs-'));
@@ -233,7 +233,7 @@ test(
       await panel.getByRole('button', { name: 'Next Transition Styles gallery' }).click();
       assert.equal((await tiles('Transition Styles'))[0], 'Uncover');
 
-      // Push's Effect Options are PowerPoint's four directions.
+      // Push's Effect Options are the reference desktop app's four directions.
       await panel.getByRole('button', { name: 'Previous Transition Styles gallery' }).click();
       await panel.getByRole('radio', { name: 'Push', exact: true }).click();
       await button('Effect Options').click();
@@ -320,7 +320,7 @@ test(
         assert.deepEqual(await order(), ORDER[name], `${name} at 1200`);
       }
 
-      // Japanese uses Mac PowerPoint's wording and still fits the row.
+      // Japanese uses the reference desktop app's (Mac) wording and still fits the row.
       await page.setViewportSize({ width: 1512, height: 900 });
       await page.locator('.lang select').selectOption('ja');
       await tab('スライド ショー');

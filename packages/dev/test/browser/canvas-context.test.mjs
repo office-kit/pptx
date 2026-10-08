@@ -57,7 +57,7 @@ test(
       await hits.nth(0).click();
       await editor.locator('.stage').click({ button: 'right', position: { x: 3, y: 3 } });
       assert.equal(await selected.count(), 0);
-      // The slide's menu has no Delete or Select All (PowerPoint's has neither); ⌘A selects.
+      // The slide's menu has no Delete or Select All (the reference desktop app's has neither); ⌘A selects.
       assert.equal(await menu.getByRole('menuitem', { name: 'Delete', exact: true }).count(), 0);
       await page.keyboard.press('Escape');
       await editor.locator('.stage').click({ position: { x: 3, y: 3 } });
@@ -78,7 +78,7 @@ test(
       await hits.nth(0).click();
       await hits.nth(1).click({ button: 'right' });
       assert.equal(await selected.count(), 1);
-      // Mac PowerPoint's object menu, in its order and with its separators
+      // The reference desktop app's (Mac) object menu, in its order and with its separators
       // (native capture 2026-10-07). It has no Delete; the key deletes the
       // selection. Commands the editor cannot perform are disabled.
       const entries = await menu
@@ -149,7 +149,7 @@ test(
           ),
         ['Group', 'Regroup', '----', 'Ungroup'],
       );
-      // Lock toggles PowerPoint's object locks; the menu then offers Unlock.
+      // Lock toggles the reference desktop app's object locks; the menu then offers Unlock.
       const locked = async (expected) => {
         const deadline = Date.now() + 10000;
         while (isShapeLocked((await shapes())[1]) !== expected) {
@@ -198,7 +198,7 @@ test(
           .getAttribute('aria-pressed'),
         'true',
       );
-      // PowerPoint's cell menu has no Clear command; the Delete key clears.
+      // The reference desktop app's cell menu has no Clear command; the Delete key clears.
       await page.keyboard.press('Escape');
       await page.keyboard.press('Delete');
       await saved();
@@ -218,7 +218,7 @@ test(
       await cellContext(0, 1);
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
       await page.screenshot({ path: '/tmp/pptx-pr287-canvas-context-ja.png', fullPage: true });
-      // PowerPoint's cell menu has no Clear command; the Delete key clears.
+      // The reference desktop app's cell menu has no Clear command; the Delete key clears.
       await page.keyboard.press('Escape');
       await page.keyboard.press('Delete');
       await saved();

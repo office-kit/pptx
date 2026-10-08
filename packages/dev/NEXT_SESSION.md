@@ -11,7 +11,7 @@
 - Root current-artifact notes browser 16141 failed at repeated pending newlines (line 291, accent1 instead of tx1); this was after the agent rebuild, so stale output does not explain it. Notes agent is fixing Enter caret movement and pending format lifecycle. Remove the test ArrowDown workaround and verify actual keyboard caret positions before accepting the fix.
 - Current site Svelte check 41536 passed with 0 errors/warnings (`/tmp/parity-notes-final-svelte.log`). This precedes final notes edits.
 - PR #287 still OPEN at 3e9564cc. CI run 37124988148: static, Node 22/26, preview fidelity, OOXML validator pass; Node 24 browser job fails 12/429 (417 pass). Retrieved failed log `/tmp/parity-node24-ci-failed.log`. Failures correspond to the already updated notes contenteditable assertion, responsive Arrange selectors and clipboard underline expectation; focused replacement checks are recorded below. This is not a green PR until new changes are pushed and CI reruns.
-- Native retry again failed screen size 0×0; app inventory confirms PowerPoint running. No document mutations. Host load remains ~167; do not infer semantic success from timeout-only failures.
+- Native retry again failed screen size 0×0; app inventory confirms the reference desktop app running. No document mutations. Host load remains ~167; do not infer semantic success from timeout-only failures.
 
 ## 2026-10-03: Validation status and host load
 
@@ -45,7 +45,7 @@
 - `/tmp/parity-table-notes-browser.log` (94557, terminal failure): horizontal, vert270, and table-cell effects all pass, including actual DOM Range versus SVG effect coordinates. Notes cross-run replacement proceeds, but typing into a new empty paragraph fails at line 231: actual accent1 RGB 79/129/189 versus paragraph-end tx1 RGB 18/171/52. Do not claim this regression fixed. Agent notes_theme_fix owns the fix and focused rebuild/retest.
 - Agent inline_remaining_audit is adding nonuniform grouped-table geometry coverage; do not accept grouped table fidelity without measurement.
 - Root full suite 58687 is still confirmed live; `/tmp/parity-full-tests-current.log`. Worker PIDs turn over; do not restart because of sparse output. Final failure stacks are pending.
-- Native retry requested by user again failed capture 0x0; listApps confirms PowerPoint running. No native changes. All changes remain uncommitted/unpushed; retain PR #287.
+- Native retry requested by user again failed capture 0x0; listApps confirms the reference desktop app running. No native changes. All changes remain uncommitted/unpushed; retain PR #287.
 
 ## 2026-10-03: Selection regression completed; broader validation active
 
@@ -64,7 +64,7 @@
 - Root format check passed after formatting render-slide.ts; lint and core typecheck passed. Notes agent previously passed site Svelte check (0 errors/warnings), and root repeated site check successfully after the notes loop fix (before final group Escape listener).
 - Notes browser loop fixed by invoking formatForRange untracked in the doc.version effect. Agent rebuilt dev, passed core notes 6 tests and the notes-theme browser case (typing, save, Undo).
 - Global color-state leak audit found no reproducible defect because renderSlideSvg initializes that state. Speculative try/finally restoration was rejected and removed; preserve all actual overlay changes.
-- Latest native retry, including resetting the UI session, still failed with capture 0x0. PowerPoint runs but no windows were returned; no native document modifications.
+- Latest native retry, including resetting the UI session, still failed with capture 0x0. The reference desktop app runs but no windows were returned; no native document modifications.
 
 ## 2026-10-03: In-progress notes theme and live text effects (uncommitted)
 
@@ -78,12 +78,12 @@
 - Latest root verification: lint and core typecheck passed. Character inner-shadow/reflection, SVG text modes, and group-text-flip regressions passed all 214 tests across 4 files (`/tmp/parity-effects-core-current.log`). These do not replace the pending browser effect-versus-glyph tests. Format check flagged the actively edited `inline-text-effects.test.mjs`; rerun after agent edits settle.
 - Shared editor Svelte check session 95654 ended with 2 Color assignment errors (`/tmp/parity-svelte-current.log`). Notes agent added color parsing; final typecheck/browser verification remains pending.
 - CI run 37124988148 finished: Node 24 browser tests failed 12 cases (legacy notes inputValue, underline representation, Arrange/Layout selectors); all other jobs passed. Root is reproducing the format-pane failure; full log `/tmp/parity-ci-node24-failure.log`.
-- Native retry still reports screen 0x0; PowerPoint is running but window information is absent. No native document changes made. Goal remains incomplete; broad parity gaps listed below still apply.
+- Native retry still reports screen 0x0; the reference desktop app is running but window information is absent. No native document changes made. Goal remains incomplete; broad parity gaps listed below still apply.
 
 ## 2026-10-03: Editing character effects and notes script offsets
 
 - Inline text now retains character outlines, outer shadows and glows, resolves theme colors, and scales effects with editor zoom. The HTML clipboard has a 1x fallback outside the editor. Outline paint order and glow/shadow ordering match the static browser preview.
-- Chromium regression at 150% zoom checks computed effects, actual text Range geometry, edited text after save/load and Undo. In the tested single-run case, x/y/width/height differences on edit entry were all 0px. Root visually inspected `/tmp/inline-effects-before.png` and `/tmp/inline-effects-active.png`. This is browser consistency evidence, not native PowerPoint parity or all typography coverage.
+- Chromium regression at 150% zoom checks computed effects, actual text Range geometry, edited text after save/load and Undo. In the tested single-run case, x/y/width/height differences on edit entry were all 0px. Root visually inspected `/tmp/inline-effects-before.png` and `/tmp/inline-effects-active.png`. This is browser consistency evidence, not native parity or all typography coverage.
 - Notes superscript/subscript incorrectly passed 30/-25 instead of fractional 0.3/-0.25. A failing browser regression captured baseline="3000000"; the shared toggle helper now emits 30000/-25000 and toggles back to zero. All four notes-formatting browser tests pass (`/tmp/notes-script-fixed.log`).
 - Pure SVG outer-shadow/glow rendering was added. Review required replacing feDropShadow (which repainted the source glyph) with effect-only composition and expanding filter regions in user coordinates. Raster regressions cover separate effects, an invisible shadow (no duplicate glyph paint), and a large single-glyph shadow without clipping. Root format/lint/typecheck/test/build passed: 3515 tests, 109 skipped (`/tmp/parity-full-final.log`), using two workers after two CPU-contention timeouts in the initial full run. Preview/DSL build and typecheck also passed. Final format/lint, Svelte check (0 errors/warnings), and 3 focused HTML tests passed. Editor rebuild and browser checks passed: notes 4 tests (`/tmp/parity-notes-final.log`) and inline effects/copy 1 test (`/tmp/parity-inline-final.log`).
 - The HTML copy regression covers emitted outline/shadow/glow CSS. Direct shape/cell effective-format probes already resolve theme colors, so redundant copy-time color resolution was rejected during review. Notes still need their own effective-format reader: notesSlide clrMapOvr inherits notesMaster clrMap, and notesMaster can own a different theme relationship. Do not resolve notes using the slide theme/map. Existing getSlideNotesTextFormats is intentionally literal; preserve its contract. Add a regression with distinct notes theme and overridden tx1 mapping before implementing.
@@ -107,7 +107,7 @@
 - Character formatting now reads/writes `innerShadow`, supports independent removal/reset and paragraph inheritance, and preserves native outer-shadow alignment/rotation. Fixtures cover the captured WordArt inner shadow and centered outer shadow; omitted outer-shadow attributes resolve to the XSD defaults (`b`, rotation enabled).
 - SVG and foreignObject previews now emit character reflection glyph layers. Regressions cover mixed runs, wrap, unique mask IDs, positive scales, center anchors, raster visibility, default-effect run boundaries and avoiding duplicate bullets in the overlay.
 - Root quality gates passed with 3507 tests (109 skipped) before the final default-reflection grouping regression; final scoped verification is recorded in `/tmp/native-effects-final-focused.log`. Preview and DSL build/typecheck passed. The temporary Chromium smoke test is preserved at `/tmp/pptx-reflection-browser-audit.test.ts`; it only proves text/overlay coexistence and nonzero bounds, not native geometry or edit-entry stability.
-- Still incomplete: WordArt gallery application, gradient/pattern character fills, inner-shadow rendering, body 3D, reflection font-metric calibration, arbitrary fade-direction fidelity and fixed-axis reflection under shape/group rotation. `rotateWithShape=false` is preserved but does not yet render correctly under rotation. Do not claim full WordArt or PowerPoint parity.
+- Still incomplete: WordArt gallery application, gradient/pattern character fills, inner-shadow rendering, body 3D, reflection font-metric calibration, arbitrary fade-direction fidelity and fixed-axis reflection under shape/group rotation. `rotateWithShape=false` is preserved but does not yet render correctly under rotation. Do not claim full WordArt or native parity.
 - Native connection retry still returns screen size 0×0. No native mutations were performed in this step. Re-check the current reference window and restoration state before further native mutations.
 
 ## 2026-10-02: Browser preview tracking matches SVG
@@ -156,7 +156,7 @@
 
 - Fixed browser and pure-SVG preview collapsing OOXML `dblStrike` to a single line. SVG uses explicit strokes so rasterizers need not implement CSS double decorations; underline styling remains independent.
 - Save/load/render regression and mixed single/double/plain runs with left/center/right alignment pass. All 71 tests in text-layout and preview-character-effects pass; scoped lint, preview typecheck and preview build pass.
-- Native retry still fails at pipe startup. Strike geometry uses font-relative estimates and has NOT been calibrated against Mac PowerPoint. Reference restoration remains pending as below.
+- Native retry still fails at pipe startup. Strike geometry uses font-relative estimates and has NOT been calibrated against the reference desktop app (Mac). Reference restoration remains pending as below.
 - The subsequent entry above resolves HTML parsing and editing/export; native geometry remains unverified.
 
 ## 2026-10-02: Adjacent character outlines in SVG
@@ -172,13 +172,13 @@
 - Reproduced: type into an outline title, immediately select through a later title containing an ordinary shape, then confirm deletion. The draft commit changed `doc.version` after the dialog captured it, so Yes silently did nothing.
 - `OutlineText.svelte` now flushes registered drafts into an Edit text transaction before capturing the confirmation version. External changes still invalidate stale confirmation.
 - Added browser regression `outline merge confirmation applies pending text drafts`; reproduced failure before fix. All three confirmation tests pass after fix. Site check reports zero errors/warnings; lint and editor build pass.
-- Native PowerPoint connection still fails with `Sky Computer Use native pipe startup failed`. Reference restoration remains pending; follow the restoration instructions below before further native edits.
+- The connection to the native reference desktop app still fails with `Sky Computer Use native pipe startup failed`. Reference restoration remains pending; follow the restoration instructions below before further native edits.
 
 ## 2026-10-02: スライド間タイトル削除
 
 - 実機証拠 `/tmp/pptx-outline-audit/cross-slide-delete-native.pptx`: Outline title / Body → Next / Following のタイトル間範囲削除で、1 スライド Ouxt / Following になる。最初の普通のテキストボックスは保持。Body の有無いずれも確認済み。
 - core の deleteOutlineTitleRange と UI の削除・入力・貼り付け・IME 経路を追加。単体25件、lint、Svelte 型検査は成功。フォーカス回帰は requestAnimationFrame で復元し、移動済みフォーカスを奪わない修正で成功。IME は compositionstart でネイティブ選択を1編集欄に閉じ、モデル側に元範囲を保つことで確定イベントが届かない問題を解消。単独 IME 検証に加え、全21件のブラウザー回帰も成功。ログ `/tmp/pptx-cross-title-browser-final.log`。PR #287 の同一ブランチへ反映する。
-- **参照ファイルの復元が未完了**: PowerPoint 接続は native pipe startup failed。reference.pptx は最後に保存した Ouxt / Following、アプリ上は Undo 後の未保存状態。接続が戻ったら reference を閉じ、`reference-before-table-style.pptx` から復元し byte 比較する。証拠ファイルを上書きしない。
+- **参照ファイルの復元が未完了**: 参照デスクトップアプリ接続は native pipe startup failed。reference.pptx は最後に保存した Ouxt / Following、アプリ上は Undo 後の未保存状態。接続が戻ったら reference を閉じ、`reference-before-table-style.pptx` から復元し byte 比較する。証拠ファイルを上書きしない。
 - 追加ブラウザ検証: 追加図形のある次スライドへ Backspace / Z で範囲置換し、No で revision 不変、Yes で1枚へ結合、Undoで図形を含む2枚を復元する2件が成功。確認ダイアログの実機仕様は接続復旧後に別途比較する。
 - 未検証: 複数本文プレースホルダー、本文から次タイトルなどの他の範囲。完全一致は未達成。
 
@@ -186,7 +186,7 @@
 
 - Mac 実機で First / Second のタイトルと Body の本文を作り、cond + 段落境界 + Bo を削除。保存 XML はタイトル First / Sedy、本文空。証拠: /tmp/pptx-outline-audit/multititle-delete-native.pptx。
 - deleteOutlineTitleBodyRange の分配境界を、常に先頭段落ではなく削除開始位置の属する段落末尾へ修正。残るタイトル段落と後続本文段落、リンクを保存・再読み込みする単体回帰を追加。修正前はタイトルが First のみとなって失敗。
-- PowerPoint の画面と AX を再取得できた。reference.pptx は閉じた後 reference-before-table-style.pptx から復元し byte 比較一致。現在は reference-before-font が表示されており変更していない。
+- 参照デスクトップアプリの画面と AX を再取得できた。reference.pptx は閉じた後 reference-before-table-style.pptx から復元し byte 比較一致。現在は reference-before-font が表示されており変更していない。
 - 検証: format、lint、Svelte 型検査（0 errors / warnings）、単体 37 件、エディタービルド、ブラウザー範囲編集 21 件成功。
 - 次: 複数スライド間の構造置換・削除、IME の実機比較。全面一致は未達成。
 
@@ -194,7 +194,7 @@
 
 - beforeinput の insertText を通常入力・貼り付けと同じ構造置換へ接続。IME は同一スライドのタイトル→本文選択を変換中保持し、確定文字列を一度だけ適用する。キャンセルは文書・履歴を変更しない。
 - Chromium CDP による直接入力／変換確定の回帰は修正前に失敗（HeadingX / Heading、期待 HeadingXdy / Heading漢dy）。修正後は保存された本文末尾の結合と一回の Undo を確認。変換キャンセルの表示・revision 不変も追加検証。
-- PowerPoint の AX と画面取得が復旧。reference.pptx は reference-before-table-style.pptx と byte 比較一致。この作業では実機ファイルを変更していない。
+- 参照デスクトップアプリの AX と画面取得が復旧。reference.pptx は reference-before-table-style.pptx と byte 比較一致。この作業では実機ファイルを変更していない。
 - 検証: format、lint、Svelte 型検査（0 errors / warnings）、単体 35 件、エディタービルド、範囲選択ブラウザ 20 件、共有文字入力ブラウザ 2 件成功。
 - 次: 複数段落タイトルの範囲削除、複数スライド間の構造置換・削除を実機比較する。複数スライド IME は既存経路を保持し、全面一致は未達成。
 
@@ -217,7 +217,7 @@
 
 ## 2026-10-02: 同一スライドのタイトル→本文の範囲削除を修正
 
-- Mac PowerPoint で Outline title / Body の tline title + 改行 + Bo を選択し Backspace → タイトル Oudy、本文は空。後続段落 Following がある場合は本文 Following を維持。保存 XML を title-body-delete-native.pptx / title-body-delete-paragraphs-native.pptx（/tmp/pptx-outline-audit）に保持。
+- 参照デスクトップアプリ (Mac) で Outline title / Body の tline title + 改行 + Bo を選択し Backspace → タイトル Oudy、本文は空。後続段落 Following がある場合は本文 Following を維持。保存 XML を title-body-delete-native.pptx / title-body-delete-paragraphs-native.pptx（/tmp/pptx-outline-audit）に保持。
 - deleteOutlineTitleBodyRange がタイトルと本文の残りを結合し、後続本文を分配。OutlineText の複数欄 Backspace/Delete に接続し、同一トランザクションでドラフト確定・選択・カーソルを復元。
 - ブラウザー回帰はタイトル末尾→本文 Bo の逆方向選択。修正前は Heading のまま（期待 Headingdy）で失敗、修正後は保存結果・Undo とも成功。全 cross-selection 12 件成功。outline / outline-selection 単体 35 件成功。既存 outline 単体の DOM モック不足も補修。型検査 0 errors / warnings、lint、エディタービルド成功。
 - reference.pptx は閉じて reference-before-table-style.pptx から復元し再表示済み（1 枚、Outline title、保存済み）。4173 と .pnpm-store は保持。
@@ -232,14 +232,14 @@
 
 ## 2026-10-02: 隣接スライドのタイトルをまたぐ改行
 
-- Mac PowerPoint の Outline title / Next / Following で tline title + 改行 + Ne を選択し Shift+Enter。2 枚を維持し、タイトルは Ou / xt、次の本文 Following は維持。保存 XML を /tmp/pptx-outline-audit/cross-title-native.pptx に保持。終了側タイトル全体を選択しても同じスライド境界を維持。
+- 参照デスクトップアプリ (Mac) の Outline title / Next / Following で tline title + 改行 + Ne を選択し Shift+Enter。2 枚を維持し、タイトルは Ou / xt、次の本文 Following は維持。保存 XML を /tmp/pptx-outline-audit/cross-title-native.pptx に保持。終了側タイトル全体を選択しても同じスライド境界を維持。
 - 既存ブラウザテストの He + 改行という期待値を実機に合わせて修正し、実装前の失敗を確認。隣接タイトル間の改行を構造編集として処理し、保存・再読込後のリンク保持を単体テストで検証。
 - 参照文書は閉じて reference-before-table-style.pptx から復元済み。再表示した reference.pptx は Outline title の 1 枚、保存済み。ファイル一覧のクリックが違う行を開くため、Go to Folder → Return → 状態取得 → Return で正しいファイルを開いた。
 - 次: 非隣接範囲、本文からタイトルへの範囲、削除・入力置換、逆方向選択の実機確認。全面一致は未達成。4173 と .pnpm-store は保持。
 
 ## 2026-10-02: 分割後の後続本文段落を実機確認
 
-- Mac PowerPoint で Outline title / Body / Following の 1 枚を作成し、tline title + 改行 + Bo を選択して Shift+Enter。保存 XML は slide1 title=Ou / body=空、slide2 title=dy / body=Following。前回の splitOutlineTitleRange の後続段落の扱いと一致。
+- 参照デスクトップアプリ (Mac) で Outline title / Body / Following の 1 枚を作成し、tline title + 改行 + Bo を選択して Shift+Enter。保存 XML は slide1 title=Ou / body=空、slide2 title=dy / body=Following。前回の splitOutlineTitleRange の後続段落の扱いと一致。
 - 実機保存ファイルを /tmp/pptx-outline-audit/title-body-multiparagraph-native.pptx に保持。site/test/outline.test.mjs に回帰ケースを追加し、保存・再読込後の本文、段落レベル、リンク保持も検証。全 18 件成功。
 - ネイティブ Undo は今回も履歴を失い通常の取り消しができなかったため、参照文書を閉じ、確認済み reference-before-table-style.pptx を reference.pptx へ復元して再度開いた。現在 1 枚の Outline title、保存済み、Undo disabled。実機比較用の追加変更は残っていない。
 - 次: 複数スライドをまたぐ改行・削除の実機比較と修正。逆方向選択の回帰も未確認。全面一致は未達成。4173 と .pnpm-store を保持。
@@ -250,7 +250,7 @@
 - ブラウザー再現テストは修正前 2 枚（期待 3 枚）で失敗、修正後成功。Undo による元の 2 枚とタイトル・本文の復元も確認。範囲選択ブラウザー全 10 件、outline unit 全 17 件成功。suffix のリンク保持を保存・再読込で検証。
 - format:check / lint / site svelte-check（0 errors, 0 warnings）/ dev 依存込み build 成功。
 - 残る段落の扱いと逆方向の選択を実機で追加確認すること。複数スライドをまたぐ改行・削除は未修正。既存 cross-field replacement テストの期待値は実機証拠ではない。全面一致は未達成。
-- PowerPoint の画面取得が正常に復旧。reference.pptx の Outline title / Ordinary text box、1 枚、保存済みを画面で確認。今回の追加変更なし。4173 と .pnpm-store は保持。
+- 参照デスクトップアプリの画面取得が正常に復旧。reference.pptx の Outline title / Ordinary text box、1 枚、保存済みを画面で確認。今回の追加変更なし。4173 と .pnpm-store は保持。
 
 ## 2026-10-02: 未修正 — タイトルから本文をまたぐ改行置換
 
@@ -261,7 +261,7 @@
 
 ## 2026-10-02: アウトライン本文の改行を実機確認
 
-- Mac PowerPoint の参照文書でタイトル末尾 Enter → Tab で本文を作り、Body before / Shift+Enter / Body after を入力して保存。本文は同一スライドの別々の a:p に保存され、a:br ではないことを確認。OutlineText の現在の段落挿入はこの点で実機と一致しており、onnewline の kind を無条件に接続してはいけない。
+- 参照デスクトップアプリ (Mac) の参照文書でタイトル末尾 Enter → Tab で本文を作り、Body before / Shift+Enter / Body after を入力して保存。本文は同一スライドの別々の a:p に保存され、a:br ではないことを確認。OutlineText の現在の段落挿入はこの点で実機と一致しており、onnewline の kind を無条件に接続してはいけない。
 - outline-view の英語・日本語テストに本文途中の Enter / Shift+Enter、保存後の段落構造と斜体保持、スライド数、Undo を追加。
 - 検証: outline-view ブラウザーテスト英語・日本語とも成功。format:check / lint 成功。動作変更はなく、コメントと回帰テストのみ追加。
 - 一時変更は Undo disabled まで取り消し、1 枚の Outline title に復元・保存済み。
@@ -272,7 +272,7 @@
 - 実機比較で、アウトラインのタイトル欄は Shift+Enter でも新スライドを作ることを確認。末尾で Outline title / After の 2 枚が保存 XML に現れ、タイトル途中でも O / utline title に分割。キャンバスの段落内改行とは異なる。
 - OutlineText のタイトル分割を Shift+Enter にも適用。複数欄をまたぐ選択は従来の一括置換へ先に分岐する。
 - outline-view の途中分割テストを Shift+Enter に変更（既存 Enter 末尾分割は維持）。修正前は同一スライド内の改行になり英語・日本語とも失敗。修正後は両言語成功し、書式・リンク・本文移動・Undo・保存を検証。cross-selection の Shift+Enter も成功。
-- format/lint/dev typecheck/build 成功。参照ファイルの一時変更は Undo disabled まで取り消し保存済み。PowerPoint は Outline View のまま。
+- format/lint/dev typecheck/build 成功。参照ファイルの一時変更は Undo disabled まで取り消し保存済み。参照デスクトップアプリは Outline View のまま。
 - 次: アウトライン本文の Shift+Enter と、複数欄選択時の実機比較（既存テストは自製期待値のため実機証拠が必要）。表セルの Shift+Enter のブラウザー保存検証も残る。全操作一致は未完了。
 
 ## 2026-10-02: Enter と段落内改行
@@ -281,12 +281,12 @@
 - キャンバスの Shift+Enter とタイトル / ctrTitle の Enter を段落内改行へ接続。通常テキストの Enter は段落分割を維持。pending preview と commit は同じ編集列を使用。
 - 新規 core 6 ケースで図形 / 表の保存再読込、preview で改行書式継承を検証。ブラウザー 2 ケースでタイトル Enter の保存・再編集、通常テキスト Shift+Enter と Undo を確認。
 - 検証: format/lint/core と dev typecheck、dev 依存込み build 成功。core 3313 成功 / 109 skip。
-- PowerPoint の画面取得が復旧し、参照文書の元の文字列と保存済みを確認。今回参照文書の追加変更なし。
+- 参照デスクトップアプリの画面取得が復旧し、参照文書の元の文字列と保存済みを確認。今回参照文書の追加変更なし。
 - 次: OutlineText は新しい onnewline 引数をまだ使っていない。アウトラインの Shift+Enter を実機比較して接続する。表セルの Shift+Enter のブラウザー保存検証、空段落番号等も残る。全操作一致は未完了。4173 と .pnpm-store は保持。
 
 ## 2026-10-02: 空段落の箇条書き表示
 
-- Mac PowerPoint の通常テキストボックスで Before / Enter の末尾空段落に Bullets を適用。Escape 後は記号が表示されないことを実機で確認。保存 XML は第 2 a:p に buChar と endParaRPr があり、文字 run はない。タイトルの Enter は a:br になるため、通常テキストボックスで比較した。
+- 参照デスクトップアプリ (Mac) の通常テキストボックスで Before / Enter の末尾空段落に Bullets を適用。Escape 後は記号が表示されないことを実機で確認。保存 XML は第 2 a:p に buChar と endParaRPr があり、文字 run はない。タイトルの Enter は a:br になるため、通常テキストボックスで比較した。
 - foreignObject 表示が空段落の箇条書き記号を表示する差異を図形・表のテストで再現し、文字のない段落では描画しないよう修正。SVG は既に同じケースを非表示にする。書式付きの文字のある段落は保持し、保存再読込も検証。
 - 検証: format/lint/core typecheck/build、core 3306 成功 / 109 skip、preview/DSL/dev 型検査と依存パッケージ込み build 成功。関連 browser 10 件成功。
 - 参照文書の変更は Undo disabled まで取り消し、Outline title / Ordinary text box と Saved to my Mac を確認済み。
@@ -295,14 +295,14 @@
 
 ## 2026-10-02: 連続改行の空行を実機と比較
 
-- Mac PowerPoint で Before / Shift+Enter / Shift+Enter / After を入力し、空行を作る後方の改行だけを 80pt に変更。Before と After の間隔が広がることを確認（中央配置のため Before は上、After は下へ移動）。先頭空行と同様に空行の改行書式が高さへ影響する。一時変更を Undo disabled まで取り消し、Outline title / Ordinary text box を復元して保存済み。
+- 参照デスクトップアプリ (Mac) で Before / Shift+Enter / Shift+Enter / After を入力し、空行を作る後方の改行だけを 80pt に変更。Before と After の間隔が広がることを確認（中央配置のため Before は上、After は下へ移動）。先頭空行と同様に空行の改行書式が高さへ影響する。一時変更を Undo disabled まで取り消し、Outline title / Ordinary text box を復元して保存済み。
 - 連続改行と、文字のない a:r が改行の直前にあるケースをブラウザー回帰へ追加。図形・表とも編集開始の位置差は 2px 未満。既存の先頭・途中改行と入力書式のテストを含め 8 件成功。
 - SVG / foreignObject の先頭空行サイズ比較を 2 個の連続改行にも拡張。今回はテストと比較記録のみで、本体実装の追加変更なし。
 - 残件: 末尾改行、空段落の箇条書き、表スタイル等。完全一致は未完了。参照ファイルは復元済み、4173 と .pnpm-store を保持し、PR #287 に集約。
 
 ## 2026-10-02: 先頭改行の高さと編集開始位置
 
-- Mac PowerPoint の先頭 Shift+Enter のみを 40pt → 80pt に変更すると、後続 After が下へ移動することを画面で確認。文字の直後の改行とは挙動が異なる。接続復旧後に Font Size / Typing を Undo disabled まで取り消し、Outline title / Ordinary text box に戻して保存済み。
+- 参照デスクトップアプリ (Mac) の先頭 Shift+Enter のみを 40pt → 80pt に変更すると、後続 After が下へ移動することを画面で確認。文字の直後の改行とは挙動が異なる。接続復旧後に Font Size / Typing を Undo disabled まで取り消し、Outline title / Ordinary text box に戻して保存済み。
 - 先頭改行のサイズを通常表示が無視することで、図形・表とも編集開始時に約 63px ずれるケースをブラウザーで再現。描画でも a:br の実効書式を解決し、空行の高さに反映。文字のある行は改行のサイズで広げない。SVG の空行にも改行のフォントメトリクスを使用する。
 - 大きな改行を X に置き換えた際、80pt と通常の行高を保持し、BeforeXAfter になることを図形・表で検証。
 - 検証: format/lint/core typecheck/build、preview/DSL/dev typecheck、依存パッケージを含む dev build 成功。core 3300 成功 / 109 skip、関連 browser 12 成功。先頭改行の修正前の約 63px のずれは、修正後に 2px 未満。
@@ -310,7 +310,7 @@
 
 ## 2026-10-02: 改行だけが大きい場合の編集時レイアウトシフト
 
-- Mac PowerPoint の reference.pptx で Before / Shift+Enter / After を入力し、改行のみ選択して 40pt → 80pt に変更。前後の文字・行の画面位置は不変。保存 XML で a:br/rPr sz=8900 と normAutofit fontScale=90000 を確認（UI は 80pt）。リボンのサイズ欄は AX click ではフォーカスが移らず、Font メニューを開いた直後の Tab でサイズ欄へ移動できた。
+- 参照デスクトップアプリ (Mac) の reference.pptx で Before / Shift+Enter / After を入力し、改行のみ選択して 40pt → 80pt に変更。前後の文字・行の画面位置は不変。保存 XML で a:br/rPr sz=8900 と normAutofit fontScale=90000 を確認（UI は 80pt）。リボンのサイズ欄は AX click ではフォーカスが移らず、Font メニューを開いた直後の Tab でサイズ欄へ移動できた。
 - 文字の直後の改行 span に line-height:0 と vertical-align:top を指定し、書式を保持したまま行ボックスへの影響をなくした。段落先頭や連続改行の空行には適用していない。このケースの実機比較は図形で実施、表は共通の編集表示経路の回帰を検証。
 - ブラウザーで修正前に図形・表の編集開始時に約 53px の位置ずれを再現。修正後は 2px 未満、改行のコピーで 80pt を保持。継承書式・空段落を含む関連 10 件成功。
 - 検証: format/lint/core typecheck/build、core 3298 成功 / 109 skip、site 135 成功、Svelte 0 errors/warnings、preview build、DSL/dev typecheck、dev build 成功。
@@ -320,7 +320,7 @@
 
 - getShapeRunFormatEffective / getTableCellRunFormatEffective に { breakIndex } を追加。a:br の直接 rPr と段落・リスト等の既定書式を既存 resolver で合成。通常 run / field のインデックスは別々のまま維持。
 - 選択、編集 HTML、書式付きコピーで改行の継承フォント・サイズ・太字が失われる不具合を修正。図形の選択書式で変更前の失敗を再現し、図形・表、範囲外、保存再読込、コピーを検証。ブラウザーで両方の改行 span が Courier New / 28pt / bold になることも確認。
-- 根拠: Microsoft SDK Drawing.Break remarks (ISO/IEC 29500 §21.1.2.2.1): https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.break?view=openxml-3.0.1 。改行の rPr は挿入文字の書式を保持する。行高にどう影響するかはこの資料だけでは確定しないため、描画側を推測で変更していない。
+- 根拠: Open XML SDK Drawing.Break remarks (ISO/IEC 29500 §21.1.2.2.1): https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.break?view=openxml-3.0.1 。改行の rPr は挿入文字の書式を保持する。行高にどう影響するかはこの資料だけでは確定しないため、描画側を推測で変更していない。
 - 検証: core 3298 成功 / 109 skip、site 135 件、Svelte check 0 errors/warnings、関連 browser 6 件成功。format/lint/core typecheck/build、preview build、DSL typecheck、dev typecheck/build 成功。
 - 改行の描画側は依然 fmt:null / 既定サイズ。行高・前後の文字サイズ・改行直後の入力は Mac 実機比較が必要。空文字 run、空段落の箇条書き、表の共有辺/スタイル等も残る。全操作一致は未完了。参照文書に変更なし。4173 と .pnpm-store を保持。PR #287 に集約。
 
@@ -329,7 +329,7 @@
 - getShapeRunFormatEffective の null 指定で段落末尾の実効書式を取得。図形の空段落も表示・編集 HTML・カーソルの書式取得に同じ継承を使用する。
 - endParaRPr の 18pt / 36pt が同じ高さになる不具合を SVG / foreignObject で変更前に再現し、保存再読込も検証。ブラウザーで図形の空行の行間が normal になり約 5px ずれる追加原因を確認し、空段落の既定行間を既存 LINE_HEIGHT に合わせた。明示した段落行間は優先する。
 - 関連 browser 6 件成功。図形・表の空行後の文字位置差 2px 未満、36pt・Courier New・太字・色、Font ダイアログを検証。core 3296 成功 / 109 skip、site 135 件、Svelte check 0 errors/warnings、format/lint/typecheck/build と preview・DSL・dev の型検査/build 成功。最終行間修正後は関連 core 5 件・browser 6 件、format/lint/preview 型検査、preview/dev build を再実行。
-- PowerPoint の画面取得は成功。reference.pptx は Outline title / Ordinary text box、保存済み、Undo disabled。一時変更なし。この空段落ケースの Mac 実機比較自体は未実施。
+- 参照デスクトップアプリの画面取得は成功。reference.pptx は Outline title / Ordinary text box、保存済み、Undo disabled。一時変更なし。この空段落ケースの Mac 実機比較自体は未実施。
 - 残件: 空文字 run・明示改行の書式、空段落の箇条書き、フィールド独自 pPr、表の共有辺/スタイル等。全操作一致は未完了。4173 と .pnpm-store を保持し、PR #287 のみに集約。
 
 ## 2026-10-02: 図形フィールドの実効文字書式
@@ -342,7 +342,7 @@
 
 ## 2026-10-02: 段落末尾書式を既存文字から分離
 
-- endParaRPr を既存の最終 run / field に継承していた共有 resolver を修正。null（段落末尾の入力位置）のみ適用する。根拠は ECMA-376 §21.1.2.2.3 と Microsoft SDK EndParagraphRunProperties remarks（新しい文字挿入用）。
+- endParaRPr を既存の最終 run / field に継承していた共有 resolver を修正。null（段落末尾の入力位置）のみ適用する。根拠は ECMA-376 §21.1.2.2.3 と Open XML SDK EndParagraphRunProperties remarks（新しい文字挿入用）。
 - 図形と通常文字・フィールド混在の表で、変更前に 48pt・太字が既存文字へ漏れることを再現。保存再読込と入力位置の書式保持を検証。
 - 既存の選択書式テストが endParaRPr を本文の太字として用いていたため、本文 rPr で太字を指定する fixture に訂正。前回の copyTextRange selector 拡張に追従していなかったテスト callback の型エラーも修正。
 - 検証: core 3292 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査・build 成功。関連 browser 4 件成功。
@@ -377,7 +377,7 @@
 
 ## 2026-10-02: 縦結合セルの集計行を Mac 実機に合わせる
 
-- Mac PowerPoint の reference.pptx で 3×3 表の第 1 列を Table Layout > Table > Select Column > Merge Cells により縦結合。Header Row を外し、Total Row の on/off を比較。on では結合セル全体が accent1 の青、off では帯の淡色になることを画面で確認した。結合セルの開始行ではなく終端が最終行に達することが集計行の条件。
+- 参照デスクトップアプリ (Mac) の reference.pptx で 3×3 表の第 1 列を Table Layout > Table > Select Column > Merge Cells により縦結合。Header Row を外し、Total Row の on/off を比較。on では結合セル全体が accent1 の青、off では帯の淡色になることを画面で確認した。結合セルの開始行ではなく終端が最終行に達することが集計行の条件。
 - `tableStylePartsForCell` の lastRow および下隅の行判定を rowSpan の終端へ変更。lastCol は未確認のため変更していない。回帰テストは変更前に淡色の誤表示で失敗、変更後は on/off と保存再読込に成功。
 - 検証: core 3283 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査と build も成功。
 - 一時変更は表挿入・結合・Header Row・Total Row の on/off の計 5 操作を Undo し、Undo disabled / Redo Table を確認して保存済み。未復元変更なし。
@@ -385,7 +385,7 @@
 
 ## 2026-10-02: No Style, Table Grid の組み込み定義
 
-- GUID `{5940675A-B579-460E-94D1-54222C63F5DA}` のみの表で、塗りなし・tx1 色の 1pt 外周/内部罫線を解決。定義は Microsoft SDK TableStyle remarks の ISO/IEC 29500 例が根拠。空の条件領域は省略している。
+- GUID `{5940675A-B579-460E-94D1-54222C63F5DA}` のみの表で、塗りなし・tx1 色の 1pt 外周/内部罫線を解決。定義は Open XML SDK TableStyle remarks の ISO/IEC 29500 例が根拠。空の条件領域は省略している。
 - 6 個のスタイルオプション全 64 組み合わせ、全セルの四辺、対角線なし、保存再読込を回帰テストで確認。追加前は fill=inherit の失敗を再現した。
 - 検証: core 3282 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査・build、Svelte check 0 errors/warnings。
 - この GUID の Mac 実機比較は未実施。他の組み込み GUID、結合・共有辺、非単色塗り、tblBg は未完了。全操作一致は未完了。
@@ -394,8 +394,8 @@
 ## 2026-10-02: 帯スタイルの罫線
 
 - band1H/band2H/band1V/band2V の明示した辺を、表内部でもそのセルの辺として解決。辺が未指定の場合は insideH/insideV を維持する。明示辺と内部罫線の共存を回帰テストに追加。
-- 根拠: LibreOffice `oox/source/drawingml/table/tablecell.cxx` の applyTableStylePart と pushToXCell（https://github.com/LibreOffice/core/blob/master/oox/source/drawingml/table/tablecell.cxx）。これは他実装との照合であり、PowerPoint 実機の帯罫線一致は未検証。完全一致の証拠とはしない。
-- PowerPoint 画面取得成功。reference.pptx は Outline title / Ordinary text box、保存済み、Undo 無効。結合操作の試行で生じた表挿入・Total Row・サイズ変更は全て取り消し済み。結合セルの条件領域がアンカー基準か端基準かは未確定。
+- 根拠: LibreOffice `oox/source/drawingml/table/tablecell.cxx` の applyTableStylePart と pushToXCell（https://github.com/LibreOffice/core/blob/master/oox/source/drawingml/table/tablecell.cxx）。これは他実装との照合であり、参照デスクトップアプリ実機の帯罫線一致は未検証。完全一致の証拠とはしない。
+- 参照デスクトップアプリ画面取得成功。reference.pptx は Outline title / Ordinary text box、保存済み、Undo 無効。結合操作の試行で生じた表挿入・Total Row・サイズ変更は全て取り消し済み。結合セルの条件領域がアンカー基準か端基準かは未確定。
 - 検証: core 3281 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査と build、site Svelte check 成功。
 - 未完了項目は下記の表外観記録を参照。全操作一致は未完了。
 
@@ -406,14 +406,14 @@
 - fillRef/lnRef のテーマ行列参照、背景塗り参照、phClr と色変換を解決。既定 Medium Style 2 – Accent 1 は GUID のみでも実機定義から解決する。他の組み込み GUID は未対応。表の寸法はキャッシュし、行列追加・削除時に無効化する回帰を追加。
 - 未完了: gradient/pattern/image の実描画、罫線競合の完全な優先順位、結合セルをまたぐ部分的な共有辺、結合領域の lastRow/lastCol スタイル選択、帯領域の辺解決、表背景 tblBg。
 - 最終 core 検証: 3280 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査と build、Svelte 0 errors/warnings。最終ビルドの表文字編集 browser 2 件成功。site/dev の単体 154 件成功。
-- PowerPoint の reference.pptx は画面取得・保存済み・Undo 無効を再確認。未復元変更なし。ユーザーの 4173 と .pnpm-store は保持。全 PowerPoint 操作一致は未完了。
+- 参照デスクトップアプリの reference.pptx は画面取得・保存済み・Undo 無効を再確認。未復元変更なし。ユーザーの 4173 と .pnpm-store は保持。参照デスクトップアプリの全操作一致は未完了。
 
 ## 2026-10-02: 埋め込み表スタイルの文字書式
 
 - 既存 `getTableCellRunFormatEffective` に `tableStyles.xml` の `tcTxStyle` 継承を統合。wholeTbl・帯・行列端・四隅の順序、直接フォント・テーマフォント・色・太字・斜体を扱う。セル側の明示書式を優先する。
 - 通常表示（SVG / foreignObject）と編集・内部コピーの回帰テストを追加。行・列の書式重複、明示 off、テーマフォントも確認。core3269成功/109skip、site135成功、dev19成功、関連browser4成功。format/lint/root・preview・DSL・dev型検査、core/preview/DSL/dev build、Svelte 0 errors/warnings。
-- PowerPoint 接続が復旧し、reference.pptx の画面と保存状態を再確認。一時挿入した表を保存した検証用コピーは `/tmp/pptx-outline-audit/native-table-style.pptx`。Mac が既定 GUID のスタイル定義を tableStyles.xml に保存することを確認した。参照元は表を Undo して保存済み、文字は Outline title / Ordinary text box、未復元変更なし。
-- 残件: 定義のない組み込み GUID、tcStyle の塗り・罫線、空段落 / field の文字書式。今回の文字継承は完全な表スタイル対応を意味しない。全 PowerPoint 操作一致も未完了。
+- 参照デスクトップアプリ接続が復旧し、reference.pptx の画面と保存状態を再確認。一時挿入した表を保存した検証用コピーは `/tmp/pptx-outline-audit/native-table-style.pptx`。Mac が既定 GUID のスタイル定義を tableStyles.xml に保存することを確認した。参照元は表を Undo して保存済み、文字は Outline title / Ordinary text box、未復元変更なし。
+- 残件: 定義のない組み込み GUID、tcStyle の塗り・罫線、空段落 / field の文字書式。今回の文字継承は完全な表スタイル対応を意味しない。参照デスクトップアプリの全操作一致も未完了。
 - 4173 のユーザー編集と .pnpm-store は保持。PR は引き続き #287 のみ。
 
 ## 2026-10-02: 表の段落既定文字書式
@@ -423,7 +423,7 @@
 - 検証: core3266成功/109skip、site135成功、dev19成功、最終ビルドの関連browser5件成功。format/lint/root・preview・DSL・dev型検査、core/preview/DSL/dev build、Svelte 0 errors/warnings。
 - 残件: `tableStyles.xml` の `tcTxStyle` と条件領域の継承、組み込みGUIDのスタイル定義、空段落/fieldの実効書式。新APIの現時点の対応範囲はセル内の文字書式とテーマであり、完全な表スタイル対応ではない。
 - 次の実装は既存APIを拡張する。TableCellDataには既にCELL_ROW/CELL_COL/CELL_TABLEがあるため、行列引数の追加は不要。スタイルpartをリレーションから取得し、wholeTbl/帯/端/角の優先順位を仕様と実機で確認する。GUIDのみで定義がない組み込みスタイルも残件として扱う。
-- PowerPointは起動検出されるがcgWindowNotFoundで画面取得不可。今回ネイティブ文書の変更は行っていない。以前の記録ではreference.pptxはUndo disabled・復元済みだが、現在画面での再確認はできていない。
+- 参照デスクトップアプリは起動検出されるがcgWindowNotFoundで画面取得不可。今回ネイティブ文書の変更は行っていない。以前の記録ではreference.pptxはUndo disabled・復元済みだが、現在画面での再確認はできていない。
 - 全操作一致は未完了。4173のユーザー編集と.pnpm-storeは引き続き保持する。
 
 ## 2026-10-02: 下線色の独立編集
@@ -442,7 +442,7 @@
 - 表セルの明示的なscheme色はスライドのカラーマップとテーマで解決して編集HTMLへ渡す。表スタイル継承と色変換の完全な解決は引き続き残件。
 - アウトラインはUI前景色を継承するため、SVG背景の固定色を導入していない。特殊下線の完全な表示は残件。Mac全フォントでの線幅・波形の一致、normalizeHeight描画、全操作一致も未完了。
 - 検証: core3250成功/109skip、site134成功、関連browser7件成功。format/lint/root・DSL型検査、core・preview・editor build、Svelte 0 errors/warnings。
-- PowerPoint接続と画面取得は復旧。reference.pptxのUndo無効、Outline title表示を確認。今回ネイティブ文書は変更していない。
+- 参照デスクトップアプリ接続と画面取得は復旧。reference.pptxのUndo無効、Outline title表示を確認。今回ネイティブ文書は変更していない。
 
 ## 2026-10-02: 編集開始時とHTML貼り付けの下線保持
 
@@ -458,7 +458,7 @@
 - 下線のDrawingML値をSVGへ渡す際の単線への丸めを撤去。二重線・太線・点線・長破線・鎖線・二重波線を明示的なSVG線/パスで描画。単語のみの下線は計測済みtoken幅で空白を除く。通常単線のフォント固有下線位置は従来のtext-decorationを保持。
 - HTML側はCSS下線とSVG背景パターンで描き分ける。Chromiumでは太い破線のtext-decoration-thicknessが表示に反映されないため、点線/破線系も背景パターンを利用。strikeは別spanで単線を維持。
 - ブラウザーの18設定で画像が区別でき、文字の位置・幅・高さが不変なことを確認。resvgでも18設定とstrike併用を実画像で検証。関連単体109件成功。線幅・波形寸法のMac完全一致を証明したものではない。
-- Mac PowerPointの下線選択メニューを取得できた。メニュー確認のみで文書変更なし。reference.pptxのUndo disabled、未復元変更なし。
+- 参照デスクトップアプリ (Mac)の下線選択メニューを取得できた。メニュー確認のみで文書変更なし。reference.pptxのUndo disabled、未復元変更なし。
 - 表セル選択時のホームFont操作を有効化。太字・サイズ・大文字小文字変更をセルへ適用し、ダイアログのセル書式取得を共通化。ホーム太字とダイアログ文字間隔、選択外保持、Undoをブラウザーで確認。表スタイル等の継承書式表示は未完了。
 - 品質確認: core3248件/109skip、site133件、format/lint/typecheck/core・preview・dev build/DSL typecheck、Svelte check成功。
 - 残件: inline編集中の特殊下線表示、下線色、Equalize character heightの実描画、表セルの完全な継承書式読取り、全操作の実機比較。全操作一致は未完了。
@@ -469,7 +469,7 @@
 - OOXMLの `b="false"` / `i="false"` をオンとして読む不具合を修正。1/true/0/falseと、継承元オンに対する明示オフの保存再読込を検証。
 - SVGのsmall capsは小文字由来の文字を小さな大文字として描画・計測し、元の大文字と行メトリクスを保持。縮小率0.8は近似であり、Mac実機の全フォント一致は未確認。
 - format/lint/core typecheck、core/preview/editor build、DSL typecheck、Svelte 0 errors/warnings、core3236件成功/109skip。結合文字・折返しの追加修正後はsmall caps/text layout/SVG modesの66件成功。FontDialogブラウザー回帰成功。
-- PowerPoint画面取得は復帰。reference.pptxはOutline title / 44pt、Undo disabledを実機確認。一時変更の復元待ちはなし。下線メニューを開くと画面取得0×0になる事象があったが、通常画面は取得できている。
+- 参照デスクトップアプリ画面取得は復帰。reference.pptxはOutline title / 44pt、Undo disabledを実機確認。一時変更の復元待ちはなし。下線メニューを開くと画面取得0×0になる事象があったが、通常画面は取得できている。
 - 残件: 下線色、下線各種の実描画、Equalize character heightの実描画、表セルの継承書式表示など。同一PR #287を継続し、4173の未保存編集と.pnpm-storeは触らない。全操作一致は未完了。
 
 ## 2026-10-02: Font ダイアログ
@@ -497,7 +497,7 @@
 
 ## 2026-10-02: カーニング無効の実機保存形式
 
-- Mac PowerPoint の reference.pptx でタイトル全文44ptを選択し、Font > Character Spacing > Use kerning for fonts を解除して保存すると、該当 a:rPr に `kern="0"` が出力されることを確認。元はrun属性なしで12pt以上を継承。ゼロは無効として描画する根拠になる。
+- 参照デスクトップアプリ (Mac) の reference.pptx でタイトル全文44ptを選択し、Font > Character Spacing > Use kerning for fonts を解除して保存すると、該当 a:rPr に `kern="0"` が出力されることを確認。元はrun属性なしで12pt以上を継承。ゼロは無効として描画する根拠になる。
 - 検証後 Cmd+Z と保存を実行し、Undo disabledを確認。変更前バックアップは `/tmp/pptx-outline-audit/reference-before-kerning.pptx`。復元待ちなし。
 - 複数図形の⌘⇧. / ⌘⇧,、選択外保持、1回のUndo/Redo、保存OOXMLを確認するブラウザー回帰が成功（font-size-multiselect.test.mjs）。表セルは単独拡大18→20pt、矩形4セルの⌘⇧,による縮小18→16pt、選択外保持、Undo後の全セル書式復元を確認。Outlineを含めた最終ブラウザー回帰5件成功（`/tmp/font-shortcuts-final-browser.log`）。全操作一致は未完了。
 
@@ -590,11 +590,11 @@
 ## 2026-10-02: 動画リボン Reset
 
 - Video Format > Adjust に Reset を追加。色補正・塗り・線・効果・3D書式を除去し矩形へ戻す。動画本体・ポスター・crop・寸法・再生設定は保持し、1回のUndo/Redoに対応。色補正のみを戻すペインのResetとは別操作。
-- PowerPoint実機でRotated WhiteとBeveled Oval Blackのリセット、cropの保持を保存XMLで確認。証拠 `/tmp/pptx-video-ribbon-reset-{styled,result,oval,oval-result,cropped,crop-result}.xml`。参照資料 `/private/tmp/pptx-poster-audit/trim-reset.pptx` はbaselineとバイト一致、復元待ちなし。
+- 参照デスクトップアプリ実機でRotated WhiteとBeveled Oval Blackのリセット、cropの保持を保存XMLで確認。証拠 `/tmp/pptx-video-ribbon-reset-{styled,result,oval,oval-result,cropped,crop-result}.xml`。参照資料 `/private/tmp/pptx-poster-audit/trim-reset.pptx` はbaselineとバイト一致、復元待ちなし。
 - API `resetShapeVideoFormatting` は動画のみ対象。汎用コマンドも音声・オンライン動画・非メディア・ロック中は無効。未知の拡張XMLと保存再読込をユニット検証。
 - core3197件成功/109skip、format/lint/typecheck/core・editor build成功。最終ブラウザー3件成功（動画Reset2件・ヘッダー1件）。後続の汎用コマンド有効条件を含むfocused15件成功、Svelte0 errors/warnings。画像 `/tmp/pptx-video-ribbon-reset.png`。
 - ヘッダー要望は `24b84ffa` で対応済み。同一PR287を継続。確認プレビュー4175 HTTP200、4173の未保存編集には触らない。`.pnpm-store/`は触らない。
-- 次の動画関連の差分: native Cropの画像幅/高さ/offsetとcrop枠位置、動画スタイルギャラリー、配置ボタンの構成、任意画像の画素一致。全体のPowerPoint完全一致は未達成。
+- 次の動画関連の差分: native Cropの画像幅/高さ/offsetとcrop枠位置、動画スタイルギャラリー、配置ボタンの構成、任意画像の画素一致。全体の参照デスクトップアプリ完全一致は未達成。
 
 ## 2026-10-02: 動画修整スライダーのライブ反映
 
@@ -654,10 +654,10 @@
 ## 2026-10-02: キャンバスの縦横比固定
 
 - 検証: 修正前のブラウザー回帰で比率2→2.263851へ崩れることを再現。修正後のresize-geometry 2件、動画リボン1件、site121件、Svelte 0 errors/warnings、editor build成功。Undo後の再選択をテストに追加。全体型検査で前回のCommandDoc変更に対するFakeDocのsetDocumentSetting欠落を検出し、テスト用クラスも追従。
-- Mac PowerPointの参照動画で実測: 固定ONの右下ドラッグで幅10.16→11.93cm・高さ5.72→6.71cm。右辺ドラッグでは幅だけ11.93cmへ変化し高さ5.72cmを維持。固定OFFの右下ドラッグでは幅11.93cm・高さ6.00cmになり自由変形。
+- 参照デスクトップアプリ (Mac)の参照動画で実測: 固定ONの右下ドラッグで幅10.16→11.93cm・高さ5.72→6.71cm。右辺ドラッグでは幅だけ11.93cmへ変化し高さ5.72cmを維持。固定OFFの右下ドラッグでは幅11.93cm・高さ6.00cmになり自由変形。
 - キャンバスはこれまでShiftしか見ていなかったため、ドラッグ開始時に保存済みの縦横比固定を読み、角ハンドルだけに適用する修正を追加。
 - 参照資料 `/tmp/pptx-poster-audit/trim-reset.pptx` は全リサイズをUndoし、固定ONに戻して保存。XMLで位置914400/914400、寸法3657600/2057400、noChangeAspect=1を確認。未復元の変更なし。
-- Shift併用時のPowerPoint実測、古いUndo/Redo履歴をまたぐ縦横比設定、動画書式の未実装項目は引き続き必要。全体の完全一致は未達成。
+- Shift併用時の参照デスクトップアプリ実測、古いUndo/Redo履歴をまたぐ縦横比設定、動画書式の未実装項目は引き続き必要。全体の完全一致は未達成。
 
 ## 2026-10-02: 縦横比固定の保存
 
@@ -677,7 +677,7 @@
 
 ## 2026-10-02: 表紙画像のリセットと省スペース表示の再確認
 
-- Mac PowerPoint の Poster Frame > Reset は先頭フレームで表紙PNGを置換し、動画本体・再生設定を保持する。`/private/tmp/pptx-poster-audit/{before-reset,after-reset}.pptx` が比較資料。Undoして保存済み。
+- 参照デスクトップアプリ (Mac) の Poster Frame > Reset は先頭フレームで表紙PNGを置換し、動画本体・再生設定を保持する。`/private/tmp/pptx-poster-audit/{before-reset,after-reset}.pptx` が比較資料。Undoして保存済み。
 - 同じ操作をエディターに追加。独立した動画デコーダーで先頭フレームを取得し、選択や文書の変更があれば結果を破棄する。既存の setShapeImage とUndo履歴を利用。
 - 検証: Resetブラウザー1件（先頭フレーム画像・動画バイト列・再生設定・非ゼロ停止位置・Undo/Redo・再読込・日本語メニュー）成功。site120件、Svelte 0 errors/warnings、format/lint、editor build成功。
 - 未完了: トリム済み動画でのResetの実機比較、Video Format全体の配置/効果の一致。全体の完全一致は未達成。
@@ -692,7 +692,7 @@
 
 ## 2026-10-02: 回転時の再生バーとヘッダー確認
 
-- Mac PowerPointで音声を90度回転しても再生バーは水平で図形の下に配置されることを確認。一時変更はUndo済み。office-kitの再現テスト失敗後、バーをキャンバス直下に配置して回転から独立させた。
+- 参照デスクトップアプリ (Mac)で音声を90度回転しても再生バーは水平で図形の下に配置されることを確認。一時変更はUndo済み。office-kitの再現テスト失敗後、バーをキャンバス直下に配置して回転から独立させた。
 - ブラウザー5件成功（`/tmp/pptx-transform-browser.log`）：回転動画の実再生/デコード、音声ブックマーク/トリム、動画切替/端の配置、ヘッダー日英900/1500px。グループ子メディア選択の比較は未完了。
 - Svelte 0 errors/warnings、format/lint/root typecheck成功。core変更なし。
 - 確認用4174をChromeの新しいタブで開いた。省スペース化は反映済み。4173の未保存編集は変更していない。
@@ -716,7 +716,7 @@
 ## 2026-10-02: インライン再生ボタンの実機差分
 
 - Bookmark core は `8de023c4` として PR287 にpush済み。下記の「未コミットcore」はこのコミットで解消。UIは引き続き検証中。
-- Mac PowerPoint の専用 `converted-auto.pptx` で、ブックマークなしの状態でも前後ボタンが使えることを確認。前進1回で0:06.74→0:06.99、後退1回で0:06.99→0:06.74。これはブックマーク移動ではなく±0.25秒のシーク。並びは再生・シークバー・後退・前進・時刻・音量。バーは明るいグレー、アイコンは黒。
+- 参照デスクトップアプリ (Mac) の専用 `converted-auto.pptx` で、ブックマークなしの状態でも前後ボタンが使えることを確認。前進1回で0:06.74→0:06.99、後退1回で0:06.99→0:06.74。これはブックマーク移動ではなく±0.25秒のシーク。並びは再生・シークバー・後退・前進・時刻・音量。バーは明るいグレー、アイコンは黒。
 - インラインのスピーカークリックはミュート切替。Undo後に「Redo Media Volume」と表示されるため文書の編集として扱われる。確認用変更はUndo済み（Undo無効を確認）、復元待ちはない。
 - UIレビューで、XML順と時刻順のbookmark index混在、古いplay Promiseのreject、再生後巻戻し、同一IDでのメディア差替え時URL更新を指摘。担当agentへ修正・回帰テストを依頼。未検証のUIを完成扱いしない。
 
@@ -725,13 +725,13 @@
 - `b7925a4c`（トリム時刻精度）はPR287の `feat/pptx-editor` へpush済み。PRはOPEN。CI成功は未確認。
 - 未コミットのbookmark coreは、name+time/name/time/未使用ノードの順で全体を割り当て、先頭追加で既存メタデータを奪わない実装へ修正。参照中のbookmark削除・名前変更を変更前に拒否。検証はcore全3186 passed /109 skipped、対象54件、format/lint/typecheck/build成功。参照保護fixtureは既存timingのcondに配置し、timingが1個・ID重複なしを検証。
 - 未コミットのinline preview UIはレビュー修正中。エディターごとの状態分離、選択変更時停止、正確な時刻、シークバー内のマーカー、トリム/フェード/音量、失敗表示を検証してからコミットする。ブラウザーテストは有効なWAVを使い、保存・再読込・Undo・小数時刻・選択変更を確認すること。未検証のUIを完成扱いしない。
-- ヘッダー省スペース化は実装・日英900/1500px検証済み。4173の未保存編集は再読み込みしない。PowerPointの一時変更の復元待ちはない。
+- ヘッダー省スペース化は実装・日英900/1500px検証済み。4173の未保存編集は再読み込みしない。参照デスクトップアプリの一時変更の復元待ちはない。
 
 ## 2026-10-02: トリム精度とブックマーク実測
 
 - トリムスライダーの step=50 による既存時刻の丸めを修正。step=any で小数時刻と非50ms倍数の終端を保持し、ドラッグ・矢印キーだけ50ms移動。Home/End、逆向きフェードアウトキー、反対側端点のクランプも検証。
 - 5033ms音声のブラウザー回帰で修正前の失敗を確認。修正後は500.25ms開始・250.125msフェードの保存/再読込/Undo、全ハンドルのドラッグ、再生終了・再開、日英ヘッダーが成功。ログ `/tmp/pptx-trim-precision-before.log`、`/tmp/pptx-precision-final-browser.log`。dev build/typecheck、Svelte0 errors/warningsも成功。
-- PowerPoint接続使用可。専用 `/tmp/pptx-audio-across-audit/converted-auto.pptx` でAdd Bookmarkを実測。2件はname="Bookmark 1" time="0"、name="Bookmark 2" time="6747.0924"。画面時刻0:06.74。選択中は黄色丸、未選択は白丸。Add/Removeの有効状態も記録。2回Undo・保存でブックマークなしに復元しXMLも確認。保留の一時変更なし。
+- 参照デスクトップアプリ接続使用可。専用 `/tmp/pptx-audio-across-audit/converted-auto.pptx` でAdd Bookmarkを実測。2件はname="Bookmark 1" time="0"、name="Bookmark 2" time="6747.0924"。画面時刻0:06.74。選択中は黄色丸、未選択は白丸。Add/Removeの有効状態も記録。2回Undo・保存でブックマークなしに復元しXMLも確認。保留の一時変更なし。
 - Bookmark core とインラインプレビューUIは別agentが継続中。未コミット差分を消さず、coreの参照保護・並べ替えテストとUI検証を完了してから統合する。
 
 ## 2026-10-02: 統合トリムタイムライン
@@ -739,7 +739,7 @@
 - 開始・終端・再生位置・フェードを共通時間軸に配置。黄色のトリム、白のフェード、青の再生位置ハンドルをドラッグ/キーボード操作できる。実音声をオフラインでデコードして波形表示。対応しないコンテナは波形不可の表示にする。
 - 検証: 全5ハンドルのドラッグ、50msキー操作、キャンセル、保存・再表示・Undo、再生終端停止が成功。幅の回帰も追加。画像 `/tmp/pptx-trim-timeline.png` を目視確認。Svelte 0 errors/warnings、format/lint、依存順dev build成功。ログ `/tmp/pptx-timeline-browser-final2.log`。
 - ヘッダーの日英900/1500pxブラウザー検証も成功（`/tmp/pptx-timeline-browser-final.log`）。Studio40px、保存状態同一行、重複バー除去、リボン折りたたみは実装済み。元の4173は再読み込みしていない。
-- 厳密なネイティブ外観比較・全UI/操作一致は未完了。PowerPointファイル選択画面の未解決状態は下記追記を参照。次回は残るメディア開始方法・ブックマークと全体レビューを継続。PR287に統合する。
+- 厳密なネイティブ外観比較・全UI/操作一致は未完了。参照デスクトップアプリファイル選択画面の未解決状態は下記追記を参照。次回は残るメディア開始方法・ブックマークと全体レビューを継続。PR287に統合する。
 
 ## 2026-10-02: トリム画面の再生境界
 
@@ -751,7 +751,7 @@
 ## 2026-10-02: メディアのトリム・フェード
 
 - `MediaPlayback.trim` / `fade` と再生リボン、トリム画面を追加。`trim.endMs` は再生終了位置ではなく末尾から除去する時間。未知のXML属性・子要素を保持し、保存・再表示・Undoに対応。
-- Mac PowerPointで開始/末尾トリムとフェードを各50msにした実XMLを確認。専用 `converted-auto.pptx` は3回Undoしてすべて0、長さ10秒に復元・保存・閉じた。復元待ちなし。実測XMLは `/tmp/pptx-native-trim-fade.xml`。
+- 参照デスクトップアプリ (Mac)で開始/末尾トリムとフェードを各50msにした実XMLを確認。専用 `converted-auto.pptx` は3回Undoしてすべて0、長さ10秒に復元・保存・閉じた。復元待ちなし。実測XMLは `/tmp/pptx-native-trim-fade.xml`。
 - スライドショーでトリム境界・フェード・区間ループ・巻き戻しを反映。自然終了時のフォールバックと発表者ミラーも対応。
 - 検証: core全3176 passed /109 skipped後、追加ケースを含むメディア44件成功。再生リボン6件、トリム画面1件（保存・キャンセル・再表示・Undo）、ランタイムのトリム/フェードと自然終了/巻き戻し2件成功。format/lint/types、依存順dev build、Svelte 0 errors/warnings。ログ `/tmp/pptx-trim-core-final.log`、`/tmp/pptx-trim-dialog-final2.log`、`/tmp/pptx-trim-ui.log`（トリム初回失敗はfinal2で修正確認）。
 - 未完了: トリム画面の波形・統合ハンドル等の厳密な外観一致、In Click Sequence、ブックマーク、複雑なタイミング、全UI/操作一致。現在のトリム画面は個別スライダー。全体完成とは扱わない。
@@ -760,7 +760,7 @@
 ## 2026-10-02: 音量メニューの実機照合
 
 - 再生リボンの音量を数値入力から「小・中・大・ミュート」のメニューへ変更。詳細パネルの任意音量指定は維持。
-- 専用 `converted-auto.pptx` をMac PowerPointで操作・保存して確認: Low=20000、Mediumはvol省略（スキーマ既定50000）、High=80000。Muteは既存volを保持してmute=1。チェック済みMuteの再選択でも解除されず、音量レベルを選ぶとmuteを除去する。確認後は元のHigh・ミュートなしに戻して保存し、閉じた。
+- 専用 `converted-auto.pptx` を参照デスクトップアプリ (Mac)で操作・保存して確認: Low=20000、Mediumはvol省略（スキーマ既定50000）、High=80000。Muteは既存volを保持してmute=1。チェック済みMuteの再選択でも解除されず、音量レベルを選ぶとmuteを除去する。確認後は元のHigh・ミュートなしに戻して保存し、閉じた。
 - 76810d7aのCIでStatic checks、OOXML validator、Preview fidelity、Node22/26が成功。以前のLatin折返しfidelity差分は解消。Node24のブラウザーテストは確認時点で実行中。
 - 検証: format/lint/typecheck、依存順dev build、Svelte 0 errors/warnings成功。音量保存・Undo・再読込・日本語・Escape・ヘッダーを含むブラウザー7件成功（`/tmp/pptx-volume-compact-final.log`）。
 - ヘッダーの変更と同じPR287に統合。4173の未保存編集は触らない。全操作の完全一致は引き続き未完了。
@@ -768,9 +768,9 @@
 ## 2026-10-02: ヘッダー確定・ネイティブ音声の開始方法変換
 
 - ヘッダー省スペース化を日英・900/1500pxで再検証。Studioバー40px、保存状態を同じ行、重複ツールバーなし、リボンを閉じると60px以上増える。ログ `/tmp/pptx-compact-oct2-final.log`。
-- ネイティブ背景音声の開始方法を「自動」「クリック時」で相互変換。PowerPointが保存した専用seqの完全一致を条件にし、外部参照や共有アニメーションは変更前に拒否。IDとメディア設定を保持。開始遅延の変更は未対応。
-- `/tmp/pptx-audio-across-audit/converted-click.pptx` と `converted-auto.pptx` をMac PowerPointで開き、修復要求なし、StartがWhen Clicked On / Automaticallyであることを確認。ループ・スライド跨ぎ・非表示も保持。両方とも編集せず、保存要求なしで閉じた。
-- Mac PowerPointのpreset-shapesで、latinLnBrk省略でも図形より長い英単語が折り返されることを確認。SVGにも緊急折返しを適用。通常の残り行幅での単語分割はフラグに従う。fidelity基準値は下げていない。LibreOfficeが応答せずローカル画像比較は未完了、CIで確認する。
+- ネイティブ背景音声の開始方法を「自動」「クリック時」で相互変換。参照デスクトップアプリが保存した専用seqの完全一致を条件にし、外部参照や共有アニメーションは変更前に拒否。IDとメディア設定を保持。開始遅延の変更は未対応。
+- `/tmp/pptx-audio-across-audit/converted-click.pptx` と `converted-auto.pptx` を参照デスクトップアプリ (Mac)で開き、修復要求なし、StartがWhen Clicked On / Automaticallyであることを確認。ループ・スライド跨ぎ・非表示も保持。両方とも編集せず、保存要求なしで閉じた。
+- 参照デスクトップアプリ (Mac)のpreset-shapesで、latinLnBrk省略でも図形より長い英単語が折り返されることを確認。SVGにも緊急折返しを適用。通常の残り行幅での単語分割はフラグに従う。fidelity基準値は下げていない。LibreOfficeが応答せずローカル画像比較は未完了、CIで確認する。
 - 検証: core全3169 passed /109 skipped、最終音声28件、format/lint/typecheck、依存順dev build、preview/DSL/dev typecheck、Svelte 0 errors/warnings。ブラウザー7件成功後、最終変換の保存・再読込・Undoを再実行して成功。ログ `/tmp/pptx-native-convert-unit.log`、`/tmp/pptx-native-convert-target-final.log`、`/tmp/pptx-native-convert-browser-final.log`。
 - 未完了: In Click Sequence、トリム/フェード/ブックマーク、共有された複雑なタイミング、全UI/操作の完全一致。PR287に統合。4173のユーザープレビューは未保存編集があるため変更・再読込しない。
 
@@ -778,7 +778,7 @@
 
 - ヘッダーはStudioバー40px、保存状態を同じ行へ統合、重複ツールバーを非表示、リボン折りたたみに対応済み。compact-editorの900/1500px・日英検証が成功。
 - 音声の「バックグラウンドで再生」を追加。自動開始・999枚・ループ・非表示を一度のUndo単位で設定し、音量・巻き戻しは保持。音声のHide During Showは再生中も非表示（ブラウザーによる自動再生拒否時は再試行UIを表示）。
-- Mac PowerPointの専用サンプルでPlay in Backgroundの4設定、既存Rewind ONの保持、スライドショーで音声アイコン非表示を確認。比較中の一時変更2件はUndoし、Undo無効・各設定OFFを確認して保存要求なしで閉じた。ユーザー文書の変更なし。
+- 参照デスクトップアプリ (Mac)の専用サンプルでPlay in Backgroundの4設定、既存Rewind ONの保持、スライドショーで音声アイコン非表示を確認。比較中の一時変更2件はUndoし、Undo無効・各設定OFFを確認して保存要求なしで閉じた。ユーザー文書の変更なし。
 - ネイティブ保存の背景音声はmedia自身のdelay=indefiniteのまま、mainSeqのonBeginからafterEffect/playFrom(0.0)で開始する。最小XML fixtureを追加して読み込みに対応。複雑なコマンド開始条件は未対応。ネイティブ背景音声の開始方法・遅延変更は、コマンドを壊さないよう原子的に拒否。No StyleのIn Click Sequenceは未実装であり、手動開始で代用しない。
 - 検証: format/lint/root・dev typecheck、core 3166 passed /109 skipped、依存順dev build、Svelte 0 errors/warningsが成功。編集UI・ヘッダー・音声ブラウザー9件成功。ネイティブfixtureを含む音声4件も追加検証。ログは `/tmp/pptx-background-unit.log`、`/tmp/pptx-background-browser.log`、`/tmp/pptx-background-native-final.log`。
 - 全操作の完全一致は未達。Start選択肢・トリム/フェード/ブックマーク・複雑なタイミング・Latin折返しfidelity差分などが残る。PR287に統合を継続。4173のユーザープレビューには未保存編集があるため変更・再読込しない。
@@ -786,7 +786,7 @@
 ## 2026-10-02: 再生終了後の巻き戻し
 
 - 音声・動画の `MediaPlayback.rewindAfterPlaying` と再生リボンの「再生が終了したら巻き戻す」を追加。ONはmediaのcTn@fill=remove、OFFはhold。入れ子のタイミングと無関係な属性を保持し、保存・Undo・再読込に対応。
-- Mac PowerPointで `/tmp/pptx-audio-across-audit/deck.pptx` のRewind After Playingを切り替えて保存し、上記XML差分を実測。OFFへ戻して保存し、閉じた。ユーザー資料の変更・復元待ちはなし。
+- 参照デスクトップアプリ (Mac)で `/tmp/pptx-audio-across-audit/deck.pptx` のRewind After Playingを切り替えて保存し、上記XML差分を実測。OFFへ戻して保存し、閉じた。ユーザー資料の変更・復元待ちはなし。
 - プレビューは観客側の自然終了時だけ先頭へ戻して停止。発表者ミラーは観客側の同期に従う。OFFの動画は終端を保持。
 - 旧UIの回帰失敗を確認 `/tmp/pptx-rewind-ui-before.log`。UI6/6成功（音声/動画・直接/入れ子・Undo/保存/再読込/日本語・ヘッダー）、Svelte0 errors/warnings。core全3160 passed /109 skipped、format/lint/types/build成功。ログ `/tmp/pptx-rewind-tests.log`、`/tmp/pptx-rewind-ui-final.log`。最終runtime検証は `/tmp/pptx-rewind-final-runtime.log`、依存順ビルドは `/tmp/pptx-rewind-final-build.log`。
 - 未完了: ネイティブの再生位置・最終フレームの厳密な比較、Start追加選択肢、Play in Background、トリム・フェード・ブックマーク、複雑な開始条件、Latin折返しfidelity差分など。全UI・全操作の完全一致は未達成。PRは287に統合し続ける。
@@ -794,7 +794,7 @@
 ## 2026-10-02: 複数スライド音声の再生リボンと実機確認
 
 - 音声の再生リボンに Play Across Slides / スライド切り替え後も再生を追加。ONで999枚、OFFで既定の1枚。既存の有限範囲はチェック状態として読み取り、他のオプションを操作しても保持。詳細の再生オプションでもslideCountを編集可能。
-- Mac PowerPointの接続が復旧。以前の `pptx-native-wrap-oct2` アクセス要求2件をキャンセルし、専用の `/tmp/pptx-audio-across-audit/deck.tsx` をDSLで生成して比較。PowerPointのPlaybackタブのチェックを入れて保存すると `p:cMediaNode vol="80000" numSld="999"`、外して保存するとnumSld属性なしとなることをZIP内XMLで確認。サンプルはOFFで保存して閉じた。ユーザー文書の変更なし。
+- 参照デスクトップアプリ (Mac)の接続が復旧。以前の `pptx-native-wrap-oct2` アクセス要求2件をキャンセルし、専用の `/tmp/pptx-audio-across-audit/deck.tsx` をDSLで生成して比較。参照デスクトップアプリのPlaybackタブのチェックを入れて保存すると `p:cMediaNode vol="80000" numSld="999"`、外して保存するとnumSld属性なしとなることをZIP内XMLで確認。サンプルはOFFで保存して閉じた。ユーザー文書の変更なし。
 - 旧ビルドでチェックボックスが存在せず回帰テスト失敗を確認（`/tmp/pptx-across-ui-regression.log`）。format/lint、Svelte 0 errors/warnings、site117件、依存順dev build成功。ブラウザー6/6成功（直接/入れ子の音声・動画、複数スライド設定のUndo/保存/再読込/日本語/動画非表示、ヘッダー）。最終ログは `/tmp/pptx-across-ui-final.log`。
 - 未完了: 実機のStartにある追加選択肢、Rewind After Playing、Play in Background、トリム・フェード・ブックマーク、入れ子の複雑な開始条件、Latin単語折返しのfidelity差分など。接続が使える間に実機比較を進める。全操作の完全一致は未達成。
 
@@ -804,7 +804,7 @@
 - 旧実装でスライド移動時の停止を再現（`/tmp/pptx-across-before.log`）。音声、遅延、インライン動画、全画面動画、発表者ビューのブラウザー4件成功（`/tmp/pptx-across-browser.log`）。追加した古いコマンドの回帰も成功（`/tmp/pptx-across-final-browser.log`）。
 - format/lint/root・dev typecheck/test/build成功。3158 passed / 109 skipped。依存順dev buildも成功。ヘッダー日英900/1500pxの再検証も成功。
 - 未完了: 再生リボンへの複数スライド設定、動画の複数スライド挙動、途中へのジャンプ・戻り・custom showの実機比較、背景音声の発表者ビュー操作。現在の保持範囲はshowCursorと起点の差で判定。完全一致とはしない。
-- 元プレビュー4173は変更せず、確認コピー4174をChromeで開いた。保存競合の通知は保持。既存のPreview fidelity差分とPowerPoint実機比較も残る。
+- 元プレビュー4173は変更せず、確認コピー4174をChromeで開いた。保存競合の通知は保持。既存のPreview fidelity差分と参照デスクトップアプリ実機比較も残る。
 
 ## 2026-10-02: メディアの再生スライド数
 
@@ -812,7 +812,7 @@
 - 根拠: references/ecma-376-5th/ECMA-376/OfficeOpenXML-XMLSchema-Transitional/pml.xsd:601、および https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.commonmedianode 。
 - format/lint/typecheck/test/build成功。3158 passed / 109 skipped。ヘッダーの既存ブラウザー検証も日英900/1500pxで再実行成功。
 - 実際のスライド跨ぎ再生は未実装。`page.ts` のrender/syncMediaPlayerがスライド変更時にdisposeする。次は再生要素の保持、再生範囲終了・ショー終了時の破棄、同じshapeIdを持つ別スライドの区別、発表者ビュー同期を一体で実装する。API対応だけを再生機能完成としない。
-- PowerPoint AppleScriptのバージョン取得は16.113.3で成功。一時コピー `/tmp/pptx-native-wrap-oct2/preset-shapes.pptx` のPDF書出しは2回ともタイムアウト。比較用コピーは保存せず閉じた。ユーザー資料の変更・復元待ちはなし。latinLnBrkの描画差分は未解決。
+- The reference desktop app AppleScriptのバージョン取得は16.113.3で成功。一時コピー `/tmp/pptx-native-wrap-oct2/preset-shapes.pptx` のPDF書出しは2回ともタイムアウト。比較用コピーは保存せず閉じた。ユーザー資料の変更・復元待ちはなし。latinLnBrkの描画差分は未解決。
 - CI 36897221430は静的検査、Node22/26、Open XML SDK成功。最終確認時Node24実行中、Preview fidelity失敗。完全一致は未達成。
 
 ## 2026-10-02: 入れ子メディアの再生設定
@@ -823,7 +823,7 @@
 - 回帰再現: `/tmp/pptx-nested-browser-before.log`、`/tmp/pptx-media-volume-before.log`、`/tmp/pptx-subordinate-before.log`、`/tmp/pptx-media-reference-before.log`。最終対象ユニット46件成功。
 - 最終ブラウザー4/4成功（`/tmp/pptx-nested-final-browser.log`）。直接/入れ子の音声・動画についてUndo、保存、再読込、日英表示を確認。
 - 最終format/lint/typecheck/test/buildと依存順dev build成功。3150 passed / 109 skipped（`/tmp/pptx-nested-gates-final.log`、`/tmp/pptx-nested-build-final.log`）。
-- PowerPoint実機は再試行したがscreen capture 0×0で取得失敗。実機の変更なし、復元待ちなし。元のユーザープレビューも変更・再読み込みしていない。全体の完全一致は未達成。
+- 参照デスクトップアプリ実機は再試行したがscreen capture 0×0で取得失敗。実機の変更なし、復元待ちなし。元のユーザープレビューも変更・再読み込みしていない。全体の完全一致は未達成。
 
 ## 2026-10-02: アニメーション削除時の入れ子メディア保持
 
@@ -839,7 +839,7 @@
 - 単一のメディアを選択した場合に「再生」コンテキストタブを表示。自動/クリック開始、ループ、音量%、ミュート、動画の全画面、停止中非表示を直接設定。自動開始時は別Timingグループで秒単位の遅延を編集。既存API経由のtransactでUndo/保存対応。
 - 1.001秒などの浮動小数点誤差はミリ秒変換時に丸め、入力のstep検証で桁を制約。汎用設定画面にもdelayMsを追加。日英翻訳を追加。
 - 修正前は再生タブがなく音声・動画テスト2件失敗（`/tmp/pptx-media-editor-before.log`）。修正後2件＋既存compactヘッダー1件成功。保存、Undo、再読込、1001ms遅延、音量25%、ミュート、非表示、動画のみ全画面、日本語の開始操作を確認。site117件成功、Svelte0 errors/warnings、dev build成功。
-- 日本語動画リボン画像 `/tmp/pptx-media-editor-video.png` を目視確認。PowerPoint実機は今回も0×0で取得失敗。Microsoftの操作説明を参照: https://support.microsoft.com/en-us/powerpoint/insert-and-play-a-video-file-from-your-computer 。ネイティブ版との見た目完全一致は未検証。
+- 日本語動画リボン画像 `/tmp/pptx-media-editor-video.png` を目視確認。参照デスクトップアプリ実機は今回も0×0で取得失敗。ベンダーのヘルプ記事「Insert and Play a Video File From Your Computer」を参照。ネイティブ版との見た目完全一致は未検証。
 - 最終format/lint/root typecheck/test/build成功。core 3125 passed / 109 skipped。ログ `/tmp/pptx-media-editor-gates.log`、`/tmp/pptx-media-editor-tests.log`。
 - 全体の完全一致は未完了。クリックシーケンス、入れ子タイミング、numSld、オンライン再生、従来fidelity差分などは残件。ユーザーの既存プレビューや編集資料は変更していない。
 
@@ -850,29 +850,29 @@
 - 修正前は1.2秒遅延を設定しても300ms時点で再生済みとなる回帰失敗を確認（`/tmp/pptx-delay-before.log`）。修正後ブラウザー音声/動画2件、発表者通常/全画面2件成功。終了後の予約解除、手動再生後のpause、再訪時のリセットも検証。
 - format/lint/root・dev型検査、core全3124 passed / 109 skipped、依存順dev build成功。ログ `/tmp/pptx-delay-gates.log`、`/tmp/pptx-delay-tests.log`、`/tmp/pptx-delay-browser.log`、`/tmp/pptx-delay-presenter.log`。
 - レビュー後、delay変更時に追加開始条件が消える問題を回帰失敗で再現し、既存の自動開始条件だけ更新するよう修正。最終対象24件、lint/types/core build成功。
-- 全UI・全操作の一致は未完了。クリックシーケンスと親タイミング条件、numSld、オンライン再生、PowerPoint実機比較、既存fidelity差分は残件。ユーザーの編集中プレビューは変更していない。
+- 全UI・全操作の一致は未完了。クリックシーケンスと親タイミング条件、numSld、オンライン再生、参照デスクトップアプリ実機比較、既存fidelity差分は残件。ユーザーの編集中プレビューは変更していない。
 
 ## 2026-10-02: メディア開始条件と削除時のタイミング保持
 
 - `evt="onClick" delay="0"` が自動再生と判定される不具合を回帰テストで再現し、イベント条件を自動再生から除外。OOXML の delay はイベント発生後の遅延であり、ゼロでもクリック待ちを意味する。根拠: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.condition?view=openxml-3.0.1 。
 - 入れ子のメディア timing 削除を修正。childTnLst/subTnLst/tnLst 内の対象を削除し、空になったリストのみ除去。親の開始条件、別のルート、対象外のメディアを保持。入れ子の開始条件を自動再生 boolean へ単純に変換すると親のクリック待ちを失うため、開始条件モデルとクリックシーケンスの実装は残件。
 - 検証: 修正前 helper は新規5件中4件失敗（`/tmp/pptx-media-timing-before.log`）。修正後関連50件、全体3114 passed / 109 skipped、format/lint/types/core build成功。入れ子削除はXSD検証も実行。全体ログ `/tmp/pptx-media-timing-full.log`。依存順dev buildも成功。レビューで指摘された最後のtop-level media削除について追加XSDテストを実行し、空のtimingはCT_SlideTimingの全子要素optionalにより有効と確認（新規6件通過）。ブラウザー音声・動画再生各1件成功（`/tmp/pptx-media-timing-browser.log`、`/tmp/pptx-media-timing-video.log`）、dev型検査成功。
-- PowerPoint 実機は今回も画面サイズ0×0で取得失敗。ネイティブ文書・設定の変更なし。全操作・UI完全一致は未完了。
+- 参照デスクトップアプリ実機は今回も画面サイズ0×0で取得失敗。ネイティブ文書・設定の変更なし。全操作・UI完全一致は未完了。
 
 ## 2026-10-02: UI再確認と発表者メディア操作
 
 - ユーザーが指摘したヘッダーの省スペース化・文字編集の透明背景・フォント候補は既存実装済み。最新dev buildで3ブラウザーテスト成功（`/tmp/pptx-ui-current.log`）。ヘッダーは日英900/1500pxで検証。元のプレビューは再読み込みしていない。
 - 確認用コピーを `/tmp/pptx-ui-review-GrRM4J/` に作成し `http://127.0.0.1:4174/` で起動、新しいChromeタブで開いた。元資料の保存済み4スライドと競合状態を保持。元は `/tmp/pptx-user-preview/`、4173。確認画像 `/tmp/pptx-current-header.png`。競合通知は消していない。
 - 発表者ビューに無音の動画ミラーと再生・一時停止・位置操作を追加。観客側の状態を250msごとの小さいメッセージで同期、スライド別キーで古い操作を拒否。全画面動画は発表者の現在スライド枠内に表示する。shadow hostのlight DOMには表示されない不具合を実ブラウザーで再現し、shadow tree内へoverlayを置いて修正。
-- 最新の発表者通常/全画面2件成功（`/tmp/pptx-presenter-final.log`）。無音、双方向操作、シーク、遷移と終了時の破棄、全画面枠寸法を検証。両モードの画像を目視確認。既存ショー/動画と初期発表者テスト9件、音声/配信2件、dev単体19件も成功。format/lint/dev型検査/build成功。Mac PowerPoint実機との完全一致は未確認。
+- 最新の発表者通常/全画面2件成功（`/tmp/pptx-presenter-final.log`）。無音、双方向操作、シーク、遷移と終了時の破棄、全画面枠寸法を検証。両モードの画像を目視確認。既存ショー/動画と初期発表者テスト9件、音声/配信2件、dev単体19件も成功。format/lint/dev型検査/build成功。参照デスクトップアプリ (Mac)実機との完全一致は未確認。
 - 残件: メディアのクリックシーケンス、numSld、ナレーション、オンライン再生、ネイティブ同等の再生UIなど。従来のPreview fidelity差分は未解決。全体完了ではない。
 
 ## 2026-10-02: 動画の全画面再生
 
 - 保存済み fullScreen=true の video を、ショー中の再生開始時に viewport 全体へ表示。縦横比を維持し、同一 video 要素で一時停止・再開する。終了後は元の位置のポスターと再生ボタンへ戻り、hideWhenStopped はポスターも非表示。開始時・終了時・破棄時のフォーカスを管理する。
-- Microsoft の Mac 向け説明は、再生開始時に画面全体へ拡大することを明記: https://support.microsoft.com/en-us/powerpoint/set-a-video-to-play-full-screen 。終了・Escape・複数全画面動画の競合時の詳細は実機未確認。現状の Escape はショー全体を終了する。
+- ベンダーの Mac 向けヘルプ記事「Set a Video to Play Full Screen」は、再生開始時に画面全体へ拡大することを明記。終了・Escape・複数全画面動画の競合時の詳細は実機未確認。現状の Escape はショー全体を終了する。
 - 旧 dist で開始操作が存在しない失敗を再現（/tmp/pptx-fullscreen-old.log）。既存メディア/ショー7件、dev unit19件、format/lint/dev型検査/build成功。新規全画面動画2件は手動再生・pause/resume・同一要素再利用・終了とEscape破棄・autoplay/hideWhenStopped・フォーカス復帰を検証。全画面と復帰後のスクリーンショットを目視し、ポスター上の不要な標準ボタン表示を除去した。
-- PowerPoint は今回も画面サイズ0×0で取得失敗。ネイティブ文書・設定は変更していない。残件は発表者動画同期、クリックシーケンスのメディア開始、numSld、ナレーション、オンラインメディア、再生UIの一致など。
+- 参照デスクトップアプリは今回も画面サイズ0×0で取得失敗。ネイティブ文書・設定は変更していない。残件は発表者動画同期、クリックシーケンスのメディア開始、numSld、ナレーション、オンラインメディア、再生UIの一致など。
 - 45490f9c の CI: Static/Node22/Node26/OOXML成功、Node24は確認時進行中。Preview fidelity は従来と同じ 05-preset-shapes slide1 の 0.6161 vs baseline0.7731 で失敗（/tmp/pptx-fullscreen-existing-fidelity.log）。全体完了ではない。
 
 ## 2026-10-02: 埋め込みメディアの実再生
@@ -880,20 +880,20 @@
 - dev の build manifest に audio/video/online のメディア情報を追加。HTTP state は埋め込みバイナリを含まず、SHA-256 URL に置換し、同じデータを共有。専用 endpoint は MIME / immutable cache / Range 206・416 を返す。
 - audience のショー中のみ SVG のポスター画像を HTML audio/video に置換。元画像の座標と親グループ変換を維持。autoplay / loop / volume / mute、終了時の hideWhenStopped、スライド移動・ショー終了時の停止と復元に対応。更新内容が同じなら再生要素を維持する。
 - 実 WAV の時間進行、保存属性、移動時停止、再訪時先頭復帰、更新時維持、メディアへフォーカス中の Escape を検証。ブラウザー生成 VP8 WebM を Space キーで再生し、実デコード寸法・終了時非表示を検証。配信の重複排除・部分/末尾 Range・416 も検証。最終3件成功（/tmp/pptx-media-final.log）。既存ショーと合わせた7件も成功（/tmp/pptx-media-browser.log）。dev unit19件、format/lint/dev型検査/build成功。
-- 未完了: fullScreen 属性、発表者ビューの動画同期・遠隔再生操作、PowerPoint と同じ再生コントロール、クリックシーケンス内でのメディア開始、スライドをまたぐ再生（numSld）、ナレーション識別、オンラインメディア、ブラウザー非対応 codec。今回をメディア完全一致とは扱わない。現状はブラウザー標準コントロールで再生し、失敗時に再試行を表示する。
-- PowerPoint の読み取り接続を再試行したが、画面サイズ0×0で失敗。文書・設定の変更なし。pause/waiting を showWhenStopped の終了と同一視する変更は、実機の裏付けなく行っていない。
+- 未完了: fullScreen 属性、発表者ビューの動画同期・遠隔再生操作、参照デスクトップアプリと同じ再生コントロール、クリックシーケンス内でのメディア開始、スライドをまたぐ再生（numSld）、ナレーション識別、オンラインメディア、ブラウザー非対応 codec。今回をメディア完全一致とは扱わない。現状はブラウザー標準コントロールで再生し、失敗時に再試行を表示する。
+- 参照デスクトップアプリの読み取り接続を再試行したが、画面サイズ0×0で失敗。文書・設定の変更なし。pause/waiting を showWhenStopped の終了と同一視する変更は、実機の裏付けなく行っていない。
 - PR #287 は OPEN、head feat/pptx-editor。bcfea96d の Static/Node22/Node26/OOXML は成功、Node24/Preview fidelity は確認時進行中。全UI・全操作一致は引き続き未完了。
 
 ## 2026-10-02: ショー設定の抑止チェックと kiosk restart
 
 - 日本語の「ナレーション/アニメーションを表示しない」が正の OOXML 属性へ直結していた逆転を再現・修正。英語も Show without ... に統一。チェックは属性の否定として保存し、キャンセル・Undo・保存後の再読込を検証した。
 - kiosk の正の restart ミリ秒を再生開始から計測し、現在のショー先頭へ戻す。自動ループで再計測し、終了時にタイマーを解除。ブラウザーのタイマー上限を超える期間も分割して待機する。
-- restart=0 の実機での意味、リンクで入れ子にした custom show の期限継承は未確認。現状は 0 をスケジュールせず、リンク中も全体の期限を継承し、その時点のショー先頭へ戻る。PowerPoint 完全一致と扱わない。
+- restart=0 の実機での意味、リンクで入れ子にした custom show の期限継承は未確認。現状は 0 をスケジュールせず、リンク中も全体の期限を継承し、その時点のショー先頭へ戻る。参照デスクトップアプリ完全一致と扱わない。
 - 発表者ビューでボタンにフォーカスがあると Esc が無視される不具合を新テストで再現して修正。初期の kiosk テストタイムアウトは再起動失敗の証拠ではなく、この終了操作によるものだった。
 - 検証: core 3106 passed / 109 skipped、site 117 passed、Svelte 0 errors/warnings。依存順 build、format/lint/root/dev 型検査成功。設定・custom show・ヘッダー6件成功、最終の再生/発表者/kiosk 9件成功（/tmp/pptx-kiosk-final.log）。
 - 実機取得は引き続き画面0×0で失敗。今回ネイティブ操作・文書変更はなく復元待ちはない。
 - メディア監査: core は埋め込み audio/video と再生属性を扱うが、preview はポスターのみ。dev の manifest/bytes 配信、video/audio プレイヤー、発表者ビュー同期、ナレーション識別・再生、Playback リボンは未実装。showNarration の保存対応を音声再生完了と扱わない。
-- 描画 CI の長い Latin 単語の折り返し差分は LibreOffice 基準。latinLnBrk=false を無視する変更は PowerPoint の裏付けがないため採用していない。fc23c22e の Static/Node22/Node26/OOXML は成功、Preview fidelity は 05-preset-shapes slide1 fg-SSIM 0.6161 vs baseline0.7731 で失敗（/tmp/pptx-fidelity-fc23.log）、Node24 は確認時進行中。
+- 描画 CI の長い Latin 単語の折り返し差分は LibreOffice 基準。latinLnBrk=false を無視する変更は参照デスクトップアプリの裏付けがないため採用していない。fc23c22e の Static/Node22/Node26/OOXML は成功、Preview fidelity は 05-preset-shapes slide1 fg-SSIM 0.6161 vs baseline0.7731 で失敗（/tmp/pptx-fidelity-fc23.log）、Node24 は確認時進行中。
 - ユーザーの元プレビューは再読み込みしていない。ヘッダー最適化は既に PR #287 の654fa448に含まれる。全UI・全操作一致は未達成。
 
 ## 2026-10-01: ショー内の相対リンクと全画面終了競合
@@ -902,7 +902,7 @@
 - 全画面終了直後に発表者ビューを開始すると、遅延した fullscreenchange が新しい再生を止める不具合を再現し修正。新テストでは停止状態と位置を診断して原因を特定した。
 - 旧distでは相対リンクの意味が失われていることを新規テストで確認。最終ブラウザー12/12成功（/tmp/pptx-nav-final-browser.log、session77640正常終了）。通常/発表者、C→A→C→Bの重複順、非表示、終了、既存custom show/履歴を検証。
 - 全体テスト3106 passed / 109 skipped、format/lint/root types/dev types成功、依存順buildと最終dev rebuild成功。ZIP保存時刻差で失敗する既存atomicityテストは展開エントリ比較に修正し5/5再検証。レンダラーの旧固定リンクテストは実行時リンクと保存再読込の検証に統合したため総数は1減。
-- 実機PowerPointは今回も画面0×0で取得不能。操作・復元待ちはなし。全操作/UI完全一致は未達成。次はCIの描画差分（10546dc3 run36877616297: 05-preset-shapes fg-SSIM 0.6161 vs baseline0.7731）とkiosk restart/ナレーション等を追う。CI比較はLibreOffice基準なので、PowerPointの裏付けなしに閾値緩和しない。
+- 実機参照デスクトップアプリは今回も画面0×0で取得不能。操作・復元待ちはなし。全操作/UI完全一致は未達成。次はCIの描画差分（10546dc3 run36877616297: 05-preset-shapes fg-SSIM 0.6161 vs baseline0.7731）とkiosk restart/ナレーション等を追う。CI比較はLibreOffice基準なので、参照デスクトップアプリの裏付けなしに閾値緩和しない。
 - 元のユーザープレビューは再読み込みしていない。引き続きPR #287へ一本化。
 
 ## 2026-10-01: カスタムショーへのリンク
@@ -910,7 +910,7 @@
 - customShow のクリックアクション（ID と returnToShow）を core、図形/文字/セルのリンク編集、SVG、通常再生と発表者ビューへ接続。OOXML 保存・再読込に対応。
 - リンク先ショーの順序・重複を保持し、入れ子から呼び出し元の位置とアニメーション進捗に戻る。タイマーによる終了、再開時の状態リセットも実装。
 - core 3107 passed / 109 skipped、format/lint/typecheck、Svelte 0 errors/warnings、依存順 build 成功。関連ブラウザー20件のうち19件が初回成功。残る1件は再読込後の消えたUndo履歴を使うテスト手順を修正し、単独再実行成功（/tmp/pptx-custom-ui-retest.log）。
-- Mac PowerPoint は今回も画面0×0で取得失敗。変更・復元待ちはなし。Esc/終了リンクで returnToShow に従う挙動は Microsoft ShowAndReturn の仕様に基づくが実機未検証。次/前/先頭/最後のプリセットリンクは現在グローバルなスライド番号へ解決され、カスタムショー内の順序への対応が残る。
+- 参照デスクトップアプリ (Mac) は今回も画面0×0で取得失敗。変更・復元待ちはなし。Esc/終了リンクで returnToShow に従う挙動は Open XML SDK の ShowAndReturn の仕様に基づくが実機未検証。次/前/先頭/最後のプリセットリンクは現在グローバルなスライド番号へ解決され、カスタムショー内の順序への対応が残る。
 - 全操作の完全一致は未達成。kiosk restart、ナレーション等の残件も継続。ユーザーの元プレビューは再読み込みしていない。
 - 直前10546dc3のCIはStatic、Node22/26、OOXML成功。Node24は確認時実行中、Preview fidelityは失敗（今回のログ原因は未確認）。新しいpushのCIも要確認。
 
@@ -919,7 +919,7 @@
 - `lastSlideViewed` / `endShow` を OOXML のクリックアクション、図形・選択文字・セルのリンク編集、SVG、通常再生・発表者ビューへ接続。文字リンクの重複パーサーを共通化した。
 - 訪問履歴はスライド番号だけでなく custom show 内の位置も保持。同一スライドの連続表示を区別し、終了・再開で履歴をリセットする。
 - core 3105 passed / 109 skipped、format/lint/typecheck、Svelte 0 errors/warnings、依存順 build 成功。再生・発表者・kiosk のブラウザー9件成功。リンク編集6件も成功（`/tmp/pptx-actions-links-final.log`、session89542正常終了）。初回の3失敗はプリセット追加後のテスト期待値 lastSlide を endShow に直して解消した。
-- 旧ビルドで新アクションのリンクが描画されないことを回帰テストで確認。実機 PowerPoint での動作比較は未実施。custom show のリンク起動/return、kiosk restart、ナレーション等は未完了。
+- 旧ビルドで新アクションのリンクが描画されないことを回帰テストで確認。実機参照デスクトップアプリでの動作比較は未実施。custom show のリンク起動/return、kiosk restart、ナレーション等は未完了。
 - ヘッダー最適化は直前の654fa448で PR #287 に反映済み。元のユーザープレビューは再読み込みしていない。全 UI の完全一致は未達成。
 
 ## 2026-10-01: ヘッダー領域の最適化
@@ -927,22 +927,22 @@
 - 既存の40px Studioヘッダー、保存状態の同一行表示に加え、リボン右端に折りたたみ/展開ボタンを追加。タブ選択・タブの矢印キー操作で再展開。狭い画面ではタブを横スクロール可能にした。
 - 検証専用プレビュー1500×900で上部領域は展開時約180px、折りたたみ時約102px。画像 `/tmp/pptx-header-expanded.png` と `/tmp/pptx-header-collapsed.png` を目視確認。元の編集中プレビューは変更・再読み込みしていない。
 - format/lint、Svelte型検査（0 errors/warnings）、site既存117テスト、dev build成功。compact-editorブラウザー検証は日英・900/1500pxで成功（session35135終了）。途中の失敗はテストセレクターがフォント欄にも一致/ラッパー階層を誤認したためで、修正済み。
-- PowerPoint全操作の完全一致は引き続き未完了。以下の再生機能等の残件を継続する。
+- 参照デスクトップアプリ全操作の完全一致は引き続き未完了。以下の再生機能等の残件を継続する。
 
 ## 2026-10-01: browse スクロールバーと kiosk 操作
 
 - browse/showScrollbar を再生画面右端の縦スクロールバーに接続。ドラッグ、トラッククリック、Arrow/Page/Home/End、現在位置同期に対応。スライドの重複順序を保持し hidden を除外。バーの幅は表示領域から確保する。UI はブラウザーで撮影・確認したが Mac 実機との一致は未検証。
 - kiosk では loop=false の入力でも自動再生をループさせ、空白クリックと通常の移動キーを無効化。明示的なスライドリンクと Escape は維持。旧ビルドで最終スライド停止を再現した。restart の再起動間隔、ナレーション、custom show のリンク起動/return は引き続き確認・実装が必要。
-- 根拠: https://support.microsoft.com/en-us/powerpoint/training/create-a-self-running-presentation と https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.kioskslidemode 。restart について SDK の規範文だけで現在の Office の動作を断定しない。
-- PowerPoint 実機は今回も画面サイズ0×0で取得失敗。ネイティブ操作や変更はしていない。ユーザーの元プレビューは再読み込みしていない。
+- 根拠: ベンダーのヘルプ記事「Create a Self-Running Presentation」と https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.kioskslidemode 。restart について SDK の規範文だけで現在の参照デスクトップアプリの動作を断定しない。
+- 参照デスクトップアプリ実機は今回も画面サイズ0×0で取得失敗。ネイティブ操作や変更はしていない。ユーザーの元プレビューは再読み込みしていない。
 - 最終 format/lint/dev typecheck/build 成功。最終統合ブラウザー16/16成功（/tmp/pptx-browse-kiosk-final-browser.log、session93916正常終了）。途中14/16の失敗はテスト側の fullscreen 終了待ちと編集中変数参照を修正。
 - 056e82a7 の CI run36873233002 は確認時 Static 成功、他チェック実行中。全体の完全一致はまだ未達成。
 
 ## 2026-10-01: 再生対象の削除とウィンドウ表示
 
 - 再生対象の Custom Show を削除したとき、同じ Undo トランザクションで再生対象を all に戻すよう修正。他の設定は保持。旧ビルドで参照が残る回帰を再現し、保存した PPTX・Undo でのショー/選択 ID 復元・無関係なショー削除での選択維持を検証。
-- browse モードの Present が fullscreen API を呼ぶ不具合も旧ビルドで再現し修正。スクロールバーの表示設定はまだ再生 UI へ未反映。Microsoft の ShowScrollbar 資料ではスライド間移動用とされるため、stage の overflow による近似は採用していない。次はスライド移動バーの実機動作を確認して実装する。
-- 根拠: https://learn.microsoft.com/en-us/previous-versions/office/office-12/ff763072(v=office.12) と https://support.microsoft.com/en-us/powerpoint/training/create-a-self-running-presentation 。ウィンドウ表示の対応だけで Mac 実機との完全一致とは扱わない。
+- browse モードの Present が fullscreen API を呼ぶ不具合も旧ビルドで再現し修正。スクロールバーの表示設定はまだ再生 UI へ未反映。Open XML SDK の ShowScrollbar 資料ではスライド間移動用とされるため、stage の overflow による近似は採用していない。次はスライド移動バーの実機動作を確認して実装する。
+- 根拠: 旧版の開発者リファレンス ff763072 とベンダーのヘルプ記事「Create a Self-Running Presentation」。ウィンドウ表示の対応だけで Mac 実機との完全一致とは扱わない。
 - format/lint、Svelte 0 errors / 0 warnings、site 117 tests、dev build/typecheck 成功。core の変更なし。統合ブラウザー16/16成功（Custom Shows、presentation、browse3件、設定dialog、再生6件）。ログ `/tmp/pptx-show-followup-browser.log`、session53924は正常終了。
 - PR #287 の 9b734b5a CI run36872039905 は確認時実行中。前の42f5b21dは後続pushでcancelled。全体の完全一致は未完成。ユーザーの元プレビューを再読み込みしない。
 
@@ -951,7 +951,7 @@
 - 42f5b21d が PR #287 の remote HEAD に反映済み。最新 CI run36871528222 は Static / OOXML 成功、Node 22/24/26 と Preview fidelity は確認時実行中。
 - 同じアニメーション付きスライドが連続する custom show の専用回帰を追加。1回目の表示で animation cursor 0→1、次の出現で0へ戻ることを確認。show-properties-playback は6/6成功、対象format/lint成功。
 - 追加レビューで、再生対象の Custom Show を削除しても showProperties の参照 ID が残る問題を発見。未修正。削除後の設定・保存再読込・Undoの回帰を先に追加して修正すること。
-- PowerPoint の画面取得は引き続き0×0で失敗。変更・復元待ちはなし。ユーザーの元プレビューは再読み込みしていない。
+- 参照デスクトップアプリの画面取得は引き続き0×0で失敗。変更・復元待ちはなし。ユーザーの元プレビューは再読み込みしていない。
 
 ## 2026-10-01: スライドショー統合検証
 
@@ -959,7 +959,7 @@
 - 最新ソースで core/preview/DSL/dev の依存順 build 成功（`/tmp/pptx-show-integrated-build.log`）。dev 型検査成功、site 0 errors / 0 warnings、site 117 tests passed。
 - Custom Shows は順序・重複を扱う Add/Remove/Up/Down UI と native dialog 化を完了。ブラウザで 3,1,3 の保存後 PPTX、編集・複製・削除・Undo・再読込・日英 UI を検証し成功。
 - 再生統合の重複スライド位置・Home/End・タイマー再始動を追加修正。新規設定画面1件、再生5件、既存presentation/animation/transition15件が成功。compact-editorも日英・900/1500pxで1件成功（`/tmp/pptx-show-compact-final.log`）。Home/Endと非表示端の追加回帰も成功（agent session6327終了）。重複した同一スライドのアニメーション再始動についてはコードを確認したが専用ブラウザー回帰は未追加。
-- PowerPoint 実機は本ターンも画面サイズ 0×0 で取得失敗。操作・変更はしておらず、復元待ちなし。window/kiosk 実動作とナレーション再生は未対応。全 UI/操作の一致は未完成。
+- 参照デスクトップアプリ実機は本ターンも画面サイズ 0×0 で取得失敗。操作・変更はしておらず、復元待ちなし。window/kiosk 実動作とナレーション再生は未対応。全 UI/操作の一致は未完成。
 - PR #287 は OPEN、push 先 feat/pptx-editor のまま。直近 push 4ce の CI は Static/Node22/Node26/OOXML 成功、Node24 確認時進行中、既知の Preview fidelity 失敗は継続。ユーザーの元プレビューの編集とソース競合は保持。
 
 ## 2026-10-01: スライドショー統合レビュー継続中
@@ -978,17 +978,17 @@
 - 親担当: show-properties APIと回帰を移植。表示モード、範囲、ループ、ナレーション、アニメーション、タイミングの保存。対象5件成功、custom-showsと合わせ8件成功、root型検査・対象format/lint成功。xmllintが利用可能で、テスト内のXSD検証も実施。kiosk restartの既定300000はbundled pml.xsdに明記されている。
 - slide_insertion担当: Custom Shows API/編集UI/再生統合。outline_selection担当: ShowPropertiesDialogと導線。両agentと編集範囲を調整済み。まだUIの完成・ビルド・ブラウザー検証・commit/pushは未完了。
 - 同じ全ブラウザー検証session9572は生存中。/tmp/pptx-browser-c433.logはアウトライン付近まで進行、観測時失敗なし。完了まで共有distを上書きしない。この検証対象はc433のビルドであり新しい変更の検証にはならない。
-- 最新CI run36866882930（4ce）: Static/Node22/Node26/OOXML成功、Node24実行中、Preview fidelity失敗。05-preset-shapes slide1の単語折り返し差分は同じ。OfficeのlatinLnBrk既定falseだけでは緊急分割の有無を断定できず、根拠なくbaselineや実装を変えない。
-- PowerPointの画面取得は再度0×0で失敗。Document Controlにも接続セッションなし。実機編集・復元待ちはない。ユーザープレビューの編集とソース競合を保持する。
+- 最新CI run36866882930（4ce）: Static/Node22/Node26/OOXML成功、Node24実行中、Preview fidelity失敗。05-preset-shapes slide1の単語折り返し差分は同じ。参照デスクトップアプリのlatinLnBrk既定falseだけでは緊急分割の有無を断定できず、根拠なくbaselineや実装を変えない。
+- 参照デスクトップアプリの画面取得は再度0×0で失敗。Document Controlにも接続セッションなし。実機編集・復元待ちはない。ユーザープレビューの編集とソース競合を保持する。
 
 ## 2026-10-01: 日本語禁則処理の書式境界
 
 - c4335475までPR #287へpush済み。その後、句点だけ太字にすると「甲乙／。」になる回帰を失敗するテストで再現し修正。論理wordをrun横断で分割してから元runへ対応付け、書式・文字サイズを維持。単一runの狭幅時の緊急改行は保持。
 - 検証: root3093 passed / 109 skipped（/tmp/pptx-cjk-root-tests.log）、root/preview型検査、lint、対象format成功。previewは実行中ブラウザー検証のdistを保つため /tmp/pptx-cjk-preview-build に分離build成功。
 - c4335475の全ブラウザー検証はsession9572、/tmp/pptx-browser-c433.logで実行中。既存のhandleをpollすること。観測時点では失敗なし。完了まで共有distを上書きしない。
-- c4335475のCI run36864790119: Static/Node22/Node26/OOXML成功、Node24実行中、Preview fidelity失敗。既知の05-preset-shapes slide1 fgSSIM .7731→.6161は未解決。PowerPoint実機の画面取得は0×0で失敗し、実機変更・復元待ちはない。
-- 検討したグラフ回転無視の修正は撤回済み。MS-OI29500 §21.3.2.28のOffice制限はchart drawings内のgraphic framesが対象であり、スライド上のp:xfrmへ適用できる根拠ではない。p:xfrm自体はrot/flipH/flipVを許す。根拠なくこの修正を再適用しない。
-- 既存ユーザープレビューの編集内容とソース競合を保持。勝手にreload/競合解消しない。全操作のPowerPoint一致は未完成。
+- c4335475のCI run36864790119: Static/Node22/Node26/OOXML成功、Node24実行中、Preview fidelity失敗。既知の05-preset-shapes slide1 fgSSIM .7731→.6161は未解決。参照デスクトップアプリ実機の画面取得は0×0で失敗し、実機変更・復元待ちはない。
+- 検討したグラフ回転無視の修正は撤回済み。[MS-OI29500] §21.3.2.28の実装制限はchart drawings内のgraphic framesが対象であり、スライド上のp:xfrmへ適用できる根拠ではない。p:xfrm自体はrot/flipH/flipVを許す。根拠なくこの修正を再適用しない。
+- 既存ユーザープレビューの編集内容とソース競合を保持。勝手にreload/競合解消しない。全操作の参照デスクトップアプリ一致は未完成。
 
 ## 2026-10-01: アウトライン書式の統合検証
 
@@ -997,13 +997,13 @@
 - アウトラインの複数フィールドにまたがる文字・段落書式をリボンへ接続。選択文字だけのBold適用と1回のUndoを実ブラウザーで検証。queued caretがリボンのフォーカスを奪う不具合も旧ビルドで再現後に修正。
 - 統合検証: アウトラインのコピー/切り取り/通常入力/貼り付け/IME/左右キー/右クリック/フォーカス保護9/9成功（/tmp/pptx-outline-integration-browser.log）。ヘッダー・フォント・既存インライン編集3/3成功（/tmp/pptx-final-header-font.log）。site117件、Svelte 0 errors / 0 warnings、lint、dev依存込みbuild成功。
 - 最終統合ブラウザー15/15成功（/tmp/pptx-outline-final-browser.log）。最終Svelte 0 errors / 0 warnings、format/lint成功。
-- カーソル位置の次回入力書式（Bold+Italicの連続指定）とキャンバス選択時の旧範囲解除も実装。Svelte $state はAPIオブジェクトをproxy化するため、所有権の解除はオブジェクトでなくapplyコールバックの同一性を比較する。キャンバス誤適用を旧ビルドで再現し修正後成功。全操作のPowerPoint一致は未完成。
+- カーソル位置の次回入力書式（Bold+Italicの連続指定）とキャンバス選択時の旧範囲解除も実装。Svelte $state はAPIオブジェクトをproxy化するため、所有権の解除はオブジェクトでなくapplyコールバックの同一性を比較する。キャンバス誤適用を旧ビルドで再現し修正後成功。全操作の参照デスクトップアプリ一致は未完成。
 
 ## 2026-10-01: 書式境界の折り返しとリボン選択を継続
 
 - PR #287 の push 済み HEAD は63d7a728。前ターンは跨ぎ選択の修正・テスト・pushを完了した進捗ありのターン。
 - 書式runの境界をLatin単語の改行位置として扱う不具合を失敗する2テストで再現し修正。Latin途中改行無効時は複数runを一つの単語として幅判定し、各runの書式は維持。関連58件、全root3091件（109 skipped）、lint、preview型検査・build成功。単一runの長い単語の既存fidelity差分を解決する変更ではない。
-- PowerPoint実機の再接続は画面0×0で失敗。資料変更・復元待ちはない。
+- 参照デスクトップアプリ実機の再接続は画面0×0で失敗。資料変更・復元待ちはない。
 - アウトラインのリボン連携とqueued caretのフォーカス保護を別担当が実装・検証中。これらの完成・統合結果は次の追記を確認すること。
 
 ## 2026-10-01: ヘッダーと文字編集の統合検証
@@ -1012,16 +1012,16 @@
 - 共通selectRichTextのBR境界ずれを失敗するテストで再現して修正。BR・ブロック境界のUTF-16位置対応を共通化。
 - 統合検証: Svelte 0 errors / 0 warnings、site113件、lint、対象format、dev build成功。ヘッダー・既存インライン編集・既存アウトライン日英4/4成功（/tmp/pptx-compact-outline-integrated.log）。フォント候補と透明な編集背景2/2成功（/tmp/pptx-font-background-final.log）。
 - アウトライン跨ぎ選択の統合ブラウザー8/8成功（/tmp/pptx-outline-integrated-final.log）。コピー・カット・ペースト・通常入力・Shift+Enter・実IME確定とUndo・左右キーでの選択解除・並べ替え後の追加編集を検証。IMEは全スライドの文字列を照合。モデル再登録時の旧cleanupと古いcaret復元を修正。右クリックで選択が解除される不具合も修正し、実際のCopyメニューからOSクリップボードへ書き込む追加テスト1/1成功（/tmp/pptx-outline-context-corrected.log）。
-- c91c3363のCIはStatic/Node22/Node26/OOXML成功、Preview fidelity失敗、Node24確認時実行中（run36858403975）。fidelityの失敗は同じ05-preset-shapes slide1（fg-SSIM 0.7731→0.6161）。latinLnBrk false/省略時の長い単語の緊急折返しはPowerPoint実機未確認。基準値は変更していない。
+- c91c3363のCIはStatic/Node22/Node26/OOXML成功、Preview fidelity失敗、Node24確認時実行中（run36858403975）。fidelityの失敗は同じ05-preset-shapes slide1（fg-SSIM 0.7731→0.6161）。latinLnBrk false/省略時の長い単語の緊急折返しは参照デスクトップアプリ実機未確認。基準値は変更していない。
 - 追加の選択ライフサイクル確認: 置換直後のrAFより先にRibbonへクリックした場合のフォーカス復元、跨ぎ選択へのRibbon書式適用は未検証。キーボード/クリップボードの成功と混同しない。
-- 最新PowerPoint画面取得はcgWindowNotFoundで失敗。実機変更・復元待ちはない。全操作一致は未完成。
+- 最新参照デスクトップアプリ画面取得はcgWindowNotFoundで失敗。実機変更・復元待ちはない。全操作一致は未完成。
 
 # 作業継続メモ（2026-10-01）
 
 ## 最新検証: Latin 改行の描画差分を調査中
 
 - PR #287 の remote HEAD は `30b180ed`。CI run `36856771139` の Preview fidelity が失敗。`05-preset-shapes.pptx` slide 1 の fg-SSIM が 0.7731 → 0.6161。Static、Node 22/26、OOXML validator は成功（Node 24 は確認時 pending）。
-- 取得した画像 `/tmp/pptx-fidelity-30b/05-preset-shapes/slide-1.{ours,gt}.png` では、狭い図形の triangle / diamond / pentagon / star5 / leftRightArrow が ours で1行、LibreOffice で2行。直前の Latin 分割変更に対応する差。PowerPoint 一致の証拠として CI の LibreOffice 結果だけを使わない。基準値は変更していない。
+- 取得した画像 `/tmp/pptx-fidelity-30b/05-preset-shapes/slide-1.{ours,gt}.png` では、狭い図形の triangle / diamond / pentagon / star5 / leftRightArrow が ours で1行、LibreOffice で2行。直前の Latin 分割変更に対応する差。参照デスクトップアプリ一致の証拠として CI の LibreOffice 結果だけを使わない。基準値は変更していない。
 - `latinLnBrk=true` で全幅より短い単語が残り幅で分割されない不具合を修正。Latin 分割を有効にしても日本語の句点は前の文字と保持する回帰も追加。false/省略時の全幅を超える単語の緊急折り返しは実機未確認のため変更せず、fidelity の失敗は未解決として残す。
 - 今回の検証: 関連ユニット56件、全ユニット3089件成功（109 skipped）、root型検査・lint・対象format・dev依存込みbuild成功。ヘッダー日英900/1500px、フォント選択・Undo、透明な文字編集背景のブラウザー3件成功（`/tmp/pptx-header-current.log`）。
 - 実機の再接続は `cgWindowNotFound`。文書変更・復元待ちはなし。`hangingPunct` は既定値の根拠のみ確認でき、文字ごとの位置計算は未確認のため未実装。
@@ -1032,15 +1032,15 @@
 
 - ノート欄の入力を範囲置換として記録し、編集していない run 書式・フィールドを保持。`setSlideNotes` に optional `range` / `preserveFormatting` を追加し、既定の全置換動作は維持。
 - 正しい OOXML のフィクスチャで、旧 editor が italic run を消す失敗を再現。隔離ビルドでは離れた2か所の編集・保存・Undo と既存ノート欄操作が成功（`/tmp/pptx-notes-browser-red.log`、`/tmp/pptx-notes-browser-green.log`、`/tmp/pptx-notes-browser.log`）。ノートのリッチテキスト表示・書式ツールバー全体の対応ではない。
-- SVG 文字配置へ `latinLnBrk` を伝播。Microsoft MS-OI29500 §2.1.1406 の Office 偏差に従い、省略時 false、明示 true の場合に長い Latin 単語を途中で分割。`eaLnBrk` は禁則処理を指し、CJK 全体の分割禁止という近似実装は採用しない。hangingPunct 対応も未実装。
+- SVG 文字配置へ `latinLnBrk` を伝播。[MS-OI29500] §2.1.1406 の実装偏差に従い、省略時 false、明示 true の場合に長い Latin 単語を途中で分割。`eaLnBrk` は禁則処理を指し、CJK 全体の分割禁止という近似実装は採用しない。hangingPunct 対応も未実装。
 - root 型検査、全ユニット3087件、Svelte0 errors/warnings、siteテスト、lint、対象ファイルのformat、隔離 core/preview/editor build 成功。共有distは旧ビルドで走る全ブラウザ検証のため上書きしていない。
 - アウトライン範囲選択は引き続き作業中。forward copy/cut/Undo に加え、通常入力・paste・backward のブラウザ検証を要求している。完成済みとして扱わない。
-- PowerPoint の最新接続試行も画面取得0×0で失敗。今回の実機変更・復元待ちはない。ユーザーのプレビュー資料とChromeタブは変更していない。
+- 参照デスクトップアプリの最新接続試行も画面取得0×0で失敗。今回の実機変更・復元待ちはない。ユーザーのプレビュー資料とChromeタブは変更していない。
 
 ## 2026-10-01: フォントのキー操作・ノート高さ・白黒画像
 
 - フォント検索欄から ArrowUp で末尾候補、ArrowDown で先頭候補へ移動するよう修正。ノート欄の最大高さと splitter の値を実際の表示に揃え、画面縮小にも追従。
-- DrawingML biLevel の前に輝度変換を行い、飽和色や grayscale + duotone の組み合わせでも白黒化。閾値を32段階へ丸める近似を廃止。PowerPoint実機での色変換の完全一致は未確認。
+- DrawingML biLevel の前に輝度変換を行い、飽和色や grayscale + duotone の組み合わせでも白黒化。閾値を32段階へ丸める近似を廃止。参照デスクトップアプリ実機での色変換の完全一致は未確認。
 - root 型検査、全ユニット3081件、site97件、Svelte0 errors/warnings、preview型検査・隔離ビルド成功。隔離したeditorビルドでフォント・ノートのブラウザー2件成功（`/tmp/pptx-font-notes-green.log`）。
 - 全ブラウザー検証は旧ビルド16ae1bccに対して進行中（exec70356、`/tmp/pptx-full-browser-oct1.log`）。追加したフォント・ノート回帰は旧ビルドでは失敗する。実行中は共有distを上書きしない。最終版の全ブラウザー成功とは扱わない。
 - アウトラインの複数フィールド選択は別担当が作業中。ブラウザー検証未完了のため、この変更のコミットには含めない。
@@ -1052,14 +1052,14 @@
 - `%` 付きの画像トリミング値を正しく読み込むよう修正（例: `-12.5%` は `-0.125`）。保存・再読み込み回帰を追加。
 - format/lint/root・DSL型検査、全ユニット3076件、site96件、Svelte0 errors/warnings、core/editor build成功。ヘッダー日英900/1500px、フォント適用・保存・Undo、文字背景のブラウザー3件成功。
 - クロススライド文字選択は引き続き未実装。共有アンカーと複数図形への一括編集の設計が必要。未完成の試作は採用していない。
-- PowerPoint は起動中だが操作対象ウィンドウを取得できず、この回の実機変更・復元待ちはない。ユーザーの資料とタブは変更・再読み込みしていない。
+- 参照デスクトップアプリは起動中だが操作対象ウィンドウを取得できず、この回の実機変更・復元待ちはない。ユーザーの資料とタブは変更・再読み込みしていない。
 
 ## 2026-10-01: ヘッダー改善の再検証と画像の負値トリミング
 
 - `24b84ffa` のヘッダー省スペース化・透明な文字編集背景・フォント選択は、独立ブラウザーテスト3件で再確認済み（日本語、900px/1500pxを含む）。ユーザー資料 `/tmp/pptx-user-preview/deck.tsx` は変更していない。
 - `srcRect` の負値（画像外への拡張）を API・画像パネル・塗りつぶし復元・画像プレビューで保持するよう修正。保存再読込および画素検証を追加。全ユニット3075件、site 96件、format/lint/types/build、Svelte検証が通過。
 - 小数点タブの区切り文字推定と段落禁則CSSの近似対応は、意味的な根拠が不足するため今回採用していない。未実装項目として残る。
-- 全操作のPowerPoint一致は未完成。ヘッダー改善を全体完了と扱わない。
+- 全操作の参照デスクトップアプリ一致は未完成。ヘッダー改善を全体完了と扱わない。
 
 ## 最新の目標とユーザー用プレビュー
 
@@ -1073,7 +1073,7 @@
 - フォント欄に候補一覧・検索を追加。任意フォント名の直接入力も維持。OS のインストール済みフォント列挙ではなく共通候補一覧。
 - 埋め込み時の重複 Undo/説明バーとブランド表示を除き、保存状態を TopBar に統合。外側ヘッダーは40pxに縮小。
 - 独立ブラウザーテスト3件成功（背景・保存/再読込・セル、フォント部分選択/保存/Undo、日英1500/900pxヘッダー）。Svelte check 0 errors / 0 warnings、dev build成功。
-- プレビューを再起動済み。ユーザー資料は上書きしていない。全操作のPowerPoint完全一致はまだ未完成。
+- プレビューを再起動済み。ユーザー資料は上書きしていない。全操作の参照デスクトップアプリ完全一致はまだ未完成。
 
 ## 最新: 3 系統の並列実装
 
@@ -1081,14 +1081,14 @@
 - 下記の Title Slide 後の New Slide の未対応は解消。通常・アウトラインのメニューと Cmd/Ctrl+Shift+N が同じポリシーを使う。同じマスターの Title and Content を優先し、未使用レイアウトも公開 API で所属マスターを判定する。
 - アウトラインの先頭/末尾で上下矢印を押すと隣のタイトル/本文へ移動し、入力中の変更を確定する。スライドをまたぐテキスト範囲選択は未実装。
 - Selection Pane で複数の選択済み兄弟を一緒にドラッグできる。相対順・選択・グループ境界・一括 Undo を保持する。別担当の独立レビューで具体的な不具合は見つからなかった。
-- PowerPoint の Arrange を開く際に画面取得 0×0 が再発。この試行で参照文書の内容は変更しておらず、復元待ちはない。複数図形ドラッグのネイティブ比較は未完了。
+- 参照デスクトップアプリの Arrange を開く際に画面取得 0×0 が再発。この試行で参照文書の内容は変更しておらず、復元待ちはない。複数図形ドラッグのネイティブ比較は未完了。
 - 全操作一致は未完成。PR #287 のみを更新し、完全一致や根拠のない進捗率を報告しない。
 - 検証: root format/lint/typecheck 成功、3,073 tests passed / 109 skipped、site 96/96、Svelte check、DSL typecheck、core/editor build 成功。ログは `/tmp/pptx-parallel-root-quality.log`、`/tmp/pptx-parallel-site-quality.log`。直前 HEAD `1d6927d4` の CI は全成功（run 36836258164）。
 - 統合後の browser 9/9 成功: `new-slide-layout`、`outline-view`、`outline-slide-menu`、`selection-pane`。ログ `/tmp/pptx-parallel-browser.log`。最終 HEAD の全ブラウザ一括検証ではない。
 
 ## 接続復旧と New Slide 比較（2026-10-01）
 
-- PowerPoint の完全終了後、CUA で起動・参照資料の読み込み・Layout メニュー操作が成功。直前の画面サイズ 0×0 エラーはこの比較では再発していない。
+- 参照デスクトップアプリの完全終了後、CUA で起動・参照資料の読み込み・Layout メニュー操作が成功。直前の画面サイズ 0×0 エラーはこの比較では再発していない。
 - `/private/tmp/pptx-outline-audit/body.pptx`（Normal、129%）を開き、Title and Content から Title Slide に一時変更して Cmd+Shift+N を実行。追加された第 2 スライドの Layout は **Title and Content** が選択されていた。
 - Escape、Undo 2 回、保存で復元。1 スライド、Normal、129%、Undo disabled、Saved to my Mac を確認した。
 - `ContextMenu.svelte` のアウトライン New slide は現在の layout をそのまま使うため、タイトルレイアウト後の例外は未対応。通常表示の同メニューも `addBlankSlide` を呼ぶ。修正時は同じマスター内の適切な本文レイアウトを選ぶこと。複数マスターを無視して資料内の最初の本文レイアウトを選ばない。
@@ -1099,14 +1099,14 @@
 - 複数マスターの資料で、書式表示を有効にしたアウトラインの入力直後に 20px の文字が 10.6667px になる問題をブラウザーテストで再現。入力プレビューの段落・run 書式解決へ元の shape を `inheritanceSource` として渡して修正した。
 - `outline-slide-menu.test.mjs` は独立した第 2 マスターを持つ資料を使い、自動保存前の表示、保存後の書式、Undo、New/Duplicate/Delete を英語・日本語で検証。2/2 通過。site ユニット 93/93、format/lint、Svelte 0 errors / 0 warnings、エディタ build が通過。
 - ログ: `/tmp/pptx-outline-inheritance-before.log`（修正前の再現）、`/tmp/pptx-outline-inheritance-after.log`、`/tmp/pptx-outline-inheritance-quality.log`。最終 HEAD の全ブラウザー一括成功を意味しない。
-- ユーザーの「開きました」後、PowerPoint `body` の画面取得に一度成功（Normal 160%、Undo disabled）。Layout を開く操作で再び `screen capture size invalid (0.0,0.0)` となり、全ウィンドウ一覧も取得不能。文書内容の変更はしていない。Title Slide 後の New Slide の例外確認は未完了。
+- ユーザーの「開きました」後、参照デスクトップアプリ `body` の画面取得に一度成功（Normal 160%、Undo disabled）。Layout を開く操作で再び `screen capture size invalid (0.0,0.0)` となり、全ウィンドウ一覧も取得不能。文書内容の変更はしていない。Title Slide 後の New Slide の例外確認は未完了。
 - PR 全体レビューは進行中。比較基準 `origin/main`、751 ファイル / +85,338 / -2,663、テスト 251 ファイル。公開 API とグループ・リンク・ページサイズ変更を確認中であり、全ファイルのレビュー済みとは扱わない。
 
 ## 再開時の指示
 
 2026-10-01 にユーザーが完成までの作業再開を明示した。以前の停止指示は解除済み。PR #287 を唯一の提出先として実装・実機比較・検証を続ける。
 
-最終目標は、インストール済み **Mac デスクトップ版 PowerPoint と全操作の UI・動作を揃える**こと。既存機能だけでなく未実装操作も対象と明示されている。全体は未完成であり、今回の PR 整理を完全一致の達成と扱わない。
+最終目標は、インストール済み **Mac デスクトップ版参照デスクトップアプリと全操作の UI・動作を揃える**こと。既存機能だけでなく未実装操作も対象と明示されている。全体は未完成であり、今回の PR 整理を完全一致の達成と扱わない。
 
 1. `CLAUDE.md` を読む。既存の公開 API を使い、機能ごとに API を重複させない。pnpm を使う。
 2. `git status` と PR #287 の状態・CI を確認する。今回の修正は `fix(editor): preserve custom tabs during direct text editing` のコミットを探す。
@@ -1122,7 +1122,7 @@
 - push: `git push origin HEAD:feat/pptx-editor`
 - 新しい PR を勝手に並立させない。マージや強制 push は今回依頼されていない。
 - `.pnpm-store/` は以前からの untracked ディレクトリ。コミット・削除対象にしない。
-- 古い `feat/mac-powerpoint-parity` ブランチは完全統合されていない。丸ごとマージせず、必要な機能を現実装と比較する。
+- 古い Mac parity ブランチ (`ef67cf0`) は完全統合されていない。丸ごとマージせず、必要な機能を現実装と比較する。
 
 ## この区切りの実装
 
@@ -1159,7 +1159,7 @@ Outline View の表示・文字編集・タイトル分割を実装。アイコ�
 
 ## Mac 実機
 
-- CUA から `com.microsoft.Powerpoint` に接続する。過去には接続断があったが直近の監査では復旧済み。再開時に状態を取り直す。
+- CUA から参照デスクトップアプリのバンドル ID に接続する。過去には接続断があったが直近の監査では復旧済み。再開時に状態を取り直す。
 - 直近の参照: `/private/tmp/pptx-native-selection-lock-audit.pptx`。元の `/tmp/pptx-macro-audit/support.pptx` も比較に使われた。
 - ユーザーは参照文書への一時変更と確認後の取り消しを許可済み。
 - 直近の Tabs / Paragraph 監査は両方 Cancel で終了し、未復元の変更は残していない。今回の編集タブ修正ではネイティブ文書を変更していない。
@@ -1306,7 +1306,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - Reproduced positive/negative 10% and 50% offsets all rendering at fixed super/subscript positions. HTML and SVG now retain the numeric offset, including after PPTX save/load; SVG no longer merges adjacent runs whose offsets differ.
 - HTML script text also keeps its own effective font size when shrinking, instead of using the parent's size through em.
-- Scoped formatting/lint, preview typecheck/build and 76 text-layout/character-effect tests pass. The existing 65% script-size approximation remains uncalibrated against native PowerPoint; inline-editor baseline geometry still needs comparison. This does not establish native parity.
+- Scoped formatting/lint, preview typecheck/build and 76 text-layout/character-effect tests pass. The existing 65% script-size approximation remains uncalibrated against the native reference desktop app; inline-editor baseline geometry still needs comparison. This does not establish native parity.
 - Latest native retry still fails at connection startup. Pending reference restoration below remains unresolved.
 
 ## 2026-10-02: Script text edit-entry geometry
@@ -1340,7 +1340,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - Reproduced a vertical custom tab aligned at roughly 161px instead of 600px: the editing helper used horizontal offsets and widths. It now uses logical inline sizing and vertical offsets, measuring upright glyph advances in an untransformed hidden vertical box instead of a horizontal canvas.
 - Browser regression covers vertical-rl/vertical-lr mixed text and upright text with left/center/right/decimal stops (12 combinations). All four custom-tab test cases pass, including the existing real-editor horizontal editing/Undo case (`/tmp/vertical-tabs-full.log`). Svelte check: zero errors/warnings; editor build and scoped format/lint pass.
-- This verifies the editing layout helper, not native PowerPoint equivalence or complex vertical wrapping, reverse inline flow, and SVG preview direction approximations. These remain open.
+- This verifies the editing layout helper, not equivalence with the native reference desktop app or complex vertical wrapping, reverse inline flow, and SVG preview direction approximations. These remain open.
 - Follow-up real-editor regression `vertical-tab-editing.test.mjs` verifies a `vert` shape with a 2-inch custom stop: SVG preview and edit-entry displacement agree within 2px, typing before the tab keeps it at 192 CSS pixels (before zoom), and Undo restores the preview position. Passed `/tmp/vertical-tab-reflow.log`; scoped format/lint passed. This closes the real-editor check for that case, not the other directions or complex wrapping. Native retry still fails at pipe startup.
 
 - Extended real-editor custom-tab coverage to `vert270`: compare the bottom glyph edge for reversed inline progression (top edges include differing glyph advances). Both directions pass edit-entry, typing/reflow and Undo assertions (`/tmp/vertical-tab-directions.log`: 2 passed). Native comparison remains pending.
@@ -1358,7 +1358,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Fixed HTML clipboard size browser harness to bundle its imported preview dependency, and scoped video correction Reset to the Video options region rather than the separate Crop Reset. Clipboard test and both video-reset tests pass (`/tmp/ci-crop-clipboard-fixes.log`, `/tmp/video-reset-fixed.log`).
 - Added coverage for rejected extreme picture offsets: the crop, frame, and Undo history survive rejection. Japanese Crop heading now translates to トリミング; editor build passes.
 - Existing agents table_band_edges and table_theme_refs were restarted to investigate group-transform-handles and preset-text-editing failures respectively. They must not commit; inspect their results before integrating. The other CI failures remain outstanding.
-- Native PowerPoint still fails at pipe startup; pending reference restoration remains unresolved. No additional native mutations.
+- The native reference desktop app still fails at pipe startup; pending reference restoration remains unresolved. No additional native mutations.
 
 ## 2026-10-03: Commit text drafts before another shape press
 
@@ -1390,7 +1390,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Group-transform handles now pass all five cases (`/tmp/group-transform-handles-final.log`). Nested testing zooms out through visible controls so the same drag remains in the viewport; fixture geometry, drag coefficients, saved geometry, anchor and sibling assertions are unchanged. Object-only selection uses a border press.
 - After the direct compact Arrange fix, image-crop (1), reorder-objects (1), and selection-pane (3) pass. Japanese selection-pane reopening now targets the visible Arrange trigger, avoiding a strict locator collision with the hidden wide-ribbon trigger.
 - Format-painter now selects object borders and uses the existing Ctrl/Cmd+Alt+C/V shortcuts for text-range formatting. All three tests pass with saved shape/text format and fill-preservation assertions (`/tmp/format-painter-shortcuts.log`).
-- Native PowerPoint retry again fails at pipe startup; no native changes were made and reference restoration remains pending.
+- Retrying the native reference desktop app again fails at pipe startup; no native changes were made and reference restoration remains pending.
 
 ## 2026-10-03: Links, replace, and audio playback regressions
 
@@ -1398,7 +1398,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Inline link editing expands the visible floating formatting disclosure before using Edit link. All seven link tests pass, preserving saved destinations, selected text, table-cell links, Undo and reload (`/tmp/links-current.log`).
 - Audio bookmark testing waits for actual playback progress instead of assuming playback starts immediately within a fixed 1.2-second wall-clock interval. Both bookmark and trim/loop/fade cases pass (`/tmp/media-bookmarks-progress.log`).
 - Scoped format/lint pass for these three test files. CI 37028531188 remains running Chromium; static checks and OOXML validation have passed. No claim of full parity.
-- Native PowerPoint retry still fails at native pipe startup. No further native mutations; reference restoration remains pending.
+- Retrying the native reference desktop app still fails at native pipe startup. No further native mutations; reference restoration remains pending.
 - Uncommitted agent work on font-dialog-table, line-spacing, inline-paragraphs and FontRibbon remains under investigation. Verify table header inherited bold before treating unspecified run bold as normal; do not retain speculative FontRibbon changes without a reproduced regression and passing checks.
 
 - Resize-geometry now passes both tests (`/tmp/resize-geometry-final.log`). Initial object selection uses the border; after clicking the rotated text shape, Escape exits inline editing before resizing. Aspect ratio, opposite-corner anchoring, pointer tracking, saved rotation, Undo/Redo and reload assertions remain unchanged. Scoped format/lint and diff checks pass.
@@ -1421,7 +1421,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Font-dialog-table passes (1 case, `/tmp/font-dialog-table-current.log`): use border selection and explicitly set the fixture's non-bold header cell to bold:false, since unspecified bold inherits the table header style. No production changes were required.
 - Line-spacing passes (1 case, `/tmp/line-spacing-final-root.log`): use the visible compact Paragraph group when its direct trigger is absent and select the full text after reload before checking mixed paragraph settings. Paragraph selection, pending edits, saved data, and atomic Undo assertions remain.
 - Scoped format/lint and diff checks pass. Inline-paragraphs remains owned by table_theme_refs and is not included in this commit.
-- Native PowerPoint retry still fails at native pipe startup; no native mutations were performed and reference restoration remains pending. CI 37030970978 on 788e754b passed static checks and OOXML validation; other checks were still running when observed.
+- Retrying the native reference desktop app still fails at native pipe startup; no native mutations were performed and reference restoration remains pending. CI 37030970978 on 788e754b passed static checks and OOXML validation; other checks were still running when observed.
 
 ## 2026-10-03: New-slide and outline selection regressions
 
@@ -1442,7 +1442,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Root preview fix is committed/pushed as 4f59be35 to PR #287. Latest CI passed Static checks and OOXML validator; Node 22/24/26 and Preview fidelity were still running when observed. Previous run 37032402762 was cancelled by the new push; do not report it as fully passing.
 - HTML clipboard size and both video reset cases pass unchanged (`/tmp/clipboard-video-reset-current.log`, 3 cases); format-pane passes unchanged (`/tmp/format-pane-current.log`, 1 case). Exec sessions 17758 and 91080 are terminal. These reconfirm earlier fixes, not additional production changes.
 - table_band_edges continues editor.test.mjs, including migrating image crop controls while preserving exact reload assertions. table_theme_refs continues inline-paragraphs.test.mjs: five focused cases pass, spacing rendering assertion remains under investigation. Root requested restoration/equivalent checks for removed mixed-format assertions; do not accept weakened tests. No agent changes are committed yet.
-- Native retry after the user's availability reply failed both PowerPoint selection and app inventory with native pipe startup failure. No native changes were made. Reference restoration remains pending, and full parity is incomplete.
+- Native retry after the user's availability reply failed both selecting the reference desktop app and app inventory with native pipe startup failure. No native changes were made. Reference restoration remains pending, and full parity is incomplete.
 
 - Reconciled stale Latin-word wrapping status in NATIVE_PARITY.md with native evidence and implementation in 76810d7a. Current text-layout and SVG text-mode tests pass (73 cases, `/tmp/latin-wrap-current.log`). This documents resolution of that specific regression without claiming full rendering equivalence.
 
@@ -1451,13 +1451,13 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Editor browser suite passes all 11 cases (`/tmp/editor-current-final.log`). Object operations select shape borders; crop editing uses the visible crop dialog and verifies the saved 0.2 crop after reload as well as the native position field. Existing formatting, bilingual, table, chart and history checks remain.
 - Inline paragraph suite passes all 7 cases (`/tmp/inline-paragraphs-final2.log`). Mixed-format and pending-edit inheritance assertions remain, including table list level and spacing after inserting a paragraph. Line-height verification measures the text span: paragraph font-size is intentionally zero to suppress the inherited line strut. No production fix was needed. Scoped formatter, lint, syntax and diff checks pass.
 - CI run 37033218920 on 4f59be35 has passed Static checks, Node 22, Node 26, Preview fidelity and OOXML validator; Node 24 was still running at the last observation. Do not claim a full CI pass yet.
-- Native PowerPoint retry still fails at pipe startup; no additional native mutations. Pending reference restoration and full native parity remain unresolved.
+- Retrying the native reference desktop app still fails at pipe startup; no additional native mutations. Pending reference restoration and full native parity remain unresolved.
 - Next parallel audits: table_theme_refs owns locale decimal-tab evidence/code; table_band_edges owns outline cross-slide keyboard discrepancies. Their new work is separate from the completed browser-test migration.
 
 ## 2026-10-03: Outline and decimal-tab evidence audit
 
 - Outline cross-selection browser tests pass 24/24 (`/tmp/outline-cross-selection-current.log`); core/selection tests pass 39/39 (`/tmp/outline-core-audit.log`). The recorded native title-offset-2 through body Shift+Enter cases agree with the current title split implementation, including trailing paragraphs. This audit found no new reproduced mismatch; unobserved native gestures remain unverified.
-- Decimal tab locale behavior remains unresolved. Both preview and editing recognize ASCII period; absent a period, they align the field end, not its start. Do not infer the separator from run language or UI language without native evidence. Microsoft DrawingML [TabStop documentation](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.tabstop?view=openxml-3.0.1) identifies ST_TextTabAlignType; the separately investigated ST_TabJc implementation note is WordprocessingML and cannot prove PowerPoint behavior.
+- Decimal tab locale behavior remains unresolved. Both preview and editing recognize ASCII period; absent a period, they align the field end, not its start. Do not infer the separator from run language or UI language without native evidence. The Open XML SDK [TabStop documentation](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.tabstop?view=openxml-3.0.1) identifies ST_TextTabAlignType; the separately investigated ST_TabJc implementation note is WordprocessingML and cannot prove reference-app behavior.
 - Root reproduced that setShapeImageBrightness rejects a regular shape with an image fill before testing fill-memory restoration. table_theme_refs now owns that pending regression and an audit of shared blip correction accessors; no production fix has been accepted yet.
 - PR #287 is pushed through 6bdd9276. CI run 37035075036 is active; prior run 37033218920 was cancelled by the push and must not be described as fully passing.
 
@@ -1473,7 +1473,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Reviewed and discarded a proposed relocation of tile filters: its initial failure only checked SVG attribute placement. A corrected pixel test passed with the original renderer (`/tmp/preview-image-corrections-before-pixel.log`). Do not treat that markup assertion as a visual regression.
 - Final regression covers both stretch and tile after save/reload: picture and ordinary image-fill center pixels agree, and the uncorrected control differs. Sample coordinates derive from the actual slide dimensions. All 23 preview-effects-fills tests pass; scoped lint, format and diff checks pass.
 - CI 37035075036 on 6bdd9276 still runs the Chromium step. Static checks, Node 22/26, Preview fidelity and OOXML validation passed; the Node 24 unit/authoring/history steps also passed. Avoid cancelling this whole-browser run with repeated pushes. fdeb1689 and this regression are local, awaiting the next batched push to the same PR #287.
-- Latest user-requested native retry failed at native pipe startup. Reference restoration remains pending; full PowerPoint parity is incomplete.
+- Latest user-requested native retry failed at native pipe startup. Reference restoration remains pending; full native parity is incomplete.
 
 ## 2026-10-03: Background memory audit clarification
 
@@ -1493,7 +1493,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Before-fix failures: `/tmp/image-percentage-before.log`. ZIP-loaded lexical tests cover signed corrections and picture/background opacity, including save/reload. Root verification: 44 tests pass (`/tmp/image-percentage-root-final.log`), format and core build pass (`/tmp/image-percentage-root-build.log`); agent lint/typecheck pass.
 - The user preview had no listener. Restarted the existing `/tmp/pptx-user-preview/deck.tsx` on http://127.0.0.1:4173/ and verified HTTP 200. Existing source and saved editor state were retained; no browser reload or user edit was performed. Server session: 50865.
 - Native retry still failed with native pipe startup failure. Reference-file restoration remains pending; do not overwrite an open reference document.
-- Corrected an audit claim: OutlinePane already implements slide drag/reorder (see parity notes at 719 onward). Pointer text selection across fields remains unverified. Ruler evidence only establishes the observed simultaneous toggle and cm display; separate vertical preference is documented by Microsoft but its Mac UI has not been inspected here. Do not implement guessed settings placement.
+- Corrected an audit claim: OutlinePane already implements slide drag/reorder (see parity notes at 719 onward). Pointer text selection across fields remains unverified. Ruler evidence only establishes the observed simultaneous toggle and cm display; separate vertical preference is documented by the vendor but the reference desktop app's Mac UI has not been inspected here. Do not implement guessed settings placement.
 - CI run 37035075036 remains live on 6bdd9276, with Node 24 Chromium tests running and the other five jobs successful. Local image fixes are not yet pushed; batch after the live run finishes to avoid cancelling its browser coverage.
 
 ## 2026-10-03: Baseline offsets and remembered recolor
@@ -1507,14 +1507,14 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - Fixed percent-suffixed color/effect opacity and smallest fixed-point color transforms. Hue offsets now use DrawingML angle units (60000 per degree), independently of percentage parsing. Legacy bare fractional values remain tolerated; decimal spellings above one retain fixed-point semantics.
 - Root verified 42 color, effect and run-format tests, scoped formatting, lint, typecheck and core build (`/tmp/color-transform-root.log`). Initial whole-tree format check encountered the agent's unfinished test file; the final scoped check passed.
-- Native PowerPoint selection still fails at native pipe startup; no native edits were made and reference restoration remains pending. User preview session 50865 remains live, with HTTP 200 on port 4173 (the sandbox-only curl failure did not indicate a stopped server).
+- Selecting the native reference desktop app still fails at native pipe startup; no native edits were made and reference restoration remains pending. User preview session 50865 remains live, with HTTP 200 on port 4173 (the sandbox-only curl failure did not indicate a stopped server).
 - CI run 37035075036 remains live on 6bdd9276, with Node 24 Chromium running and the other five jobs successful. Keep the pending commits for one batched push after this run finishes.
-- Next active work: table_band_edges is implementing an internal preset-color map and dedicated tests. Current resolveDrawingColor only handles black/white prstClr; imported red and other presets resolve to null. Agent owns new files only; root must review authoritative RGB mapping, wire the resolver, verify imported document round-trip/rendering and commit separately. No complete PowerPoint parity claim is justified.
+- Next active work: table_band_edges is implementing an internal preset-color map and dedicated tests. Current resolveDrawingColor only handles black/white prstClr; imported red and other presets resolve to null. Agent owns new files only; root must review authoritative RGB mapping, wire the resolver, verify imported document round-trip/rendering and commit separately. No complete native parity claim is justified.
 
 ## 2026-10-03: Preset-color resolution and verification
 
 - The shared color resolver now supports all 190 ECMA ST_PresetColorVal names. Root compared every RGB entry against the local Part 1 PDF §20.1.10.48, extracted at `/tmp/ecma-text/part1.txt`; all 190 match. Short names dkSeaGreen and ltGoldenrodYellow have different specified RGB values from their long forms, so they are explicit exceptions to aliasing. Unknown and inherited object-property names return null.
-- Microsoft MS-OE376 §2.1.1402 documents different values for Office 2007/SP1/SP2 only. Do not present that old implementation note as evidence for current Mac PowerPoint; current native comparison remains unavailable.
+- [MS-OE376] §2.1.1402 documents different values for the 2007/SP1/SP2 releases only. Do not present that old implementation note as evidence for the current reference desktop app (Mac); current native comparison remains unavailable.
 - Public shape-fill/text import and save/reload checks, pixel rendering of red and its shade, preset coverage and color-transform regressions pass 27 tests. Scoped formatting, root lint/typecheck and core build pass (`/tmp/preset-final.log`). The initial root pixel test ran after the agent wired the resolver; its passing result is not a pre-fix reproduction.
 - Remaining color coverage: hslClr and scrgbClr are not handled by the shared resolver. Some gradient, inherited stroke and background readers restrict accepted color elements even further. Audit and reproduce those paths before changing them; this patch does not establish complete imported-color support.
 - Native retry still fails at pipe startup; reference-file restoration remains pending. CI 37035075036 is still live on remote 6bdd9276 with Node 24 Chromium running. Batch local commits into the existing PR #287 once that run finishes rather than cancelling its coverage.
@@ -1524,7 +1524,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Gradient readers now retain preset and system-color stops; background readers resolve these colors in solid fills and background references. Gradient base colors remain separate from transforms to avoid applying shade twice.
 - Root reproduced dropped gradient stops against the pre-fix source (`/tmp/gradient-preset-before-root.log`) and white background rendering (`/tmp/preset-consumers-before.log`). Public save/reload and shaded-color pixel regressions pass after correction.
 - Final verification: 41 tests across 8 files, scoped formatting, lint, typecheck and core build pass (`/tmp/preset-consumers-final.log`). Existing sRGB/scheme background-transform handling and hslClr/scrgbClr remain separate unresolved gaps.
-- On the user's latest connection check, PowerPoint still failed with `Sky Computer Use native pipe startup failed`, before screen capture. No native changes were made; restoring the reference document remains pending. CI 37035075036 still has Node 24 running; the other five jobs passed. Local changes await the batched push to PR #287.
+- On the user's latest connection check, the reference desktop app still failed with `Sky Computer Use native pipe startup failed`, before screen capture. No native changes were made; restoring the reference document remains pending. CI 37035075036 still has Node 24 running; the other five jobs passed. Local changes await the batched push to PR #287.
 
 ## 2026-10-03: Shape paint base-color readers
 
@@ -1547,9 +1547,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Raw fill/stroke, gradient stop and background readers now retain HSL/scRGB colors. Gradient base colors remain independent of shade transforms. Background pixel tests and import/save/reload cover the affected paths. Actual pre-fix logs: `/tmp/gradient-alternate-color-models-pre-fix.log`, `/tmp/background-alternate-before.log`.
 - Duotone color reading previously skipped HSL/scRGB children, shifting the second color into the first slot. Actual two-failure pre-fix log: `/tmp/duotone-models-before.log`.
 - Rendering exposed another defect: sRGB endpoint BCBCBC became DFDFDF because SVG component transfer used its default linearRGB space. Actual pixel failure: `/tmp/duotone-render-before.log`. Both duotone primitives now explicitly use sRGB; a two-entry table provides the exact linear interpolation. Tests check dark/light endpoints and middle-gray inputs after save/reload. A trial using linear-light endpoints was rejected because low RGB values quantized to black in resvg.
-- Evidence: ECMA Part 1 20.1.8.23 specifies linear interpolation, and [Microsoft's implementation note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/c4fb5e6e-431f-4152-91d2-3b48831d77af) specifies pixel luminance. [LibreOffice's primary implementation](https://raw.githubusercontent.com/LibreOffice/core/master/vcl/source/bitmap/BitmapDuoToneFilter.cxx) interpolates sRGB byte values. [SVG filter specification](https://www.w3.org/TR/filter-effects-1/) documents the default linearRGB space. This supports the repair but is not native Mac verification; saturated-input luminance weights and combined-effect ordering still need native comparison.
+- Evidence: ECMA Part 1 20.1.8.23 specifies linear interpolation, and [the [MS-OI29500] implementation note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/c4fb5e6e-431f-4152-91d2-3b48831d77af) specifies pixel luminance. [LibreOffice's primary implementation](https://raw.githubusercontent.com/LibreOffice/core/master/vcl/source/bitmap/BitmapDuoToneFilter.cxx) interpolates sRGB byte values. [SVG filter specification](https://www.w3.org/TR/filter-effects-1/) documents the default linearRGB space. This supports the repair but is not native Mac verification; saturated-input luminance weights and combined-effect ordering still need native comparison.
 - Root verification: 70 tests across 11 files, scoped formatting, root lint/typecheck/build, preview typecheck/build all pass (`/tmp/alternate-colors-final-root.log`).
-- Native connection remains unavailable at pipe startup. No native edits were made in this turn. Reference restoration remains pending; do not overwrite the open reference document. Full PowerPoint parity is incomplete.
+- Native connection remains unavailable at pipe startup. No native edits were made in this turn. Reference restoration remains pending; do not overwrite the open reference document. Full native parity is incomplete.
 
 ## 2026-10-03: Imported effect colors and opacity
 
@@ -1567,7 +1567,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Bullet percentage reading uses the shared DrawingML parser. Four percent-form cases failed before the fix (`/tmp/bullet-percentages-before.log`); import/save/reload tests cover 25%, 50%, 100%, 400% and fixed-point 50000.
 - `getShapeImageDuotone` supports `resolveColors: false` for read/edit/write. Image-fill memory now uses it, retaining scheme references and color transforms when switching fills. Alternate color models become base RGB with separate transforms, avoiding double shade application. Root strengthened tests to check resolved appearance and raw style after save/reload; editor memory persistence is also checked.
 - Root verification: 31 core tests across five files and six remembered-fill tests pass; scoped format/lint, core typecheck/build pass. Agent editor build/browser regression pass; site check reports zero errors/warnings. Full CI on previous pushed commit a4e3dfe2 has five successful jobs and Node 24 Chromium still in progress (run 37046520050); do not claim all CI passed.
-- User's latest connection retry still fails at native pipe startup. Reference restoration remains pending; no new native mutations. Full PowerPoint parity remains incomplete.
+- User's latest connection retry still fails at native pipe startup. Reference restoration remains pending; no new native mutations. Full native parity remains incomplete.
 
 ## 2026-10-03: In-progress bullet inheritance and edit-entry layout
 
@@ -1575,7 +1575,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Imported percentage line spacing now uses DrawingML percentage decoding in both direct and effective readers. Ten save/reload/render tests cover percent strings and integer encodings. HTML percentage bullet sizes now use the first run's font size instead of the host browser's inherited size; three regressions cover 50%, 125% and 400%.
 - The layout inheritance fixture now targets the content placeholder in `slideLayout2.xml`; every modified XML part passes schema validation when xmllint is available. Explicit paragraph overrides of inherited values and follow-text sentinels are covered. Current full core tests pass: 3,421 passed, 109 skipped (`/tmp/paragraph-core-current-full.log`); core typecheck passes (`/tmp/paragraph-current-typecheck.log`). Browser geometry verification remains separate and in progress.
 - Editing geometry remains in progress: the browser test now checks each line and a following paragraph, including fixed-point spacing. The latest run still fails on the second line of the 150%-spacing paragraph (1.34px vertical difference, `/tmp/inline-bullet-layout-final.log`). Earlier runs exposed about 7px paragraph-height changes. Keep the stricter per-line checks; do not accept matching only paragraph top coordinates as layout parity. Active renderer edits require rechecking the final worktree even though the core suite passed.
-- PowerPoint connection still fails with `Sky Computer Use native pipe startup failed`. No new native mutation was made. Pending reference restoration below remains unresolved. PR #287 is still the single target; this entry does not establish complete native parity.
+- The connection to the reference desktop app still fails with `Sky Computer Use native pipe startup failed`. No new native mutation was made. Pending reference restoration below remains unresolved. PR #287 is still the single target; this entry does not establish complete native parity.
 
 ## 2026-10-03: Native-scale inline layout and inherited bullet formatting
 
@@ -1584,11 +1584,11 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - New browser regression measures every non-whitespace glyph across all runs at viewport widths 1100, 1500 and 1900, with strict 1px coordinate/size bounds. Includes oversized and point-sized bullets, wrapped percentage/fixed leading, mixed run sizes and a following paragraph. All three pass. Do not replace these with first-span-only or paragraph-top-only checks.
 - Final focused layout/line-break/line-spacing/metrics browser suite: 15 passed (`/tmp/inline-fallback-browser.log`). Additional group/paragraph/body/spacing suite: 32 passed plus one save-wait timeout; isolated keyboard-formatting rerun passed (`/tmp/inline-keyboard-recheck.log`). Earlier table transform, vertical/autofit and metric cases passed; corrected custom-tab and vertical-tab tests preserve coordinate units after canvas scaling (7 and 8 passed respectively). Body/default-tab follow-up: 7 passed.
 - Core full suite: 3421 passed, 109 skipped (`/tmp/inline-final-core.log`). Dev tests: 19 passed; site tests: 146 passed. Package typechecks and Svelte check passed with zero diagnostics. Dev dependency build passed. Re-run CI on the pushed commit; local focused browser coverage is not the complete browser suite.
-- PowerPoint retry still fails with native pipe startup failure. No native mutations this turn. Reference restoration remains pending: close the open reference document before restoring its backup; never overwrite an open reference file. Full PowerPoint parity remains incomplete.
+- Retrying the reference desktop app still fails with native pipe startup failure. No native mutations this turn. Reference restoration remains pending: close the open reference document before restoring its backup; never overwrite an open reference file. Full native parity remains incomplete.
 
 ## 2026-10-03: Native connection recovered and reference restored
 
-- Native inventory confirmed PowerPoint was not running. Preserved the previous reference as `/tmp/pptx-outline-audit/reference-before-reconnect-20261003.pptx`, restored `reference.pptx` from `reference-before-table-style.pptx`, and verified byte equality (SHA256 `0b851e691516fd3a362aef420af55fb62453d8e77aecb049b71e44348df9287d`). PowerPoint then opened that exact path, showing one slide, Outline title / Ordinary text box, Saved to my Mac, Undo disabled. The earlier reference restoration blocker is resolved.
+- Native inventory confirmed the reference desktop app was not running. Preserved the previous reference as `/tmp/pptx-outline-audit/reference-before-reconnect-20261003.pptx`, restored `reference.pptx` from `reference-before-table-style.pptx`, and verified byte equality (SHA256 `0b851e691516fd3a362aef420af55fb62453d8e77aecb049b71e44348df9287d`). The reference desktop app then opened that exact path, showing one slide, Outline title / Ordinary text box, Saved to my Mac, Undo disabled. The earlier reference restoration blocker is resolved.
 - Native screenshot and AX worked. A single click on the title entered text editing with a caret between the n/e in Outline; glyph placement did not visibly shift. Current SlideCanvas already enters editing from onPointerUp/textInterior, so this observation does not justify adding another edit-entry path. No text was changed.
 - At a narrow native window (756 logical px; screenshot 1512 px), Home collapses Font, Paragraph, Slides, Insert and Drawing into menu buttons. Font popover includes editable family/size, increase/decrease, clear formatting, style toggles, character spacing/case and colors. Reproduced the editor keeping Font expanded at this width. It now collapses below 800px, retaining editable controls in the existing popover. The exact native transition threshold has not been measured; this is parity for the observed narrow state, not proof of all responsive widths.
 - Clicking native Character Spacing subsequently failed with screen capture size 0x0; immediate state/screenshot and getApp retries returned the same error. No document mutation was performed. Keep retrying the native connection; don't report the later menu as verified.
@@ -1624,7 +1624,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - Reproduced custom-show, navigation and show-action timeouts: a text-range anchor can have zero bounding-box height while its child span is visible. Tests now click the visible text span without force. Existing visit-history, custom-show return, hidden-slide, presenter synchronization and keyboard activation assertions remain intact. Root verification: 6 passed (`/tmp/show-links-root-final.log`); format and lint pass.
 - Multi-object resize and rotation both pass locally on Node 24 (`/tmp/multi-transform-node24-recheck.log`). Rotation also passed with Chromium CPU throttled 6x (`/tmp/multi-rotate-throttled.log`); the temporary diagnostic file was removed. This does not resolve the Linux CI failures. Investigate pointer hit targets and document revision before assuming a geometry defect or weakening assertions.
-- Native PowerPoint reconnected successfully. Reference remains `Outline title`, Undo disabled, and was returned from Outline View to Normal. No new document mutations in this check.
+- The native reference desktop app reconnected successfully. Reference remains `Outline title`, Undo disabled, and was returned from Outline View to Normal. No new document mutations in this check.
 - PR #287 received d414cab8. CI run 37100443570 is running on that commit; the slideshow test correction in this entry is newer and needs a subsequent push.
 
 ## 2026-10-03: Transform save synchronization and native baseline controls
@@ -1637,14 +1637,14 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Native fractional offset: `+10.5%` rejected, `10.5%` accepted (field preserves decimal, stepper AX value10). Increment arrow then produced12%. Cancelled with Undo disabled restored.
 - Read-only renderer audit reconfirmed normalizeHeight is serialized/read/inherited and available in Font/clipboard, but absent from render-slide.ts, text-layout.ts, inline-text-html.ts and RichTextInput.svelte. No visual regression covers it. background_transforms is preparing a paired TSX/native export fixture under /tmp/pptx-normalize-height-audit for direct comparison; do not claim rendering parity from flag round-trips.
 
-- Reconnected native PowerPoint successfully; screen capture and thumbnail navigation verified. Paired normalize-height fixture opened and inspected on all three slides. Latin glyphs visibly stretch vertically with nearly unchanged advances; first fixture line positions stayed aligned despite glyph-height changes. This is evidence for glyph-specific vertical transforms, not font-size changes. Initial fixture accidentally imposed parent Text size on mixed runs; corrected TSX and PPTX at /tmp/pptx-normalize-height-audit/normalize-height-audit.{tsx,pptx}, XML checked for 18/36 and 22/32 sizes. Reopened corrected fixture, slide 1 now visibly has different run sizes; normalization retains those size differences. Native currently on corrected slide 1, Saved to my Mac, Undo disabled. Target ink-height formula and shaping/inline-caret behavior still need verification before implementing rendering.
+- Reconnected the native reference desktop app successfully; screen capture and thumbnail navigation verified. Paired normalize-height fixture opened and inspected on all three slides. Latin glyphs visibly stretch vertically with nearly unchanged advances; first fixture line positions stayed aligned despite glyph-height changes. This is evidence for glyph-specific vertical transforms, not font-size changes. Initial fixture accidentally imposed parent Text size on mixed runs; corrected TSX and PPTX at /tmp/pptx-normalize-height-audit/normalize-height-audit.{tsx,pptx}, XML checked for 18/36 and 22/32 sizes. Reopened corrected fixture, slide 1 now visibly has different run sizes; normalization retains those size differences. Native currently on corrected slide 1, Saved to my Mac, Undo disabled. Target ink-height formula and shaping/inline-caret behavior still need verification before implementing rendering.
 - Font offset input now uses percent text, custom invalid-value alert, OK-to-blank and Discard-to-last-valid semantics, and 2-point step buttons. Fractional 10.5% remains valid, +10.5% is rejected; ArrowUp leaves text unchanged. Root regression across offset, main Font, table, canvas focus and outline: 5 passed (/tmp/font-offset-root-regression.log). Site check initially had one new bound-ref warning; ref converted to reactive state and recheck pending. Dedicated mixed-baseline preservation regression delegated.
 
 - Final offset verification: dedicated offset tests 2 passed including untouched mixed baselines and exported Bold assertion (/tmp/font-offset-final-test.log); rebuilt dev successfully; site check 0 errors/0 warnings; scoped formatter/linter and git diff check passed. CI 37100443570 remains live on remote d414cab8: five jobs passed, Node 24 Chromium in progress. Local link-click and transform-revision test commits remain unpushed so this run can finish; then push accumulated verified commits to feat/pptx-editor for PR287.
 
 ## 2026-10-03: Connection restored and mixed-offset discard
 
-- Native PowerPoint connection, screen capture and slide navigation work again. Corrected normalize-height fixture slide 3 confirms mixed 18/36pt sizes retain their differences and the following line stays aligned with its control. Native remains on slide 3, Saved to my Mac, Undo disabled; no document mutation in this comparison.
+- The connection to the native reference desktop app, screen capture and slide navigation work again. Corrected normalize-height fixture slide 3 confirms mixed 18/36pt sizes retain their differences and the following line stays aligned with its control. Native remains on slide 3, Saved to my Mac, Undo disabled; no document mutation in this comparison.
 - Fixed Discard Change after an invalid mixed-offset entry: restore the last valid edited state as well as the blank text, allowing unrelated font changes without forcing a baseline value. Regression covers both untouched mixed values and invalid-input discard, checking exported Bold and preserved baselines.
 - Root verification: three offset browser cases pass (`/tmp/font-offset-mixed-root.log`), site check has 0 errors and 0 warnings (`/tmp/font-offset-mixed-site-check.log`), scoped format/lint and diff checks pass. Committed as ce7528df, still awaiting push with the preceding local commits after live CI run 37100443570 finishes.
 - Glyph ink metrics work is in progress, separate from font line metrics. Do not claim normalizeHeight rendering: exact target-height formula, shaped-script handling, SVG rendering and inline caret parity remain unimplemented/unverified.
@@ -1654,13 +1654,13 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 ## 2026-10-03: Native normalization representation and CI follow-up
 
-- PowerPoint reconnected successfully. Fit to Window restored the disposable normalize-height fixture from 150% to 81%; slide 2 is now selected. Screenshot and AX agree, Saved to my Mac, Undo disabled. Font-mix/CJK/Arabic rows reconfirm visibly different Latin glyph scaling within a run, retained mixed font sizes and continued Arabic joining. This does not establish the exact target-height formula.
+- The reference desktop app reconnected successfully. Fit to Window restored the disposable normalize-height fixture from 150% to 81%; slide 2 is now selected. Screenshot and AX agree, Saved to my Mac, Undo disabled. Font-mix/CJK/Arabic rows reconfirm visibly different Latin glyph scaling within a run, retained mixed font sizes and continued Arabic joining. This does not establish the exact target-height formula.
 - Chromium experiment ruled out adding a transform to existing SVG tspans: their painted bounds do not change. A separate SVG text element transforms; HTML transforms require inline-block and change Range bounds. Splitting the run into independent characters risks breaking kerning, ligatures and complex-script shaping. Do not implement run-wide scaling or character splitting as native parity. The current Canvas measurement API exposes neither shaped outlines nor per-glyph positions; the Node fontkit path already has those. Next design work must preserve shaped advances and inline caret/selection behavior, without quadratic prefix measurement or duplicated full-run markup per character.
 - CI 37100443570 finished with Node 24 Chromium failure; other five jobs passed. Full failure log: /tmp/pr287-ci-37100443570-failed.log. Link-click and multi-transform failures match the already locally verified, previously unpushed fixes. A newly observed format-painter selection assertion (line 191: bold undefined instead of true) is assigned to link_visibility for reproduction and diagnosis; it is not yet classified as test race or production bug. Full CI remains unverified.
 
 ## 2026-10-03: Normalize-height native experiment restoration
 
-- Reconnected PowerPoint and undid Character Style, Typing, AutoCorrect and the initial Typing until the original `AgxH gjpq 0123` and disabled Undo were visible. Despite that, the first normalized row displayed ordinary glyph heights. Closed the disposable fixture with Don't Save and reopened `/tmp/pptx-normalize-height-audit/normalize-height-audit.pptx`; the original stretched glyphs returned. Do not infer full in-memory restoration from disabled Undo alone. No temporary edits were saved.
+- Reconnected the reference desktop app and undid Character Style, Typing, AutoCorrect and the initial Typing until the original `AgxH gjpq 0123` and disabled Undo were visible. Despite that, the first normalized row displayed ordinary glyph heights. Closed the disposable fixture with Don't Save and reopened `/tmp/pptx-normalize-height-audit/normalize-height-audit.pptx`; the original stretched glyphs returned. Do not infer full in-memory restoration from disabled Undo alone. No temporary edits were saved.
 - On the freshly reopened fixture, a single click at the text entered editing with a caret and retained normalized glyph heights. Clicking the slide thumbnail ended editing without a document change. This rules out assuming that native editing always disables normalization. Native remains on slide 1 at 81%, Saved to my Mac, Undo disabled.
 - The earlier temporary punctuation/ligature replacement experiment is inconclusive: typing changed the apparent font/script handling, and the subsequent undo display differed from a clean reopen. Do not use it to implement punctuation exemptions or an exact scaling formula. A generated TSX fixture is needed for that comparison.
 - CI 37103186834 on 56764878 is confirmed live: five jobs passed, Node 24 Chromium still running. Do not restart it merely because observation takes time. Local format-painter fix 5a81bc7d reads the native selection at copy/paste time; root review and deterministic race regression are in progress before push.
@@ -1668,7 +1668,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 ## 2026-10-03: Deterministic format-painter regression and native redraw discrepancy
 
 - Format-painter regression now demonstrably fails against pre-fix production (bold undefined versus true) and passes after restoring the fix. Logs: `/tmp/format-painter-prefix-regression.log`, `/tmp/format-painter-fixed-regression.log`. Root independently ran all four cases on Node 24 successfully (`/tmp/format-painter-root-final.log`). Scoped formatter/linter pass; site check reports zero errors/warnings. Remaining formatting committed as febdafe0. Production is restored, with no pending tracked edits before this note.
-- Opened `/tmp/pptx-normalize-height-cases/normalize-height-cases.pptx` and inspected all three slides in native PowerPoint. Ligature-word and punctuation rows visibly stretch; period/comma are not exempt. However Latin, accent and mixed-font rows sometimes appear ordinary on the main canvas while thumbnails show stretching. Slide 3's presenter view likewise displayed ordinary text while its thumbnail was stretched. XML audit confirms explicit normalizeH values on every paired run; no inheritance/override mistake found. A native rendering cache is a hypothesis, not a proven rule. Do not use this discrepancy to invent script exemptions or conclude an exact scaling formula.
+- Opened `/tmp/pptx-normalize-height-cases/normalize-height-cases.pptx` and inspected all three slides in the native reference desktop app. Ligature-word and punctuation rows visibly stretch; period/comma are not exempt. However Latin, accent and mixed-font rows sometimes appear ordinary on the main canvas while thumbnails show stretching. Slide 3's presenter view likewise displayed ordinary text while its thumbnail was stretched. XML audit confirms explicit normalizeH values on every paired run; no inheritance/override mistake found. A native rendering cache is a hypothesis, not a proven rule. Do not use this discrepancy to invent script exemptions or conclude an exact scaling formula.
 - Ended the slide show; native fixture is on slide 3 in Normal view, 120%, Saved to my Mac, Undo disabled. No document mutation in this comparison. A separate-slide fixture is being prepared to test whether duplicated text affects rendering.
 - CI 37103186834 remains live on 56764878 with five jobs successful and Node 24 in progress. Verified local format-painter commits still await push after that run terminates.
 
@@ -1693,7 +1693,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Implemented tenth-point display/increment/input rounding, preserving untouched model precision. Root browser regression verifies unrelated font edits applied with Character Spacing active retain spc=15, 0.14/0.15 rounding, ArrowUp, saved spc=20, Cancel and Undo. Passed `/tmp/font-spacing-root-final.log`; site check zero errors/warnings `/tmp/font-spacing-root-final-site.log`; scoped format/lint and diff check passed.
 - Native retry again succeeded for screenshot and Font dialog open/Cancel, with Saved to my Mac and Undo disabled afterward. Fractional native fixture awaits inspection: `/tmp/pptx-fractional-spacing-audit/fractional-spacing-audit.pptx` (TSX-generated, spc=0 and spc=15).
 - XML audit of paired/isolated normalization fixtures found matching fonts, sizes, body properties, theme/master/layout; expected normalizeH and shape Y positions differ. No XML evidence explains the native display discrepancy. Normalization rendering remains incomplete.
-- Opened fractional-spacing-audit.pptx in native PowerPoint, clicked the Audit 15 run, opened Font > Character Spacing. Imported spc=15 displays Expanded / By 0.2, confirming the display rounding used in 2eb96459. Cancelled without applying; Saved to my Mac and Undo disabled verified. Untouched native save precision has not been tested by this read-only observation.
+- Opened fractional-spacing-audit.pptx in the native reference desktop app, clicked the Audit 15 run, opened Font > Character Spacing. Imported spc=15 displays Expanded / By 0.2, confirming the display rounding used in 2eb96459. Cancelled without applying; Saved to my Mac and Undo disabled verified. Untouched native save precision has not been tested by this read-only observation.
 - CI job 111146727888 in run 37103186834 was re-polled directly: live Chromium step started 2026-10-03T06:33:11Z, no terminal conclusion. Do not treat elapsed time alone as stopped. Other five jobs passed; verified local commits remain unpushed pending this run's result.
 - Native zoom button audit: 120% plus → 130%; set custom 123% in Zoom dialog, plus → 130%; minus → 120%. Matches controller zoomIn/zoomOut rounding. Restored initial 120%; no presentation content changes. Native slider keyboard behavior is still unverified. Updated the parity table to distinguish verified buttons from unverified slider keys.
 - Home scrollbar investigation: agent measured 756/900/1500/2100px browser widths. At 2100px computed overflow is auto but scrollHeight equals clientHeight, so this alone is not a visible scrollbar reproduction. Narrow widths already use visible overflow/wrapping. Rejected and reverted the proposed overflow override and computed-style-only regression; temporary script removed. Existing Home browser test passed after build. Do not equate computed overflow:auto with a reproduced user-visible scroll defect.
@@ -1716,7 +1716,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 ## 2026-10-03: Native per-object transform semantics verified
 
-- Connection retry succeeded for AX, screenshot and Home Font popover open/Cancel. A stale binding once returned Computer Use is not active; reselecting Microsoft PowerPoint restored it.
+- Connection retry succeeded for AX, screenshot and Home Font popover open/Cancel. A stale binding once returned Computer Use is not active; reselecting the reference desktop app restored it.
 - In authorized reference.pptx at 81%, two selected unrotated text boxes each have eight handles and a rotation handle. A successful first-box SE drag from screenshot (1408,757) to (1308,797) changed approximate first bounds (362,609,1046,148) to (362,609,946,190), and second bounds (420,1155,582,118) to (420,1155,526,152). Each object's own top-left stayed fixed; width/height ratios propagated independently. This disproves the current aggregate proportional scaling and inter-object translation. Screenshot rounding is approximate, not an exact numeric fixture. Undo restored both original boxes; disabled Undo and Redo Resize Object verified.
 - Dragging first rotation handle from (885,567) to (1010,683) rotated BOTH objects approximately 90 degrees about EACH object's own center. First center remained (885,683); second remained (711,1214). No common-center orbit. Undo restored original view; disabled Undo and Redo Rotate Object verified. No outstanding temporary changes.
 - Next implementation: replace aggregate multi-selection handles with per-object handles; retain selected IDs when dragging a selected object's handle; derive resize ratios and angle from the grabbed object, apply resize about each object's opposite anchor and rotation about each object's center. Existing multi-resize/multi-rotate tests assert the wrong aggregate behavior and must be rewritten using this evidence, with Undo/Escape/save coverage preserved. Rotated-object resize, Shift, locked-ratio mixing and minimum limits still require targeted native comparison; do not invent native rules.
@@ -1738,7 +1738,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 ## 2026-10-03: Mixed initial rotation and notes API review
 
-- Native connection retry succeeded for screenshot and Home Font popover interaction. A later stale binding recovered by rebinding Microsoft PowerPoint.
+- Native connection retry succeeded for screenshot and Home Font popover interaction. A later stale binding recovered by rebinding the reference desktop app.
 - In authorized reference.pptx at 81%, rotated only the ordinary text box from 0 to 90 degrees, selected both objects, then dragged the title rotation handle from (885,567) to (1002,683). Title became approximately 90 degrees and ordinary text became approximately 180 degrees; each center stayed fixed. This verifies preserving initial angle differences, as already asserted by multi-rotate browser coverage (0/30 to 90/120). Undid both changes; disabled Undo verified. Mixed-angle resize and saved aspect locks remain unverified.
 - Notes API review removed the duplicate case option on setSlideNotes, which ignored the supplied replacement text. transformSlideNotesCase now owns case changes through a private shared notes-body editor. Regression reproduced unwanted notes-part creation on slides without notes; fixed and notes API plus capability coverage passed 8 tests. Root typecheck passed.
 - Notes UI remains uncommitted while link_visibility verifies formatted paste as one Undo action and adds undoable caret-format history. Do not publish pending style state as equivalent to native undoable formatting.
@@ -1765,7 +1765,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 ## 2026-10-03: Exact relative-angle boundary and empty-notes history
 
-- Native connection remains usable after rebinding PowerPoint. Format > Format Object > Size & Properties > Size exposes the rotation input. AX setValue plus Confirm changed the displayed input but did not rotate the actual object; clicking the input, Cmd+A, typing the number and Return committed correctly and enabled Undo.
+- Native connection remains usable after rebinding the reference desktop app. Format > Format Object > Size & Properties > Size exposes the rotation input. AX setValue plus Confirm changed the displayed input but did not rotate the actual object; clicking the input, Cmd+A, typing the number and Return committed correctly and enabled Undo.
 - Exact +45 and -45 degree target rotations both swap local width/height ratios when the 0-degree title SE handle is dragged from (1408,757) to (1308,797). +45 fixes target local SW and moves NE. -45 fixes target local NE and moves SW: before corners NW (463,1379), NE (876,965), SE (958,1049), SW (546,1461); after NW (344,1497), NE (876,965), SE (950,1043), SW (419,1573). This disproves Math.round(relative/90), which rounds -0.5 to zero. Implemented symmetric rounding with normalized angles; +/-135 boundary ties remain an inference to verify separately. Both native trials were undone twice, ending with disabled Undo and the original unrotated shapes. No outstanding reference edits.
 - Related geometry/command/capability tests passed 80 cases before the new +/-45 regressions. Geometry agent reports 67 cases after the boundary fix. Root format, lint and typecheck passed (`/tmp/parity-final-gates.log`). Full root tests/build started under session 54063 (`/tmp/parity-final-unit.log`, `/tmp/parity-final-build.log`); inspect actual completion before claiming success.
 - Notes agent reports empty-note Bold, Italic, Ab, Cd four-step Undo now passes, notes pane 5 cases and formatting 3 cases. Follow-up review requested nonempty caret Undo via toolbar as well as keyboard, and removal of the effect self-dependency workaround. Notes changes remain uncommitted during that review.
@@ -1781,7 +1781,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 ## 2026-10-03: Reconnected native Home grouping and notes final review
 
-- User-requested native retry succeeded: reference.pptx AX, screenshot and Home Font popover open/close verified. Rebinding PowerPoint recovers a stale "Computer Use is not active" app handle. No reference content changes remain pending.
+- User-requested native retry succeeded: reference.pptx AX, screenshot and Home Font popover open/close verified. Rebinding the reference desktop app recovers a stale "Computer Use is not active" app handle. No reference content changes remain pending.
 - Native Home at 756pt: Slides popover contains New Slide, Layout, Reset, Section; Insert contains Picture, Shapes, Text Box; Drawing contains Arrange, Quick Styles, Shape Fill, Shape Outline. Assigned grouping corrections to spacing_dialog. This does not prove matching expanded layouts, breakpoints or all commands.
 - Notes toolbar Undo regression passes without speculative TopBar/controller undo handlers; removed those handlers. Existing current-slide keyed NotesPane recreation clears typing state when document history restores a presentation. Keep the regression, not an extra production history API.
 - Final root notes format/lint and targeted API/command/capability tests pass: 20 tests (`/tmp/notes-final-format.log`, `/tmp/notes-final-lint.log`, `/tmp/notes-final-tests.log`). Full suite 3423 pass/build evidence above remains valid for the core changes; latest UI browser/site checks are being repeated by link_visibility.
@@ -1809,12 +1809,12 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 ## 2026-10-03: Native Colored Fill style evidence
 
-- PowerPoint capture recovered and Colored Fill / Blue, Accent 1 was applied to the ordinary text box, saved to `/tmp/pptx-outline-audit/quickstyle-colored-fill-accent1.pptx`, then undone and saved. Native Undo was disabled. A subsequent XML comparison confirms current `reference.pptx` has the original `spPr/noFill` and no `p:style`, matching `reference-before-quickstyles.pptx` for that shape. No temporary content change remains.
+- Capture of the reference desktop app recovered and Colored Fill / Blue, Accent 1 was applied to the ordinary text box, saved to `/tmp/pptx-outline-audit/quickstyle-colored-fill-accent1.pptx`, then undone and saved. Native Undo was disabled. A subsequent XML comparison confirms current `reference.pptx` has the original `spPr/noFill` and no `p:style`, matching `reference-before-quickstyles.pptx` for that shape. No temporary content change remains.
 - Native style removes direct noFill and writes lnRef=2 with accent1/shade=15000, fillRef=1 accent1, effectRef=0 accent1, fontRef=minor lt1. This verifies this gallery item only; other rows and placeholder style precedence still require evidence.
 - Capture intermittently recovers for the main window and Drawing popover, then fails when opening Quick Styles with ScreenCaptureKit -3811. The gallery may be open; obtain fresh AX state before further actions.
-- Shape fillRef reader and native fixture regression are in progress. Review identified that kind-only gradient/pattern/image resolution is insufficient: their detail readers also need matrix XML and image relationships must use the theme part. Gradient integration is being implemented separately. Full Quick Styles and PowerPoint parity remain incomplete.
+- Shape fillRef reader and native fixture regression are in progress. Review identified that kind-only gradient/pattern/image resolution is insufficient: their detail readers also need matrix XML and image relationships must use the theme part. Gradient integration is being implemented separately. Full Quick Styles and native parity remain incomplete.
 - CI run37111864572 for a5c086fb is live: Static checks, OOXML validator and Preview fidelity passed; Node22/24/26 jobs were still running at inspection.
-- Implemented own-shape fillRef solid color, opacity and gradient detail resolution, plus bgFillStyleLst indexing. Added native extracted XML fixture and save/load tests. Root review corrected fixture quote escaping and added idx1000 noFill handling after a failing regression; Microsoft FillReference documentation confirms both 0 and 1000 indicate no fill (https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.fillreference?view=openxml-3.0.1).
+- Implemented own-shape fillRef solid color, opacity and gradient detail resolution, plus bgFillStyleLst indexing. Added native extracted XML fixture and save/load tests. Root review corrected fixture quote escaping and added idx1000 noFill handling after a failing regression; Open XML SDK FillReference documentation confirms both 0 and 1000 indicate no fill (https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.fillreference?view=openxml-3.0.1).
 - Root targeted tests passed 86 cases across six files (`/tmp/shape-style-root-final.log`); format, lint and typecheck passed (`/tmp/shape-style-{format,lint,types}.log`). Full unit suite ended with 3437 passing tests and one 5000ms timeout in schema-valid.property.test.ts (`/tmp/shape-style-unit.log`). A second normal-parallel run reproduced the same timeout (`/tmp/shape-style-unit-retry.log`); isolated validation passed in 1.90s (`/tmp/shape-schema-repeat-isolated.log`). Neither run reported an XML schema rejection. A lower-concurrency full run is needed; do not claim full checks passed yet.
 - Remaining matrix gaps: line/effect/font references; pattern and image detail readers; layout/master style references; owning theme selection in multi-theme decks; native placeholder precedence. Own-shape fill support does not establish complete Quick Styles parity.
 
@@ -1822,16 +1822,16 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - Extended matrix fill lookup to the shape's owning slide master theme. Added a two-master regression with solid and gradient fills plus save/load; temporarily restoring the global resolver produced the expected #4F81BD instead of #112233 failure (`/tmp/shape-style-multimaster-global.log`), then the owning-theme fix passed.
 - Added `fontRef` text color and major/minor font-token fallback after the existing text cascade. Native Colored Fill fixture now verifies white text in the effective reader, after save/load, and in SVG; run/paragraph colors still win. Text fixture ordering is schema-validated. Font token-to-family resolution still uses the global presentation font scheme, so distinct font families across master themes remain unresolved. Native placeholder/fontRef precedence is not yet established.
-- Remaining work includes Quick Styles gallery UI, line/effect references, pattern/image detail readers, layout/master style references, and native precedence comparisons. This increment does not prove full PowerPoint parity.
+- Remaining work includes Quick Styles gallery UI, line/effect references, pattern/image detail readers, layout/master style references, and native precedence comparisons. This increment does not prove full native parity.
 
 - Final root checks passed: format, lint, typecheck, `pnpm test --maxWorkers=2` (477 files, 3441 tests passed; 109 skipped), and build. Logs `/tmp/shape-style-final-{format,lint,types,unit,build}.log`. Default-parallel full-suite runs timed out only in the schema property test; lowering concurrency preserves all test cases and timeout settings.
 - Preview, DSL and dev type checks/builds passed; shared editor Svelte check reported 0 errors and 0 warnings (`/tmp/shape-style-{preview,dsl,dev}-*.log`, `/tmp/shape-style-site-check.log`).
 
 ### Native Quick Styles recovery and title precedence (2026-10-03)
 
-- If Drawing > Quick Styles on the narrow 756-point PowerPoint window produces ScreenCaptureKit -3811, Escape recovered the main document in this session. The window's accessibility action `zoom the window` expanded it to 1512 points; the direct Home Quick Styles button then opened successfully. This is an observed workaround, not a guarantee for all capture failures.
+- If Drawing > Quick Styles on the narrow 756-point reference desktop app window produces ScreenCaptureKit -3811, Escape recovered the main document in this session. The window's accessibility action `zoom the window` expanded it to 1512 points; the direct Home Quick Styles button then opened successfully. This is an observed workaround, not a guarantee for all capture failures.
 - Title placeholder comparison: Subtle Effect / Blue Accent 1 changed the font combo from Calibri (Headings) to Calibri (Body). Saved XML added only `p:style` (lnRef=1, fillRef=2, effectRef=1, fontRef=minor/dk1), leaving txBody unchanged. Colored Fill / Blue Accent 1 produced visibly white title text and Calibri (Body), with fontRef minor/lt1. Own fontRef therefore precedes inherited master title font/color; direct run/paragraph formatting must still win.
-- Evidence files: `/tmp/pptx-outline-audit/reference-before-title-quickstyle.pptx`, `quickstyle-title-subtle-accent1.pptx`, `quickstyle-title-colored-accent1.pptx`. Both temporary operations were undone and saved. Reference slide1.xml matches the before file byte-for-byte; native Undo is disabled. PowerPoint remains open at the wider window size.
+- Evidence files: `/tmp/pptx-outline-audit/reference-before-title-quickstyle.pptx`, `quickstyle-title-subtle-accent1.pptx`, `quickstyle-title-colored-accent1.pptx`. Both temporary operations were undone and saved. Reference slide1.xml matches the before file byte-for-byte; native Undo is disabled. The reference desktop app remains open at the wider window size.
 
 - Native Moderate Effect / Blue Accent 1 on the title saved as `/tmp/pptx-outline-audit/quickstyle-title-moderate-accent1.pptx`: lnRef=1, fillRef=3, effectRef=2 (all accent1), fontRef=minor/lt1. Undo and Save restored slide1.xml byte-for-byte against reference-before-title-quickstyle.pptx; native Undo disabled.
 - Review corrected font test fixture insertion, duplicate master latin, incorrect master relationship namespace, and non-distinct major/minor expectations. Added schema validation of slide/master XML. Group tests now cover competing native style, nested grpFill, noFill blocking, changed parent paint, ungroup invalidation, and save/load. A regression reproduced unconditional inheritance of a parent gradient when a child did not select grpFill (`/tmp/group-gradient-choice-red.log`); gradient resolution now follows the explicit choice and terminates on a non-gradient group fill. Targeted tests passed 7 cases (`/tmp/group-font-final-targeted.log`).
@@ -1846,11 +1846,11 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 ### Line reference implementation follow-up (2026-10-03)
 
-- Native PowerPoint AX and screenshot recovered on retry; reference.pptx is saved, Undo disabled, Redo Shape Style. No new temporary document edits in this increment.
-- Implemented theme lnRef resolution and preview integration. Regression checks cover native Colored Fill, native Intense no-line, theme/reference color transforms, out-of-range line indices, owning-master line width/color, and save/load. Line indices must not use the background-fill offset (Microsoft Office clarification: https://learn.microsoft.com/zh-cn/openspecs/office_standards/ms-oe376/52cfd9cd-2a39-4f20-9364-70510270ffb9).
+- The native reference desktop app's AX and screenshot recovered on retry; reference.pptx is saved, Undo disabled, Redo Shape Style. No new temporary document edits in this increment.
+- Implemented theme lnRef resolution and preview integration. Regression checks cover native Colored Fill, native Intense no-line, theme/reference color transforms, out-of-range line indices, owning-master line width/color, and save/load. Line indices must not use the background-fill offset ([MS-OE376] clarification: https://learn.microsoft.com/zh-cn/openspecs/office_standards/ms-oe376/52cfd9cd-2a39-4f20-9364-70510270ffb9).
 - PR287 run 37114735220 finished: Node22/26, static, preview and OOXML checks passed. Node24 failed only on ZIP byte equality in refused animation removal: ZIP header timestamps changed between saves. The regression now compares every decompressed OPC part, preserving the package-content invariant.
 - Root targeted run passed 75 tests across style-line, direct-line cascade, SVG style matrix, owning-master matrix, and animation refusal tests (`/tmp/line-all-targeted.log`). Direct line properties overlay theme properties by attribute/choice; idx=0 still suppresses the line when only its width is set. Native reference slide XML remains byte-identical to the before snapshot.
-- Remaining parity work: Quick Styles gallery UI, effect references, pattern/image style detail readers, layout/master style-reference inheritance, and broader native operation comparison. Passing these tests does not establish full PowerPoint parity.
+- Remaining parity work: Quick Styles gallery UI, effect references, pattern/image style detail readers, layout/master style-reference inheritance, and broader native operation comparison. Passing these tests does not establish full native parity.
 - Final gates passed: format, lint, typecheck, 481 test files / 3460 tests passed (109 skipped), and core build (`/tmp/line-final-*.log`). Preview, DSL and dev typecheck/build passed against rebuilt dependencies (`/tmp/line-{preview,dsl,dev}-{typecheck,build}.log`). Read-only independent review found no additional blocker in the line-reference increment.
 
 ### Native preset Quick Styles evidence (2026-10-03)
@@ -1864,15 +1864,15 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 ### Quick Styles implementation follow-up (2026-10-03)
 
 - Added canonical `setShapeStyle` for native line/fill/effect/font references; validates references before mutation and preserves geometry and direct text formatting. Added theme effectRef resolution, including owning-master themes and explicit empty effects stopping inheritance.
-- Home gallery contains 6 theme rows plus 5 preset rows, each with dk1/accent1–6 (77 choices). Shape Format shows 3 thumbnails per page, matching the native next/previous operation observed in PowerPoint. Swatches use rounded rectangles, the source slide's theme and color-map override. Batch `setShapeHidden` preserves unknown timing rather than deleting animated source shapes while preparing a temporary swatch slide.
+- Home gallery contains 6 theme rows plus 5 preset rows, each with dk1/accent1–6 (77 choices). Shape Format shows 3 thumbnails per page, matching the native next/previous operation observed in the reference desktop app. Swatches use rounded rectangles, the source slide's theme and color-map override. Batch `setShapeHidden` preserves unknown timing rather than deleting animated source shapes while preparing a temporary swatch slide.
 - Native reconnection succeeded again with AX and screenshot. `reference.pptx` is saved; Undo disabled. No native document content changed during this verification.
-- Full parity remains incomplete: live hover previews, WordArt styles, effectDag/3D style rendering, pattern/image style detail readers, and broader operation-by-operation native comparisons still require work. These gallery tests do not prove full PowerPoint parity.
+- Full parity remains incomplete: live hover previews, WordArt styles, effectDag/3D style rendering, pattern/image style detail readers, and broader operation-by-operation native comparisons still require work. These gallery tests do not prove full native parity.
 - Verification: full root suite passed 484 files / 3482 tests (109 skipped), then final effect-reference fixes passed 32 focused tests across 6 files. Final format/lint/root typecheck passed; preview/DSL/dev typechecks and site check passed; workspace build and Chromium Quick Styles regression passed. Browser checks cover 900/1500/2200px Home overflow, 77 styles, native reference serialization, bold preservation, Undo/Redo, inline pagination and constant last-page width, and no page errors. Logs: `/tmp/quickstyle-complete-tests.log`, `/tmp/quickstyle-final-{focused,build,browser}.log`.
 - Explicit unresolved effectRef and effectDag now stop inherited effects. effectDag remains unrendered, rather than being replaced by the parent's or theme's unrelated shadow. Cache invalidation follows slide/version changes; inline apply preserves focus on the chosen thumbnail.
 
 ### 2026-10-03 — native WordArt comparison resumed
 
-- Native PowerPoint AX, screenshot, Shape Format navigation, style application,
+- The native reference desktop app's AX, screenshot, Shape Format navigation, style application,
   Save, and Undo all worked after reconnecting.
 - Captured the first three WordArt styles into
   `test/fixtures/native/wordart-*-shape.xml`; provenance and exact observations

@@ -1,6 +1,6 @@
 import type { ReadGradientFill } from '@office-kit/pptx';
 
-// Mac PowerPoint's Radial and Rectangular galleries order and saved edge insets.
+// The reference desktop app's (Mac) Radial and Rectangular galleries order and saved edge insets.
 export const pathDirections = [
   { label: 'From Bottom Right Corner', x: 1, y: 1 },
   { label: 'From Bottom Left Corner', x: 0, y: 1 },

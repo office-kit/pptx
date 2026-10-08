@@ -19,10 +19,10 @@ import {
 import { startPreview, waitForState } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
-// Mac PowerPoint 16's text, table-cell, picture and slide-background context
+// The reference desktop app's (Mac, 16) text, table-cell, picture and slide-background context
 // menus (native AX captures, 2026-10-07): item order, separators, submenus and
 // shortcut hints. The system-provided Continuity Camera and Services entries
-// are not PowerPoint's and are not reproduced.
+// are not the reference desktop app's and are not reproduced.
 
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -501,93 +501,97 @@ test(
   },
 );
 
-test('the picture and slide-background menus follow PowerPoint', { timeout: 120000 }, async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'office-context-picture-'));
-  const file = join(dir, 'deck.tsx');
-  await writeFile(file, DECK);
-  let session;
-  try {
-    session = await open(file);
-    const { page, editor, errors, deck } = session;
-    const menu = editor.locator('.ctx:not(.submenu)');
-    await editor.getByRole('button', { name: 'Slide 3', exact: true }).first().click();
-    const hit = editor.locator('.hit').first();
-    await hit.click({ button: 'right' });
-    assert.deepEqual(await entries(menu), PICTURE_MENU);
-    await shot(page, 'ours-picture');
-    await menu.getByRole('menuitem', { name: 'Change Picture', exact: true }).hover();
-    assert.deepEqual(await entries(editor.getByRole('menu', { name: 'Change Picture' })), [
-      'From a File...',
-      'From Stock Images... (disabled)',
-      'From Online Sources... (disabled)',
-      'From Brand Images... (disabled)',
-      'From Icons... (disabled)',
-      'From Clipboard... (disabled)',
-    ]);
-    await menu.getByRole('menuitem', { name: 'Group', exact: true }).hover();
-    assert.deepEqual(await entries(editor.getByRole('menu', { name: 'Group', exact: true })), [
-      'Group ⌥⌘G (disabled)',
-      'Regroup ⌥⌘J (disabled)',
-      '----',
-      'Ungroup ⌥⇧⌘G (disabled)',
-    ]);
-    await shot(page, 'ours-picture-sub-group');
-    await menu.getByRole('menuitem', { name: 'Crop', exact: true }).click();
-    await editor.getByRole('dialog').first().waitFor();
-    await page.keyboard.press('Escape');
-    assert.equal(getShapeKind(getSlideShapes(getSlides(await deck())[2])[0]), 'picture');
+test(
+  'the picture and slide-background menus follow the reference desktop app',
+  { timeout: 120000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-context-picture-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(file, DECK);
+    let session;
+    try {
+      session = await open(file);
+      const { page, editor, errors, deck } = session;
+      const menu = editor.locator('.ctx:not(.submenu)');
+      await editor.getByRole('button', { name: 'Slide 3', exact: true }).first().click();
+      const hit = editor.locator('.hit').first();
+      await hit.click({ button: 'right' });
+      assert.deepEqual(await entries(menu), PICTURE_MENU);
+      await shot(page, 'ours-picture');
+      await menu.getByRole('menuitem', { name: 'Change Picture', exact: true }).hover();
+      assert.deepEqual(await entries(editor.getByRole('menu', { name: 'Change Picture' })), [
+        'From a File...',
+        'From Stock Images... (disabled)',
+        'From Online Sources... (disabled)',
+        'From Brand Images... (disabled)',
+        'From Icons... (disabled)',
+        'From Clipboard... (disabled)',
+      ]);
+      await menu.getByRole('menuitem', { name: 'Group', exact: true }).hover();
+      assert.deepEqual(await entries(editor.getByRole('menu', { name: 'Group', exact: true })), [
+        'Group ⌥⌘G (disabled)',
+        'Regroup ⌥⌘J (disabled)',
+        '----',
+        'Ungroup ⌥⇧⌘G (disabled)',
+      ]);
+      await shot(page, 'ours-picture-sub-group');
+      await menu.getByRole('menuitem', { name: 'Crop', exact: true }).click();
+      await editor.getByRole('dialog').first().waitFor();
+      await page.keyboard.press('Escape');
+      assert.equal(getShapeKind(getSlideShapes(getSlides(await deck())[2])[0]), 'picture');
 
-    // The slide's own menu.
-    await editor.locator('.stage').click({ button: 'right', position: { x: 600, y: 400 } });
-    assert.deepEqual(await entries(menu), BACKGROUND_MENU);
-    await shot(page, 'ours-slide-background');
-    await menu.getByRole('menuitem', { name: 'Grid and Guides', exact: true }).hover();
-    assert.deepEqual(
-      await editor
-        .getByRole('menu', { name: 'Grid and Guides', exact: true })
-        .locator(':scope > .ctx-item, :scope > .ctx-sep')
-        .evaluateAll((nodes) =>
-          nodes.map((node) =>
-            node.classList.contains('ctx-sep')
-              ? '----'
-              : `${node.getAttribute('aria-label')}${node.getAttribute('aria-checked') === 'true' ? ' ✓' : ''}`,
+      // The slide's own menu.
+      await editor.locator('.stage').click({ button: 'right', position: { x: 600, y: 400 } });
+      assert.deepEqual(await entries(menu), BACKGROUND_MENU);
+      await shot(page, 'ours-slide-background');
+      await menu.getByRole('menuitem', { name: 'Grid and Guides', exact: true }).hover();
+      assert.deepEqual(
+        await editor
+          .getByRole('menu', { name: 'Grid and Guides', exact: true })
+          .locator(':scope > .ctx-item, :scope > .ctx-sep')
+          .evaluateAll((nodes) =>
+            nodes.map((node) =>
+              node.classList.contains('ctx-sep')
+                ? '----'
+                : `${node.getAttribute('aria-label')}${node.getAttribute('aria-checked') === 'true' ? ' ✓' : ''}`,
+            ),
           ),
-        ),
-      [
-        'Add Vertical Guide',
-        'Add Horizontal Guide',
-        'Delete',
+        [
+          'Add Vertical Guide',
+          'Add Horizontal Guide',
+          'Delete',
+          '----',
+          'Smart Guides ✓',
+          'Guides',
+          'Gridlines',
+          '----',
+          'Snap to Grid',
+          '----',
+          'Grid Options...',
+        ],
+      );
+      await shot(page, 'ours-slide-background-sub-grid-and-guides');
+      await editor.getByRole('menuitemcheckbox', { name: 'Gridlines', exact: true }).click();
+      assert.equal(await editor.locator('.grid-dots').count(), 1);
+      await editor.locator('.stage').click({ button: 'right', position: { x: 600, y: 400 } });
+      await menu.getByRole('menuitemcheckbox', { name: 'Ruler', exact: true }).click();
+      await editor.locator('.rulers').first().waitFor();
+      await editor.locator('.lang select').selectOption('ja');
+      await editor.locator('.stage').click({ button: 'right', position: { x: 600, y: 400 } });
+      assert.deepEqual((await entries(menu)).slice(9, 14), [
+        '非表示スライドに設定',
         '----',
-        'Smart Guides ✓',
-        'Guides',
-        'Gridlines',
-        '----',
-        'Snap to Grid',
-        '----',
-        'Grid Options...',
-      ],
-    );
-    await shot(page, 'ours-slide-background-sub-grid-and-guides');
-    await editor.getByRole('menuitemcheckbox', { name: 'Gridlines', exact: true }).click();
-    assert.equal(await editor.locator('.grid-dots').count(), 1);
-    await editor.locator('.stage').click({ button: 'right', position: { x: 600, y: 400 } });
-    await menu.getByRole('menuitemcheckbox', { name: 'Ruler', exact: true }).click();
-    await editor.locator('.rulers').first().waitFor();
-    await editor.locator('.lang select').selectOption('ja');
-    await editor.locator('.stage').click({ button: 'right', position: { x: 600, y: 400 } });
-    assert.deepEqual((await entries(menu)).slice(9, 14), [
-      '非表示スライドに設定',
-      '----',
-      'ルーラー',
-      'グリッドとガイド ▸',
-      'ズーム...',
-    ]);
-    await menu.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
-    await editor.getByRole('region', { name: '背景の書式設定', exact: true }).waitFor();
-    assert.deepEqual(errors, []);
-  } finally {
-    await session?.browser.close();
-    await session?.preview.close();
-    await rm(dir, { recursive: true, force: true });
-  }
-});
+        'ルーラー',
+        'グリッドとガイド ▸',
+        'ズーム...',
+      ]);
+      await menu.getByRole('menuitem', { name: '背景の書式設定...', exact: true }).click();
+      await editor.getByRole('region', { name: '背景の書式設定', exact: true }).waitFor();
+      assert.deepEqual(errors, []);
+    } finally {
+      await session?.browser.close();
+      await session?.preview.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

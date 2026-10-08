@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The contextual tabs' Arrange group. Expanded it is PowerPoint's row of
+  // The contextual tabs' Arrange group. Expanded it is the reference desktop app's row of
   // Bring Forward ▾, Send Backward ▾, Selection Pane, Reorder Objects ▾,
   // Align ▾ and Group ▾ / Rotate ▾ (Table Layout: Align, Group and Rotate as
   // labelled rows, without Selection Pane and Reorder Objects); collapsed it

@@ -3,7 +3,7 @@
   import { getShapeChartSpec, getShapeKind, getShapeMedia, getSnapToGrid, isShapeLocked, isSlideHidden, type SlideShapeData, setParagraphBullet, setSlideHidden, setSnapToGrid, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
-  // The menus follow Mac PowerPoint 16's, in its order, with its separators and
+  // The menus follow the reference desktop app's (Mac, 16), in its order, with its separators and
   // shortcut hints (native captures 2026-10-07); commands the editor cannot
   // perform are shown disabled with the reason as their tooltip.
   import { getEditor } from '../core/context.ts';
@@ -51,7 +51,7 @@
     }));
   }
 
-  // The outline's slide commands, with Mac PowerPoint's outline shortcuts.
+  // The outline's slide commands, with the reference desktop app's (Mac) outline shortcuts.
   function slideItems(): Item[] {
     return [
       { label: 'New Slide', accel: '⇧⌘N', run: () => editor.addNewSlide() },
@@ -59,7 +59,7 @@
       { label: 'Delete Slide', run: () => editor.invoke('removeSlide'), sep: true },
     ];
   }
-  // Mac PowerPoint's outline menu ends Thesaurus, Translate | Show Formatting
+  // The reference desktop app's (Mac) outline menu ends Thesaurus, Translate | Show Formatting
   // (on by default) | Hyperlink.
   function outlineTail(hyperlink: Item): Item[] {
     return [
@@ -70,7 +70,7 @@
     ];
   }
 
-  // PowerPoint names the Format pane after what is selected.
+  // The reference desktop app names the Format pane after what is selected.
   function formatLabel(shapes: readonly SlideShapeData[]): string {
     if (shapes.length !== 1) return 'Format Shape...';
     const shape = shapes[0]!;
@@ -178,7 +178,7 @@
     ];
   }
 
-  // Mac PowerPoint's menu for text being edited in a shape.
+  // The reference desktop app's (Mac) menu for text being edited in a shape.
   function textItems(text: TextContextMenu): Item[] {
     return [
       ...clipboardItems(text),
@@ -192,7 +192,7 @@
     ];
   }
 
-  // Mac PowerPoint's menu for table cells (a caret or selected cells). Row and
+  // The reference desktop app's (Mac) menu for table cells (a caret or selected cells). Row and
   // column commands end text editing first, as they reshape the table.
   function cellItems(text: TextContextMenu | undefined): Item[] {
     const target = selectedCellTarget(editor);
@@ -246,7 +246,7 @@
     ];
   }
 
-  // Mac PowerPoint's picture menu.
+  // The reference desktop app's (Mac) picture menu.
   function pictureItems(shapes: readonly SlideShapeData[]): Item[] {
     const online = 'Online pictures need an online image service.';
     return [
@@ -279,7 +279,7 @@
     ];
   }
 
-  // Mac PowerPoint's object menu.
+  // The reference desktop app's (Mac) object menu.
   function shapeItems(shapes: readonly SlideShapeData[]): Item[] {
     const single = shapes.length === 1 ? shapes[0]! : null;
     const list: Item[] = [...clipboardItems(undefined)];
@@ -313,7 +313,7 @@
     return list;
   }
 
-  // Mac PowerPoint's menu for the slide itself (right-clicking its background).
+  // The reference desktop app's (Mac) menu for the slide itself (right-clicking its background).
   // It has no Layout or Reset Slide; those are on the Home tab.
   function backgroundItems(): Item[] {
     const slide = doc.currentSlide;
@@ -390,7 +390,7 @@
           ...outlineTail({ label: 'Hyperlink...', accel: '⌘K', disabled: true, reason: 'Select the text to link first.', run: noop }),
         ];
       }
-      // Mac PowerPoint's thumbnail menu. It has no Layout or Reset Slide;
+      // The reference desktop app's (Mac) thumbnail menu. It has no Layout or Reset Slide;
       // those are on the Home tab.
       const slides = selected.map((index) => doc.slideAt(index)).filter((slide) => slide !== null);
       const hidden = slides.length > 0 && slides.every((slide) => isSlideHidden(slide));
@@ -615,7 +615,7 @@
     margin: 5px 10px;
     background: var(--ok-border);
   }
-  /* PowerPoint's list galleries: five 90 pt tiles per row. */
+  /* The reference desktop app's list galleries: five 90 pt tiles per row. */
   .gallery {
     display: grid;
     grid-template-columns: repeat(5, 90px);

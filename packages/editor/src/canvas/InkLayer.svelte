@@ -1,7 +1,7 @@
 <script lang="ts">
   // Draw-tab tools: freehand pen strokes, the stroke eraser and Lasso Select.
   // The layer covers the slide while a tool is on, so presses never reach the
-  // shapes underneath (as in PowerPoint, where drawing never moves a shape).
+  // shapes underneath (as in the reference desktop app, where drawing never moves a shape).
   import { getEditor } from '../core/context.ts';
   import { addInkStroke, addRecognizedShape, inkAt, recognizeShape, shapesInLasso, type Point } from '../core/ink.svelte.ts';
   import { removeShape } from '@office-kit/pptx';

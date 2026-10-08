@@ -118,7 +118,7 @@ test(
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.deepEqual(getDrawingGuides(await deck()), []);
       await editor.locator('.stage').click({ button: 'right', position: { x: 20, y: 20 } });
-      // PowerPoint keeps the guide commands under Grid and Guides.
+      // The reference desktop app keeps the guide commands under Grid and Guides.
       await editor.getByRole('menuitem', { name: 'Grid and Guides', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'Add Vertical Guide', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();

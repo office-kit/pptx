@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 import { findSlideLayout, getSlideLayoutPlaceholders, loadPresentation } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
-// Mac PowerPoint 16's views, measured through the accessibility API and from
+// The reference desktop app's (Mac, 16) views, measured through the accessibility API and from
 // window screenshots in a 1512 × 900 pt window (2026-10-07). CSS px equal Mac
 // points. Sizes the CSS fixes are exact everywhere; positions that follow
 // font-dependent captions get a tolerance off macOS, where CI's Linux fonts
@@ -115,7 +115,7 @@ const box = (locator) =>
 
 for (const locale of ['en', 'ja'])
   test(
-    `views, status bar switcher and outline follow Mac PowerPoint (${locale})`,
+    `views, status bar switcher and outline follow the reference desktop app (Mac, ${locale})`,
     { timeout: 180000 },
     async () => {
       const L = LABELS[locale];
@@ -236,7 +236,7 @@ for (const locale of ['en', 'ja'])
           [27, 27, 27],
         );
 
-        // Show Formatting is on by default, in Mac PowerPoint's outline menu.
+        // Show Formatting is on by default, in the reference desktop app's (Mac) outline menu.
         if (locale === 'en') {
           await outline
             .locator('[data-outline-slide="1"] [role="textbox"]')

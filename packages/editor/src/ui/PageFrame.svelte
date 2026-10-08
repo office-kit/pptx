@@ -1,7 +1,7 @@
 <script lang="ts">
   // The page of Notes Page view and the handout and notes masters, at the
   // deck's notes page size (7.5 × 10 in portrait by default), fitted to the
-  // window with 22 pt around it (Mac PowerPoint opens these views at 96% in a
+  // window with 22 pt around it (the reference desktop app (Mac) opens these views at 96% in a
   // 1512 × 900 pt window), or at the zoom chosen. Contents are placed in page
   // fractions; `--page-scale` is screen px per point.
   import type { Snippet } from 'svelte';

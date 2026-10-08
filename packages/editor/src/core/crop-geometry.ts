@@ -111,7 +111,7 @@ export function getPictureCropGeometry(
     offsetY: (pictureHeight * (crop.bottom - crop.top)) / 2,
     cropWidth: frame.w,
     cropHeight: frame.h,
-    // PowerPoint exposes the crop frame in slide coordinates. These are
+    // The reference desktop app exposes the crop frame in slide coordinates. These are
     // deliberately the frame origin, rather than source-space crop lengths.
     cropLeft: frame.x,
     cropTop: frame.y,

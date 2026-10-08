@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Mac PowerPoint's Picture Format tab: Remove Background; Adjust
+  // The reference desktop app's (Mac) Picture Format tab: Remove Background; Adjust
   // (Corrections, Color, Artistic Effects, Transparency and the Compress /
   // Quality / Change / Reset icons); Picture Styles (style strip, Picture
   // Border, Picture Effects, Picture Layout); Alt Text; Arrange; Size (Crop,
@@ -30,9 +30,9 @@
     return shape && getShapeKind(shape) === 'picture' && !getShapeMedia(shape) ? shape : null;
   });
   const editable = $derived(picture !== null && !editor.selectionLocked());
-  // PowerPoint's Transparency presets.
+  // The reference desktop app's Transparency presets.
   const TRANSPARENCY = [0, 15, 30, 50, 65, 80, 95] as const;
-  // PowerPoint's default picture border when a color is chosen first.
+  // The reference desktop app's default picture border when a color is chosen first.
   const BORDER_EMU = 12700;
   const CROP_SHAPES: readonly [PresetShape, string][] = [
     ['rect', 'Rectangle'],
@@ -55,7 +55,7 @@
     const visible = getShapeStrokeEffective(doc.pres, shape)?.kind === 'solid';
     editor.invoke('setShapeStroke', { options: visible ? { color } : { color, widthEmu: BORDER_EMU } });
   }
-  // Mac PowerPoint's Artistic Effects gallery, in order (menus/picture-artistic-effect).
+  // The reference desktop app's (Mac) Artistic Effects gallery, in order (menus/picture-artistic-effect).
   const ARTISTIC_EFFECTS: readonly [ImageArtisticEffect | null, string][] = [
     [null, 'None'],
     ['marker', 'Marker'],

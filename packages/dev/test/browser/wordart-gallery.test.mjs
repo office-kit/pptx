@@ -16,7 +16,7 @@ import { startPreview } from '../helpers/server.mjs';
 
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={6} height={1} text="Title" /></Slide></Presentation>`;
 
-// Mac PowerPoint's gallery, in order (test/fixtures/native/wordart-capture.md).
+// The reference desktop app's (Mac) gallery, in order (test/fixtures/native/wordart-capture.md).
 const PRESETS = [
   'Fill: Black, Text color 1; Shadow',
   'Fill: Blue, Accent color 1; Shadow',
@@ -41,7 +41,7 @@ const PRESETS = [
 ];
 
 test(
-  'WordArt gallery matches PowerPoint: twenty swatches in Quick Styles and Insert ▸ WordArt',
+  'WordArt gallery matches the reference desktop app: twenty swatches in Quick Styles and Insert ▸ WordArt',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-wordart-gallery-'));
@@ -133,7 +133,7 @@ test(
       assert.deepEqual(white.outline, { color: 'accent5', widthEmu: 10160 });
       assert.equal(white.shadow.opacity, 0.3);
 
-      // A second preset replaces the first, as PowerPoint does.
+      // A second preset replaces the first, as the reference desktop app does.
       await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
       await changed(() =>
         quickStyles
@@ -142,7 +142,7 @@ test(
       );
       const black = getShapeRunFormat((await shapes())[0], 0, 0);
       assert.equal(black.color, undefined);
-      // PowerPoint removes `b` rather than writing it off.
+      // The reference desktop app removes `b` rather than writing it off.
       assert.equal(black.bold, undefined);
       assert.deepEqual(black.outline, { widthEmu: 0 });
       assert.equal(black.shadow.opacity, 0.4);

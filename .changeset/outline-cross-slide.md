@@ -3,7 +3,7 @@
 '@office-kit/pptx-dev': minor
 ---
 
-Outline View now edits across slide boundaries as Mac PowerPoint's outline does:
+Outline View now edits across slide boundaries as the reference desktop app's (Mac) outline does:
 
 - **Select across slides** by dragging with the mouse or Shift-clicking, as well as with Shift+arrow keys.
 - **Delete, Cut, typing, pasting and Enter** over a selection that crosses a slide title remove the slides whose titles are selected: the remaining text after the selection joins the paragraph where it starts, and the last slide's remaining body moves up. This now works from any title or body paragraph, not only from a title. Slides with other objects ask for confirmation first.

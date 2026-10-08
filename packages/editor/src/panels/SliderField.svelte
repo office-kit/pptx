@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../i18n/i18n.svelte.ts';
 
-  // PowerPoint's slider row: an 82 pt label, a 113 pt slider and a 66 pt
+  // The reference desktop app's slider row: an 82 pt label, a 113 pt slider and a 66 pt
   // spin box. An empty box means the effect is off or the selection is mixed.
   let { label, name, value, min, max, step = 1, unit, disabled = false, slider = true, title, apply }: {
     label: string;

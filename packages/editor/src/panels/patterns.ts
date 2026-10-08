@@ -10,7 +10,7 @@ import {
 } from '@office-kit/pptx';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
 
-// Order and labels from the Mac PowerPoint Format Shape pattern gallery.
+// Order and labels from the reference desktop app's (Mac) Format Shape pattern gallery.
 export const patterns = [
   ['pct5', 'Dotted: 5%'],
   ['pct10', 'Dotted: 10%'],

@@ -25,7 +25,7 @@ export interface Pen {
   readonly opacity: number;
 }
 
-// Mac PowerPoint's default Draw gallery: black pen, red pen, pencil and a
+// The reference desktop app's (Mac) default Draw gallery: black pen, red pen, pencil and a
 // yellow highlighter.
 export const PENS: readonly Pen[] = [
   { id: 'black', label: 'Pen: Black, 1 mm', color: '#000000', widthEmu: 36000, opacity: 1 },
@@ -85,7 +85,7 @@ export interface Point {
   readonly y: number;
 }
 
-// PowerPoint names freehand strokes "Ink N"; the eraser only removes those, so
+// The reference desktop app names freehand strokes "Ink N"; the eraser only removes those, so
 // it never deletes a freeform the author drew with the Shapes gallery.
 const INK_NAME = /^Ink \d+$/;
 export const isInk = (shape: SlideShapeData): boolean => INK_NAME.test(getShapeName(shape));

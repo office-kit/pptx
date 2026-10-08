@@ -32,7 +32,7 @@
   </div>
 </div>
 <style>
-  /* One row as in PowerPoint: an 82 pt label, the slider, then a 66 pt box. */
+  /* One row as in the reference desktop app: an 82 pt label, the slider, then a 66 pt box. */
   .transparency { display: flex; align-items: center; gap: 4px; min-height: 26px; }
   .transparency > span { flex: none; width: 82px; }
   .controls { display: flex; flex: 1; gap: 4px; align-items: center; min-width: 0; }

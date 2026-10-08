@@ -59,7 +59,7 @@ export function outlineTextHtml(
         const format = toWritableTextFormat(effective ?? {});
         // Outline text follows the UI foreground, including in dark appearance.
         delete format.color;
-        // Mac PowerPoint draws formatted outline text at about a third of its
+        // The reference desktop app (Mac) draws formatted outline text at about a third of its
         // slide size: a 44 pt title shows at about 15 pt. The editor's screen
         // points are CSS px and this HTML sizes text in CSS pt (4/3 px), so a
         // third of the size on screen is a quarter in CSS pt.

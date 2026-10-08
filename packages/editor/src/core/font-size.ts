@@ -14,9 +14,9 @@ import { textFormatsInRange } from './text-format-selection.ts';
 import { DEFAULT_BODY_PT, defaultTextMetrics } from './text-layout-defaults.ts';
 
 /**
- * The sizes in PowerPoint's font-size gallery.  Grow/Shrink follows this
+ * The sizes in the reference desktop app's font-size gallery.  Grow/Shrink follows this
  * ladder while the value is in the gallery; values above the gallery use the
- * same 20% scaling PowerPoint uses for custom sizes.
+ * same 20% scaling the reference desktop app uses for custom sizes.
  */
 export const FONT_SIZE_GALLERY = [
   8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 54, 60, 66, 72, 80, 88, 96,
@@ -24,10 +24,10 @@ export const FONT_SIZE_GALLERY = [
 
 const GALLERY_MAX = FONT_SIZE_GALLERY[FONT_SIZE_GALLERY.length - 1];
 
-/** Return the size PowerPoint selects for Home > Grow/Shrink Font. */
+/** Return the size the reference desktop app selects for Home > Grow/Shrink Font. */
 export function stepFontSize(size: number, direction: 1 | -1): number {
   if (size <= 0) return size;
-  // PowerPoint walks integer sizes below the gallery's 8pt floor.
+  // The reference desktop app walks integer sizes below the gallery's 8pt floor.
   if (size < 8)
     return direction > 0 ? Math.min(8, Math.floor(size) + 1) : Math.max(1, Math.ceil(size) - 1);
   if (size > GALLERY_MAX) {

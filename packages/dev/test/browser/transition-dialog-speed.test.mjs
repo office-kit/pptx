@@ -9,7 +9,7 @@ import { getSlides, savePresentation, setSlideTransition } from '@office-kit/ppt
 import { startPreview } from '../helpers/server.mjs';
 
 // A transition without spd runs at the schema default, fast (as Cut is saved
-// by PowerPoint); the Slide transition dialog shows that speed, as the
+// by the reference desktop app); the Slide transition dialog shows that speed, as the
 // Transitions tab's Duration does, instead of assuming Medium.
 test('the Slide transition dialog reads a missing spd as fast', { timeout: 90000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'office-transition-dialog-'));

@@ -48,7 +48,7 @@ test(
         );
       await saved();
       await thumbs.nth(0).click();
-      // Home ▸ New Slide ▾ lists the layouts, as in PowerPoint. A narrow
+      // Home ▸ New Slide ▾ lists the layouts, as in the reference desktop app. A narrow
       // ribbon first collapses the Slides group into a single button.
       const newSlideFrom = async (slidesLabel, optionsLabel, layout) => {
         const group = editor.getByRole('button', { name: slidesLabel, exact: true });

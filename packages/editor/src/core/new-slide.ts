@@ -10,9 +10,9 @@ import {
 } from '@office-kit/pptx';
 
 /**
- * Pick the layout used by PowerPoint's generic New Slide command.
+ * Pick the layout used by the reference desktop app's generic New Slide command.
  *
- * PowerPoint keeps the current layout when it is a normal content layout. A
+ * The reference desktop app keeps the current layout when it is a normal content layout. A
  * title slide is the one exception: it advances to that master's title and
  * content layout so the new slide has an editable body placeholder.
  */

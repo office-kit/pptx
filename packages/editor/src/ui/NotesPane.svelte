@@ -12,7 +12,7 @@
   import RichTextInput from './RichTextInput.svelte';
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
 
-  // Mac PowerPoint opens the notes pane one line tall: 39 pt plus its 5 pt splitter.
+  // The reference desktop app (Mac) opens the notes pane one line tall: 39 pt plus its 5 pt splitter.
   const NOTES_MIN_HEIGHT = 44;
   const editor = getEditor();
   const doc = editor.doc;
@@ -320,7 +320,7 @@
   function applyNoteFormat(format: TextFormat, reset = false) {
     commit();
     if (range.start === range.end) {
-      // PowerPoint persists paragraph-end formatting for an empty paragraph,
+      // The reference desktop app persists paragraph-end formatting for an empty paragraph,
       // which makes the toggle itself part of the shared document history.
       // Once text exists, a middle/end caret format is only a typing state;
       // creating an OOXML endParaRPr there would add a phantom undo step and
@@ -523,7 +523,7 @@
       if (kind === 'paragraph') pendingParagraphs.add(paragraph);
     }} oncomposition={(active) => { composing = active; if (active) clearTimeout(timer); else if (pending) timer = setTimeout(commit, 600); }}
     onhistory={(backward) => { commit(); typingFormat = undefined; pendingParagraphs.clear(); void (backward ? doc.undo() : doc.redo()); }} oncopy={() => {}} oncut={() => {}} onpaste={pasteNotes} />
-  <!-- PowerPoint's empty-notes prompt; clicks fall through to the text box. -->
+  <!-- The reference desktop app's empty-notes prompt; clicks fall through to the text box. -->
   {#if value === '' && !focused}<span class="placeholder" aria-hidden="true">{t('Click to add notes')}</span>{/if}
 </section>
 

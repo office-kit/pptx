@@ -10,7 +10,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Hello</Text></Slide></Presentation>`;
 
 test(
-  'title bar AutoSave pauses saving, and the tab row has Comments and Share like PowerPoint',
+  'title bar AutoSave pauses saving, and the tab row has Comments and Share like the reference desktop app',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-title-bar-'));
@@ -70,7 +70,7 @@ test(
       await menu.getByRole('menuitem', { name: 'Send a Copy (PPTX Presentation)' }).click();
       assert.match((await download).suggestedFilename(), /\.pptx$/);
 
-      // The window chrome follows the system's dark appearance, as PowerPoint does.
+      // The window chrome follows the system's dark appearance, as the reference desktop app does.
       const dark = await browser.newPage({
         viewport: { width: 1200, height: 800 },
         colorScheme: 'dark',

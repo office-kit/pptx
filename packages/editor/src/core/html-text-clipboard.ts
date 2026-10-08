@@ -92,7 +92,7 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
     if (tag === 'I' || tag === 'EM') format.italic = true;
     if (tag === 'SUP') format.baseline = 0.3;
     if (tag === 'SUB') format.baseline = -0.25;
-    // PowerPoint's capitalization is represented by one DrawingML `cap`
+    // The reference desktop app's capitalization is represented by one DrawingML `cap`
     // value, while CSS exposes two properties. Resolve their representable
     // combination without letting `font-variant-caps: normal` erase an
     // explicit `text-transform: uppercase`.

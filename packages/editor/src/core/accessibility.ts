@@ -13,7 +13,7 @@ export type AccessibilityIssue =
   | { kind: 'alt-text'; slide: number; shapeId: number; name: string }
   | { kind: 'slide-title'; slide: number };
 
-// PowerPoint's Accessibility Checker flags pictures, charts, tables, media and
+// The reference desktop app's Accessibility Checker flags pictures, charts, tables, media and
 // groups without alternative text, and slides without a title. Text boxes and
 // plain shapes read their own text, so they are not flagged.
 const NEEDS_ALT_TEXT = new Set(['picture', 'graphicFrame', 'group']);

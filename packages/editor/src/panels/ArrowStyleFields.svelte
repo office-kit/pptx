@@ -9,7 +9,7 @@
   type Arrow = Parameters<typeof setShapeStrokeArrow>[2];
   const types = [['none', 'No Arrow'], ['triangle', 'Arrow'], ['arrow', 'Open Arrow'], ['stealth', 'Stealth Arrow'], ['diamond', 'Diamond Arrow'], ['oval', 'Oval Arrow']] as const;
   const dimensions = ['sm', 'med', 'lg'] as const;
-  // Mac PowerPoint orders the gallery by width, then length (Size 2 = sm/med).
+  // The reference desktop app (Mac) orders the gallery by width, then length (Size 2 = sm/med).
   const sizes = dimensions.flatMap(width => dimensions.map(length => ({ width, length })));
   const fields = [
     { end: 'head', property: 'type', label: 'Begin Arrow type' },
@@ -35,7 +35,7 @@
     if (field.property === 'type') return { type: types.find(([type]) => type === value)?.[0] ?? 'none' };
     return { type: getShapeStrokeArrow(shapes[0]!, field.end)?.type ?? 'triangle', ...sizes.find(size => `${size.width}/${size.length}` === value) };
   }
-  // Mac PowerPoint names the begin sizes Arrow L Size 1-9 and the end sizes Arrow R Size 1-9.
+  // The reference desktop app (Mac) names the begin sizes Arrow L Size 1-9 and the end sizes Arrow R Size 1-9.
   const sizeName = (field: Field, index: number) => getLocale() === 'ja' ? `${t('Arrow Size')} ${index + 1}` : `Arrow ${field.end === 'head' ? 'L' : 'R'} Size ${index + 1}`;
   function close(restore = true) { active = null; if (restore) trigger.focus(); }
   async function show(field: Field, button: HTMLButtonElement) {
@@ -100,7 +100,7 @@
 {/if}
 <style>
   .field { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  /* PowerPoint's 39 × 26 pt gallery buttons; the preview is scaled to fit. */
+  /* The reference desktop app's 39 × 26 pt gallery buttons; the preview is scaled to fit. */
   .field { min-height: 26px; }
   .trigger { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 39px; height: 26px; padding: 0 2px 0 3px; font: inherit; overflow: hidden; }
   .trigger :global(svg) { width: 26px; height: 12px; flex: none; }

@@ -3,7 +3,7 @@ export function imageCorrections(
   brightness: number,
   contrast: number,
 ): { slope: number; intercept: number } {
-  // PowerPoint applies half the brightness before contrast and half afterwards.
+  // The reference desktop app applies half the brightness before contrast and half afterwards.
   // LibreOffice Bitmap::Adjust(msoBrightness=true) documents this compatibility rule.
   const midpoint = 128 / 255;
   const contrastScale = 127 / 128;

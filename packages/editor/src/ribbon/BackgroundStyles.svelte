@@ -86,7 +86,7 @@
   .trigger:hover:not(:disabled) { background: var(--ok-hover); }
   .trigger:disabled { opacity: .4; cursor: default; }
   .menu { position: fixed; z-index: 400; padding: 5px; max-height: calc(100dvh - 16px); overflow-y: auto; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); color: var(--ok-text); box-shadow: var(--ok-shadow-lg); }
-  /* PowerPoint's gallery: four 84 × 66 pt cells on an 82 pt pitch. */
+  /* The reference desktop app's gallery: four 84 × 66 pt cells on an 82 pt pitch. */
   .gallery { display: grid; grid-template-columns: repeat(4, 80px); gap: 2px; }
   .preset { padding: 4px; background: transparent; border: 1px solid transparent; border-radius: 3px; }
   .swatch { background-size: 100% 100%; display: block; width: 70px; height: 54px; border: 1px solid var(--ok-border); }

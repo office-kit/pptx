@@ -16,7 +16,7 @@
   import Icon from '../ui/Icon.svelte';
   import TextColumnsDialog from '../ui/TextColumnsDialog.svelte';
 
-  // PowerPoint puts Columns on the paragraph group's first row and the rest on
+  // The reference desktop app puts Columns on the paragraph group's first row and the rest on
   // the second, after the alignment buttons.
   let { row }: { row: 1 | 2 } = $props();
   const editor = getEditor();

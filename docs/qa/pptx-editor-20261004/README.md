@@ -45,7 +45,7 @@ and opened through `<Presentation source={bytes} />`:
   (`packages/dev/NATIVE_PARITY.md`, "Font color replacement on WordArt").
   The pattern-filled "Pattern" therefore shows as plain black in every image;
   the pattern is proven only by the saved-deck checks above.
-- Not compared with PowerPoint, Keynote or another native app.
+- Not compared with the reference desktop app, Keynote or another native app.
 
 ## sha256
 

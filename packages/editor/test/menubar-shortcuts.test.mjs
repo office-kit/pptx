@@ -36,7 +36,7 @@ test('Mac glyph strings parse into modifiers and a key', () => {
   assert.equal(parseShortcut('🎤'), null);
 });
 
-test('key events find PowerPoint’s menu item, by physical key', () => {
+test('key events find the reference desktop app’s menu item, by physical key', () => {
   assert.equal(id('en', key('KeyG', { metaKey: true, altKey: true }, '©')), 'arrange/group');
   assert.equal(
     id('en', key('KeyG', { metaKey: true, altKey: true, shiftKey: true }, '˝')),
@@ -62,7 +62,7 @@ test('key events find PowerPoint’s menu item, by physical key', () => {
   assert.equal(id('en', key('KeyC')), undefined);
 });
 
-test('Control stands in for Command unless PowerPoint gives the Control chord its own item', () => {
+test('Control stands in for Command unless the reference desktop app gives the Control chord its own item', () => {
   assert.equal(id('en', key('KeyZ', { ctrlKey: true })), 'edit/undo');
   assert.equal(id('en', key('KeyT', { ctrlKey: true })), 'format/font');
   // ⌃F and ⌃H are Advanced Find and Replace, not ⌘F.
@@ -88,7 +88,7 @@ test('Pick Up Object Style is ⇧⌘C in English and ⌥⌘C in Japanese', () =>
   );
 });
 
-test('every chord names one command, except where PowerPoint repeats an item in two menus', () => {
+test('every chord names one command, except where the reference desktop app repeats an item in two menus', () => {
   for (const locale of ['en', 'ja']) {
     const owners = new Map();
     const walk = (entries) => {
@@ -122,7 +122,7 @@ test('the Japanese menus pair every item with an English one', () => {
     for (const menu of menus) walk(menu.items);
     return out.sort();
   };
-  // Japanese PowerPoint has no Slide Show ▸ Rehearse with Coach.
+  // The reference desktop app's Japanese UI has no Slide Show ▸ Rehearse with Coach.
   assert.deepEqual(
     ids(NATIVE_MENUBAR.ja),
     ids(NATIVE_MENUBAR.en).filter((item) => item !== 'slide-show/rehearse-with-coach'),

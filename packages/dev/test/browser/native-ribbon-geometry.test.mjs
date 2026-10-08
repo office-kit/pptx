@@ -6,7 +6,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import { startPreview } from '../helpers/server.mjs';
 
-// Insert, Draw and Design measured from Mac PowerPoint 16 through the
+// Insert, Draw and Design measured from the reference desktop app (Mac, 16) through the
 // accessibility API in 1512 × 900 and 1200 × 900 pt windows (2026-10-07).
 // CSS px equal Mac points; positions are window-relative.
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={4} y={4} width={3} height={1.5} fill="#2E75B6" /></Slide></Presentation>`;
@@ -61,7 +61,7 @@ const boxes = (locator) =>
     }),
   );
 // Native metrics were measured on macOS, where the editor's system-ui font
-// is San Francisco like PowerPoint's. PowerPoint sizes a large button to its
+// is San Francisco like the reference desktop app's. The reference desktop app sizes a large button to its
 // caption (at least 38 pt, or 50 pt with ▾), so caption-driven widths and the
 // positions after them are font-dependent: elsewhere (CI's Linux fonts are
 // wider) a button may grow by up to WIDER_FONT, and the growth accumulates
@@ -95,7 +95,7 @@ const slots = (actual, expected) => {
 };
 
 test(
-  'Insert, Draw and Design ribbons follow Mac PowerPoint geometry in English and Japanese',
+  'Insert, Draw and Design ribbons follow the reference desktop app’s (Mac) geometry in English and Japanese',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-ribbon-geometry-'));
@@ -238,7 +238,7 @@ test(
         'Variants at 1200',
       );
 
-      // Japanese uses Mac PowerPoint's wording, broken after a particle or
+      // Japanese uses the reference desktop app's (Mac) wording, broken after a particle or
       // where the script changes.
       await page.setViewportSize({ width: 1512, height: 900 });
       await page.locator('.lang select').selectOption('ja');

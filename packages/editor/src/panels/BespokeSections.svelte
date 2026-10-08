@@ -165,7 +165,7 @@
     if (editor.selectionLocked() || selection.kind !== 'shape' || fillKind === kind) return;
     const slideKey = getSlidePartName(doc.slideAt(selection.slideIndex)!);
     const shapes = editor.selectedShapes();
-    // Like PowerPoint, a shape with no picture to restore gets the default texture.
+    // Like the reference desktop app, a shape with no picture to restore gets the default texture.
     const needsTexture = kind === 'image' && shapes.some(target => getShapeFillEffective(doc.pres, target).kind !== 'image' && !doc.rememberedFills.get(`${slideKey}:${getShapeId(target)}`)?.image);
     const presentation = doc.pres, version = doc.version;
     const texture = needsTexture ? await texturePng(defaultTexture()) : null;
@@ -193,7 +193,7 @@
     const kinds = new Set(editor.selectedShapes().map(target => getShapeStrokeEffective(doc.pres, target).kind));
     return kinds.size === 1 ? [...kinds][0] : 'mixed';
   });
-  // English PowerPoint calls both the line type and the solid dash "Solid
+  // The reference desktop app's English UI calls both the line type and the solid dash "Solid
   // line"; Japanese distinguishes them (線 (単色) here, 実線 for the dash), so
   // the shared English key cannot carry this one.
   const solidLineLabel = $derived(getLocale() === 'ja' ? '線 (単色)' : 'Solid line');
@@ -201,7 +201,7 @@
     if (editor.selectionLocked() || lineKind === kind) return;
     if (kind === 'none') editor.invoke('setShapeNoStroke');
     else if (kind === 'solid') editor.invoke('setShapeStroke', { options: { color: 'accent1' } });
-    // PowerPoint starts a gradient line from the same accent 1 ramp as a
+    // The reference desktop app starts a gradient line from the same accent 1 ramp as a
     // gradient fill.
     else editor.invoke('setShapeStroke', { options: { fill: { kind: 'gradient', ...DEFAULT_GRADIENT } } });
   }
@@ -258,7 +258,7 @@
       </PaneSection>
 
       <PaneSection id="line" label={t('Line')}>
-          <!-- PowerPoint's Line section opens with the line type, like Fill. -->
+          <!-- The reference desktop app's Line section opens with the line type, like Fill. -->
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Line type')}>
             <label><input type="radio" name="shape-line-type" checked={lineKind === 'none'} onchange={() => changeLine('none')} />{t('No line')}</label>
             <label><input type="radio" name="shape-line-type" checked={lineKind === 'solid'} onchange={() => changeLine('solid')} />{solidLineLabel}</label>
@@ -348,7 +348,7 @@
     flex-direction: column;
     gap: 10px;
   }
-  /* Label-left / control-right rows (Mac PowerPoint: 30 pt pitch, 26 pt controls). */
+  /* Label-left / control-right rows (the reference desktop app, Mac: 30 pt pitch, 26 pt controls). */
   .paint-field {
     display: flex;
     align-items: center;

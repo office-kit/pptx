@@ -4,7 +4,8 @@
 //
 // Tiered, per the preview-fidelity roadmap:
 //   - libreoffice (default): headless `soffice`, free, CI-friendly. The gate.
-//   - powerpoint (opt-in, local, macOS): true ground truth via AppleScript.
+//   - native (opt-in, local, macOS): the reference desktop app, true ground
+//     truth via AppleScript.
 //
 // Both routes go .pptx -> .pdf -> .ppm: PDF is the one export format both
 // engines produce reliably from the CLI, and `pdftoppm` (poppler) gives us a
@@ -17,7 +18,7 @@ import { basename, join } from 'node:path';
 import { decodePpm } from './ppm.ts';
 import type { RgbaImage } from './image.ts';
 
-export type GroundTruthEngine = 'libreoffice' | 'powerpoint';
+export type GroundTruthEngine = 'libreoffice' | 'native';
 
 export interface GroundTruthOptions {
   readonly width: number;
@@ -98,24 +99,26 @@ const pptxToPdfLibreOffice = (pptxPath: string, outDir: string): string => {
   return pdf;
 };
 
-// macOS-only, opt-in. PowerPoint exports the deck to PDF via AppleScript; the
-// rest of the pipeline is shared. Untested in CI (no PowerPoint there) — it is
+// macOS-only, opt-in. The reference desktop app exports the deck to PDF via
+// AppleScript; the rest of the pipeline is shared. Untested in CI (the app is
+// not installed there) — it is
 // the local high-fidelity check the roadmap calls for.
-const pptxToPdfPowerPoint = (pptxPath: string, outDir: string): string => {
+const pptxToPdfNative = (pptxPath: string, outDir: string): string => {
   if (process.platform !== 'darwin') {
-    throw new GroundTruthUnavailableError('PowerPoint ground truth is macOS-only.');
+    throw new GroundTruthUnavailableError('Native ground truth is macOS-only.');
   }
   const pdf = join(outDir, basename(pptxPath).replace(/\.pptx$/i, '.pdf'));
-  // PowerPoint's `open`/`save in` expect a file reference, not a raw POSIX
+  // The app's `open`/`save in` expect a file reference, not a raw POSIX
   // path string — passing the bare string silently fails to produce a PDF.
-  // `POSIX file (...)` coerces the argv string into the file object PP wants.
+  // `POSIX file (...)` coerces the argv string into the file object the app wants.
   const script = [
     'on run argv',
     '  set inPath to item 1 of argv',
     '  set outPath to item 2 of argv',
+    // AppleScript can only address the app by its installed name.
     '  tell application "Microsoft PowerPoint"',
-    // `activate` foregrounds PowerPoint before the open/save. Without it,
-    // a backgrounded PowerPoint intermittently hangs the AppleScript
+    // `activate` foregrounds the app before the open/save. Without it,
+    // a backgrounded app intermittently hangs the AppleScript
     // (osascript ETIMEDOUT) instead of exporting.
     '    activate',
     '    open (POSIX file inPath)',
@@ -132,10 +135,11 @@ const pptxToPdfPowerPoint = (pptxPath: string, outDir: string): string => {
     });
   } catch (err) {
     throw new GroundTruthUnavailableError(
-      `PowerPoint export failed (is PowerPoint installed and scriptable?): ${String(err)}`,
+      `Native export failed (is the reference desktop app installed and scriptable?): ${String(err)}`,
     );
   }
-  if (!existsSync(pdf)) throw new Error(`PowerPoint produced no PDF for ${pptxPath}`);
+  if (!existsSync(pdf))
+    throw new Error(`The reference desktop app produced no PDF for ${pptxPath}`);
   return pdf;
 };
 
@@ -171,8 +175,8 @@ export const renderGroundTruth = (pptxPath: string, opts: GroundTruthOptions): R
   const work = mkdtempSync(join(tmpdir(), 'office-kit-pptx-gt-'));
   try {
     const pdf =
-      opts.engine === 'powerpoint'
-        ? pptxToPdfPowerPoint(pptxPath, work)
+      opts.engine === 'native'
+        ? pptxToPdfNative(pptxPath, work)
         : pptxToPdfLibreOffice(pptxPath, work);
     return pdfToImages(pdf, work, opts.width, opts.height);
   } finally {

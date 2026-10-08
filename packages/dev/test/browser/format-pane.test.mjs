@@ -33,7 +33,7 @@ test(
       await saved();
       assert.equal(await editor.getByRole('tablist', { name: 'Format Shape' }).count(), 0);
       await editor.locator('.hit').click({ position: { x: 2, y: 2 } });
-      // As in PowerPoint, selecting a shape does not open the pane.
+      // As in the reference desktop app, selecting a shape does not open the pane.
       assert.equal(await editor.getByRole('tablist', { name: 'Format Shape' }).count(), 0);
       await editor.locator('.hit').click({ button: 'right', position: { x: 2, y: 2 } });
       await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();

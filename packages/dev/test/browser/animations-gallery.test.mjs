@@ -9,7 +9,7 @@ import { startPreview } from '../helpers/server.mjs';
 
 // Every preset of the Entrance and Emphasis galleries and of the Exit Effects
 // gallery can be chosen and writes its own effect, every item of its Effect
-// Options too, and Sequence offers PowerPoint's three builds — in English and
+// Options too, and Sequence offers the reference desktop app's three builds — in English and
 // Japanese.
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="One" /><Shape preset="rect" x={5} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
 
@@ -83,7 +83,7 @@ const EMPHASIS = [
   ['Bold Reveal', 'boldReveal'],
   ['Wave', 'wave'],
 ];
-// PowerPoint writes no build for these, so they have no Sequence either.
+// The reference desktop app writes no build for these, so they have no Sequence either.
 const UNBUILT = new Set(['fillColor', 'lineColor']);
 
 const EXIT = [
@@ -179,7 +179,7 @@ test(
       const effectOptions = button('Effect Options');
 
       // Every item above Sequence writes something the menu then shows as
-      // checked; Sequence follows with PowerPoint's three builds.
+      // checked; Sequence follows with the reference desktop app's three builds.
       const exerciseOptions = async (label, effect, count) => {
         const sequence = UNBUILT.has(effect) ? [] : SEQUENCE;
         if (count === 0 && sequence.length === 0) {
@@ -321,7 +321,7 @@ test(
       );
       await effectOptions.click();
 
-      // Japanese: the Exit Effects gallery in PowerPoint's names and group
+      // Japanese: the Exit Effects gallery in the reference desktop app's names and group
       // headings, all available, and Effect Options (Sequence included) in
       // Japanese.
       await page.locator('.lang select').selectOption('ja');

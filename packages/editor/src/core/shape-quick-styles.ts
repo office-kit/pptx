@@ -44,7 +44,7 @@ export type ShapeQuickStyle =
   | (typeof themeQuickStyles)[number]
   | (typeof presetQuickStyles)[number];
 
-// Mac PowerPoint's gallery stores theme styles as references, rather than
+// The reference desktop app's (Mac) gallery stores theme styles as references, rather than
 // copying the current theme's paint. Keeping those references lets a later
 // theme change update the shape in the same way.
 export function quickStyleReferences(

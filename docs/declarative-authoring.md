@@ -1,4 +1,4 @@
-# Declarative PowerPoint authoring
+# Declarative presentation authoring
 
 ## End state
 

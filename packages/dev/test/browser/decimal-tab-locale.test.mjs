@@ -15,7 +15,7 @@ import {
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
-// The lines of the Mac PowerPoint capture (2026-10-07): one decimal tab, and
+// The lines of the reference desktop app's (Mac) capture (2026-10-07): one decimal tab, and
 // numbers with ",", ".", neither, and both. Set Proofing Language to German
 // moved the alignment from "." to ","; a number without the run language's
 // separator ends at the tab.

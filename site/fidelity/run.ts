@@ -2,7 +2,7 @@
 //
 //   pnpm --filter @office-kit/pptx-site fidelity                 # all samples, LibreOffice
 //   pnpm --filter @office-kit/pptx-site fidelity -- --ours-only  # skip ground truth
-//   GROUND_TRUTH=powerpoint pnpm --filter ... fidelity   # local PP check (macOS)
+//   GROUND_TRUTH=native pnpm --filter ... fidelity   # local native check (macOS)
 //
 // Produces site/fidelity/out/{index.html, results.json} plus per-slide PNGs:
 // ground truth, our render, and the diff. See site/fidelity/README.md.
@@ -47,8 +47,7 @@ interface Args {
 
 const parseArgs = (argv: string[]): Args => {
   let width = 1280;
-  let engine: GroundTruthEngine =
-    process.env.GROUND_TRUTH === 'powerpoint' ? 'powerpoint' : 'libreoffice';
+  let engine: GroundTruthEngine = process.env.GROUND_TRUTH === 'native' ? 'native' : 'libreoffice';
   let outDir = join(HERE, 'out');
   let samplesDir = join(REPO_ROOT, 'samples', 'out');
   let oursOnly = false;
@@ -58,7 +57,7 @@ const parseArgs = (argv: string[]): Args => {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === '--width') width = Number(argv[++i]);
-    else if (a === '--engine') engine = argv[++i] === 'powerpoint' ? 'powerpoint' : 'libreoffice';
+    else if (a === '--engine') engine = argv[++i] === 'native' ? 'native' : 'libreoffice';
     else if (a === '--out') outDir = resolve(argv[++i]!);
     else if (a === '--samples') samplesDir = resolve(argv[++i]!);
     else if (a === '--ours-only') oursOnly = true;

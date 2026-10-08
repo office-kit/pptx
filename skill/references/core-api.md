@@ -2,9 +2,9 @@
 
 `@office-kit/pptx` generates **schema-valid** Office Open XML PresentationML. Every
 authoring call maps to a specific ECMA-376 element, so a deck you build here
-opens and is **fully editable** in PowerPoint — not a flattened image, and not
+opens and is **fully editable** in desktop presentation apps — not a flattened image, and not
 "valid enough to usually open." That is the bar: _if a file can't be opened and
-edited in PowerPoint, it isn't done._
+edited in a desktop presentation app, it isn't done._
 
 Use this reference for direct core integrations and `Raw` callbacks. For slide
 authoring, follow [the TSX workflow](../SKILL.md) first. Check the installed
@@ -64,7 +64,7 @@ import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/n
 ## Core workflow — build a deck from scratch
 
 `createPresentation()` returns an immediately-authorable deck (slide master,
-Office theme, and `Blank` / `Title Slide` / `Title and Content` layouts) with
+a default theme, and `Blank` / `Title Slide` / `Title and Content` layouts) with
 no slides. Defaults to 16:9; pass `{ size: '4:3' }` for the classic ratio.
 
 ```ts
@@ -94,7 +94,7 @@ Slide constructors:
 | Bind a layout explicitly          | `addSlide(pres, { layout: findSlideLayoutByType(pres, 'obj')! })` |
 
 Prefer `findSlideLayoutByType(pres, 'title' | 'obj' | 'secHead' | 'blank')` —
-the `type` token is stable across PowerPoint UI languages. `findSlideLayout`
+the `type` token is stable across UI languages. `findSlideLayout`
 matches the localized, case-sensitive display name.
 
 ## Capability cheat-sheet (the canonical call)
@@ -172,7 +172,7 @@ addSlideChart(slide, {
     // Axis tick labels: `categoryAxisTickLabelPos` / `valueAxisTickLabelPos` / `secondaryValueAxis.tickLabelPos`
     // ('none' | 'low' | 'high' | 'nextTo'). Series outline: `lineColor`; marker fill / outline: `markerColor` / `markerLineColor` (fill defaults to the series color, outline to the fill); label leader lines: `dataLabels.showLeaderLines`.
     // Axis line / gridline widths (EMU, 12700 = 1 pt): `valueAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu`,
-    // the `categoryAxis…` mirrors, `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu`. Unset = PowerPoint's 0.75 pt.
+    // the `categoryAxis…` mirrors, `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu`. Unset = the reference desktop app's default of 0.75 pt.
     // At least one series must stay on the primary axis when others set `secondaryAxis: true`.
   },
 });
@@ -206,7 +206,7 @@ Formatting and slide features (one canonical call each):
 | Hyperlink / click action        | `setShapeHyperlink(shape, url)`, `setShapeClickAction(shape, { kind: 'nextSlide' })`                                                                                                                                                |
 | Slide background                | `setSlideBackground(slide, '#102030')`, `setSlideBackgroundImage(slide, bytes)`                                                                                                                                                     |
 | Transition                      | `setSlideTransition(slide, { effect: 'fade' })` — `effect: 'none'` emits no transition; `clearSlideTransition(slide)` removes one                                                                                                   |
-| Animation                       | `setShapeAnimation(shape, { effect: 'fadeIn' })` (all 95 PowerPoint gallery presets: `fadeIn`/`fadeOut`, `flyIn`/`flyOut`, `pulse`, `spin`, …; `build` for text)                                                                    |
+| Animation                       | `setShapeAnimation(shape, { effect: 'fadeIn' })` (all 95 gallery presets of the reference desktop app: `fadeIn`/`fadeOut`, `flyIn`/`flyOut`, `pulse`, `spin`, …; `build` for text)                                                  |
 | Speaker notes                   | `setSlideNotes(slide, '...')`                                                                                                                                                                                                       |
 | Comments                        | `addSlideComment(slide, { author: { name }, text })`                                                                                                                                                                                |
 | Sections                        | `setSlideSections(pres, [{ name, slides: [...] }])`                                                                                                                                                                                 |
@@ -302,7 +302,7 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
 4. **Visual check.** Render to an image and _look at it_ — overflowing text,
    collisions, off-canvas shapes, and unreadable color contrast do not show up
    in schema validation. Use `@office-kit/pptx-preview` (SVG in the browser, PNG on the
-   server) or open the file in PowerPoint/LibreOffice. `findShapesOutsideCanvas`
+   server) or open the file in a desktop presentation app such as LibreOffice Impress. `findShapesOutsideCanvas`
    and `findOverlappingShapePairs` catch layout problems programmatically.
 5. **Content check.** Grep the saved deck's text (`getPresentationText(pres)`)
    for leftover placeholder tokens (`{{`, "Lorem", "TODO") before shipping.

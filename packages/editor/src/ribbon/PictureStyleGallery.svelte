@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Mac PowerPoint's in-ribbon Picture Styles gallery: three of the 28
+  // The reference desktop app's (Mac) in-ribbon Picture Styles gallery: three of the 28
   // built-in styles at a time between the previous / next page arrows, each
   // tile the style applied to a sample picture, named by its tooltip.
   import { BUILTIN_PICTURE_STYLES, getShapeKind, getShapeMedia, getShapePictureStyle, setShapePictureStyle, type BuiltinPictureStyleName } from '@office-kit/pptx';
@@ -33,7 +33,7 @@
       error = cause instanceof Error ? cause.message : String(cause);
     }
   });
-  // Page to the applied style when the selection changes, as PowerPoint does.
+  // Page to the applied style when the selection changes, as the reference desktop app does.
   $effect.pre(() => {
     const index = current ? BUILTIN_PICTURE_STYLES.indexOf(current) : -1;
     untrack(() => {

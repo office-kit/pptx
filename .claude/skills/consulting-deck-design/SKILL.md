@@ -7,7 +7,7 @@ description: Use when generating a dense, professional consulting/government-sty
 
 A deck that is schema-valid and opens without repair is a _correct_ deck. It is not
 automatically a deck that reads as real consulting/government work. The gap between
-"technically fine PowerPoint" and "looks like it came out of a real engagement" is
+"technically fine slide deck" and "looks like it came out of a real engagement" is
 almost entirely in restraint: fewer decorative flourishes, fewer colors, more
 whitespace, and text that states a conclusion instead of a topic — **and** in the
 density of substantiation per exhibit (analysis columns, footnotes, superscript
@@ -140,7 +140,7 @@ though the reference decks visually appear to use one.** A first pass tried
 exactly that — it matched the reference decks' look in a LibreOffice-rendered
 preview, but read as visibly wrong once the user opened the actual file outside
 the preview pipeline. Font substitution for CJK serif faces is inconsistent
-across PowerPoint/Keynote/OS installations in a way Latin serif faces aren't;
+across presentation apps and OS installations in a way Latin serif faces aren't;
 `Meiryo UI` is the safe, universally-available choice. Carry the headline/body
 typographic hierarchy through **size and weight only** — a bigger, bolder
 `fontEastAsian: 'Meiryo UI'` headline next to a smaller, regular-weight
@@ -236,7 +236,7 @@ practical, reliable substitute is a colored circle or rounded-rect "badge"
 (`addSlideShape` `ellipse`/`roundRect`) containing a single safe glyph character,
 centered, sized large (~18–24pt). Stick to Latin-1/general-punctuation glyphs —
 multi-byte emoji/pictograph ranges are the same CJK-tofu-box risk this skill
-already warns about for text, since LibreOffice/PowerPoint font substitution for
+already warns about for text, since font substitution in LibreOffice and other presentation apps for
 emoji is inconsistent across renderers.
 
 ```
@@ -321,8 +321,8 @@ It's tempting to draw dashed reference lines / inline value labels directly on a
 chart (mimicking real decks that mark "2030 (48%)" right on the plot). **Don't try
 to compute the plot area's pixel position and overlay shapes on it.** A chart's
 internal plot rectangle is inset by however much room its own axis labels, legend,
-and title need — that inset is decided by the rendering engine (PowerPoint /
-LibreOffice / Keynote all differ) and isn't knowable at authoring time. An overlay
+and title need — that inset is decided by the rendering engine (desktop presentation apps,
+LibreOffice and Keynote all differ) and isn't knowable at authoring time. An overlay
 aimed at "where category index 3 should be" will drift out of alignment, sometimes
 badly (labels landing on top of the y-axis, or off the right edge past the legend).
 

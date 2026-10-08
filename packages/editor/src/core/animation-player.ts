@@ -39,7 +39,7 @@
 import type { SlideAnimationStep } from '@office-kit/pptx';
 
 const INSTANT_EFFECTS = ['appear', 'disappear'];
-// The transition filters PowerPoint also runs on single objects, each with an
+// The transition filters the reference desktop app also runs on single objects, each with an
 // `…In` entrance and an `…Out` exit.
 const FILTER_FAMILIES = [
   'blinds',
@@ -75,11 +75,11 @@ const PRESET_CLASS_KINDS: Readonly<Record<string, AnimationItem['kind']>> = {
  * Every other preset is a `pose`, and an approximation. The presets made of
  * several behaviours with timings of their own — a bounce's falls, a
  * boomerang's arc, a teeter's swings — are a `TRACK`: keyframes placed at the
- * moments PowerPoint's own behaviours start and end (as saved in
+ * moments the reference desktop app's own behaviours start and end (as saved in
  * test/fixtures/native/animations/), so each part keeps its share of the
  * effect at any duration, with distances the deck states against the slide
  * measured against the drawn slide. An exit plays its entrance's track
- * backwards, as PowerPoint's own exits of these presets do, Drop and Flip
+ * backwards, as the reference desktop app's own exits of these presets do, Drop and Flip
  * aside. The rest go from the pose to the shape's own place (or back, for an
  * exit) evenly over the effect's whole length. Dissolve plays as a fade.
  * Emphasis colour changes are a CSS `filter` over the drawn shape (darker,
@@ -150,7 +150,7 @@ const EMPHASIS: Readonly<Record<string, Keyframe[]>> = {
     { offset: 1, scale: '1', opacity: 1 },
   ],
   // Two degrees out and back over the first tenth, then four-degree swings
-  // a fifth apiece (PowerPoint's five `<p:animRot>`, the first waiting a tenth).
+  // a fifth apiece (the reference desktop app's five `<p:animRot>`, the first waiting a tenth).
   teeter: [
     { offset: 0, rotate: '0deg' },
     { offset: 0.1, rotate: '2deg' },
@@ -237,7 +237,7 @@ const optionedEmphasis = (step: SlideAnimationStep): Keyframe[] | null => {
 
 /**
  * Where a track puts the shape: a translation by fractions of the slide's
- * width and height — which is how PowerPoint states these presets' distances
+ * width and height — which is how the reference desktop app states these presets' distances
  * (`#ppt_x+0.4`) — plus fractions of the shape's own box, in the units the
  * element's own CSS transform is written in. `null` before the slide is laid
  * out, when nothing can be measured.
@@ -272,7 +272,7 @@ const BOUNCE_LENGTH = 1822;
 const BOUNCE_LANDINGS = [664, 1324, 1656, 1822];
 const BOUNCE_HEIGHTS = [1 / 9, 1 / 27, 1 / 81];
 
-// Center Revolve's arc, sampled from the `<p:tav>` PowerPoint writes for it.
+// Center Revolve's arc, sampled from the `<p:tav>` the reference desktop app writes for it.
 const REVOLVE_ARC: readonly (readonly [number, number, number])[] = [
   [0, 0, 0.31],
   [0.25, 0.1096, 0.2646],
@@ -299,7 +299,7 @@ const all = (frames: (Keyframe | null)[]): Keyframe[] | null =>
 
 /**
  * The entrance presets made of several behaviours, as keyframes from where the
- * shape starts to its own place. Each offset is where one of PowerPoint's
+ * shape starts to its own place. Each offset is where one of the reference desktop app's
  * behaviours starts or ends, as a fraction of the preset's default length.
  */
 const TRACKS: Readonly<Record<string, (g: Geometry) => Keyframe[] | null>> = {
@@ -865,7 +865,7 @@ const movementFor = (item: AnimationItem, el: StyledElement, root: ParentNode): 
       const shift = item.step.direction === null ? undefined : EDGE_VECTORS[item.step.direction];
       if (effect === 'peekIn' || effect === 'peekOut') {
         if (shift === undefined) return null;
-        // 1.125 of the shape's own size, as PowerPoint's `#ppt_h*1.125` says;
+        // 1.125 of the shape's own size, as the reference desktop app's `#ppt_h*1.125` says;
         // a percentage translation is of the fill box `centreOn` sets.
         covered.translate = `${shift[0] * 112.5}% ${shift[1] * 112.5}%`;
         uncovered.translate = '0% 0%';

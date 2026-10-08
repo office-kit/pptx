@@ -24,7 +24,7 @@ The most common @office-kit/pptx use case: take a designer-authored template, sw
 
 ## Build a deck from scratch
 
-`createPresentation()` returns an empty deck that already carries a slide master, the Office theme, and three layouts (`Blank`, `Title Slide`, `Title and Content`), so there is no template file to ship. Add slides with `addTitleSlide` / `addContentSlide` / `addBlankSlide`, then fill them in with the typed `addSlide*` helpers:
+`createPresentation()` returns an empty deck that already carries a slide master, a default theme, and three layouts (`Blank`, `Title Slide`, `Title and Content`), so there is no template file to ship. Add slides with `addTitleSlide` / `addContentSlide` / `addBlankSlide`, then fill them in with the typed `addSlide*` helpers:
 
 <CodeBlock html={ex.buildDeck.html} title={ex.buildDeck.path} />
 

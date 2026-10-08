@@ -173,7 +173,7 @@ export default <Presentation><Slide><Image data={png} x={1} y={1} width={2} heig
         [frame.x, frame.y, inches(WIDTH / 96), inches(HEIGHT / 96)],
       );
 
-      // Artistic Effects lists PowerPoint's gallery, the current effect (None) checked.
+      // Artistic Effects lists the reference desktop app's gallery, the current effect (None) checked.
       await panel.getByRole('button', { name: 'Artistic Effects', exact: true }).click();
       const effects = panel
         .getByRole('group', { name: 'Artistic Effect' })

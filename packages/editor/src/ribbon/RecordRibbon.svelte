@@ -3,14 +3,14 @@
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
-  // Recording narration and camera needs the PowerPoint recording studio; the
+  // Recording narration and camera needs the reference desktop app's recording studio; the
   // browser editor plays the show instead, so Clear Recording and Reset to
-  // Cameo stay disabled exactly as PowerPoint shows them for a deck with no
+  // Cameo stay disabled exactly as the reference desktop app shows them for a deck with no
   // recording.
   const UNAVAILABLE = 'Recording is not available in the browser.';
 </script>
 
-<!-- Mac PowerPoint 16's Record tab: Cameo | From Beginning, From Current
+<!-- The reference desktop app's (Mac, 16) Record tab: Cameo | From Beginning, From Current
      Slide | Clear Recording ▾, Reset to Cameo ▾ | Learn More. -->
 <div class="record" lang={getLocale()}>
   <section class="cluster" role="group" aria-label={t('Camera')}>
@@ -48,7 +48,7 @@
 </div>
 
 <style>
-  /* Geometry measured from Mac PowerPoint 16 (NATIVE_PARITY.md, "Native
+  /* Geometry measured from the reference desktop app (Mac, 16) (NATIVE_PARITY.md, "Native
      geometry audit"). */
   .record { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
   .cluster { display: flex; flex: none; align-items: stretch; padding: 0 10px; border-right: 1px solid var(--ok-border); }
@@ -57,7 +57,7 @@
   .big { box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: var(--w); padding: 4px 1px; font: inherit; font-size: 11px; line-height: 1.15; color: var(--ok-text); text-align: center; text-decoration: none; background: none; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   .big > span:last-child { max-width: var(--w); margin: 0 -2px; }
   /* Japanese labels wrap per character, so they get at least six characters
-     a line and a smaller size that fits three lines (PowerPoint widens them). */
+     a line and a smaller size that fits three lines (the reference desktop app widens them). */
   .big > span:last-child:lang(ja) { max-width: max(calc(var(--w) - 4px), 6em); font-size: 10px; line-height: 1.1; }
   .big:hover:not(:disabled) { background: var(--ok-hover); }
   .big:disabled { opacity: 0.4; cursor: default; }

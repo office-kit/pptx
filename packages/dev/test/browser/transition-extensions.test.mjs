@@ -8,10 +8,10 @@ import { compile, Presentation, Slide, Text } from '@office-kit/pptx-dsl';
 import { getSlides, savePresentation, setSlideTransition } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
-// PowerPoint 2010+ transitions have no flat equivalent in the browser; the
+// The reference desktop app (2010+) transitions have no flat equivalent in the browser; the
 // presentation plays the nearest one rather than cutting straight to the slide.
 test(
-  'PowerPoint 2010+ transitions play an approximation in the presentation',
+  'The reference desktop app (2010+) transitions play an approximation in the presentation',
   { timeout: 90000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-extension-transitions-'));

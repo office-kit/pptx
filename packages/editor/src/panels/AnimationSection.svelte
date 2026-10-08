@@ -46,7 +46,7 @@
   const editor = getEditor();
   const doc = editor.doc;
 
-  // The galleries' presets under their PowerPoint names, one group per gallery.
+  // The galleries' presets under the reference desktop app's names, one group per gallery.
   const EFFECT_GROUPS: ReadonlyArray<readonly [string, readonly EffectTile[]]> = [
     ['Entrance Effects', ENTRANCE_TILES],
     ['Emphasis Effects', EMPHASIS_TILES],
@@ -207,7 +207,7 @@
   let addEffect = $state<AnimationEffect>('fadeIn');
   let addDirection = $state<AnimationDirection>('bottom');
   let addStart = $state<AnimationStartCondition>('click');
-  // Left empty, the effect runs the preset's own length, as PowerPoint's do.
+  // Left empty, the effect runs the preset's own length, as the reference desktop app's do.
   let addDuration = $state<number | null>(null);
   let addDelay = $state(0);
   let addBuild = $state<AnimationTextBuild>('asOneObject');

@@ -19,7 +19,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="One" /></Slide><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
 
 test(
-  'Insert, Transitions, Animations and Slide Show tabs edit the deck like PowerPoint',
+  'Insert, Transitions, Animations and Slide Show tabs edit the deck like the reference desktop app',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-ribbon-tabs-'));
@@ -118,7 +118,7 @@ test(
       await editor.locator('.hit').first().click();
       await tab('Animations');
       await changed(() => panel.getByRole('radio', { name: 'Fly In', exact: true }).click());
-      // Zoom is on the gallery's fourth page, as in PowerPoint.
+      // Zoom is on the gallery's fourth page, as in the reference desktop app.
       const zoom = panel.getByRole('radio', { name: 'Zoom', exact: true });
       while ((await zoom.count()) === 0)
         await panel.getByRole('button', { name: 'Next Entrance Effects gallery' }).click();
@@ -133,7 +133,7 @@ test(
       );
       steps = getSlideAnimations(getSlides(await deck())[0]);
       assert.equal(steps[0].start, 'afterPrevious');
-      // PowerPoint's galleries have no None; the Animation Pane removes it.
+      // The reference desktop app's galleries have no None; the Animation Pane removes it.
       await panel.getByRole('button', { name: 'Animation Pane', exact: true }).click();
       await changed(() =>
         editor.getByRole('button', { name: 'Delete animation 1', exact: true }).click(),

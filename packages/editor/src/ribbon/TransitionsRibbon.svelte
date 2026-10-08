@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint 16's Transitions tab: Preview | the Transition Styles
+  // The reference desktop app's (Mac, 16) Transitions tab: Preview | the Transition Styles
   // gallery with Effect Options beside it | Duration, Sound, On Mouse Click,
   // After and Apply To All as one timing group. Measured at 1512 and 1200 pt
   // windows: the gallery shows as many 92 pt tiles as fit (10 and 6), and
@@ -33,7 +33,7 @@
 
   const MS_PER_SECOND = 1000;
   // Everything but the gallery's tiles takes 576 px of the command row at
-  // PowerPoint's sizes (Preview, the gallery's arrow columns, Effect Options,
+  // the reference desktop app's sizes (Preview, the gallery's arrow columns, Effect Options,
   // the timing group, the rules between them and a 16 px end margin).
   const FIXED_WIDTH = 576;
   const END_MARGIN = 16;
@@ -94,7 +94,7 @@
   const timing = () => ({ advanceOnClick: onClick, ...(afterMs !== undefined ? { advanceAfterMs: afterMs } : {}) });
   // A new effect keeps the slide's timing but not the old effect's direction
   // or duration, which belong to that effect: it takes the effect's own
-  // default duration, as PowerPoint does.
+  // default duration, as the reference desktop app does.
   function chooseTile(item: TransitionTile) {
     const duration = item.choice.effect === 'none' ? {} : { durationMs: item.durationMs };
     apply('Slide transition', { ...item.choice, ...duration, ...timing() });
@@ -130,8 +130,8 @@
       editor.toast('error', error instanceof Error ? error.message : String(error));
     }
   }
-  // Plays the effect on the editing canvas, as PowerPoint's Preview does. The
-  // 3-D and particle effects of PowerPoint 2010+ are approximated by the
+  // Plays the effect on the editing canvas, as the reference desktop app's Preview does. The
+  // 2010+ 3-D and particle effects of the reference desktop app are approximated by the
   // nearest flat motion: a slide-in, a wipe, a split, a zoom or a fade.
   const SLIDES = new Set(['push', 'cover', 'pan', 'gallery', 'conveyor', 'ferris', 'vortex']);
   const WIPES = new Set(['wipe', 'randomBar', 'strips', 'blinds', 'checker', 'comb', 'reveal', 'glitter']);
@@ -248,9 +248,9 @@
 </div>
 
 <style>
-  /* Measured from Mac PowerPoint 16 (see NATIVE_PARITY.md "Native
+  /* Measured from the reference desktop app (Mac, 16) (see NATIVE_PARITY.md "Native
      geometry audit"): a 72 pt row, groups split by a rule with 10 pt on each
-     side, large buttons as wide as PowerPoint's own, 26 pt control rows on a
+     side, large buttons as wide as the reference desktop app's own, 26 pt control rows on a
      32 pt pitch starting 4 pt down. */
   .transitions { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
   .cluster { display: flex; flex: none; align-items: stretch; padding: 0 10px; border-right: 1px solid var(--ok-border); }
@@ -263,7 +263,7 @@
   .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: var(--w); padding: 4px 1px; font-size: 11px; line-height: 1.15; text-align: center; }
   .big > span:last-child { max-width: var(--w); margin: 0 -2px; }
   /* Japanese labels wrap per character, so they get at least six characters
-     a line and a smaller size that fits three lines (PowerPoint widens them). */
+     a line and a smaller size that fits three lines (the reference desktop app widens them). */
   .big > span:last-child:lang(ja) { max-width: max(calc(var(--w) - 4px), 6em); font-size: 10px; line-height: 1.1; }
   .icon-row { display: flex; align-items: center; gap: 1px; }
   .arrow { font-size: 11px; }
@@ -281,7 +281,7 @@
   .slide { fill: var(--ok-panel); stroke: currentColor; }
   .next { fill: color-mix(in srgb, var(--ok-accent) 35%, transparent); stroke: none; }
   .next.half { fill: color-mix(in srgb, var(--ok-accent) 18%, transparent); }
-  /* PowerPoint's Effect Options menu: 58 pt rows with a thumbnail. */
+  /* The reference desktop app's Effect Options menu: 58 pt rows with a thumbnail. */
   .menu { position: fixed; z-index: 300; display: flex; flex-direction: column; width: 210px; padding: 4px 0; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .menu button { display: flex; align-items: center; gap: 8px; height: 58px; padding: 0 8px 0 4px; border: none; border-radius: 0; font-size: 13px; text-align: left; }
   .menu .check { width: 12px; visibility: hidden; }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint 16's Design tab: the Themes gallery, then Variants, Colors,
+  // The reference desktop app's (Mac, 16) Design tab: the Themes gallery, then Variants, Colors,
   // Fonts and Background Styles; Layout and Slide Size; Design Suggestions.
   // The gallery takes the width the other groups leave, in whole 95 pt theme
   // slots, which is all that changes between 1512 and 1200 pt.
@@ -46,7 +46,7 @@
   let open = $state<Menu | null>(null);
   let root = $state<HTMLDivElement>();
 
-  // Mac PowerPoint's gallery: an 18 pt Previous and Next button either side
+  // The reference desktop app's (Mac) gallery: an 18 pt Previous and Next button either side
   // of whole 95 pt slots (85 pt thumbnails, 10 pt apart).
   const SLOT = 95;
   const PAGER = 18;
@@ -98,7 +98,7 @@
   }
   function size(value: SlideSize) {
     open = null;
-    // PowerPoint asks whether to maximize or ensure fit; Ensure Fit is the
+    // The reference desktop app asks whether to maximize or ensure fit; Ensure Fit is the
     // choice that never pushes content off the slide.
     doc.transact(t('Slide Size'), () => setSlideSize(doc.pres, value, { content: 'fit' }));
   }
@@ -106,7 +106,7 @@
 
 <svelte:window onpointerdown={(event) => { if (open && !(eventTarget(event) as Element).closest?.('.design .anchor')) open = null; }} onkeydown={(event) => { if (open && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); open = null; } }} />
 
-<!-- PowerPoint's ▾ buttons here put the arrow beside a 32 pt icon. -->
+<!-- The reference desktop app's ▾ buttons here put the arrow beside a 32 pt icon. -->
 {#snippet trigger(name: Menu, icon: string, label: string, enabled = true)}
   <button class="big" aria-label={t(label)} aria-haspopup="menu" aria-expanded={open === name} disabled={!enabled} onclick={() => toggle(name)}><span class="icon-row"><Icon name={icon} size={32} /><span class="arrow" aria-hidden="true">⌄</span></span><span class="caption">{captionLines(t(label))}</span></button>
 {/snippet}
@@ -182,7 +182,7 @@
                 {/each}
               </div>
             </div>
-            <!-- Mac PowerPoint's Fonts menu ends with the list; the editor keeps
+            <!-- The reference desktop app's (Mac) Fonts menu ends with the list; the editor keeps
                  its theme-font dialog here. -->
             <hr />
             <button class="action" role="menuitem" disabled={!editor.canRun('setPresentationFonts')} onclick={() => { open = null; editor.runOrPrompt('setPresentationFonts'); }}>{t('Customize Fonts...')}</button>

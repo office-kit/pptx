@@ -70,10 +70,10 @@
 
   <div class="quick">
     {#if autoSave}
-      <!-- Mac PowerPoint's AutoSave switch leads the title bar. -->
+      <!-- The reference desktop app's (Mac) AutoSave switch leads the title bar. -->
       <label class="autosave"><span>{t('AutoSave')}</span><input type="checkbox" role="switch" bind:checked={editor.autoSave} /></label>
     {/if}
-    <!-- Mac PowerPoint's Quick Access Toolbar: icons, with the rest under ⋯. -->
+    <!-- The reference desktop app's (Mac) Quick Access Toolbar: icons, with the rest under ⋯. -->
     <button class="ok-btn qat" title={t('Save as .pptx')} aria-label={t('Save')} onclick={onsave ?? onSave}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 2.5h9l2 2v9h-11z M5 2.5v4h6v-4 M5 13.5v-4h6v4" /></svg></button>
     <button class="ok-btn qat" title={t('Undo (Ctrl+Z)')} aria-label={t('Undo')} disabled={!doc.canUndo} onclick={() => doc.undo()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3 2.5 6l3 3 M2.5 6H10a3.5 3.5 0 0 1 0 7H7" /></svg></button>
     <button class="ok-btn qat" title={t('Redo (Ctrl+Y)')} aria-label={t('Redo')} disabled={!doc.canRedo} onclick={() => doc.redo()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 3l3 3-3 3 M13.5 6H6a3.5 3.5 0 0 0 0 7h3" /></svg></button>
@@ -101,7 +101,7 @@
         {/each}
       </select>
     </label>
-    <!-- Sits where Mac PowerPoint's Search box does; it searches every command. -->
+    <!-- Sits where the reference desktop app's (Mac) Search box does; it searches every command. -->
     <button class="ok-btn palette-btn" onclick={() => editor.togglePalette(true)} title={t('Search every command (⌘?)')}>
       <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.5" /><path d="M9.5 9.5L13 13" /></svg>
       {t('Search (⌘?)')}
@@ -128,7 +128,7 @@
     min-height: 40px;
     flex-wrap: wrap;
     padding: 5px 12px;
-    /* Mac PowerPoint's title bar uses the window chrome color, not the accent. */
+    /* The reference desktop app's (Mac) title bar uses the window chrome color, not the accent. */
     background: var(--ok-ribbon);
     color: var(--ok-text);
   }

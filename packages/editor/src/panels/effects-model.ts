@@ -1,7 +1,7 @@
 // The Format pane's Effects sections (Shadow, Reflection, Glow, Soft Edges,
 // 3-D Format, 3-D Rotation) edit either a shape's own effects or the effects
 // on its text runs. Both go through one `EffectTarget` so the sections are
-// written once. Preset values follow what Mac PowerPoint writes for its
+// written once. Preset values follow what the reference desktop app (Mac) writes for its
 // galleries; the ones not compared against a native capture are listed in
 // NATIVE_PARITY.md.
 
@@ -38,7 +38,7 @@ export const EMU_PER_POINT = 12700;
 
 type Alignment = 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
 
-/** One shadow, outer or inner: PowerPoint's Shadow section holds exactly one. */
+/** One shadow, outer or inner: the reference desktop app's Shadow section holds exactly one. */
 export interface ShadowValue {
   readonly kind: 'outer' | 'inner';
   readonly color: Color;
@@ -621,7 +621,7 @@ export const ROTATION_PRESETS: readonly {
   },
 ];
 
-/** What PowerPoint writes when a 3-D field is edited on a shape without 3-D. */
+/** What the reference desktop app writes when a 3-D field is edited on a shape without 3-D. */
 export const DEFAULT_SCENE: NonNullable<Text3D['scene']> = {
   camera: 'orthographicFront',
   lightRig: { type: 'threePt', direction: 't' },

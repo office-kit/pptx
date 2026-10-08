@@ -67,7 +67,7 @@ test(
         });
       };
       await verifyAlignment();
-      // As in Mac PowerPoint, a text box selected as a shape (not in text
+      // As in the reference desktop app (Mac), a text box selected as a shape (not in text
       // editing) leaves the rulers in slide coordinates with no indent markers;
       // editing its text moves the origin to the text and shows them.
       const hit = editor.locator('.hit').first();

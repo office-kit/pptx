@@ -45,7 +45,7 @@
 {/each}
 
 <style>
-  /* Mac PowerPoint's 16 pt swatches on an 18 pt pitch, ten to a row. */
+  /* The reference desktop app's (Mac) 16 pt swatches on an 18 pt pitch, ten to a row. */
   .heading { display: flex; align-items: center; height: 18px; padding: 0 9px; font-size: 12px; color: var(--ok-text-2); }
   .colors { display: grid; grid-template-columns: repeat(10, 16px); gap: 2px; padding: 4px 10px 8px; }
   .colors button { width: 16px; height: 16px; padding: 0; border: 1px solid var(--ok-border); border-radius: 0; cursor: pointer; }

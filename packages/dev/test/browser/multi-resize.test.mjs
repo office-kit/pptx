@@ -118,7 +118,7 @@ for (const [rotation, otherRotation] of [
           const dh = enlarged[i].h - original[i].h;
           const objectRotation = i === 0 ? rotation : otherRotation;
           // A 90-degree object maps the first object's SE drag to its own NE;
-          // its local SW (screen NW) stays fixed, as in Mac PowerPoint.
+          // its local SW (screen NW) stays fixed, as in the reference desktop app (Mac).
           const expectedX =
             original[i].x + (objectRotation === 90 ? (-dw + (mixed ? dh : -dh)) / 2 : 0);
           const expectedY = original[i].y + (objectRotation === 90 ? (dw - dh) / 2 : 0);

@@ -12,7 +12,7 @@
     type EffectTarget, type EffectsState, type GlowValue, type ShadowValue,
   } from './effects-model.ts';
 
-  // PowerPoint's Effects category, in its order: Shadow, Reflection, Glow,
+  // The reference desktop app's Effects category, in its order: Shadow, Reflection, Glow,
   // Soft Edges, 3-D Format, 3-D Rotation. The same sections serve Shape
   // Options ▸ Effects and Text Options ▸ Text Effects through `target`.
   let { target }: { target: EffectTarget } = $props();
@@ -27,7 +27,7 @@
   });
   const disabled = $derived(!shapes.length || editor.selectionLocked());
   const states = $derived.by(() => { doc.version; return shapes.map((shape) => target.read(doc.pres, shape)); });
-  // Japanese PowerPoint labels the galleries 標準スタイル, while other
+  // The reference desktop app's Japanese UI labels the galleries 標準スタイル, while other
   // "Presets" in the editor (video corrections) read プリセット.
   const presetsLabel = $derived(getLocale() === 'ja' ? '標準スタイル' : 'Presets');
 
@@ -85,7 +85,7 @@
 
   // --- Soft Edges
   const softEdgePreset = $derived(common((state) => SOFT_EDGE_PRESETS.find((preset) => preset.value === state.softEdgeEmu)?.label));
-  // Mac PowerPoint disables Soft Edges under Text Effects, although a run's
+  // The reference desktop app (Mac) disables Soft Edges under Text Effects, although a run's
   // effect list can hold one.
   const softEdgeReason = $derived(target.softEdge ? undefined : t('Soft edges are not available for text.'));
   function softEdge(radiusEmu: number | null) {
@@ -94,7 +94,7 @@
   }
 
   // --- 3-D
-  // Keep text flat belongs to the text body, so PowerPoint disables it for
+  // Keep text flat belongs to the text body, so the reference desktop app disables it for
   // pictures and connectors.
   const flatDisabled = $derived(disabled || shapes.some((shape) => getShapeKind(shape) !== 'shape'));
   const textFlat = $derived.by(() => {

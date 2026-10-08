@@ -280,7 +280,7 @@ test('promotes a nested paragraph one level without creating slides', () => {
   assert.equal(getSlides(pres).length, 1);
 });
 
-test('promotes mixed root and nested paragraphs like Mac PowerPoint and preserves an empty final paragraph', async () => {
+test('promotes mixed root and nested paragraphs like the reference desktop app (Mac) and preserves an empty final paragraph', async () => {
   const pres = createPresentation();
   const layout = getSlideLayouts(pres).find(
     (item) => getSlideLayoutName(item) === 'Title and Content',
@@ -497,7 +497,7 @@ test('title-to-body outline split promotes the suffix and preserves links throug
   );
 });
 
-test('outline split keeps later paragraphs in the new body as in Mac PowerPoint', async () => {
+test('outline split keeps later paragraphs in the new body as in the reference desktop app (Mac)', async () => {
   const pres = createPresentation();
   const layout = getSlideLayouts(pres).find(
     (item) => getSlideLayoutName(item) === 'Title and Content',

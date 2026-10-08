@@ -4,16 +4,16 @@
 
 ### Minor Changes
 
-- e860ae8: Preset shapes are now drawn from ECMA-376's own preset definitions instead of hand-written approximations. The preview, the editor canvas and its Shapes gallery icons showed many presets wrongly — hearts, lightning bolts, suns, moons, clouds, brackets and braces, bent and curved arrows, the equation shapes, stars with 7 to 32 points — and now match PowerPoint, including the lit and shaded faces of cubes, cans and curved arrows, adjust handles on every preset, and elliptical arcs in custom geometry (whose `arcTo` angles were read as parametric instead of visual angles). Text in a preset now wraps inside the rectangle the definition gives it, such as an ellipse's inscribed rectangle, as PowerPoint does.
+- e860ae8: Preset shapes are now drawn from ECMA-376's own preset definitions instead of hand-written approximations. The preview, the editor canvas and its Shapes gallery icons showed many presets wrongly — hearts, lightning bolts, suns, moons, clouds, brackets and braces, bent and curved arrows, the equation shapes, stars with 7 to 32 points — and now match the reference desktop app, including the lit and shaded faces of cubes, cans and curved arrows, adjust handles on every preset, and elliptical arcs in custom geometry (whose `arcTo` angles were read as parametric instead of visual angles). Text in a preset now wraps inside the rectangle the definition gives it, such as an ellipse's inscribed rectangle, as the reference desktop app does.
 
   - `@office-kit/pptx`: new `getPresetGeometry(preset, size, adjustValues?)` evaluates any preset's paths and text rectangle in the same form as `getShapeCustomGeometry`.
   - `@office-kit/pptx-preview` (breaking): `shapeCustomTextRect(custom, extent)` is replaced by `shapeTextRect(shape)`, which reads custom and preset geometry alike, and `resolveTextBodyRect` now takes `(bounds, margins, region)` with the region from `shapeTextRect`.
 
-- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as PowerPoint's Soft Bevel and Sharp Bevel WordArt write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
+- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as the reference desktop app's Soft Bevel and Sharp Bevel WordArt write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
 
 ### Patch Changes
 
-- 8db2360: `setShapeText`, `setTableCellText` and `setSlideNotes` with a `range` no longer leave a separate `<a:r>` for every insertion: text inserted next to a run with the same formatting extends that run, and deleting the text between two halves of a run joins them again, as PowerPoint does. Typing in the editor previously saved one run per keystroke.
+- 8db2360: `setShapeText`, `setTableCellText` and `setSlideNotes` with a `range` no longer leave a separate `<a:r>` for every insertion: text inserted next to a run with the same formatting extends that run, and deleting the text between two halves of a run joins them again, as the reference desktop app does. Typing in the editor previously saved one run per keystroke.
 
 ## 0.22.0
 
@@ -50,9 +50,9 @@
 
   Fixes: an exit fade hid its shape the moment it started instead of fading it
   out. The `<p:set>` that takes the shape off the slide now trails the motion the
-  way PowerPoint writes it, and moves when the effect's duration changes.
+  way the reference desktop app writes it, and moves when the effect's duration changes.
 
-- e18d19d: `setShapeAnimation` accepts `byParagraph`, which reveals a shape's text one paragraph at a time instead of animating the shape as a whole — PowerPoint's and Google Slides' "By paragraph". Each paragraph gets its own effect with the `start` you asked for, so the default advances a paragraph per click, and they share the one `<p:bldP build="p">` that makes PowerPoint treat them as a single build. `getSlideAnimations` reports each paragraph as its own step, targeting a paragraph range. A shape with no text is refused rather than silently animated as a whole, and a call that cannot be completed leaves the slide's existing timing exactly as it was.
+- e18d19d: `setShapeAnimation` accepts `byParagraph`, which reveals a shape's text one paragraph at a time instead of animating the shape as a whole — the reference desktop app's and Google Slides' "By paragraph". Each paragraph gets its own effect with the `start` you asked for, so the default advances a paragraph per click, and they share the one `<p:bldP build="p">` that makes the reference desktop app treat them as a single build. `getSlideAnimations` reports each paragraph as its own step, targeting a paragraph range. A shape with no text is refused rather than silently animated as a whole, and a call that cannot be completed leaves the slide's existing timing exactly as it was.
 - e18d19d: `setShapeAnimation` accepts `start` and `delayMs`. `'withPrevious'` runs an effect alongside the one before it and `'afterPrevious'` once that one has finished, both off the click that started their predecessor, so several shapes can animate from a single click. As a slide's first effect neither has a predecessor to follow, so both run as the slide appears.
 
   `'afterPrevious'` needs to know when the effect before it ends. On a slide whose timing states that in a form this library does not model — an effect that runs indefinitely or states no duration, one that repeats or is rescaled, or one that starts from another node rather than at a fixed offset — the call throws and leaves the slide's timing untouched rather than placing the effect at a guessed moment. `'click'` and `'withPrevious'` need no such measurement and still work there.
@@ -60,8 +60,8 @@
   Existing calls are unaffected: the defaults still write the click-triggered, zero-delay tree they wrote before, byte for byte.
 
 - e18d19d: Apply the active slide's background to the whole presentation with `applySlideBackgroundToAll` or the editor's Apply to All button. Backgrounds move to slide masters and individual slide/layout overrides are cleared, preserving theme colors and image references. The editor supports undoing the whole operation together.
-- e18d19d: Add `setSlideMasterBackgroundStyle` to select PowerPoint's twelve theme background styles. The selected slide's master receives the theme fill reference and light or dark text/background mapping, preserving accent colors and existing slide overrides.
-- e18d19d: Read and edit PowerPoint’s Rewind After Playing setting for audio and video, preserving it when saving and reopening presentations.
+- e18d19d: Add `setSlideMasterBackgroundStyle` to select the reference desktop app's twelve theme background styles. The selected slide's master receives the theme fill reference and light or dark text/background mapping, preserving accent colors and existing slide overrides.
+- e18d19d: Read and edit the reference desktop app’s Rewind After Playing setting for audio and video, preserving it when saving and reopening presentations.
 - e18d19d: Preview background images with their stretch offsets, tile scale, alignment, offsets, and alternating reflections, including inherited backgrounds. Expose natural background image dimensions using embedded resolution and fill DPI, so tiling matches the image size instead of stretching it across the slide.
 - e18d19d: Read and change slide background image placement with `getSlideBackgroundImageFillLayout` and `setSlideBackgroundImageFillLayout`. Stretch offsets and tiled scale, position, alignment, and mirroring preserve the image data. Editing inherited images creates a slide override without changing other slides.
 - e18d19d: Render background picture cropping for stretched and tiled images, including inherited backgrounds. Add `getSlideBackgroundImageCrop` to read the effective source rectangle without changing the deck.
@@ -89,7 +89,7 @@
 
 - e18d19d: Support `TextFormat.underlineColor` for independently colored underlines. Set it to `null` to follow the text color. Preserve the color when reading, editing, copying, and saving text, and expose underline color and Automatic in the editor's Font dialog.
 - e18d19d: Support reading and changing transparency on image-filled shapes as well as pictures, including preview rendering. Invalid opacity values now leave the existing transparency unchanged.
-- e18d19d: Support PowerPoint's Top, Middle and Bottom Centered text anchors through the existing `setShapeTextAnchor` API's `centered` option. Resolve inherited centering through `getShapeBodyPrEffective`, preserve paragraph alignment, and expose all six anchor choices in the editor with preview and text-editing support.
+- e18d19d: Support the reference desktop app's Top, Middle and Bottom Centered text anchors through the existing `setShapeTextAnchor` API's `centered` option. Resolve inherited centering through `getShapeBodyPrEffective`, preserve paragraph alignment, and expose all six anchor choices in the editor with preview and text-editing support.
 
   Preview integrations can use `shapeTextAnchorOffset` to position editable text consistently with the rendered text block.
 
@@ -116,14 +116,14 @@
 
   The existing `setShapeTextFormat` and `setTableCellTextFormat` APIs now accept `{ reset: true }` to restore inherited run appearance before applying a new format, optionally limited to a character range.
 
-- e18d19d: Add comment replies through `addSlideComment({ replyTo })` and `getCommentParent`, preserving PowerPoint p15 threading extensions through save and reload. Removing a comment also removes its descendant replies.
+- e18d19d: Add comment replies through `addSlideComment({ replyTo })` and `getCommentParent`, preserving the reference desktop app's p15 threading extensions through save and reload. Removing a comment also removes its descendant replies.
 
   The preview comments dialog supports creating and editing replies in English and Japanese, shows each reply's parent, and deletes threads with undo/redo support.
 
 - e18d19d: `setShapeShadow` and `setShapeGlow` no longer erase each other. Each now
   replaces only the effect of its own kind and leaves the rest of the shape's
   `<a:effectLst>` in place, written in the order `CT_EffectList` states — so a
-  shape can carry a shadow and a glow at once, as PowerPoint routinely writes
+  shape can carry a shadow and a glow at once, as the reference desktop app routinely writes
   them. Setting the same effect twice still replaces it, because the schema
   allows each one only once. `clearShapeEffects` remains the way to empty the
   list.
@@ -131,7 +131,7 @@
   `getShapePatternFill` now reports `preset` as the `PatternPreset` union rather
   than a bare `string`, so what it reads can be handed straight back to
   `setShapePatternFill`. An unrecognised `prst` in the file reads as `'pct50'`,
-  which is what PowerPoint paints when the attribute is absent.
+  which is what the reference desktop app paints when the attribute is absent.
 
 - e18d19d: Concatenate text from multiple shapes with `setShapeParagraphs(target, { sources })`, retaining paragraph formatting and hyperlinks. In Outline View, demote a slide title into the previous slide's body with Tab or the context menu, with Undo support. Slides with additional objects or no destination body placeholder report an error before changing their content.
 - e18d19d: Copy existing formatted text into a shape with `setShapeParagraphs(shape, { source, range })`. The optional UTF-16 range retains paragraph properties, fields, run formatting and link relationships while keeping the destination text body's settings.
@@ -169,23 +169,23 @@
 
   Fix Increase/Decrease Font Size leaving empty paragraphs unchanged when formatting an entire text box or table cell.
 
-- e18d19d: Read and write PowerPoint's Equalize character height setting with `TextFormat.normalizeHeight`, preserving explicit enabled and disabled values through editing and saving.
+- e18d19d: Read and write the reference desktop app's Equalize character height setting with `TextFormat.normalizeHeight`, preserving explicit enabled and disabled values through editing and saving.
 - e18d19d: Add an optional proportional content fit when changing slide size, with English and Japanese page setup controls. Scale object coordinates, explicit text formatting, table dimensions and outlines, and center the original page on the new canvas. Invalid scaled dimensions leave the presentation unchanged.
 - e18d19d: Read and update slide show mode, slide range, looping, narration, animation, and timing settings while preserving other presentation properties.
-- e18d19d: Preserve gradient stop transparency when reading shapes and expose theme-resolved stop colors. Shape previews now render the brightness and transparency saved by PowerPoint for linear and radial gradient stops.
+- e18d19d: Preserve gradient stop transparency when reading shapes and expose theme-resolved stop colors. Shape previews now render the brightness and transparency saved by the reference desktop app for linear and radial gradient stops.
 - e18d19d: Allow gradient stops to specify brightness and opacity, and gradients to preserve scaling and rotation settings. Reject invalid stop edits without discarding the shape's existing fill.
 
   Edit gradient stop color, position, brightness and transparency in the Format Shape pane, with add/remove controls and Undo support. Drag stops directly, commit each drag as one undoable edit, and cancel an in-progress drag with Escape.
 
-- e18d19d: Expose gradient tile bounds through `GradientFillOptions.tileRect` and gradient readers. Preserve PowerPoint's corner-gradient tile bounds when changing stops or rotation and saving the presentation.
+- e18d19d: Expose gradient tile bounds through `GradientFillOptions.tileRect` and gradient readers. Preserve the reference desktop app's corner-gradient tile bounds when changing stops or rotation and saving the presentation.
 - e18d19d: Add image-fill placement readers and setters for tile alignment, scale, offsets, mirroring, stretch offsets and rotation with the shape. Placement changes preserve the embedded image, crop and effects. Preview now renders stretch offsets and clips the image to the shape.
 - e18d19d: Add `isSlideBackgroundGraphicsHidden`, `setSlideBackgroundGraphicsHidden`, and `isSlideLayoutBackgroundGraphicsHidden` to inspect and control inherited decoration without deleting template content. Apply to All also copies the graphics visibility setting to slides and layouts. The preview honors both levels, and the editor's Format Background pane supports changing selected slides with undo and save/reload.
 - e18d19d: Fix horizontal text overrides on placeholders inheriting vertical text from a layout or master. Explicit `horz` values now stop the inheritance cascade. Behavior change: `setShapeTextDirection(shape, 'horz')` writes an explicit override; use `null` to clear the override and restore inheritance.
-- e18d19d: Add `setShapeImageRecolor` for PowerPoint-compatible grayscale, duotone, threshold, and washout image effects.
+- e18d19d: Add `setShapeImageRecolor` for desktop-app-compatible grayscale, duotone, threshold, and washout image effects.
 - e18d19d: Allow effective run formatting to resolve layout and master inheritance from an original shape while reading a detached editing preview. Show inherited character styles during inline shape editing, including pending text and paragraph changes, without baking those styles into saved text or clipboard data.
 - e18d19d: Resolve inherited text autofit and columns through `getShapeBodyPrEffective`, and use them consistently in previews and editing controls. Allow `setShapeTextColumns` to author one column explicitly, overriding inherited columns; invalid column settings leave the previous values intact.
 - e18d19d: Allow effective paragraph properties to retain original placeholder and slide inheritance when reading a detached shape preview. Display paragraph alignment, line spacing, spacing before and after, indentation and text direction during inline editing, with canvas zoom applied to absolute dimensions.
-- e18d19d: Add character-level inner shadow formatting to the text API, including PowerPoint OOXML read, write, inheritance, and independent removal.
+- e18d19d: Add character-level inner shadow formatting to the text API, including the reference desktop app's OOXML read, write, inheritance, and independent removal.
 - e18d19d: Edit a slide layout, not just apply one: `setSlideLayoutName`,
   `setSlideLayoutBackground`, `clearSlideLayoutBackground` and
   `setSlideLayoutPlaceholderBounds`.
@@ -203,18 +203,18 @@
   Design ▸ Layout ribbon group, in English and Japanese.
 
 - e18d19d: Resolve line-break formatting with `{ breakIndex }` in getShapeRunFormatEffective and getTableCellRunFormatEffective. Preserve inherited font, size, and emphasis when selecting, editing, or copying line breaks.
-- e18d19d: Add PowerPoint link destinations for the last slide viewed and ending the slide show.
-- e18d19d: `SlideShowProperties` gains an optional `showMediaControls` (PowerPoint's Show Media Controls, stored as `p14:showMediaCtrls`); `getSlideShowProperties` always reports it. The editor's Slide Show tab adds Rehearse Timings (time each slide while presenting, then keep the times as slide timings), Record, and the Use Timings, Play Narrations and Show Media Controls options; the Microsoft 365-only commands are shown disabled.
+- e18d19d: Add the reference desktop app's link destinations for the last slide viewed and ending the slide show.
+- e18d19d: `SlideShowProperties` gains an optional `showMediaControls` (the reference desktop app's Show Media Controls, stored as `p14:showMediaCtrls`); `getSlideShowProperties` always reports it. The editor's Slide Show tab adds Rehearse Timings (time each slide while presenting, then keep the times as slide timings), Record, and the Use Timings, Play Narrations and Show Media Controls options; the commands that need the vendor's cloud service are shown disabled.
 - e18d19d: Add read and write support for named bookmarks in embedded media playback.
 - e18d19d: Say how a clip plays: `getShapeMediaPlayback` and `setShapeMediaPlayback`.
 
   A deck could embed a video or a sound but not state anything about playing it,
-  so every clip waited for a click at PowerPoint's default volume. The new pair
+  so every clip waited for a click at the reference desktop app's default volume. The new pair
   reads and writes autoplay, loop, volume, mute, hide-when-stopped and (video
   only) full screen, from the clip's media time node. Omitted properties keep
   their current value.
 
-  Trimming a clip is still not supported: PowerPoint stores it in a 2010
+  Trimming a clip is still not supported: the reference desktop app stores it in a 2010
   extension rather than in the core schema.
 
   The editor exposes the settings through its properties panel and command
@@ -222,7 +222,7 @@
 
 - e18d19d: Read and edit the OOXML `numSld` setting for audio and video playback across slides.
 - e18d19d: Preserve automatic media start delays through `MediaPlayback.delayMs`. Presentation preview now waits for the saved delay before playing audio or video and cancels pending playback when leaving a slide or starting media manually.
-- e18d19d: Comments written by PowerPoint 2021 and Microsoft 365 are now read and edited,
+- e18d19d: Comments written by the reference desktop app (2021 and the subscription edition) are now read and edited,
   not merely carried along. Those decks keep their comments in a different format
   from the one ECMA-376 defines ([MS-PPTX] §2.16.1): a thread owns its replies
   instead of the replies pointing back at a parent, the text is a DrawingML body
@@ -255,12 +255,12 @@
 
   The four existing stacking APIs also accept an array of sibling shapes. Selections from different parent containers are rejected before any shape is moved.
 
-- e18d19d: Preserve shadow alignment and rotation when reading and editing PowerPoint text. Shadow formatting now accepts `alignment` and `rotateWithShape`, including native WordArt anchors.
-- e18d19d: Add character-level reflection formatting to `TextFormat`, including native PowerPoint read, write, merge, removal, and round-trip support.
+- e18d19d: Preserve shadow alignment and rotation when reading and editing text from the reference desktop app. Shadow formatting now accepts `alignment` and `rotateWithShape`, including native WordArt anchors.
+- e18d19d: Add character-level reflection formatting to `TextFormat`, including the reference desktop app's read, write, merge, removal, and round-trip support.
 - e18d19d: Group sibling shapes and ungroup groups inside an existing group without removing the outer group or changing its transform. Grouping preserves the members' stacking order regardless of selection order. Preview group commands support nested selections with Undo/Redo and reject selections spanning different parents.
 - e18d19d: Format selected speaker-note text from the Home ribbon, preserving mixed formatting when editing and saving notes. Add APIs to read and update notes character formatting and change letter case.
 - e18d19d: Read and update paragraph levels across a UTF-16 text selection with `getParagraphLevel` and `setParagraphLevel`. Relative updates preserve differences between levels and keep text, formatting and links intact. Indenting a long outline selection now updates its text body once instead of once per paragraph.
-- e18d19d: Persist outline collapse with `getCollapsedOutlineSlides` and `setSlideOutlineCollapsed`, preserving PowerPoint's per-slide view state. Deleting a slide removes its outline reference.
+- e18d19d: Persist outline collapse with `getCollapsedOutlineSlides` and `setSlideOutlineCollapsed`, preserving the reference desktop app's per-slide view state. Deleting a slide removes its outline reference.
 
   In the editor, double-click a slide icon in Outline View to collapse or expand its body. The right-click menu also collapses or expands the selected slides or the whole outline. Each change supports Undo and survives saving and reopening.
 
@@ -280,7 +280,7 @@
 - e18d19d: Add `setParagraphTabs` to edit custom tab positions, left/center/right/decimal alignment, and automatic tab spacing in text boxes and table cells. Effective paragraph properties now include inherited tab settings. Empty tab lists clear custom stops, while null removes a local override.
 - e18d19d: Read and update paragraph Asian line breaking, Latin word wrapping, hanging punctuation, and font alignment with `setParagraphTypography`, including inherited settings and removal of local overrides.
 
-  Add the Paragraph dialog's Line Breaks and Alignment tab. Apply changes to selected paragraphs or table cells together, preserve mixed values, and support undo and redo. These settings are saved in exported PowerPoint files; preview rendering does not yet reproduce all typography rules.
+  Add the Paragraph dialog's Line Breaks and Alignment tab. Apply changes to selected paragraphs or table cells together, preserve mixed values, and support undo and redo. These settings are saved in exported presentation files; preview rendering does not yet reproduce all typography rules.
 
 - e18d19d: Choose pattern foreground and background colors from theme and standard palettes. Base theme colors stay linked when switching fill types and after saving.
 
@@ -302,7 +302,7 @@
 
   Add an optional UTF-16 `range` to `setShapeText` and `setTableCellText` to replace an exact selection while retaining unaffected formatting, including when adjacent characters are identical. Invalid boundaries and split surrogate pairs are rejected.
 
-- e18d19d: Add a canonical `setShapeStyle` API for applying native PowerPoint shape style references while preserving shape geometry and text formatting.
+- e18d19d: Add a canonical `setShapeStyle` API for applying native shape style references while preserving shape geometry and text formatting.
 
   Allow `setShapeHidden` to update multiple shapes in one call while preserving animation data.
 
@@ -353,7 +353,7 @@
   space — restoring it would either tear the shape out of the arrangement it was
   grouped into, or invent a rectangle the layout never described.
 
-- e18d19d: Add `resetShapeImageColorEffects` for clearing PowerPoint image recolor and brightness/contrast effects while preserving other image effects.
+- e18d19d: Add `resetShapeImageColorEffects` for clearing the reference desktop app's image recolor and brightness/contrast effects while preserving other image effects.
 - e18d19d: Add resetSlidePlaceholderGeometry to restore top-level placeholder position, size, rotation and flips from the current layout or master while preserving content and formatting. The bilingual development editor exposes it for individual or selected slides with undo/redo.
 - e18d19d: Add `resetSlidePlaceholderTextFormatting` to restore inherited text, paragraph and text-body formatting on layout-bound placeholders while retaining content, hyperlinks, language and outline levels. Expose the operation in English and Japanese in the preview, with selected-slide support and undo/redo.
 - e18d19d: Add `resetSlideLayout` to restore missing placeholders, layout geometry and inherited shape/text formatting together while preserving content and image relationships. Expose Reset layout in the English and Japanese preview, with multi-slide selection and a single undo step.
@@ -363,9 +363,9 @@
 - e18d19d: Allow getShapeRunFormatEffective to resolve fields with a fieldIndex selector. Preserve inherited fonts, sizes, colors, and emphasis for shape fields when displaying, editing, inspecting, and copying their text.
 - e18d19d: Read and preview theme-referenced shape fills, including solid colors, transparency, and gradient stops, using each shape's slide master theme. Direct shape fills continue to override theme references. The fill opacity reader accepts an optional presentation argument to resolve theme transparency.
 
-  Use a shape style's text color and theme font defaults when its existing text formatting does not supply them, so text in PowerPoint's colored shape styles keeps its intended color.
+  Use a shape style's text color and theme font defaults when its existing text formatting does not supply them, so text in the reference desktop app's colored shape styles keeps its intended color.
 
-- e18d19d: Add `isShapeLocked` and `setShapeLocked` for PowerPoint-compatible object geometry locks, preserving text editing and unrelated drawing constraints.
+- e18d19d: Add `isShapeLocked` and `setShapeLocked` for desktop-app-compatible object geometry locks, preserving text editing and unrelated drawing constraints.
 
   Add individual and all-object locks in the editor Selection Pane. Locked objects cannot be moved, resized, rotated, aligned or grouped; their lock state survives saving and undo/redo.
 
@@ -378,7 +378,7 @@
 - e18d19d: Slide numbers, as live fields rather than typed text.
 
   `setShapeTextField(shape, type, { text })` writes an `<a:fld>` — the slide's
-  number, a date, a footer — replacing the shape's text body the way PowerPoint
+  number, a date, a footer — replacing the shape's text body the way the reference desktop app
   writes one, and carrying the replaced text's formatting onto the field.
   `addSlidePlaceholder(slide, type)` restores a single slot the layout reserves
   (`sldNum`, `dt`, `ftr`, …), where `addMissingSlidePlaceholders` restores them
@@ -403,14 +403,14 @@ firstSlideNum>`.
 
   Keep Home ribbon controls accessible without horizontal scrolling at intermediate window widths.
 
-- e18d19d: Text formats can now carry PowerPoint's theme tints and WordArt bevels.
+- e18d19d: Text formats can now carry the reference desktop app's theme tints and WordArt bevels.
 
   - `TextFormat.colorTransforms`, and `colorTransforms` on `outline`, `shadow`, `innerShadow` and `glow`, write `<a:lumMod>`, `<a:lumOff>`, `<a:tint>`, ... on the run's colors — the same field gradient stops already take — so "Accent 2, Lighter 60%" stays a theme color instead of a fixed RGB. `getShapeRunFormat` reads them back beside the unresolved color and `toWritableTextFormat` carries them. The shared `ShadowOptions`, `InnerShadowOptions` and `GlowOptions` gain the field, so `setShapeShadow` and `setShapeGlow` accept it too.
-  - New `setShapeText3D(shape, value | null)` / `getShapeText3D(shape)` write and read the text body's 3-D (`<a:scene3d>` camera and light rig, `<a:sp3d>` top bevel, extrusion height, material and contour color), which is where PowerPoint puts its WordArt bevels. Presets are typed by the schema's enums (`CameraPreset`, `LightRigType`, `LightRigDirection`, `BevelPreset`, `PresetMaterial`).
+  - New `setShapeText3D(shape, value | null)` / `getShapeText3D(shape)` write and read the text body's 3-D (`<a:scene3d>` camera and light rig, `<a:sp3d>` top bevel, extrusion height, material and contour color), which is where the reference desktop app puts its WordArt bevels. Presets are typed by the schema's enums (`CameraPreset`, `LightRigType`, `LightRigDirection`, `BevelPreset`, `PresetMaterial`).
   - `setShapeTextAutoFit` now places its element ahead of any `<a:scene3d>` / `<a:sp3d>`, as the schema requires.
   - `getShapeRunFormat` reports a run effect's scheme color as its token (it returned an empty string without a theme), and a text gradient stop without alpha no longer reads back as `opacity: 1`, which wrote an `<a:alpha val="100000"/>` on the way back.
 
-- e18d19d: Support paragraph-internal line breaks when replacing shape or table-cell text with `newlines: 'break'`. The editor preserves these breaks for Shift+Enter and for Enter in title placeholders, matching Mac PowerPoint.
+- e18d19d: Support paragraph-internal line breaks when replacing shape or table-cell text with `newlines: 'break'`. The editor preserves these breaks for Shift+Enter and for Enter in title placeholders, matching the reference desktop app (Mac).
 - e18d19d: Add `setShapeTextLanguage(shape, lang)` and `getShapeTextLanguage(shape)` for the proofing language of a shape's text (`lang` on every run and paragraph end). The editor's Review tab gains Check Accessibility, Language, comment Delete/Previous/Next, Show Comments and Hide Ink; commands the library cannot support yet are shown disabled with the reason.
 - e18d19d: Support gradient and pattern fills on formatted text runs through `textFill`,
   including theme color transforms and round-tripping native WordArt fills.
@@ -426,8 +426,8 @@ firstSlideNum>`.
 
   Resolve inherited shape and table text colors through the slide color map, including detached editing previews.
 
-- e18d19d: Transitions can now carry a duration and a sound. `setSlideTransition` accepts `durationMs`, written as PowerPoint 2010 writes it (`p14:dur` inside `mc:AlternateContent`, with the nearest `speed` as the fallback), and `getSlideTransition` reads it back, including from decks saved by PowerPoint. New `setSlideTransitionSound` / `getSlideTransitionSound` embed a WAV sound or stop earlier sounds; changing the effect keeps the sound. The editor's Transitions tab gains Preview, Duration and Sound, and the preview plays fast/medium/slow transitions at PowerPoint's 0.5/0.75/1 s.
-- e18d19d: Add typed media trim and fade playback controls with PowerPoint OOXML round-trip support.
+- e18d19d: Transitions can now carry a duration and a sound. `setSlideTransition` accepts `durationMs`, written as the reference desktop app (2010) writes it (`p14:dur` inside `mc:AlternateContent`, with the nearest `speed` as the fallback), and `getSlideTransition` reads it back, including from decks saved by the reference desktop app. New `setSlideTransitionSound` / `getSlideTransitionSound` embed a WAV sound or stop earlier sounds; changing the effect keeps the sound. The editor's Transitions tab gains Preview, Duration and Sound, and the preview plays fast/medium/slow transitions at the reference desktop app's 0.5/0.75/1 s.
+- e18d19d: Add typed media trim and fade playback controls with round-trip support for the reference desktop app's OOXML.
 - e18d19d: Add video formatting reset to the editor ribbon and the `resetShapeVideoFormatting` API. Reset removes color corrections, borders and effects and restores a rectangular shape while preserving the video, poster image, crop and dimensions.
 - e18d19d: Preserve and edit wheel transition spoke counts, with Japanese and English controls. Play clockwise wheel transitions in presentation mode, including default four spokes and a fade for zero spokes.
 
@@ -440,7 +440,7 @@ firstSlideNum>`.
 - e18d19d: Display the borders and transparent cells of the built-in No Style, Table Grid style when a presentation stores only its style ID.
 - e18d19d: Read percent-form bullet sizes at their intended scale instead of rendering the list marker a thousand times too small.
 - e18d19d: Add bilingual speaker-note and slide-transition dialogs to the development preview, including automatic advance and applying a transition to all slides in one undo step. Correct speaker-note reads and updates to use the body placeholder without overwriting footers, read soft breaks and field results, and retain automatic-advance settings when no transition effect is selected.
-- e18d19d: Fix changing font colors on text with gradient, pattern, or other fills so the previous fill is replaced instead of producing conflicting fills in saved PowerPoint files.
+- e18d19d: Fix changing font colors on text with gradient, pattern, or other fills so the previous fill is replaced instead of producing conflicting fills in saved presentation files.
 - e18d19d: Fix reading and rendering of DrawingML preset colors such as `red`, including
   colors used by shape fills and text after a presentation is saved and reopened.
 - e18d19d: Scale table text with no authored font size when fitting slide content to a new page size. Preserve explicit font-size inheritance and retain scaled defaults for empty cells and saved presentations.
@@ -457,12 +457,12 @@ firstSlideNum>`.
 - e18d19d: Resolve internal slide link targets by package and part name so preview links retain the correct destination after reading, reordering, and saving a presentation.
 - e18d19d: Read imported percentage line spacing at the correct scale, including paragraph and inherited list styles. Percent-form spacing such as `150%` no longer collapses the lines together.
 - e18d19d: Keep event-triggered audio and video from being reported as automatic playback. Remove media timing nodes inside nested playback sequences when their shapes are deleted while preserving unrelated timing content.
-- e18d19d: Apply last-column formatting to horizontally merged table cells that reach the right edge, matching PowerPoint even when the cell starts in an earlier column.
-- e18d19d: Apply total-row formatting to vertically merged table cells that reach the last row, matching PowerPoint even when the cell starts in an earlier row.
-- e18d19d: Convert PowerPoint's native Play in Background timing tree when changing an audio clip between automatic and click playback, preserving the existing timing IDs and media settings.
+- e18d19d: Apply last-column formatting to horizontally merged table cells that reach the right edge, matching the reference desktop app even when the cell starts in an earlier column.
+- e18d19d: Apply total-row formatting to vertically merged table cells that reach the last row, matching the reference desktop app even when the cell starts in an earlier row.
+- e18d19d: Convert the reference desktop app's native Play in Background timing tree when changing an audio clip between automatic and click playback, preserving the existing timing IDs and media settings.
 - e18d19d: Show and edit playback settings for audio and video nested inside animation timing groups. Preserve enclosing start conditions when changing volume, looping, or video display settings, and account for parent delays when reading and editing simple automatic playback. Reject unsupported start-condition edits before changing the document. Also reject non-finite volume values instead of writing invalid XML.
 - e18d19d: Fix existing text in shapes and table cells incorrectly adopting the font, size, or emphasis saved for newly inserted text at the end of a paragraph.
-- e18d19d: Read imported path-gradient focus rectangles correctly when PowerPoint omits zero insets. Preserve small integer percentage values and percentage-string values when editing and saving gradient fills.
+- e18d19d: Read imported path-gradient focus rectangles correctly when the reference desktop app omits zero insets. Preserve small integer percentage values and percentage-string values when editing and saving gradient fills.
 - e18d19d: Read image crop offsets correctly when imported presentations store them as percentages. Include selected text and theme fonts in the editor's font picker, including custom font names.
 - e18d19d: Preserve charts, embedded workbooks, speaker notes, media, and relationship-linked extension parts when importing slides. Retain shared dependencies and cycles, allocate independent copies for repeated imports, and reject missing dependencies before modifying the destination package.
 - e18d19d: Keep nested audio and video playback settings when clearing a slide's animations, preserving their enclosing timing conditions.
@@ -470,13 +470,13 @@ firstSlideNum>`.
 - e18d19d: Preserve original run XML on the unchanged portions of a text range replacement in shapes and table cells. Partially edited fields still become literal text without retaining field-only paragraph properties.
 - e18d19d: Honor imported XML boolean spellings for through-black transitions and click advancement. Play cut-through-black transitions in presentation mode, respecting transition speed, reduced motion, and cleanup when interrupted or exited.
 - e18d19d: Read explicit XML `false` values for bold and italic correctly, preventing imported text from appearing bold or italic when those styles are disabled.
-- e18d19d: Preserve fonts, text colors, bold and italic formatting inherited from embedded table styles when displaying, editing and copying table text. Apply header, footer, banded row and column, and corner formatting in PowerPoint's precedence order while keeping explicitly formatted cell text unchanged.
+- e18d19d: Preserve fonts, text colors, bold and italic formatting inherited from embedded table styles when displaying, editing and copying table text. Apply header, footer, banded row and column, and corner formatting in the reference desktop app's precedence order while keeping explicitly formatted cell text unchanged.
 - e18d19d: Read scRGB and HSL colors in imported fills, strokes, and gradient stops.
 - e18d19d: Resolve scRGB and HSL color elements used by shape shadows and glow effects when reading imported presentations.
 
   Preserve opacity modifiers and offsets on imported effects, including percent-form shadow opacity.
 
-- e18d19d: Recognize automatic playback for audio saved with PowerPoint's Play in Background command. Preserve its command timing when editing other playback settings, and reject unsupported start or delay changes instead of leaving conflicting playback instructions.
+- e18d19d: Recognize automatic playback for audio saved with the reference desktop app's Play in Background command. Preserve its command timing when editing other playback settings, and reject unsupported start or delay changes instead of leaving conflicting playback instructions.
 - e18d19d: Slide background readers now resolve imported DrawingML preset and system colors instead of treating them as an empty solid fill.
 - e18d19d: Preserve the original outline after rejecting invalid width or opacity values, including when a later edit saves the shape.
 - e18d19d: Resolve DrawingML percentage RGB and HSL colors when reading imported presentations.
@@ -494,7 +494,7 @@ firstSlideNum>`.
 - e18d19d: fix: setShapeText / appendShapeText now add text to a shape that has no text body
 
   Previously, setting text on a shape authored without one (e.g. `addSlideShape`
-  called without `text`) threw `shape "…" has no <p:txBody>`. PowerPoint always
+  called without `text`) threw `shape "…" has no <p:txBody>`. The reference desktop app always
   gives an autoshape a text body so you can click in and type, so these functions
   now create the body on demand and populate it, matching that behavior. Picture /
   table shapes still throw, since they are not text-bearing.
@@ -504,9 +504,9 @@ firstSlideNum>`.
 - e18d19d: Preserve slides with absolute or normalized relative relationship targets when moving or sorting a presentation. Speed up moving multiple editor slides by applying the final order once.
 - e18d19d: Preserve explicit cell-side borders in banded table styles, including interior cells, while retaining interior borders when a side is unspecified.
 - e18d19d: Read small and percent-suffixed text baseline offsets correctly so imported superscript and subscript positions retain their intended values.
-- e18d19d: Display theme-referenced background gradients instead of a solid color, including radial backgrounds selected with PowerPoint's Background Styles gallery. Resolve gradient colors through the owning slide master's theme and color map while preserving the original theme and background XML on save.
+- e18d19d: Display theme-referenced background gradients instead of a solid color, including radial backgrounds selected with the reference desktop app's Background Styles gallery. Resolve gradient colors through the owning slide master's theme and color map while preserving the original theme and background XML on save.
 - e18d19d: Resolve shape style effect references against the owning slide master's theme, including placeholder colors and explicit empty effect lists in the layout-to-master cascade.
-- e18d19d: Preserve theme-based shape outlines in previews, including line colors and widths from PowerPoint Quick Styles. Direct line formatting now retains theme properties that it does not override.
+- e18d19d: Preserve theme-based shape outlines in previews, including line colors and widths from the reference desktop app's Quick Styles. Direct line formatting now retains theme properties that it does not override.
 - e18d19d: Replacing a copied picture now changes only that picture, preserving other pictures that share its media or slide relationship. Repeated same-format replacements reuse the detached media part. Invalid image crop input now preserves the previous crop, including when a subsequent edit is saved.
 - e18d19d: Reject invalid slide dimensions before modifying the presentation. Page setup now enforces PPTX’s 1–56 inch range in both inches and centimeters, with matching Japanese and English validation messages.
 
@@ -562,7 +562,7 @@ firstSlideNum>`.
 
 ### Patch Changes
 
-- 73b763d: `removeSlide` now drops slide relationships in other slides that pointed at the removed slide, along with the `<a:hlinkClick>` / `<a:hlinkHover>` elements that carried them. A slide-jump click action stores its relationship on the _referring_ slide, so removing the target used to leave a dangling relationship: PowerPoint rejects the package and a later `duplicateSlide` of the referring slide throws `Cannot duplicate missing dependency`.
+- 73b763d: `removeSlide` now drops slide relationships in other slides that pointed at the removed slide, along with the `<a:hlinkClick>` / `<a:hlinkHover>` elements that carried them. A slide-jump click action stores its relationship on the _referring_ slide, so removing the target used to leave a dangling relationship: the reference desktop app rejects the package and a later `duplicateSlide` of the referring slide throws `Cannot duplicate missing dependency`.
 
 ## 0.18.4
 
@@ -607,7 +607,7 @@ firstSlideNum>`.
 ### Minor Changes
 
 - 7e89e62: Validate enum inputs at authoring boundaries and throw a descriptive `RangeError`
-  instead of writing invalid PowerPoint XML or silently selecting another mode.
+  instead of writing invalid the reference desktop app XML or silently selecting another mode.
 
   Affected APIs:
 
@@ -662,7 +662,7 @@ firstSlideNum>`.
   - Per series: `errorBars` / `xErrorBars` (fixed, percentage, standard deviation, standard error, custom), `fillOpacity`.
   - Per chart: `dataTable`, `upDownBars`, `categoryAxisDate` (date axis with time units), `categoryGroupLevels` (multi-level category labels), `categoryAxisScaling` (the x axis of scatter / bubble charts, or a date axis' range), `plotAreaLayout` / `titleLayout` / `legend.layout` (manual placement), `valueAxisLineHidden` / `categoryAxisLineHidden`, `valueAxis.displayUnitsLabel`.
   - Data labels gain `showBubbleSize`, `showLegendKey`, `fillColor`, and per-point `text` (a literal label, e.g. naming one scatter point).
-  - A spec whose fields contradict each other (`view3D` on a scatter chart, error bars on a pie, a date axis with non-numeric categories, …) throws with a message naming the field, instead of writing a chart PowerPoint would repair.
+  - A spec whose fields contradict each other (`view3D` on a scatter chart, error bars on a pie, a date axis with non-numeric categories, …) throws with a message naming the field, instead of writing a chart the reference desktop app would repair.
 
   Behavior changes when reading existing decks:
 
@@ -678,12 +678,12 @@ firstSlideNum>`.
   - `addSlideMedia(slide, { kind: 'video' | 'audio', data, ... })` embeds a clip from bytes; `{ kind: 'online', url }` links an online video. YouTube watch / `youtu.be` / shorts URLs are rewritten to the embed URL; any other `http(s)` URL is stored as given, and anything else throws.
   - The container is detected from the bytes (mp4, m4v, mov, webm, avi, wmv, mp3, wav, m4a, ogg, wma); pass `format` to override. An undetectable clip, an unreadable `poster`, or a bad URL throws before anything is added to the package.
   - The new shape is a picture showing the poster frame: `setShapeImage` / `getShapeImageBytes` replace and read it. Without `poster`, a small built-in play-button image is used.
-  - The slide gets the `<p:video>` / `<p:audio>` time node PowerPoint writes itself, which is what makes the play controls appear in the slide show. Identical clip bytes are stored once per deck.
-  - `getShapeMedia(shape)` returns `{ kind: 'video' | 'audio', partName, contentType, bytes }` or `{ kind: 'online', url }`, also for media authored by PowerPoint, PptxGenJS or python-pptx. `findShapesWithMedia(slide)` lists a slide's clips.
+  - The slide gets the `<p:video>` / `<p:audio>` time node the reference desktop app writes itself, which is what makes the play controls appear in the slide show. Identical clip bytes are stored once per deck.
+  - `getShapeMedia(shape)` returns `{ kind: 'video' | 'audio', partName, contentType, bytes }` or `{ kind: 'online', url }`, also for media authored by the reference desktop app, PptxGenJS or python-pptx. `findShapesWithMedia(slide)` lists a slide's clips.
   - `@office-kit/pptx-dsl` gains a `Media` element with the same `kind` / `data` / `url` / `poster` props. It now requires `@office-kit/pptx` >= 0.17.0.
   - `copyShape` gives the copied clip its own time node, `removeShape` / `clearSlideShapes` remove it, and `importSlide` now carries video / audio parts (copied once per clip) and online-video links across decks — previously an imported slide with media was left with dangling relationships.
   - `setShapeAnimation` now works on a slide that holds a clip but no animation yet (it used to throw), and `clearSlideAnimations` keeps clips' time nodes instead of removing their play controls.
-  - fix: `duplicateSlide` copied a slide's video / audio bytes for every duplicate, because the library's video / audio / media relationship-type constants did not match the URIs PowerPoint writes. Clips are now shared between the original and the duplicate, as documented.
+  - fix: `duplicateSlide` copied a slide's video / audio bytes for every duplicate, because the library's video / audio / media relationship-type constants did not match the URIs the reference desktop app writes. Clips are now shared between the original and the duplicate, as documented.
   - `validatePresentation` reports a video / audio relationship whose part is missing, and a media time node whose shape is no longer on the slide.
 
 ## 0.16.1
@@ -700,12 +700,12 @@ firstSlideNum>`.
 
 ### Minor Changes
 
-- 22f1f30: feat: author and read the complex-script typeface (`<a:cs>`), and align the blank deck's font scheme with Office's
+- 22f1f30: feat: author and read the complex-script typeface (`<a:cs>`), and align the blank deck's font scheme with the reference desktop app's
 
   - `TextFormat.fontComplexScript` sets and reads `<a:cs typeface="…"/>`, the third typeface slot next to `font` (`<a:latin>`) and `fontEastAsian` (`<a:ea>`). It works everywhere the other two already did: `setShapeRunFormat` / `setShapeTextFormat`, `setShapeParagraphs` and `setTableCellParagraphs` (runs and `endFormat`), and it comes back from `getShapeRunFormat`, `getShapeRunFormatEffective` (including `+mj-cs` / `+mn-cs` and the theme's complex-script fallback), `getShapeParagraphElements`, `getParagraphEndFormat` and `getTableCellParagraphs`.
   - `ChartTextStyle.fontComplexScript` writes `<a:cs>` on a chart title / axis / data-label / legend style, and the chart reader returns it. `font` keeps filling the Latin and East Asian slots only, so a chart can name a complex-script face on the legend alone.
   - The three slots stay independent: setting one never changes the other two. Rewriting a slot writes its `typeface` attribute alone, so a `pitchFamily` / `charset` the source file carried on that element is dropped — as was already the case for `<a:latin>` and `<a:ea>`.
-  - `createPresentation`'s blank deck now carries the standard per-script font list (`<a:font script="Thai" typeface="Cordia New"/>` and its 46 siblings) in both `majorFont` and `minorFont`, the same list Office's own default theme ships. It is what resolves a face for text in a script no run names one for. Every deck `createPresentation()` produces therefore has a larger `theme1.xml` than before — its bytes change — and text in a script with no explicit typeface now resolves through that list.
+  - `createPresentation`'s blank deck now carries the standard per-script font list (`<a:font script="Thai" typeface="Cordia New"/>` and its 46 siblings) in both `majorFont` and `minorFont`, the same list the reference desktop app's own default theme ships. It is what resolves a face for text in a script no run names one for. Every deck `createPresentation()` produces therefore has a larger `theme1.xml` than before — its bytes change — and text in a script with no explicit typeface now resolves through that list.
   - Chart titles and axis titles no longer carry a `lang="en-US"` language tag on their run. The chart-level tag is still `ChartSpec.language` (`<c:lang>`).
 
 ## 0.15.1
@@ -737,13 +737,13 @@ firstSlideNum>`.
   - `setShapeParagraphs(shape, paragraphs)` and `setTableCellParagraphs(cell, paragraphs)` replace a shape's or cell's text with paragraphs that each carry their own alignment and several differently formatted runs; run text is written verbatim. An empty paragraph list is rejected (use `[{ runs: [] }]` for an empty body).
   - `ChartSpec.valueAxisTickLabelPos` positions the primary value-axis tick labels (`none` / `low` / `high` / `nextTo`), mirroring `categoryAxisTickLabelPos`.
   - `ChartSeries.lineColor` sets the series outline / line color separately from its fill (a doughnut's slice borders, for example), and the reader returns the `<a:ln>` color of every series.
-  - `ChartSeries.markerColor` / `markerLineColor` set the marker fill and outline colors of a line / scatter / radar series, and the reader returns both. The builder now always writes them (the fill defaults to the series color, the outline to the fill), because PowerPoint paints a marker without `<c:spPr>` in the theme's automatic color rather than the series color.
+  - `ChartSeries.markerColor` / `markerLineColor` set the marker fill and outline colors of a line / scatter / radar series, and the reader returns both. The builder now always writes them (the fill defaults to the series color, the outline to the fill), because the reference desktop app paints a marker without `<c:spPr>` in the theme's automatic color rather than the series color.
   - `@office-kit/pptx-preview` paints chart markers (data points and legend swatches) in `markerColor` / `markerLineColor` and strokes line / scatter / radar series in `lineColor`, instead of always using the series color.
-  - Axis lines and gridlines carry a width next to their color: `valueAxisLineWidthEmu` / `categoryAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` / `valueAxisMinorGridlineWidthEmu`, `categoryAxisMajorGridlineWidthEmu` / `categoryAxisMinorGridlineWidthEmu`, and `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu` (EMU, 12700 = 1 pt). The reader returns them, and a width of 0 — valid in the schema — now reads back on these and on a series' `lineWidthEmu` instead of turning into `undefined`. Without a width PowerPoint draws these lines at 0.75 pt, so a 1 pt line from another writer used to come back thinner.
+  - Axis lines and gridlines carry a width next to their color: `valueAxisLineWidthEmu` / `categoryAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` / `valueAxisMinorGridlineWidthEmu`, `categoryAxisMajorGridlineWidthEmu` / `categoryAxisMinorGridlineWidthEmu`, and `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu` (EMU, 12700 = 1 pt). The reader returns them, and a width of 0 — valid in the schema — now reads back on these and on a series' `lineWidthEmu` instead of turning into `undefined`. Without a width the reference desktop app draws these lines at 0.75 pt, so a 1 pt line from another writer used to come back thinner.
   - `ChartDataLabels.showLeaderLines` writes and reads `<c:showLeaderLines>` on series- and chart-level labels (per-point overrides have no such setting).
-  - Chart, axis and secondary-axis titles no longer force a 14 pt default size or a horizontal layout: without `sizePt` the application default applies, and a title without a rotation writes neither `rot` nor `vert="horz"` (PowerPoint reads a lone `vert="horz"` as "not rotated"), so a value-axis title takes PowerPoint's default (vertical) — pass `0` to keep it horizontal. The reader merges a title's paragraph defaults under its run style.
+  - Chart, axis and secondary-axis titles no longer force a 14 pt default size or a horizontal layout: without `sizePt` the application default applies, and a title without a rotation writes neither `rot` nor `vert="horz"` (the reference desktop app reads a lone `vert="horz"` as "not rotated"), so a value-axis title takes the reference desktop app's default (vertical) — pass `0` to keep it horizontal. The reader merges a title's paragraph defaults under its run style.
   - Combo series are shaped by their own `chartKind`: a line series in a column chart keeps its markers and `smooth`, and line / area plot groups write a schema-valid `<c:grouping>` (`standard` instead of the bar-only `clustered`).
-  - Horizontal bar charts (`kind: 'bar'`) now put the category axis on the left and the value axis at the bottom, matching PowerPoint; the hidden companion category axis of a secondary axis follows the primary one.
+  - Horizontal bar charts (`kind: 'bar'`) now put the category axis on the left and the value axis at the bottom, matching the reference desktop app; the hidden companion category axis of a secondary axis follows the primary one.
   - The chart reader honors `<c:ptCount>` (including on multi-level category caches), so series with empty trailing points keep their full length on read-back; cache points past the authored count are dropped.
   - The chart reader identifies the secondary value axis by which plot groups reference it, not by its position, so a scatter chart's X axis at the top no longer reads as secondary and decks that list the secondary axis pair first read back correctly.
   - The XML parser applies XML 1.0 end-of-line handling: a raw CR LF or CR in a part reads as LF, while a `&#13;` character reference still yields a CR.
@@ -774,7 +774,7 @@ firstSlideNum>`.
   `ChartSeries` gains `chartKind` (`'bar' | 'column' | 'line' | 'area'`) to
   overlay e.g. a line series on a column chart, and `secondaryAxis: true` to
   plot a series against a right-hand secondary value axis — the standard
-  PowerPoint combo layout for series with mixed units (counts vs. rates).
+  the reference desktop app's combo layout for series with mixed units (counts vs. rates).
   The builder splits series into plot groups (`<c:barChart>` + `<c:lineChart>`
   …) and emits the secondary `<c:valAx>`/`<c:catAx>` pair on demand;
   `getShapeChartSpec` round-trips both fields. The preview renderer paints
@@ -825,7 +825,7 @@ firstSlideNum>`.
 
 - eeb8659: Validate authoring inputs at the API boundary so out-of-range values throw a
   clear `RangeError` instead of silently emitting a schema-invalid `.pptx` that
-  PowerPoint marks corrupt and "repairs".
+  the reference desktop app marks corrupt and "repairs".
 
   A generative schema-validation sweep surfaced a whole class of defects where a
   caller-supplied number/string was serialized straight into a constrained
@@ -919,7 +919,7 @@ firstSlideNum>`.
     example.
 
 - eeb8659: Close a final batch of correctness defects a generative schema sweep surfaced,
-  where the writer emitted a `.pptx` PowerPoint marks corrupt:
+  where the writer emitted a `.pptx` the reference desktop app marks corrupt:
 
   - **XML-illegal control characters** in any text field (shape text, table cells,
     notes, chart titles/categories/series, hyperlink tooltip/URL, section names,
@@ -952,7 +952,7 @@ firstSlideNum>`.
 ### Patch Changes
 
 - e9eae5c: Fix `<a:tint>` / `<a:shade>` colour resolution to compute in linear-light RGB,
-  matching PowerPoint and LibreOffice. A 75% tint of black now resolves to a mid
+  matching the reference desktop app and LibreOffice. A 75% tint of black now resolves to a mid
   grey (~#8B8B8B) instead of the too-dark #404040, so colours derived from theme
   scheme transforms (subtitle placeholders, table banding, chart fills) render at
   the right lightness.
@@ -970,9 +970,9 @@ firstSlideNum>`.
   `setShapeBullets('number')` / `setParagraphBullet(..., 'number')` emitted only
   `<a:buAutoNum>`, with no `<a:buFont>` — so the auto-number glyph fell through to
   whatever font happened to apply, instead of the theme's major font that
-  PowerPoint and PptxGenJS use. Numbered lists now emit
+  the reference desktop app and PptxGenJS use. Numbered lists now emit
   `<a:buFont typeface="+mj-lt"/>` ahead of the number and write the default
-  `startAt="1"` explicitly, matching PowerPoint-authored output.
+  `startAt="1"` explicitly, matching desktop-app-authored output.
 
 ## 0.7.0
 
@@ -984,14 +984,14 @@ firstSlideNum>`.
 
 ### Patch Changes
 
-- 099d77b: Emit PowerPoint's default cell insets on table cells
+- 099d77b: Emit the reference desktop app's default cell insets on table cells
 
-  `addSlideTable` cells now carry the explicit default insets PowerPoint and
+  `addSlideTable` cells now carry the explicit default insets the reference desktop app and
   PptxGenJS both write — `<a:tcPr marL="91440" marR="91440" marT="45720"
 marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
   suppresses any inherited list bullet on the cell paragraph. The table renders
-  identically (these match the values PowerPoint applies when they're absent),
-  but the cell is now self-describing, so the output matches a PowerPoint- or
+  identically (these match the values the reference desktop app applies when they're absent),
+  but the cell is now self-describing, so the output matches a desktop-app- or
   PptxGenJS-authored table byte-for-byte at the cell level.
 
   Note: `getTableCellMargins` now returns the explicit `91440 / 45720` defaults
@@ -1007,11 +1007,11 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
     `setParagraphBullet` added the bullet glyph but no hanging indent, so a bullet
     authored on a text box (which inherits the master's `otherStyle`, marL=0, not
     the body style) rendered with the glyph jammed against the text. They now
-    write PowerPoint's per-level default `marL` / `indent` (unless the caller set
-    their own), matching PowerPoint and PptxGenJS.
+    write the reference desktop app's per-level default `marL` / `indent` (unless the caller set
+    their own), matching the reference desktop app and PptxGenJS.
   - **Charts with multi-level category references now read back.** The chart
     reader handled `<c:strRef>` / `<c:strLit>` categories but not
-    `<c:multiLvlStrRef>`, which is what PowerPoint and PptxGenJS emit — so
+    `<c:multiLvlStrRef>`, which is what the reference desktop app and PptxGenJS emit — so
     `getShapeChartCategories` (and the full `getShapeChartSpec`) returned an empty
     category list for those charts. It now reads the level's points.
 
@@ -1021,23 +1021,23 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
 
 - 333b19f: fix: line-chart series colors now paint the line. The color was written only
   as a bare `<a:solidFill>`, which doesn't color a line series' stroke, so
-  PowerPoint ignored it and fell back to its automatic palette (a 4-series line
+  the reference desktop app ignored it and fell back to its automatic palette (a 4-series line
   chart authored as accent1–4 rendered blue/red/green/purple instead of the
   requested colors). The color is now also emitted on `<a:ln>`.
 - 665d4c2: Fix unstyled, broken-looking tables from `addSlideTable`
 
   `addSlideTable` set the `firstRow` / `bandRow` flags but never wrote a
   `<a:tableStyleId>`, and `createPresentation` shipped no `tableStyles.xml` part.
-  With no style to resolve against, PowerPoint painted the table as a borderless,
+  With no style to resolve against, the reference desktop app painted the table as a borderless,
   unstyled block — a "broken" grid with no rules.
 
-  - **Tables now reference PowerPoint's "No Style, Table Grid" built-in**
+  - **Tables now reference the reference desktop app's "No Style, Table Grid" built-in**
     (`{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}`) via `<a:tableStyleId>`, the same
-    default PptxGenJS and PowerPoint itself emit, so a table resolves to a clean
+    default PptxGenJS and the reference desktop app itself emit, so a table resolves to a clean
     ruled grid. Callers can override with the internal `styleId` option (or the
     existing `setTableStyleId`).
   - **`createPresentation` now ships `/ppt/tableStyles.xml`** (referenced from
-    `presentation.xml.rels`), matching every PowerPoint-authored deck, so the
+    `presentation.xml.rels`), matching every desktop-app-authored deck, so the
     `tableStyleId` always has a backing part.
 
 ## 0.6.0
@@ -1046,7 +1046,7 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
 
 - 0f7c538: Preview: take the default text color from the deck's body style, not the `tx1` token
 
-  The preview used `scheme:tx1` as the fallback color for runs without an authored color. On a template with an inverted color map (`tx1 → lt1`) that resolves to the light slot, so body text was painted white on the white background — the whole slide looked blank. PowerPoint instead takes the fallback from the master `bodyStyle` (e.g. `schemeClr bg1`). The preview now does the same via the newly exported `resolveDeckBodyTextColor(slide)`, so default-colored text and table-cell text resolve to the color PowerPoint actually paints.
+  The preview used `scheme:tx1` as the fallback color for runs without an authored color. On a template with an inverted color map (`tx1 → lt1`) that resolves to the light slot, so body text was painted white on the white background — the whole slide looked blank. The reference desktop app instead takes the fallback from the master `bodyStyle` (e.g. `schemeClr bg1`). The preview now does the same via the newly exported `resolveDeckBodyTextColor(slide)`, so default-colored text and table-cell text resolve to the color the reference desktop app actually paints.
 
   - New export **`resolveDeckBodyTextColor(slide)`** — the deck's resolved body-text color (master `bodyStyle`, run through the effective color map + theme). This is the color `addSlideTable` / `addSlideChart` bake in, now reusable by renderers.
 
@@ -1054,8 +1054,8 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
 
 - 0f7c538: Fix corrupt files from fractional EMU and sideways-spreading stacked bar charts
 
-  - **Whole-EMU coordinates.** `inches` / `cm` / `mm` / `pt` / `emu` now round to integer EMU, and every shape / table / text-box / connector / chart offset is rounded on serialization. Floating-point drift from unit math (e.g. `3090672.0000000005`) previously reached `<a:off>` / `<a:ext>`, which is invalid `ST_Coordinate` (xsd:long) — PowerPoint flagged the file as corrupt and "repaired" it by zeroing the offending offsets, collapsing shapes to the slide origin.
-  - **Stacked bar/column charts** now emit `<c:overlap val="100"/>` by default (and for `percentStacked`). Without it PowerPoint draws each series in its own sub-slot so the "stack" spreads sideways across the category. An explicit `overlapPct` still wins; clustered charts are unchanged.
+  - **Whole-EMU coordinates.** `inches` / `cm` / `mm` / `pt` / `emu` now round to integer EMU, and every shape / table / text-box / connector / chart offset is rounded on serialization. Floating-point drift from unit math (e.g. `3090672.0000000005`) previously reached `<a:off>` / `<a:ext>`, which is invalid `ST_Coordinate` (xsd:long) — the reference desktop app flagged the file as corrupt and "repaired" it by zeroing the offending offsets, collapsing shapes to the slide origin.
+  - **Stacked bar/column charts** now emit `<c:overlap val="100"/>` by default (and for `percentStacked`). Without it the reference desktop app draws each series in its own sub-slot so the "stack" spreads sideways across the category. An explicit `overlapPct` still wins; clustered charts are unchanged.
 
 ## 0.5.0
 
@@ -1063,12 +1063,12 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
 
 - 4a2ede1: Resolve scheme colors through the slide's color map so inverted-map templates render correctly
 
-  Templates whose slide master inverts the color map (`<p:clrMap bg1="dk1" tx1="lt1">`, common in Google Slides / Canva exports) previously rendered with swapped light/dark colors: slide backgrounds came out black in the preview while PowerPoint paints them white, and generated tables and charts came out with invisible text (the default `tx1` token resolved to the same color as the background).
+  Templates whose slide master inverts the color map (`<p:clrMap bg1="dk1" tx1="lt1">`, common in Google Slides / Canva exports) previously rendered with swapped light/dark colors: slide backgrounds came out black in the preview while the reference desktop app paints them white, and generated tables and charts came out with invisible text (the default `tx1` token resolved to the same color as the background).
 
   - **`getEffectiveColorMap(slide)`** — new export returning the slide's effective color map (the master's `<p:clrMap>` overlaid by a per-slide `<p:clrMapOvr>`). Color resolution and renderers apply it to `schemeClr` tokens before indexing the theme.
   - **`resolveDrawingColor(colorEl, theme, clrMap?)`** — accepts an optional color map; scheme tokens are remapped through it before the theme lookup. Omitting it preserves the previous behavior (correct for the standard map).
   - **`addSlideTable` / `addSlideChart`** now bake the deck's resolved body-text color onto table cells and chart text (axis labels, legend, data labels) so generated tables and charts stay readable regardless of the template's color map. Authored colors still win; override table cells afterwards with `setTableCellTextFormat`.
-  - **`pptx-kit-preview`** resolves `schemeClr` tokens through the effective color map, so previews of inverted-map decks match what PowerPoint paints.
+  - **`pptx-kit-preview`** resolves `schemeClr` tokens through the effective color map, so previews of inverted-map decks match what the reference desktop app paints.
 
 ## 0.4.0
 
@@ -1080,7 +1080,7 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
   legends, and data labels now accept a font face
   (`titleStyle: { font: 'Yu Gothic' }`). The builder writes both
   `<a:latin typeface>` and `<a:ea typeface>` so CJK families render
-  correctly in PowerPoint, and `getSlideCharts` / `getShapeChartSpec` read
+  correctly in the reference desktop app, and `getSlideCharts` / `getShapeChartSpec` read
   the face back for round-trips. Works through both `addSlideChart` and
   `setChartSpec`. (The SVG preview keeps its fixed substitution font set —
   authored chart faces affect the emitted PPTX, not the preview raster.)
@@ -1112,7 +1112,7 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
   impossible. From-scratch authoring (a headline feature in the README) did
   not actually work without loading a template file.
 
-  `createPresentation()` now ships a slide master, the Office theme, and three
+  `createPresentation()` now ships a slide master, a default theme, and three
   layouts — `Blank`, `Title Slide`, and `Title and Content` — so you can go
   straight to `addSlide` / `addTitleSlide` / `addContentSlide` and `savePresentation`.
   Every emitted part is validated against the ECMA-376 XSDs in CI. The slide
@@ -1123,13 +1123,13 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
   - `addSlideChart` now rejects a series `color` (and `pointColors` /
     `trendline.color` / plot- and chart-area fills / axis & gridline colors)
     that isn't an sRGB hex (`#RRGGBB` or `RRGGBB`) with a clear error, instead
-    of silently emitting an invalid `<a:srgbClr val="…"/>` that PowerPoint
+    of silently emitting an invalid `<a:srgbClr val="…"/>` that the reference desktop app
     dropped or repaired. Bare `RRGGBB` (no `#`) is accepted and normalized;
     scheme tokens like `accent1` are correctly rejected, since charts emit
     `srgbClr`.
   - `addSlideTable` with empty `rows: []` (or a row with no cells) now throws
     an actionable `addSlideTable: …` error at the boundary rather than
-    producing a grid-less `<a:tbl>` that triggers PowerPoint's repair dialog.
+    producing a grid-less `<a:tbl>` that triggers the reference desktop app's repair dialog.
     (The error message previously named the old internal `addTable` path.)
   - `findSlideLayout`'s case-sensitive, locale-dependent name matching is now
     documented in its JSDoc and the README, pointing readers to the
@@ -1174,7 +1174,7 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
   `bulletStyle === 'number'` or `{ autoNum: '…' }` now emit the next
   number in sequence (1., 2., 3., …; A., B., C., …; i., ii., iii., …)
   rather than a generic dot. Counter resets on a non-numbered paragraph
-  or a level change, matching PowerPoint's behaviour.
+  or a level change, matching the reference desktop app's behaviour.
 
   Covers the common `ST_TextAutoNumberScheme` tokens — arabicPeriod /
   ParenR / ParenBoth, romanUc / Lc with Period / ParenR / ParenBoth,
@@ -1190,7 +1190,7 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
   and `categoryAxisMajorTickMark` carry `<c:majorTickMark val="in|out|
 cross|none"/>`. The playground value-axis renderer draws short stubs
   on the appropriate side of the plot edge (default `out` matches
-  PowerPoint's stock look); `none` suppresses them entirely.
+  the reference desktop app's stock look); `none` suppresses them entirely.
 - 3a2b974: feat: chart axis titles honor authored `<a:rPr>` font / color.
   `ChartSpec.categoryAxisTitleStyle` and `valueAxisTitleStyle` carry the
   same `ChartTextStyle` shape as `titleStyle`. The playground renderer
@@ -1255,7 +1255,7 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   (converted from OOXML's 60000ths-of-a-degree to plain degrees). The
   playground renderer rotates each tick label around its anchor and
   shifts the text-anchor side based on the sign of the rotation so dense
-  charts with 45°/-45°/90° rotated labels render the way PowerPoint
+  charts with 45°/-45°/90° rotated labels render the way the reference desktop app
   shows them. Rotated labels also get a longer truncation budget before
   ellipsization.
 - 4f5cc4c: feat: round out gridline color round-trip with 3 more fields —
@@ -1278,7 +1278,7 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   `ChartSpec.plotAreaStrokeColor` reads `<c:plotArea><c:spPr><a:ln>`.
   The playground renderer projects them onto the chart-area card
   border and the plot-area inner rect — branded charts with thick / no
-  / colored card borders finally render the way PowerPoint shows them.
+  / colored card borders finally render the way the reference desktop app shows them.
 - eb4159e: feat(chart): `ChartSpec.valueAxisHidden` and `categoryAxisHidden`
   read `<c:valAx><c:delete val="1"/>` and `<c:catAx><c:delete val="1"/>`.
   Playground skips rendering the axis when hidden — common on KPI tile
@@ -1307,7 +1307,7 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   `ChartSpec.valueAxisTitleRotationDeg` — rotation in plain degrees
   (clockwise) on the per-axis title. Maps to
   `<c:catAx|valAx><c:title><c:tx><c:rich><a:bodyPr rot="N"/>` (60000ths
-  of a degree on the wire). PowerPoint often emits `-90` on the value-
+  of a degree on the wire). The reference desktop app often emits `-90` on the value-
   axis title; the field now survives round-trip. Read by chart-reader
   via a new `readTitleRotationDeg` helper; written by chart-builder
   through an extended `titleElement(title, style?, rotationDeg?)`
@@ -1447,7 +1447,7 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   CT_CatAx schema order.
 - 21f58cb: feat: `ChartSpec.categoryAxisNoMultiLevelLabel` — toggle multi-level
   (hierarchical) category labels via `<c:catAx><c:noMultiLvlLbl val/>`.
-  PowerPoint defaults to `0` (multi-level labels stack); set to `true`
+  The reference desktop app defaults to `0` (multi-level labels stack); set to `true`
   to flatten hierarchical categories into a single row. Read by
   chart-reader, written by chart-builder at the schema-required last
   position inside `<c:catAx>`.
@@ -1515,7 +1515,7 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   `<c:gapWidth>` and `<c:overlap>` on bar / column plots. Playground
   sizes bars per ECMA-376 §21.2.2.75 — `barW = groupW / (clusterUnits +
 gapWidth/100)` with `clusterUnits = 1 + (S - 1)(1 - overlap/100)` —
-  so authored bar spacing matches PowerPoint instead of the hard-coded
+  so authored bar spacing matches the reference desktop app instead of the hard-coded
   0.8 / 0.7 ratios.
 - b88dbb8: feat(chart): `ChartSpec.valueAxisMajorGridlines` / `valueAxisMinorGridlines`
   read the presence of `<c:majorGridlines/>` / `<c:minorGridlines/>`
@@ -1526,10 +1526,10 @@ gapWidth/100)` with `clusterUnits = 1 + (S - 1)(1 - overlap/100)` —
 - 4caa5ad: feat(chart): `ChartSeries.invertIfNegative` reads `<c:ser>
 <c:invertIfNegative val="1"/>`. Playground's bar / column renderer
   paints negative bars in a darker shade of the series color when the
-  flag is set — matching PowerPoint's profit/loss visualization.
+  flag is set — matching the reference desktop app's profit/loss visualization.
 - b603115: feat: `ChartSpec.language` (`<c:chartSpace><c:lang val=…/>`) and
-  `ChartSpec.date1904` (`<c:date1904 val=…/>`) — chartSpace-level Office
-  metadata round-tripped for parity. `language` is the Office UI
+  `ChartSpec.date1904` (`<c:date1904 val=…/>`) — chartSpace-level
+  metadata round-tripped for parity. `language` is the UI
   language code (e.g. `'en-US'`, `'ja-JP'`); `date1904` selects the
   1904 date epoch (default `false` = Excel 1900 epoch, surface only
   when explicitly true). pptx-kit's renderers don't act on either yet.
@@ -1560,7 +1560,7 @@ gapWidth/100)` with `clusterUnits = 1 + (S - 1)(1 - overlap/100)` —
   to formatting each cached numeric value as a string so date /
   number cats appear on the axis instead of disappearing.
 - 7b3ba0a: feat(chart): axis number formats now accept Excel's `"$"#,##0`
-  quoted-literal prefix / suffix syntax. PowerPoint typically emits
+  quoted-literal prefix / suffix syntax. The reference desktop app typically emits
   currency as `"$"#,##0` (or `"\$"#,##0`) rather than the bare `$`
   form, so the previous detection missed it.
 - d2f86d2: feat(chart): `ChartAxisScaling.numberFormat` reads `<c:valAx><c:numFmt
@@ -1575,20 +1575,20 @@ formatCode="…"/>`. Playground projects the most common Excel format
   horizontal strip. Playground sizes the plot area accordingly — gives
   the chart back the extra vertical real estate when overlay is set.
 - 4cde872: feat: `ChartSpec.plotVisibleCellsOnly` — toggle `<c:plotVisOnly val/>`.
-  PowerPoint's default is `true` (only plot visible cells); the field
+  The reference desktop app's default is `true` (only plot visible cells); the field
   exists to let authors opt into `false` (plot hidden rows / columns too).
   The reader surfaces `false` only when the wire is explicitly `0` so
   round-tripping the common default doesn't drag a redundant explicit
   `true` into the spec.
 - 693ba3e: feat: `ChartSpec.roundedCorners` — round-trip the chartSpace-level
-  `<c:roundedCorners val>` toggle. PowerPoint's default is `false`; the
+  `<c:roundedCorners val>` toggle. The reference desktop app's default is `false`; the
   reader surfaces `true` only when the wire is explicitly `1` and the
   builder emits the element only when authored, so common defaults stay
   clean. Schema position is BEFORE `<c:chart>` (per CT_ChartSpace).
 - 733120a: feat(chart): `ChartSeries.smooth` reads `<c:smooth val="1"/>`. Playground
   line / area renderer interpolates a cubic-Bézier curve through the
   data points (Catmull-Rom-to-Bezier with 0.5 tension) when `smooth` is
-  true, matching PowerPoint's "smooth line" preset visually.
+  true, matching the reference desktop app's "smooth line" preset visually.
 - d581121: feat(site/playground): bar (horizontal), line, and area charts now
   honour `ChartSpec.grouping` for stacked / percentStacked layouts —
   matching the column-chart treatment added previously. Data labels
@@ -1604,9 +1604,9 @@ formatCode="…"/>`. Playground projects the most common Excel format
   Adds the `ChartGrouping` type to the public surface.
 
 - 53148e4: feat: `ChartSpec.chartStyle` — round-trip the chartSpace-level
-  `<c:style val="N"/>` PowerPoint chart-style preset (1..48). Encodes a
+  `<c:style val="N"/>` the reference desktop app's chart-style preset (1..48). Encodes a
   curated combo of theme accent colors, gradients, effects, and font
-  sizes from the PowerPoint "Chart Styles" gallery. Read and written for
+  sizes from the reference desktop app's "Chart Styles" gallery. Read and written for
   round-trip parity; pptx-kit's renderers don't interpret the preset
   yet, but the field survives save/reload.
 - b1cfda3: feat: `ChartSpec.categoryAxisTickMarkSkip` — the second half of the
@@ -1635,7 +1635,7 @@ formatCode="…"/>`. Playground projects the most common Excel format
   chart-reader; written by chart-builder in the correct CT_Trendline
   schema order (after `<c:backward>`, before any `<c:trendlineLbl>`).
 - a978251: feat: `ChartTrendline.name` — round-trip a custom trendline label
-  (`<c:trendline><c:name>…`). PowerPoint auto-generates a label like
+  (`<c:trendline><c:name>…`). The reference desktop app auto-generates a label like
   "Linear (X)" or "MA(5) (X)" when this element is omitted; authors who
   want a different label (or who imported one from another tool) now
   have the field. Read by chart-reader; written by chart-builder at the
@@ -1666,7 +1666,7 @@ formatCode="…"/>`. Playground projects the most common Excel format
   `ChartSpec.varyColors` carries the `<c:plottedKind><c:varyColors val="1"/>`
   flag. When set and the chart has exactly one series, the renderer
   assigns each data point a distinct accent color (mirroring
-  PowerPoint's "Vary colors by point" toggle for column / bar). Pies
+  the reference desktop app's "Vary colors by point" toggle for column / bar). Pies
   already varied colors implicitly.
 - 69431a9: feat: `getSlideColorMapOverride(slide)` returns the slide's
   `<p:clrMapOvr><a:overrideClrMapping/>` token-remap, or `null` when the
@@ -1685,12 +1685,12 @@ formatCode="…"/>`. Playground projects the most common Excel format
     the supplied theme.
   - New `getShapeFillColorResolved(pres, shape)` and
     `getShapeStrokeColorResolved(pres, shape)` return the exact `#RRGGBB`
-    PowerPoint paints — useful for renderers / exporters where the legacy
+    the reference desktop app paints — useful for renderers / exporters where the legacy
     `getShapeFillColor` / `getShapeStrokeColor` strings (`#RRGGBB` or
     `scheme:<token>`) miss both scheme resolution and color transforms.
   - `getShapeRunFormatEffective` now applies the same pipeline at every
     layer of the rPr cascade, so a run inheriting `accent1 lumMod=40000
-lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
+lumOff=60000` (the reference desktop app's "Accent 1, Lighter 60%") resolves to the
     concrete tinted hex instead of leaking the raw token through.
 
 - 263bf52: feat(site/playground): bent / curved connector routing.
@@ -1721,7 +1721,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   and per-series scope. The playground renderer projects `ctr`, `inEnd`,
   `outEnd`, `inBase` onto clustered column and bar labels — outside-end
   remains the default, but authored positions now move labels inside the
-  bar or to the base as PowerPoint shows them.
+  bar or to the base as the reference desktop app shows them.
 - 3cfba8d: feat: chart data label separator. `ChartDataLabels.separator` carries
   the `<c:dLbls><c:separator>…</c:separator>` text used to join
   multiple label parts (value + percent + category etc.). The pie /
@@ -1757,7 +1757,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   `getShapeRunFormat` still returns the literal `<a:rPr>` only.
 - 25654cf: feat: `getShapeEffectsEffective(pres, shape)` walks the layout →
   master placeholder cascade for `<a:effectLst>`. Effect lists override
-  rather than compose (matching PowerPoint's behaviour), so the first
+  rather than compose (matching the reference desktop app's behaviour), so the first
   layer that supplies any effects wins. Playground uses it so
   placeholder shadows / glows / soft edges inherited from the master
   finally render on slides that don't repeat the effect list.
@@ -1774,7 +1774,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   shape's `<a:effectLst>` (`outerShdw`, `innerShdw`, `glow`, `reflection`,
   `softEdge`, `blur`) in document order, with each effect's color
   (transform-resolved against the theme), opacity, blur radius, distance,
-  and angle. PowerPoint composes multiple effects in a single filter
+  and angle. The reference desktop app composes multiple effects in a single filter
   stack — the existing `getShapeEffect` only surfaced the first one.
 
   The playground renderer now emits an SVG `<filter>` chain that
@@ -1840,7 +1840,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   slide whose `getShapeAnimation` is not `null`. Pair to
   `slideHasAnimations`. Useful for "which shapes on this slide actually
   animate?" audits before exporting to a video pipeline that doesn't
-  honor PowerPoint's timing tree.
+  honor the reference desktop app's timing tree.
 - 87d7fbb: feat: `findShapesWithHyperlinks(slide)` — every shape on the slide
   that carries any hyperlink, regardless of target. Counterpart to
   `findShapesByHyperlink(slide, url)` (which requires a matching URL)
@@ -1854,7 +1854,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   `'/ppt/slideLayouts/slideLayout3.xml'`). Pair to the existing
   `findSlidesByLayoutName` / `findSlidesByLayoutType`. Keyed on the
   actual package path, so it's stable across template-name collisions
-  and PowerPoint UI locales.
+  and the reference desktop app's UI locales.
 - 20613b5: feat: `findSlidesWithChartKind(pres, kind)` — kind-filtered variant of
   the existing `getSlidesWithCharts`. Returns every slide carrying at
   least one chart of the given `ChartKind` (`'bar'`, `'column'`,
@@ -1909,7 +1909,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
 - b793c74: feat: `getSlideLayoutUsageCountsByType(pres)` — companion to
   `getSlideLayoutUsageCounts`, but keyed on the OOXML layout-type enum
   token (`title`, `obj`, `twoObj`, `blank`, …) instead of the user-
-  visible name. Stable across PowerPoint UI locales. Useful for "how
+  visible name. Stable across the reference desktop app's UI locales. Useful for "how
   many content slides vs. dividers vs. title slides?" audits.
 - 3891fa2: feat: `getSlideLayoutUsageCounts(pres)` — layout name → number-of-slides
   histogram. Every layout enumerated by `getSlideLayouts` appears as a
@@ -1941,7 +1941,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
 
   The playground renderer emits an SVG `<radialGradient>` for the
   non-linear paths, with reversed stop offsets so the first ECMA-376
-  stop sits at the focus center (matching PowerPoint's outward
+  stop sits at the focus center (matching the reference desktop app's outward
   painting order).
 
 - 855076d: feat: chart value-axis major gridlines honor authored stroke color.
@@ -1953,17 +1953,17 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
 - 74b227e: feat(site/playground): hyperlink tooltips. Shape and per-run
   hyperlinks now surface their `<a:hlinkClick tooltip="…"/>` text —
   shapes get an SVG `<title>` child on the `<a>` wrapper, runs get a
-  `title=` attribute on the HTML anchor. PowerPoint shows these on
+  `title=` attribute on the HTML anchor. The reference desktop app shows these on
   hover during the slideshow; the playground now does too.
 - a610e82: feat: `getShapeHyperlinkTooltip(shape)` and
   `getShapeRunHyperlinkTooltip(shape, p, r)` return the
-  `<a:hlinkClick tooltip="…"/>` text. Tooltips show up in PowerPoint
+  `<a:hlinkClick tooltip="…"/>` text. Tooltips show up in the reference desktop app
   when the user hovers a linked shape in slide-show mode — useful for
   accessibility and link-preview surfaces.
 - cbdda7c: feat(site/playground): render `<a:duotone>` image recolor. The filter
   pipeline desaturates the picture to luminance, then samples a
   two-color gradient (firstColor → secondColor) via a 16-step
-  `feComponentTransfer` table. Pictures with PowerPoint's Color >
+  `feComponentTransfer` table. Pictures with the reference desktop app's Color >
   Recolor preset finally render in their authored two-color tint.
 - c4a89c1: feat: `getShapeImageDuotone(pres, shape)` reads the picture's
   `<a:blip><a:duotone>` two-color recolor effect — the typical
@@ -1991,7 +1991,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
      threshold) when `<a:blip><a:biLevel thresh="…"/>` is set
 
   Pictures with Color > Grayscale or Color > Black and White now
-  render with the same visual treatment PowerPoint shows.
+  render with the same visual treatment the reference desktop app shows.
 
 - 66edcbc: feat: add `isShapeTextBox(shape)` — `true` when a shape is a text box
   (`<p:cNvSpPr txBox="1">`) rather than an autoshape. The two have different
@@ -2031,7 +2031,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   the data points. Bar / column / pie keep the square swatch.
 - b1073ff: feat(site/playground): right / left chart legend stack centers
   vertically. Previously the `r` and `l` legend positions both
-  stacked from a fixed `f.y + 12` top, the same as `tr`. PowerPoint
+  stacked from a fixed `f.y + 12` top, the same as `tr`. The reference desktop app
   vertically-centers right / left legends inside the chart area; the
   renderer now matches by computing `yStart` from the legend's total
   height. `tr` keeps the top-anchored stack.
@@ -2123,7 +2123,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   (`<a:lumOff>`), contrast (`<a:lumMod>`), and opacity (`<a:alphaModFix>`).
 
   Crops project to an enlarged `<image>` element clipped to the shape's
-  bounds (matching PowerPoint's "Crop" tool). Brightness + contrast
+  bounds (matching the reference desktop app's "Crop" tool). Brightness + contrast
   compose into an SVG `<feComponentTransfer>` filter. Opacity drives
   the `opacity` attribute directly.
 
@@ -2146,7 +2146,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
 - 997d507: feat(site/playground): comment badge tooltip carries the comment
   texts. The `N cmt` badge's `title=` attribute now joins each
   comment's body text so hovering surfaces the review remarks
-  without opening PowerPoint.
+  without opening the reference desktop app.
 - 3ede588: feat(site/playground): additional slide badges — `hidden` (when
   `show="0"`) and `N cmt` (count of authored review comments). Threads
   `isSlideHidden` and `getSlideComments` through the slide-snapshot
@@ -2161,7 +2161,7 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   `twoObj`, `blank`, …) as a badge next to the slide title. Reads
   `<p:sldLayout type="…">` via `getSlideLayout` + `getSlideLayoutType`
   so deck audits can spot which layout each slide is bound to without
-  opening PowerPoint.
+  opening the reference desktop app.
 - 5861d1e: feat(site/playground): include slide-master count in the
   "masters · layouts · sections" meta cell. `getPresentationSummary`
   already returned layout / section counts; the playground now also
@@ -2186,7 +2186,7 @@ href="#slide-N">` link, so users can right-click → "Copy link
 - ffec23d: feat(site/playground): show speaker notes under each slide. The
   playground now calls `getSlideNotes` for every slide and renders a
   collapsible `<details>` block when notes exist, so users can
-  inspect the deck author's notes without opening PowerPoint.
+  inspect the deck author's notes without opening the reference desktop app.
 - b90f1bc: feat(site/playground): show `validatePresentation` results. The
   playground now runs the validator after parsing and surfaces any
   issues in a dedicated panel (with severity tint and the offending
@@ -2258,7 +2258,7 @@ href="#slide-N">` link, so users can right-click → "Copy link
 - a65c05c: feat: `setShapeTextColumns(shape, { count, gapEmu? } | null)` — multi-
   column writer pairing the existing `getShapeTextColumns` reader. Writes
   `<a:bodyPr numCol="N" [spcCol="EMU"]/>`. Passing `null` clears both
-  attributes so the text body falls back to PowerPoint's default single
+  attributes so the text body falls back to the reference desktop app's default single
   column. `count` must be `>= 2` (single column is the default — pass
   `null` instead); the function throws otherwise.
 - fea7725: feat: `setShapeTextDirection(shape, direction | null)` — companion
@@ -2274,7 +2274,7 @@ href="#slide-N">` link, so users can right-click → "Copy link
   `top`/`center`/`bottom` to the schema's `t`/`ctr`/`b` values and clears
   the attribute on `null`. The margins setter writes per-side EMU on
   `marL`/`marR`/`marT`/`marB`; sides set to `null`/`undefined` are
-  stripped (PowerPoint falls back to its defaults); passing the whole
+  stripped (the reference desktop app falls back to its defaults); passing the whole
   arg as `null` clears every side. Both create `<a:tcPr>` if absent.
 - 3921802: feat: `setTableCellBorders(cell, sides | null)` — partial-update writer
   for all 6 cell-border slots (`left`, `right`, `top`, `bottom` + the
@@ -2297,32 +2297,32 @@ href="#slide-N">` link, so users can right-click → "Copy link
   `firstCol`, `lastCol`, `bandRow`, `bandCol`). Pairs the existing
   `getTableStyleFlags` reader. Only the keys present in `flags` are
   touched — omitted keys keep their current state. A flag set to `false`
-  strips the attribute (matching how PowerPoint round-trips defaults).
+  strips the attribute (matching how the reference desktop app round-trips defaults).
   Creates `<a:tblPr>` if absent. Throws when the shape isn't a table
   graphic frame.
 - 1ea509b: feat: `setTableStyleId(table, styleId | null)` — writer for
   `<a:tbl><a:tblPr><a:tableStyleId>`. Pairs the existing `getTableStyleId`
   reader. Pass the curly-braced GUID (e.g.
-  `'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` for PowerPoint's "Medium
+  `'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` for the reference desktop app's "Medium
   Style 2 - Accent 1") or `null` to remove the reference so the table
   uses the slide's default style. Creates `<a:tblPr>` if absent. Throws
   when the shape isn't a table graphic frame.
 - 2438696: feat(site/playground): shape `aria-label` from authored alt text.
   Each rendered shape with a non-empty alt title (or, as fallback,
   alt description) now exposes `role="img" aria-label="…"` on the
-  root `<g>`. Screen readers announce decks the same way PowerPoint's
+  root `<g>`. Screen readers announce decks the same way the reference desktop app's
   Accessibility Inspector reports them, without affecting visuals.
 - b8e24d6: feat(site/playground): each shape's authored name surfaces as a
   `data-pptx-shape-name` attribute on its root `<g>` element. Lets
   DevTools, a11y inspectors, or test selectors target shapes by their
-  PowerPoint name without parsing SVG geometry. Cheap to emit and has
+  visible name without parsing SVG geometry. Cheap to emit and has
   no visual impact.
 - fdd4770: feat: `getShapeTextBodyRotationDeg(shape)` returns the shape's text-body
   rotation from `<a:bodyPr rot="N"/>` (where N is in 60000ths of a
   degree). Distinct from the shape's geometry rotation (`<p:xfrm rot>`):
   this rotates the text body _inside_ the shape without rotating the
   geometry. The playground renderer pivots the text body around the
-  inset midpoint when the angle is non-zero, matching PowerPoint's
+  inset midpoint when the angle is non-zero, matching the reference desktop app's
   behaviour for vertical-label callouts and rotated text frames.
 - 263bf52: feat: `getSlideBackgroundGradientFill(slide)` returns the gradient
   stops + path for slides with a `<p:bgPr><a:gradFill>` background.
@@ -2345,7 +2345,7 @@ href="#slide-N">` link, so users can right-click → "Copy link
   `getPresentationSummary().hasAnimations`. The site playground uses
   it (plus `getSlideTransition`) to show small `anim` / `trans`
   badges next to each slide title so deck audits don't need to open
-  PowerPoint.
+  the reference desktop app.
 - c0e0dc2: feat(site/playground): shapes with slide-jump click actions
   (`<a:hlinkClick action="ppaction://hlinksldjump"/>`) render as
   in-page hash anchors. The renderer resolves the target via
@@ -2370,7 +2370,7 @@ href="#slide-N">` link, so users can right-click → "Copy link
   caps, miter vs bevel joins, and per-end arrow heads.
 
   The playground composes `stroke-dasharray` from the preset dash
-  patterns (cadence multiplied by stroke width as PowerPoint does),
+  patterns (cadence multiplied by stroke width as the reference desktop app does),
   emits SVG `<marker>` defs for triangle / stealth / diamond / oval
   arrowheads on connectors and shapes, and maps cap / join through.
 
@@ -2388,11 +2388,11 @@ href="#slide-N">` link, so users can right-click → "Copy link
 marL/marR/marT/marB>` insets. The renderer previously hard-coded a
   4-pixel pad on every side; it now converts each EMU-valued margin to
   px (falling back to 4px only when the side isn't authored) so cells
-  with custom inner padding line up the way PowerPoint shows them.
+  with custom inner padding line up the way the reference desktop app shows them.
 - 42cf575: feat: `getTableCellMargins(cell)` returns the cell's `<a:tcPr marL
 marR marT marB>` inset margins in EMU. Each side is `null` when the
   cell doesn't author it, so renderers know to fall back to
-  PowerPoint's defaults (91440 EMU / 0.1 in horizontal, 45720 EMU /
+  the reference desktop app's defaults (91440 EMU / 0.1 in horizontal, 45720 EMU /
   0.05 in vertical).
 - ba94f5e: feat: `getTableCellParagraphs(cell)` returns a table cell's text as structured
   paragraphs — each carrying its alignment and per-run format (`size`, `bold`,
@@ -2422,9 +2422,9 @@ marR marT marB>` inset margins in EMU. Each side is `null` when the
   (accent1 for header / footer rows, 92%-white-mixed accent for bands)
   when the cell doesn't supply an explicit fill of its own. Header text
   rendered on the accent gets white text instead of the default body
-  color, matching PowerPoint's built-in table styles.
+  color, matching the reference desktop app's built-in table styles.
 - 243e731: feat: `getTableStyleId(table)` returns the GUID string inside
-  `<a:tbl><a:tblPr><a:tableStyleId>`. PowerPoint references built-in
+  `<a:tbl><a:tblPr><a:tableStyleId>`. The reference desktop app references built-in
   table styles (`{5C22544A-…}` = Medium Style 2 - Accent 1, etc.) and
   theme-local styles by GUID. Returns `null` when the table doesn't
   author one.
@@ -2468,7 +2468,7 @@ layout)` — the non-placeholder decorative shapes (corner bars, divider lines,
     `writing-mode` / `text-orientation` declaration so Asian and
     Mongolian-style vertical text renders without manual transforms.
   - Playground wraps shapes carrying a `<a:hlinkClick>` in an SVG `<a>`
-    element so the preview is clickable — matches PowerPoint's
+    element so the preview is clickable — matches the reference desktop app's
     slide-show behaviour for shape-level hyperlinks.
   - Group shape rendering now applies the group's own `<a:xfrm rot
 flipH flipV>` to the whole subtree before the scale + translate
@@ -2479,7 +2479,7 @@ flipH flipV>` to the whole subtree before the scale + translate
   extrapolation past the last / before the first data point. The
   playground renderer projects the linear fit further along the x-axis
   by `N * step` so projected-future trendlines render the way
-  PowerPoint shows them. Moving-average / log / poly trendlines keep
+  the reference desktop app shows them. Moving-average / log / poly trendlines keep
   their data-range output since extrapolation isn't meaningful for
   them.
 - 57117a7: feat: chart value-axis tick labels honor `<c:valAx><c:txPr><a:bodyPr
@@ -2490,7 +2490,7 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
   `categoryAxisLabelRotationDeg` we already projected.
 - 3e1c8a1: feat: chart value-axis exposes `<c:scaling><c:logBase val="N"/>`.
   `ChartAxisScaling.logBase` carries the authored log base (commonly
-  `2`, `10`, or `Math.E`). The reader clamps to PowerPoint's `[2, 1000]`
+  `2`, `10`, or `Math.E`). The reader clamps to the reference desktop app's `[2, 1000]`
   range. Callers that round-trip charts now preserve the log-scale
   flag; the playground renderer still draws linear (log-scale
   projection is a follow-up — exposing the field unblocks it).
@@ -2518,7 +2518,7 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
   size (consumers apply the ~18pt text-box default) instead of wrongly picking up
   the master body size (often much larger). Real placeholders — including ones
   whose `<p:ph>` omits a `type` — still inherit as before. This makes effective
-  text formatting match what PowerPoint and LibreOffice render for text boxes.
+  text formatting match what the reference desktop app and LibreOffice render for text boxes.
 - cfe8b69: fix: placeholder inheritance now applies the OOXML `ctrTitle`↔`title` and
   `subTitle`→`body` type equivalence. A `ctrTitle` (centered title) now inherits
   its layout/master `title` placeholder's `bodyPr` (e.g. `anchor="ctr"`),
@@ -2528,7 +2528,7 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
   centered titles and subtitles.
 - 610ecac: fix(validator): `validatePresentation` now flags duplicate
   `<p:cNvPr id="N">` values inside a single slide's `<p:spTree>` as
-  errors. PowerPoint requires every shape's non-visual ID to be unique
+  errors. The reference desktop app requires every shape's non-visual ID to be unique
   within its slide; duplicates often appear after pasting shapes from
   another slide without re-allocating IDs. The walk recurses into
   `<p:grpSp>` so duplicates nested in groups are also caught.
@@ -2541,8 +2541,8 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
 
   **What works at 1.0:**
 
-  - **Read** any `.pptx` produced by PowerPoint, Keynote, Google Slides, or
-    LibreOffice Impress, and save it back without corruption. Unknown
+  - **Read** any `.pptx` produced by Keynote, Google Slides, LibreOffice Impress or
+    other common presentation apps, and save it back without corruption. Unknown
     extensions are preserved verbatim on round-trip.
   - **Template editing**: token / text replace across slides and speaker
     notes, image swap with geometry preserved, slide CRUD with placeholder

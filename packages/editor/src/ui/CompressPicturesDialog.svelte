@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Mac PowerPoint's Compress Pictures sheet (OfficeArt CompressPictDlg):
+  // The reference desktop app's (Mac) Compress Pictures sheet (OfficeArt CompressPictDlg):
   // Picture Quality, Delete cropped areas of pictures, Apply to.
   import { onMount, untrack } from 'svelte';
   import { getShapeId, getShapeImageFormat, setShapeImage, setShapeImageCompressionState, setShapeImageCrop } from '@office-kit/pptx';
@@ -31,7 +31,7 @@
       const targets = scope === 'selected' ? selected : all;
       const results = await compressPictures(targets, ppi, deleteCropped);
       if (doc.pres !== presentation) { error = t('The presentation changed. Reopen Compress Pictures.'); return; }
-      // PowerPoint labels every bitmap it compressed, resampled or not.
+      // The reference desktop app labels every bitmap it compressed, resampled or not.
       const labelled = cstate ? targets.filter((target) => ['png', 'jpeg'].includes(getShapeImageFormat(target.shape) ?? '')) : [];
       if (results.length || labelled.length) {
         doc.transact(t('Compress Pictures'), () => {

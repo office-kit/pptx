@@ -136,7 +136,7 @@ for (const locale of ['en', 'ja'])
         await pane.waitFor();
         const [firstMaster] = getSlideMasterPartNames(await deck());
 
-        // Insert Slide Master adds a master with PowerPoint's eleven layouts and selects it.
+        // Insert Slide Master adds a master with the reference desktop app's eleven layouts and selects it.
         await changed(() => ribbonButton(L.insertSlideMaster).click());
         let pres = await deck();
         const masters = getSlideMasterPartNames(pres);

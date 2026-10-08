@@ -88,7 +88,7 @@ test(
       await expandFormatSections(editor, 'Fill', 'Line');
       const original = (await read()).fill;
       const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
-      // With no picture to restore, PowerPoint inserts its default texture; Insert... chooses a file.
+      // With no picture to restore, the reference desktop app inserts its default texture; Insert... chooses a file.
       const persisted = page.waitForResponse(
         (response) =>
           response.url().endsWith('/editor/document') &&

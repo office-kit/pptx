@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Editing the layout behind the current slide — PowerPoint's slide master
+  // Editing the layout behind the current slide — the reference desktop app's slide master
   // view, Google Slides' theme builder. Everything here is deck-wide by
   // nature: the layout is shared, so the section says so rather than letting
   // the edit look slide-local.

@@ -1,4 +1,4 @@
-// Like Mac PowerPoint, every Format pane section starts collapsed; tests open
+// Like the reference desktop app (Mac), every Format pane section starts collapsed; tests open
 // the ones they use by their header, exactly as a user would.
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

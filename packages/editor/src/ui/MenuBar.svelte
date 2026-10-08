@@ -1,7 +1,7 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint's menu bar, in the title bar because a web page cannot own
-  // the macOS one: File … Help with PowerPoint's order, separators, submenus,
+  // The reference desktop app's (Mac) menu bar, in the title bar because a web page cannot own
+  // the macOS one: File … Help with the reference desktop app's order, separators, submenus,
   // shortcut glyphs and per-selection enabled and checked states (native
   // captures, 2026-10-07; see core/menubar-native.ts). The application menu
   // is left out: its items (Settings, Hide, Quit …) belong to the browser.
@@ -36,7 +36,7 @@
   };
   const command = (id: string) => menuCommand(editor, host, id);
   // While text is being edited the menus leave focus (caret and selection) in
-  // the text, as PowerPoint's do.
+  // the text, as the reference desktop app's do.
   const keepFocus = $derived(!!editor.inlineTextFormat);
 
   async function toggleFullScreen() {

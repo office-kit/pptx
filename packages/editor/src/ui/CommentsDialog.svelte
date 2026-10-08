@@ -4,7 +4,7 @@
   import { orderCommentThreads } from '../core/comment-threads.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  // Docked beside the slide like PowerPoint's Comments pane, so the deck stays
+  // Docked beside the slide like the reference desktop app's Comments pane, so the deck stays
   // usable while it is open. `floating` places it over views without a side
   // pane (Slide Sorter, Notes Page).
   let { floating = false }: { floating?: boolean } = $props();

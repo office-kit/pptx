@@ -1,9 +1,9 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint 16's Handout Master and Notes Master tabs: page orientation
+  // The reference desktop app's (Mac, 16) Handout Master and Notes Master tabs: page orientation
   // and Slide Size | the placeholder checkboxes (Header, Footer, Date, Page
   // Number; the notes master adds Slide Image and Body) | the handout's slides
-  // per page | Close Master. A deck without the master shows PowerPoint's
+  // per page | Close Master. A deck without the master shows the reference desktop app's
   // defaults (every placeholder, six slides per page); the first edit writes
   // the default master.
   import { tick } from 'svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The question PowerPoint asks when a rehearsal ends: keep the new times as
+  // The question the reference desktop app asks when a rehearsal ends: keep the new times as
   // each slide's "After" timing?
   import { onMount } from 'svelte';
   import {

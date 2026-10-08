@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Mac PowerPoint's Exit Effects popover — and the Emphasis Effects one the
+  // The reference desktop app's (Mac) Exit Effects popover — and the Emphasis Effects one the
   // ribbon collapses to in a narrow window: a 387 pt panel of 76 × 90 pt tiles
   // on a 74 pt pitch, five to a row, under the gallery's group headings
   // (Basic, Subtle, Moderate, Exciting), scrolling past 508 pt.

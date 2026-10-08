@@ -16,7 +16,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Hello</Text></Slide></Presentation>`;
 
 test(
-  'Design tab matches PowerPoint: Themes gallery, Colors, Fonts, Slide Size and Design Suggestions',
+  'Design tab matches the reference desktop app: Themes gallery, Colors, Fonts, Slide Size and Design Suggestions',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-design-tab-'));
@@ -90,7 +90,7 @@ test(
 
       await panel.getByRole('button', { name: 'Colors', exact: true }).click();
       await assertMenuUnclipped('Colors');
-      // PowerPoint's Colors menu: the deck's colors, then Office's 24 sets.
+      // The reference desktop app's Colors menu: the deck's colors, then the 24 built-in sets.
       const allColors = panel.getByRole('group', { name: 'All Colors', exact: true });
       assert.deepEqual(
         await allColors

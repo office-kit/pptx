@@ -1,7 +1,7 @@
 <script lang="ts">
-  // The Home tab laid out like Mac PowerPoint 16: clipboard, slides, font,
+  // The Home tab laid out like the reference desktop app (Mac, 16): clipboard, slides, font,
   // paragraph, insert and drawing clusters without group captions. As the
-  // ribbon narrows, groups collapse into single buttons in PowerPoint's order
+  // ribbon narrows, groups collapse into single buttons in the reference desktop app's order
   // (Drawing first; then Slides, Paragraph and Insert; Font last). The
   // clipboard cluster never collapses.
   import { placeBelowTrigger } from './place-menu.ts';
@@ -42,7 +42,7 @@
   const doc = editor.doc;
 
   // Ribbon widths (CSS px) below which each collapse step applies. Measured
-  // from Mac PowerPoint's window at 1512 (all expanded), 1200 (Drawing
+  // from the reference desktop app's (Mac) window at 1512 (all expanded), 1200 (Drawing
   // collapsed, Slides/Insert in small icons), 1000 (Slides, Paragraph, Insert
   // collapsed) and 800 (Font collapsed as well).
   const SMALL_ICONS_BELOW = 1300;
@@ -56,7 +56,7 @@
   // The steps above, in order; 0 is fully expanded.
   const stepAt = (value: number) =>
     value < FONT_COLLAPSES_BELOW ? 3 : value < GROUPS_COLLAPSE_BELOW ? 2 : value < SMALL_ICONS_BELOW ? 1 : 0;
-  // The thresholds fit PowerPoint's English labels. Longer labels (Japanese,
+  // The thresholds fit the reference desktop app's English labels. Longer labels (Japanese,
   // or a platform with wider fonts) can still overflow near a threshold, so
   // the ribbon takes the next step while its content does not fit.
   let extraSteps = $state(0);
@@ -187,7 +187,7 @@
 {#snippet layoutMenu(kind: 'newSlide' | 'layout')}
   <div class="home-menu" role="menu" tabindex="-1" aria-label={t(kind === 'newSlide' ? 'New Slide' : 'Layout')} use:placeBelowTrigger>
     <div class="heading">{t('Layouts')}</div>
-    <!-- PowerPoint shows the layouts as a gallery of thumbnails. -->
+    <!-- The reference desktop app shows the layouts as a gallery of thumbnails. -->
     <div class="layout-grid">
       {#each layouts as layout (getSlideLayoutPartName(layout))}
         {#if kind === 'newSlide'}
@@ -259,7 +259,7 @@
     {#if collapsed.has(name)}
       <button class="big group-trigger" aria-haspopup="dialog" aria-expanded={openGroup === name} onclick={() => toggleGroup(name)}><Icon name={icon} size={32} /><span>{t(name)} <span aria-hidden="true">⌄</span></span></button>
       {#if openGroup === name}
-        <!-- Choosing a command closes the popup, as PowerPoint's collapsed groups do. -->
+        <!-- Choosing a command closes the popup, as the reference desktop app's collapsed groups do. -->
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div class="group-popup" role="dialog" tabindex="-1" aria-label={t(name)} bind:this={popup} use:placeBelowTrigger onclick={closeAfterCommand}>{@render body()}</div>
       {/if}
@@ -299,7 +299,7 @@
   <section class="cluster" aria-label={t('Add-ins')}>
     <button class={small ? 'tool' : 'big narrow'} aria-label={t('Add-ins')} title={t('Add-ins are not available in this editor.')} disabled><Icon name="add-ins" size={small ? 18 : 32} />{#if !small}<span>{t('Add-ins')}</span>{/if}</button>
   </section>
-  <!-- PowerPoint separates Add-ins and Designer into two groups. -->
+  <!-- The reference desktop app separates Add-ins and Designer into two groups. -->
   <section class="cluster" aria-label={t('Designer')}>
     <button class={small ? 'tool' : 'big'} aria-label={t('Designer')} title={t('Designer needs an online design service.')} disabled><Icon name="designer" size={small ? 18 : 32} />{#if !small}<span>{t('Designer')}</span>{/if}</button>
   </section>
@@ -312,7 +312,7 @@
 {/if}
 
 <style>
-  /* Mac PowerPoint's Home commands: a 72 pt row of groups separated by a
+  /* The reference desktop app's (Mac) Home commands: a 72 pt row of groups separated by a
      rule with 10 pt on either side; large buttons are 50 pt wide and fill the
      row, small ones 26 × 26 pt, and menu buttons with an arrow 38 × 26 pt. */
   .home { display: flex; align-items: stretch; min-width: 0; width: 100%; height: 72px; gap: 0; }

@@ -2,7 +2,7 @@
   import { eventTarget } from '../core/dom-root.ts';
   // The ribbon. Renders the tab/group/command layout from config.ts. Contextual
   // tabs (Shape Format, Picture Format, Table Design/Layout) only appear when the matching selection is
-  // active, mirroring PowerPoint. Buttons dispatch through runOrPrompt, so a
+  // active, mirroring the reference desktop app. Buttons dispatch through runOrPrompt, so a
   // command needing arguments opens its (auto-generated or bespoke) dialog.
   import { getShapeChartSpec, getShapeKind, getShapeMedia, getShapeMediaPlayback, isTableShape } from '@office-kit/pptx';
   import MediaPlaybackRibbon from './MediaPlaybackRibbon.svelte';
@@ -66,13 +66,13 @@
     const media = shapes.length === 1 && getShapeMediaPlayback(shapes[0]!) !== null;
     const kind = shapes.length === 1 ? getShapeMedia(shapes[0]!)?.kind : undefined;
     const chart = shapes.length === 1 && getShapeChartSpec(shapes[0]!) !== null;
-    // PowerPoint shows Table Design and Layout for a selected table as well as
+    // The reference desktop app shows Table Design and Layout for a selected table as well as
     // for cells being edited, and replaces Shape Format with them.
     const table = sel.kind === 'cell' || (shapes.length === 1 && isTableShape(shapes[0]!));
     // A picture gets Picture Format instead of Shape Format.
     const picture = shapes.length === 1 && getShapeKind(shapes[0]!) === 'picture' && !kind;
     const mode = editor.viewMode;
-    // Mac PowerPoint's master views drop the tabs that act on slides: Slide
+    // The reference desktop app's (Mac) master views drop the tabs that act on slides: Slide
     // Master keeps Transitions and Animations; the handout and notes masters
     // keep only Home, Insert, Draw, Review and View.
     if (editor.masterView)
@@ -94,7 +94,7 @@
     }).map(tab => tab.id !== 'shape' ? tab : kind === 'video' ? { ...tab, title: 'Video Format' } : chart ? { ...tab, title: 'Format' } : tab);
   });
 
-  // Entering a master view opens its tab, as PowerPoint does.
+  // Entering a master view opens its tab, as the reference desktop app does.
   $effect(() => {
     if (editor.masterView) activeTab = editor.viewMode;
   });
@@ -145,7 +145,7 @@
       {/each}
     </div>
 
-    <!-- Mac PowerPoint ends the tab row with Comments and Share; task-pane
+    <!-- The reference desktop app (Mac) ends the tab row with Comments and Share; task-pane
          toggles such as Copilot sit beside them, and so does Agents. -->
     <div class="actions">
       {#if agentsOpen !== null}
@@ -228,7 +228,7 @@
   .actions .agents[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
   .actions .agents[aria-pressed='true'] svg { fill: var(--ok-accent); stroke: var(--ok-accent); }
   .actions .comments[aria-pressed='true'] { background: var(--ok-selected); border-color: var(--ok-selected-border); }
-  /* PowerPoint's Share button is the one filled accent control in the window. */
+  /* The reference desktop app's Share button is the one filled accent control in the window. */
   .actions .share { color: #fff; border-color: var(--ok-accent); background: var(--ok-accent); }
   .actions .share:hover:not(:disabled) { background: var(--ok-accent); filter: brightness(1.08); }
   .share-anchor { position: relative; }
@@ -262,7 +262,7 @@
   .tab:hover {
     background: var(--ok-hover);
   }
-  /* Mac PowerPoint marks the active tab with bold text and an underline bar,
+  /* The reference desktop app (Mac) marks the active tab with bold text and an underline bar,
      on the same background as the commands below it. */
   .tab.active {
     color: var(--ok-text);
@@ -296,7 +296,7 @@
     gap: 2px;
     align-items: center;
   }
-  /* Mac PowerPoint's large ribbon button: a 32px icon over a one- or two-line
+  /* The reference desktop app's (Mac) large ribbon button: a 32px icon over a one- or two-line
      caption, with no group captions under the commands. */
   .cmd {
     display: flex;

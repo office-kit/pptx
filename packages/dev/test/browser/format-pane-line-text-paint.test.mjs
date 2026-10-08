@@ -17,7 +17,7 @@ import {
 import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
-// Mac PowerPoint's Format Shape pane: Gradient line and Sketched style in
+// The reference desktop app's (Mac) Format Shape pane: Gradient line and Sketched style in
 // Line, No fill / Picture or texture fill and Gradient line under Text Fill &
 // Outline, and Keep text flat in 3-D Rotation.
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={3} height={1.5} fill="#2E75B6" text="First" /></Slide></Presentation>`;
@@ -179,7 +179,7 @@ test(
       assert.equal(outline.widthEmu, 9525);
 
       // Keep text flat (Text Effects ▸ 3-D Rotation); Soft Edges stays off for
-      // text, as in PowerPoint.
+      // text, as in the reference desktop app.
       await editor.getByRole('tab', { name: 'Text Effects', exact: true }).click();
       await expandFormatSections(editor, 'Soft Edges', '3-D Rotation');
       assert.equal(
@@ -203,7 +203,7 @@ test(
 );
 
 test(
-  'Japanese: gradient line, sketched style and text paint use PowerPoint wording',
+  'Japanese: gradient line, sketched style and text paint use the reference desktop app’s wording',
   { timeout: 120000 },
   async () => {
     const { editor, saved, shape, errors, close } = await open('ja');
@@ -219,7 +219,7 @@ test(
       const items = editor
         .getByRole('menu', { name: 'スケッチ スタイル', exact: true })
         .getByRole('menuitemradio');
-      // Mac PowerPoint's Japanese build names Freehand and Scribble alike.
+      // The reference desktop app's (Mac) Japanese build names Freehand and Scribble alike.
       assert.deepEqual(
         await items.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label'))),
         ['なし', '曲線', 'フリーハンド', 'フリーハンド'],

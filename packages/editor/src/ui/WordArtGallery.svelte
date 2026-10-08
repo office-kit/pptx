@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // PowerPoint's WordArt gallery: twenty "A" swatches, five to a row, shared by
+  // The reference desktop app's WordArt gallery: twenty "A" swatches, five to a row, shared by
   // Shape Format ▸ WordArt Quick Styles and Insert ▸ WordArt.
   import { onMount } from 'svelte';
   import { getPresentationTheme } from '@office-kit/pptx';

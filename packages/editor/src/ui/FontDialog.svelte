@@ -89,7 +89,7 @@
     normalizeHeight = common(f => f.normalizeHeight ?? false);
     const spc = common(f => f.spc ?? 0);
     spacingMode = spc === undefined ? '' : spc === 0 ? 'normal' : spc > 0 ? 'expanded' : 'condensed';
-    // PowerPoint displays tenths of a point; preserve imported precision until edited.
+    // The reference desktop app displays tenths of a point; preserve imported precision until edited.
     spacingAmount =
       spc === undefined || spc === 0 ? undefined : Math.round((Math.abs(spc) / 100) * 10) / 10;
     const kern = common(f => f.kern ?? 1200);

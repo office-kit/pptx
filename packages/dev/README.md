@@ -1,7 +1,7 @@
 # @office-kit/pptx-dev
 
 Local TSX authoring tools for `@office-kit/pptx-dsl`. Build and preview an editable
-PowerPoint presentation while changing its source in VSCode or Claude Code.
+presentation while changing its source in VSCode or Claude Code.
 Requires Node.js 22.18 or later.
 
 For Claude Code, [install the office-kit skill](https://office-kit.github.io/pptx/docs/authoring)
@@ -134,7 +134,7 @@ npm run build
 `check` runs TypeScript; `build` writes `deck.pptx`. Compilation alone does not
 perform TypeScript checking, so run both before delivery. Exported charts, text,
 images and tables remain editable. The renderer previews the serialized PPTX,
-but is not a guarantee of identical rendering in PowerPoint.
+but is not a guarantee of identical rendering in desktop presentation apps.
 
 The generated `CLAUDE.md` explains authoring conventions. VSCode picks up the
 included `tsconfig.json` for completion and diagnostics. Start the **Preview
@@ -151,7 +151,7 @@ slides. Update time depends on the deck size and any code it runs.
 
 **Agents** at the right end of the editor's tab row, beside Comments and Share,
 opens the Agents task pane docked on the right (closed by default, like
-PowerPoint's panes; × closes it). The pane follows the editor's light or dark
+the reference desktop app's panes; × closes it). The pane follows the editor's light or dark
 appearance, including the terminal colors. Each agent defaults to **Claude Code**. Click **Start** to open the locally
 installed `claude` CLI in an interactive terminal. Install and sign in to Claude
 Code first. Use a current version with HTTP `UserPromptSubmit` hook support.

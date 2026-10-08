@@ -58,7 +58,7 @@ test(
         .click();
       await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const pane = editor.getByRole('region', { name: 'Format Background', exact: true });
-      // Background leads the pane; the editor's slide options follow it (PowerPoint
+      // Background leads the pane; the editor's slide options follow it (the reference desktop app
       // has no pane for them, see NATIVE_PARITY.md).
       const sections = await editor
         .locator('#format-panel section[aria-label]')

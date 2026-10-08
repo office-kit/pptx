@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint 16's Draw tab: Draw, Eraser ▾ and Lasso Select; the pen
+  // The reference desktop app's (Mac, 16) Draw tab: Draw, Eraser ▾ and Lasso Select; the pen
   // gallery with Add ▾; Ink to Text / Shape / Math; Draw with Trackpad. It
   // has no collapsed layout: at 1200 pt only the gallery narrows.
   import { tick } from 'svelte';
@@ -50,7 +50,7 @@
       <button class="side" aria-label={t('Eraser options')} aria-haspopup="menu" aria-expanded={open === 'eraser'} onclick={() => toggle('eraser')}>⌄</button>
       {#if open === 'eraser'}
         <div class="menu" role="menu" aria-label={t('Eraser')} use:placeBelowTrigger>
-          <!-- The editor's eraser removes each stroke it touches: PowerPoint's Stroke Eraser. -->
+          <!-- The editor's eraser removes each stroke it touches: the reference desktop app's Stroke Eraser. -->
           <button role="menuitemradio" aria-checked="true" onclick={() => { open = null; ink.tool = 'eraser'; }}>{t('Stroke Eraser')}</button>
           <button role="menuitemradio" aria-checked="false" disabled title={t('Erasing part of a stroke is not available in this editor yet.')}>{t('Point Eraser')}</button>
           <button role="menuitemradio" aria-checked="false" disabled title={t('Erasing part of a stroke is not available in this editor yet.')}>{t('Segment Eraser')}</button>
@@ -138,7 +138,7 @@
   .icon-row { display: flex; align-items: center; gap: 1px; }
   .arrow { font-size: 10px; }
   .anchor { position: relative; display: flex; align-self: stretch; }
-  /* The ▾ sits over the space beside the icon, as in PowerPoint's 50 pt menu buttons. */
+  /* The ▾ sits over the space beside the icon, as in the reference desktop app's 50 pt menu buttons. */
   .arrow-space { width: 9px; }
   .overlay > .side { position: absolute; top: 12px; right: 2px; width: 12px; height: 22px; padding: 0; font-size: 12px; }
   svg { width: 32px; height: 32px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.1; }

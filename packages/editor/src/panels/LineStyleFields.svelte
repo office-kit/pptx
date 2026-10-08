@@ -19,10 +19,10 @@
     { label: 'Cap type', read: getShapeStrokeCap, command: 'setShapeStrokeCap', parameter: 'cap', options: [['flat', 'Flat'], ['rnd', 'Round'], ['sq', 'Square']] },
     { label: 'Join type', read: getShapeStrokeJoin, command: 'setShapeStrokeJoin', parameter: 'join', options: [['round', 'Round'], ['bevel', 'Bevel'], ['miter', 'Miter']] },
   ] as const;
-  // Mac PowerPoint's Sketched style menu: None, Curved, Freehand, Scribble.
+  // The reference desktop app's (Mac) Sketched style menu: None, Curved, Freehand, Scribble.
   // Its Japanese build labels both Freehand and Scribble フリーハンド.
   const sketches = [[null, 'None'], ['curved', 'Curved'], ['freehand', 'Freehand'], ['scribble', 'Scribble']] as const;
-  // PowerPoint disables Sketched style for connectors.
+  // The reference desktop app disables Sketched style for connectors.
   const sketchDisabled = $derived.by(() => {
     editor.doc.version;
     const shapes = editor.selectedShapes();
@@ -78,7 +78,7 @@
   <svg viewBox="0 0 72 24" width="72" height="24" aria-hidden="true"><path d={value === 'curved' ? 'M2 20Q14 6 70 6' : value === 'freehand' ? 'M2 14C14 10 22 18 36 14S58 10 70 13' : value === 'scribble' ? 'M2 12C8 4 12 20 18 12S28 4 34 12S44 20 50 12S60 4 70 12' : 'M2 12H70'} fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" /></svg>
 {/snippet}
 <svelte:window onpointerdown={event => { if (sketchOpen && !sketchMenu?.contains(eventTarget(event) as Node) && !sketchTrigger?.contains(eventTarget(event) as Node)) closeSketch(false); }} onblur={() => { if (sketchOpen) closeSketch(false); }} onresize={() => { if (sketchOpen) closeSketch(false); }} />
-<!-- PowerPoint's Sketched style sits between Width and Compound type. -->
+<!-- The reference desktop app's Sketched style sits between Width and Compound type. -->
 <div class="sketch">
   <span>{t('Sketched style')}</span>
   <button bind:this={sketchTrigger} class="ok-input menu-button" aria-label={t('Sketched style')} aria-haspopup="menu" aria-expanded={sketchOpen} disabled={sketchDisabled} onclick={toggleSketch}>
@@ -109,7 +109,7 @@
 
 <style>
   .sketch { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
-  /* PowerPoint's 39 × 26 pt gallery buttons. */
+  /* The reference desktop app's 39 × 26 pt gallery buttons. */
   .menu-button { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 39px; height: 26px; padding: 0 2px 0 4px; }
   .menu-button :global(svg) { width: 24px; height: 10px; flex: none; }
   /* Native rows: 139 × 29 pt with the check mark at the left. */
@@ -119,6 +119,6 @@
   .sketch-menu .check { width: 14px; }
   .menu-button .arrow { font-size: 9px; }
   label { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
-  /* PowerPoint's Format pane pop-up buttons are 112 × 26 pt. */
+  /* The reference desktop app's Format pane pop-up buttons are 112 × 26 pt. */
   select { box-sizing: border-box; width: 112px; height: 26px; font-size: inherit; }
 </style>

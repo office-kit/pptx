@@ -522,7 +522,7 @@
         ownerDocument.querySelector<HTMLElement>(`[data-outline-slide="${index}"] [role="textbox"]`)?.focus();
       } else await replaceOutlineRange('\n', t('Edit text'), { split: true });
     }
-    // Mac PowerPoint splits outline titles into slides for both Enter and Shift+Enter.
+    // The reference desktop app (Mac) splits outline titles into slides for both Enter and Shift+Enter.
     else if (event.key === 'Enter' && !mod && !event.altKey && title) {
       if (!getSlideLayout(slide)) return;
       const ownerDocument = input.getElement()!.ownerDocument;
@@ -660,7 +660,7 @@
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}
   onnewline={() => {
-    // Mac PowerPoint outline bodies use paragraphs for both Enter and Shift+Enter.
+    // The reference desktop app (Mac) outline bodies use paragraphs for both Enter and Shift+Enter.
     if (selection.current()?.start.key !== selection.current()?.end.key) selection.replace('\n', [], t('Edit text'));
     else replaceSelection('\n');
   }}

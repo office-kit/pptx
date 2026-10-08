@@ -1,7 +1,7 @@
-// Home ▸ Section: PowerPoint's slide sections (`p14:sectionLst`), edited as a
+// Home ▸ Section: the reference desktop app's slide sections (`p14:sectionLst`), edited as a
 // list of start indices. A deck with sections has every slide in one; adding
 // the first section mid-deck puts the slides before it in "Default Section",
-// as PowerPoint does.
+// as the reference desktop app does.
 
 import {
   getSlidePartName,

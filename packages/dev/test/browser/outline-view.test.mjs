@@ -99,7 +99,7 @@ for (const locale of ['en', 'ja'])
           initialLayout.map((paragraph) => paragraph.marker),
           ['•', '•'],
         );
-        // Mac PowerPoint outline body Shift+Enter creates a:p, unlike canvas a:br.
+        // The reference desktop app (Mac) outline body Shift+Enter creates a:p, unlike canvas a:br.
         for (const key of ['Enter', 'Shift+Enter']) {
           await body.focus();
           await body.evaluate((node) => window.selectEditorText(node, 5, 5));
@@ -188,7 +188,7 @@ for (const locale of ['en', 'ja'])
         assert.equal(getParagraphLevel(bodyShape, 0), 0);
         assert.equal(getParagraphLevel(bodyShape, 1), 1);
         const indentedLayout = await paragraphLayout();
-        // Mac PowerPoint's outline steps 11.5 pt per level.
+        // The reference desktop app's (Mac) outline steps 11.5 pt per level.
         assert.equal(indentedLayout[1].padding - indentedLayout[0].padding, 11.5);
         assert.equal(indentedLayout[1].top - indentedLayout[0].top, indentedLayout[0].height);
         assert.equal(getShapeText(bodyShape), 'First point\nSecond point');
@@ -302,7 +302,7 @@ for (const locale of ['en', 'ja'])
           false,
         );
         // Arrow navigation at an outline textbox boundary continues into the
-        // adjacent title/body, matching PowerPoint's keyboard outline flow.
+        // adjacent title/body, matching the reference desktop app's keyboard outline flow.
         const secondBody = outline.getByRole('textbox', {
           name: `${locale === 'en' ? 'Outline text' : 'アウトラインのテキスト'} 2`,
           exact: true,

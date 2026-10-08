@@ -14,7 +14,7 @@ import { startPreview } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
 test(
-  'font size step follows the PowerPoint gallery for selections, caret typing, and objects',
+  'font size step follows the reference desktop app’s gallery for selections, caret typing, and objects',
   { timeout: 90000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-font-size-step-'));

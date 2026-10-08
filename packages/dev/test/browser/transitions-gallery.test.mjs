@@ -7,10 +7,10 @@ import { chromium } from 'playwright';
 import { getSlides, getSlideTransition, loadPresentation } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
-// Every one of Mac PowerPoint 16's 49 transitions can be chosen, and every
+// Every one of the reference desktop app's (Mac, 16) 49 transitions can be chosen, and every
 // Effect Options item of every one of them, in English and Japanese. Each tile
-// writes the effect PowerPoint writes for it, with its own default duration
-// (site/test/transition-defaults.test.mjs compares the XML with PowerPoint's).
+// writes the effect the reference desktop app writes for it, with its own default duration
+// (site/test/transition-defaults.test.mjs compares the XML with the reference desktop app's).
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="One" /></Slide><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
 
 // Tile → what it writes: the effect element (and the option that names the
@@ -67,7 +67,7 @@ const TILES = [
   ['Fly Through', 'フライスルー', { effect: 'flythrough' }, 800, 4],
 ];
 
-// How the library writes a duration (PowerPoint's rule, see
+// How the library writes a duration (the reference desktop app's rule, see
 // NATIVE_PARITY.md): `spd` is the fastest speed at least that long, left
 // out when fast, and `p14:dur` only when the speed does not already say it.
 const SPEED_MS = { fast: 500, med: 750, slow: 1000 };
@@ -80,7 +80,7 @@ const timingRead = (durationMs) => {
 };
 
 test(
-  'every PowerPoint transition and Effect Options item can be chosen, in English and Japanese',
+  'every native transition and Effect Options item can be chosen, in English and Japanese',
   { timeout: 300000 },
   async () => {
     assert.equal(TILES.length, 49);
@@ -193,7 +193,7 @@ test(
         durationMs: 4000,
       });
 
-      // Japanese: the same 49 tiles, all enabled, with Mac PowerPoint's names,
+      // Japanese: the same 49 tiles, all enabled, with the reference desktop app's (Mac) names,
       // and Effect Options in Japanese.
       await page.locator('.lang select').selectOption('ja');
       await page.getByRole('tab', { name: '画面切り替え', exact: true }).click();

@@ -10,9 +10,9 @@
 
   let { label, value, resolvedColor, disabled = false, compact = false, glyph, showThemeShades = false, selectedColorTransforms = [], automatic, automaticSelected = false, texture, choose }: {
     label: string;
-    /** Only a ⌄ arrow, as PowerPoint's Shape Fill / Shape Outline split buttons show. */
+    /** Only a ⌄ arrow, as the reference desktop app's Shape Fill / Shape Outline split buttons show. */
     compact?: boolean;
-    /** With `compact`, a letter drawn over a bar of the current color, like PowerPoint's Font Color. */
+    /** With `compact`, a letter drawn over a bar of the current color, like the reference desktop app's Font Color. */
     glyph?: string;
     automatic?: () => void;
     automaticSelected?: boolean;

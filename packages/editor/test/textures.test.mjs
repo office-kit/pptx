@@ -30,7 +30,7 @@ const step = (pixels, at, rows) => {
   return total / N;
 };
 
-test('the gallery lists PowerPoint’s twenty-four textures in order', () => {
+test('the gallery lists the reference desktop app’s twenty-four textures in order', () => {
   assert.deepEqual(
     TEXTURES.map((texture) => texture.name),
     [
@@ -110,7 +110,7 @@ test('texture PNGs carry 128 px and ~144 DPI, and encode deterministically', asy
   assert.ok(Math.abs(size.height - inches(128 / 144)) < 100);
 });
 
-test('a texture tiles with PowerPoint’s defaults, keeps transparency and remembers the stretch placement', async () => {
+test('a texture tiles with the reference desktop app’s defaults, keeps transparency and remembers the stretch placement', async () => {
   const pres = createPresentation();
   const slide = addBlankSlide(pres);
   const shape = addSlideShape(slide, {

@@ -18,7 +18,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Hello</Text></Slide><Slide><Text x={1} y={1} width={4} height={1}>Two</Text></Slide><Slide><Text x={1} y={1} width={4} height={1}>Three</Text></Slide></Presentation>`;
 
 test(
-  'Home tab matches PowerPoint: Section, Columns, Text Direction, Align Text, Add-ins and Designer',
+  'Home tab matches the reference desktop app: Section, Columns, Text Direction, Align Text, Add-ins and Designer',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-home-tab-'));
@@ -54,7 +54,7 @@ test(
       for (const name of ['Add-ins', 'Designer', 'Convert to SmartArt'])
         assert.equal(await button(name).isDisabled(), true, name);
 
-      // New Slide ▾ is a gallery of layout thumbnails, as in PowerPoint.
+      // New Slide ▾ is a gallery of layout thumbnails, as in the reference desktop app.
       await button('New Slide options').click();
       const gallery = panel.getByRole('menu', { name: 'New Slide', exact: true });
       assert.ok((await gallery.locator('.layout-item svg.layout-thumbnail').count()) > 0);
@@ -89,7 +89,7 @@ test(
       await changed(() => item('Remove All Sections').click());
       assert.equal(getSlideSections(await pres()).length, 0);
 
-      // The thumbnail menu is Mac PowerPoint's, with its separators (native
+      // The thumbnail menu is the reference desktop app's (Mac), with its separators (native
       // capture 2026-10-07).
       await editor.locator('.thumb-row').nth(1).click({ button: 'right' });
       const thumbMenu = editor.getByRole('menu').first();

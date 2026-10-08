@@ -315,7 +315,7 @@ test(
         ['Basic', 'Subtle', 'Moderate', 'Exciting'],
       );
       assert.equal(await gallery.getByRole('radio').count(), 24);
-      // PowerPoint's 387 pt popover of 76 × 90 pt tiles, five to a row.
+      // The reference desktop app's 387 pt popover of 76 × 90 pt tiles, five to a row.
       const box = await gallery.boundingBox();
       assert.equal(Math.round(box.width), 387);
       const tiles = await gallery.getByRole('radio').evaluateAll((radios) =>

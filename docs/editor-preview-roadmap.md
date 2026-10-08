@@ -208,7 +208,7 @@ that a user can complete the corresponding editing workflow.
   marker's own axes disagree), paragraph builds, overlapping effects playing
   forward and on resume, a spin never revealing a shape no entrance has shown,
   and reduced motion; the saved-file path is played end to end in the preview.
-  Real PowerPoint playback is unverified.
+  Playback in the reference desktop app is unverified.
 
 ## Outstanding work
 
@@ -272,7 +272,7 @@ reloads the received file with the public API (first-drag `x` and the slide
 text), then opens that file through the editor's Open input and confirms the
 text and a fresh, empty undo history. Its preview stopped through `close()`.
 The `dist/` build from 03:55 JST was reused because no source was newer.
-PowerPoint/Keynote were not used to open the file.
+Neither the reference desktop app nor Keynote was used to open the file.
 
 Known minor gaps from the final source review, not fixed:
 
@@ -305,7 +305,7 @@ color change are in [docs/qa/pptx-editor-20261004](qa/pptx-editor-20261004/READM
 
 **NOT RUN:** a full vitest run on the final source, the rest of the browser
 suite, site `svelte-check` after 2026-10-03 (no site source changed since),
-and PowerPoint/Keynote. Do not list these items under "Verified so far" until
+and the reference desktop app / Keynote. Do not list these items under "Verified so far" until
 those pass.
 
 - `EditorDocument` rolls a throwing `transact`/`applyLive`/`commit`/
@@ -622,7 +622,7 @@ The numeric rotation field displays mixed values for multi-selection and applies
 ### Remaining animation presets
 
 - Only nine presets are authored and played: appear, fade, fly, zoom in each
-  direction, and one clockwise spin. The rest of PowerPoint's gallery — the
+  direction, and one clockwise spin. The rest of the reference desktop app's gallery — the
   other emphasis effects, the diagonal flies, the zoom sub-variants, and
   `presetClass="path"` motion paths — is read and saved unchanged but reported
   as something this library does not play, and a slide carrying one keeps its
@@ -630,7 +630,7 @@ The numeric rotation field displays mixed values for multi-selection and applies
 - Interactive sequences, `<p:iterate>` letter/word staggering and repeat counts
   are likewise read rather than played.
 - Playback is verified in Chromium against the preview's own renderer. What
-  PowerPoint itself does with the trees this library writes is unverified.
+  the reference desktop app itself does with the trees this library writes is unverified.
 
 ### Multiple-selection numeric position and size
 
@@ -660,17 +660,17 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - The comments dialog can reply to existing comments and unsaved drafts, including replies to replies. Parent author and text are visible in English and Japanese.
 - Apply commits all drafts in one undo step; Cancel discards them. Deleting a parent removes its descendants and is labeled “Delete thread”.
-- Replies persist using the PowerPoint p15 threading extension in legacy comment parts. Core and browser tests cover save/reload, editing, alternate XML prefixes, unknown extension preservation, sibling retention, and undo/redo.
+- Replies persist using the reference desktop app's p15 threading extension in legacy comment parts. Core and browser tests cover save/reload, editing, alternate XML prefixes, unknown extension preservation, sibling retention, and undo/redo.
 - Modern p188 comment parts and resolved status are covered below.
 
 ### Modern comments and resolved threads
 
-- Comments written by PowerPoint 2021 and Microsoft 365 are read and edited rather than only carried through. The format is Microsoft's own, not ECMA-376: [MS-PPTX] §2.16.1 for the Author and Comment parts and §5.14 for the schema, both read from the published specification rather than inferred from a file.
+- Comments written by the reference desktop app (2021 and the subscription edition) are read and edited rather than only carried through. The format is a vendor extension, not ECMA-376: [MS-PPTX] §2.16.1 for the Author and Comment parts and §5.14 for the schema, both read from the published specification rather than inferred from a file.
 - A thread owns its replies, its text is a DrawingML body, authors are GUIDs in `/ppt/authors.xml`, and a thread carries `status` — `active`, `resolved` or `closed`. `getSlideComments` returns both formats; `getCommentFormat`, `getCommentStatus` and `setCommentStatus` are public. A legacy comment reports no status, and setting one throws instead of silently doing nothing.
 - Editing goes through the file's own tree, so the slide or shape anchor, the pin, extension lists and reactions all survive a text edit, a resolve and a save. Core tests cover reading threads/replies/authors, resolve and reopen through save and reload, preserved unknown XML, replying inside a thread, starting a thread with the anchor the slide's own threads use, removing a reply or a whole thread, dropping the part and its relationship with the last thread, and a deck that carries both formats at once.
 - The comments dialog hides resolved threads with a count, brings them back on request, and resolves or reopens them in English and Japanese. A status change on its own enables Apply — the dialog used to compare only counts and text. Browser coverage drives resolve, Cancel discarding it, Apply, one-step undo/redo, reopening a resolved thread in Japanese, and one Apply carrying edits made on two slides.
 - Fixed on the way: `<p:pos>` is required by `CT_Comment` and nothing made a caller pass one, so every comment the editor added was schema-invalid. New comments are pinned to the slide origin, with a schema test that would have caught it.
-- Not covered: how real PowerPoint renders any of this is unverified, as is every other visual claim here. Assignment (`assignedTo`, `dueDate`, `complete`), reactions and shape-anchored authoring are read and preserved but not editable.
+- Not covered: how the reference desktop app renders any of this is unverified, as is every other visual claim here. Assignment (`assignedTo`, `dueDate`, `complete`), reactions and shape-anchored authoring are read and preserved but not editable.
 
 ### Comment conversation navigation
 
@@ -747,7 +747,7 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 ### Vertical writing and autofit while editing
 
 - `<a:bodyPr vert=…>` and `<a:bodyPr numCol=… spcCol=…>` become CSS through `verticalTextStyle` / `textColumnsStyle` in `@office-kit/pptx-preview`, which the renderer's `<foreignObject>` path and the inline editor both use. One mapping, so the caret reads in the same direction as the painted glyphs. The half turn `vert270` needs is reported apart from its writing mode, because the editor already rotates the editing box for shape rotation and has to compose the two.
-- `shapeAutoFitScale` reports the factor the preview shrinks a `<a:normAutofit/>` body by, for the box the caller lays it out in. Inline editing scales its text by it, so a shrunk title keeps its size when the caret appears. `<a:noAutofit>` and `<a:spAutoFit>` report `1`, since PowerPoint shrinks neither.
+- `shapeAutoFitScale` reports the factor the preview shrinks a `<a:normAutofit/>` body by, for the box the caller lays it out in. Inline editing scales its text by it, so a shrunk title keeps its size when the caret appears. `<a:noAutofit>` and `<a:spAutoFit>` report `1`, since the reference desktop app shrinks neither.
 - The factor is computed from the committed model, which is what the preview painted. Text typed into an autofit box therefore keeps the current factor until the edit commits, when both sides pick up the new one together. Live re-shrinking per keystroke is not implemented.
 - Browser coverage compares the editor against the rendered SVG for `vert`, `wordArtVert` and `vert270`, and compares the shrunk box against an unshrunk reference beside it so the two px scales are commensurable. Both halves check bilingual editing and Japanese saved reload. Table cells still edit horizontally; cell-level `vert` is not wired up.
 
@@ -802,7 +802,7 @@ this table is about the everyday paths, and about what is not there at all.
    carry is a gradient or picture text fill; only a solid colour.
 3. ~~**Media playback.**~~ Autoplay, loop, volume, mute, full screen and
    hide-when-stopped are done — see below. A **trimmed range** is still missing,
-   and stays missing on purpose: PowerPoint keeps `p14:trim` in a 2010
+   and stays missing on purpose: the reference desktop app keeps `p14:trim` in a 2010
    extension rather than in the core schema.
 4. ~~**Slide number, date and footer.**~~ Slide numbers are done — see below.
    Dates and footers stay literal text: the field types exist
@@ -830,8 +830,8 @@ properties of a `.pptx` file.
 
 ### Slide numbers
 
-- A slide number is a field (`<a:fld type="slidenum">`), not text: PowerPoint recomputes it on open, so the number a file carries is stale the moment a slide moves. The preview now counts instead of reading — the n-th slide shows `firstSlideNum + n − 1`, with `firstSlideNum` taken from `<p:presentation>` (1 when the deck does not say). Every other field type keeps its cached text; `datetime` alone has thirteen locale-dependent variants a preview has no business guessing at.
-- `setShapeTextField(shape, type, { text })` writes one, replacing the shape's whole text body — a field placeholder holds the field and nothing else, which is how PowerPoint writes slide numbers and dates. The formatting of the text it replaces is carried onto the field, so inserting one into a styled placeholder does not reset its look.
+- A slide number is a field (`<a:fld type="slidenum">`), not text: the reference desktop app recomputes it on open, so the number a file carries is stale the moment a slide moves. The preview now counts instead of reading — the n-th slide shows `firstSlideNum + n − 1`, with `firstSlideNum` taken from `<p:presentation>` (1 when the deck does not say). Every other field type keeps its cached text; `datetime` alone has thirteen locale-dependent variants a preview has no business guessing at.
+- `setShapeTextField(shape, type, { text })` writes one, replacing the shape's whole text body — a field placeholder holds the field and nothing else, which is how the reference desktop app writes slide numbers and dates. The formatting of the text it replaces is carried onto the field, so inserting one into a styled placeholder does not reset its look.
 - The editor presents it the way Google Slides does: one deck-wide switch in the slide panel rather than a per-slide insert. On, it fills the template's own `sldNum` placeholder — restoring the slot from the layout with `addSlidePlaceholder` when the author deleted it — so the number takes its position, font and colour from the design. Only a deck whose layout reserves no slot gets a plain bottom-right box. Off removes the number again, but never a box that merely mentions a number among other text.
 - `addSlidePlaceholder(slide, type)` is the new library piece: `addMissingSlidePlaceholders` restores every deleted slot at once, which is the wrong tool for inserting one. Both now share the same insertion.
 - Ribbon ▸ Insert ▸ Text ▸ "Insert field" is the per-shape path for the other field types, in English and Japanese. Browser tests toggle the switch in both languages and check the saved `.pptx` and the live canvas number; site tests cover which shape ends up carrying the number and what the switch is allowed to delete.
@@ -846,7 +846,7 @@ properties of a `.pptx` file.
 
 ### Media playback
 
-- `getShapeMediaPlayback` / `setShapeMediaPlayback` read and write what PowerPoint's Playback tab sets: `autoplay` (the media time node's start condition — `delay="0"` against `indefinite`), `loop` (`repeatCount`), `volume`, `muted`, `hideWhenStopped` from `CT_TLCommonMediaNodeData`, and `fullScreen` from `CT_TLMediaNodeVideo`. Omitted properties keep their value, and "no repeat" drops the attribute rather than writing the schema's own default back.
+- `getShapeMediaPlayback` / `setShapeMediaPlayback` read and write what the reference desktop app's Playback tab sets: `autoplay` (the media time node's start condition — `delay="0"` against `indefinite`), `loop` (`repeatCount`), `volume`, `muted`, `hideWhenStopped` from `CT_TLCommonMediaNodeData`, and `fullScreen` from `CT_TLMediaNodeVideo`. Omitted properties keep their value, and "no repeat" drops the attribute rather than writing the schema's own default back.
 - Both refuse what the file cannot state: `fullScreen` on an audio clip throws instead of writing an attribute `CT_TLMediaNodeAudio` does not have, and a volume outside 0–1 throws before anything changes. A shape with no media time node reads as `null` and refuses to be written — that is also what a clip pasted in without its node looks like, and such a clip shows no controls in the slide show.
 - Trimming is not covered: `p14:trim` is a 2010 extension, and a reader that does not know it plays the whole clip. The preview does not play media either; these settings travel in the file rather than being previewed.
 - Reachable in the editor through the properties panel and the command palette, in English and Japanese. Library tests cover the defaults a freshly added clip carries, each property, the refusals, the round trip and the XSD validity of the written timing tree.
@@ -854,7 +854,7 @@ properties of a `.pptx` file.
 ### Layout editing
 
 - A layout handle used to be a snapshot — `{ partName, parsed part }` with no package and no document — so nothing written through it could go anywhere. It now carries the package and its own parsed document, and `commitLayoutData` writes it back into the layout part and re-reads the typed view, the same shape `commitSlideData` / `refreshSlideData` have for slides. That is what made the rest possible; the three places that construct a layout handle were updated together.
-- `setSlideLayoutName`, `setSlideLayoutBackground`, `clearSlideLayoutBackground` and `setSlideLayoutPlaceholderBounds` are the first edits on top of it. A layout is a `<p:cSld>` like a slide is, so the background writer and the geometry writers are the slide ones — this added no second implementation of either. Moving a slot uses the same index the read API already hands out, and a slide that carries its own `<a:xfrm>` keeps it, exactly as PowerPoint behaves when a layout changes under slides that were already nudged.
+- `setSlideLayoutName`, `setSlideLayoutBackground`, `clearSlideLayoutBackground` and `setSlideLayoutPlaceholderBounds` are the first edits on top of it. A layout is a `<p:cSld>` like a slide is, so the background writer and the geometry writers are the slide ones — this added no second implementation of either. Moving a slot uses the same index the read API already hands out, and a slide that carries its own `<a:xfrm>` keeps it, exactly as the reference desktop app behaves when a layout changes under slides that were already nudged.
 - The dedup that came with it: `getSlideBackground`, `getSlideLayoutBackground` and `getSlideMasterBackground` were three copies of one parser. They now share `backgroundOfCSld`, which projects the `<p:bg>` of any `<p:cSld>` — slide, layout or master.
 - In the editor the layout is bound from the current slide rather than picked from a list, so there is no separate "master view" to enter and leave; the panel says how many slides share the layout, because that is the surprise. Reachable from the properties panel and Design ▸ Layout in the ribbon, in English and Japanese, and one edit is one undo step (undo restores the whole package, layout parts included).
 - Library tests cover the rename, the background, the inheritance rule for moved slots, the refusal for a slot that does not exist, the save/load round trip and the XSD validity of the edited layout part. Browser tests drive the panel in both languages and assert against the layout part inside the saved `.pptx`.

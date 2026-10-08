@@ -1,6 +1,6 @@
-// Insert ▸ Header & Footer: the date, slide number and footer PowerPoint keeps
+// Insert ▸ Header & Footer: the date, slide number and footer the reference desktop app keeps
 // in the `dt`, `sldNum` and `ftr` placeholders. A layout without the slot
-// borrows the master's, as PowerPoint does; a deck with neither (the DSL's
+// borrows the master's, as the reference desktop app does; a deck with neither (the DSL's
 // default template) gets a plain box along the bottom edge, named so it is
 // found again, as `slide-numbers.ts` does for the number.
 

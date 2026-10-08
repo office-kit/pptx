@@ -200,7 +200,7 @@ export function inlineTextHtml(
     if (props.spcBefPts !== null) style.marginTop = scaled(props.spcBefPts, 'pt');
     if (props.spcAftPts !== null) style.marginBottom = scaled(props.spcAftPts, 'pt');
     // Indents follow the line direction, so vertical text indents from the
-    // top like PowerPoint's rotated layout. Right-to-left paragraphs keep the
+    // top like the reference desktop app's rotated layout. Right-to-left paragraphs keep the
     // physical sides they have always used.
     const [start, end] = props.rtl
       ? (['paddingLeft', 'paddingRight'] as const)
@@ -234,7 +234,7 @@ export function inlineTextHtml(
           ? String(props.lineSpacing.value)
           : '0'
         : '1.05';
-      // PowerPoint keeps a break's insertion format without enlarging the
+      // The reference desktop app keeps a break's insertion format without enlarging the
       // preceding text line when only that break's font size changes.
       if (span.textContent === '\n' && /[^\n]$/.test(span.previousSibling?.textContent ?? '')) {
         span.style.lineHeight = '0';

@@ -1,13 +1,13 @@
-// Generated from the native menu-bar capture of PowerPoint for Mac 16.113.3
+// Generated from the native menu-bar capture of the reference desktop app (Mac, 16.113.3)
 // (AX read of every menu in the English and Japanese UI, 2026-10-07). Do not
 // edit by hand: order, separators ('-'), labels and shortcut glyphs are
-// PowerPoint's. 🌐 marks the fn/Globe modifier (AX modifier bit 4).
+// the reference desktop app's. 🌐 marks the fn/Globe modifier (AX modifier bit 4).
 //
-// Left out: the application menu ("PowerPoint": About, Settings, Services,
+// Left out: the application menu (named after the app: About, Settings, Services,
 // Hide, Quit), which belongs to the browser here, and lists that name things
 // on the capture machine (Open Recent's documents, the subtitle languages and
 // microphones). Japanese items carry the id of their English counterpart, so
-// commands bind once; PowerPoint orders the Japanese Window and Slide Show
+// commands bind once; the reference desktop app orders the Japanese Window and Slide Show
 // menus differently and has no Rehearse with Coach in Japanese.
 //
 // The one deliberate departure: items whose label names the product (its

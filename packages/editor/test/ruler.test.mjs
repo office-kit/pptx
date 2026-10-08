@@ -107,7 +107,7 @@ test('vertical text measures down the vertical ruler, and upward for vert270', (
   );
 });
 
-test('indent handles keep PowerPoint margin rules', () => {
+test('indent handles keep the reference desktop app’s margin rules', () => {
   assert.deepEqual(indentAfterDrag({ left: 0, first: 0 }, 'first', 358775), {
     firstLineEmu: 358775,
   });

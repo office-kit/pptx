@@ -135,7 +135,7 @@ test('sorter zoom uses the native 20–200 percent range independently of normal
   assert.equal(editor.sorterZoom, 2);
   editor.setZoom(0.1);
   assert.equal(editor.sorterZoom, 0.2);
-  // Mac PowerPoint's sorter opens, and fits, at 80%.
+  // The reference desktop app's (Mac) sorter opens, and fits, at 80%.
   editor.zoomFit();
   assert.equal(editor.sorterZoom, 0.8);
   editor.setViewMode('normal');
@@ -1066,7 +1066,7 @@ test('slide distribution includes outer margins and supports one or two objects'
   }
 });
 
-test('distribution reproduces saved Mac PowerPoint coordinates', () => {
+test('distribution reproduces saved the reference desktop app (Mac) coordinates', () => {
   const editor = new EditorController();
   const shapes = arrangedShapes(editor);
   const original = [
