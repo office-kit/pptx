@@ -28,6 +28,9 @@ const SCOPES = [
   'samples',
   'tools',
   ':(glob)*.md',
+  // Markdown beside the libraries, which the root test (it skips .md) does not read.
+  ':(glob)packages/*/**/*.md',
+  ':(glob)test/**/*.md',
 ];
 
 // Files excluded on purpose:
