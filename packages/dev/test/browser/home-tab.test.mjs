@@ -109,6 +109,8 @@ test(
         'Paste',
         'Select All',
         '----',
+        'Download Selected Slides...',
+        '----',
         'New Slide',
         'Duplicate Slide',
         'Delete Slide',

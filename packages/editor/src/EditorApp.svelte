@@ -151,12 +151,25 @@
     } else if (menuKey === 'edit/select-all') {
       e.preventDefault();
       editor.selectAll();
-    } else if (menuKey === 'edit/copy') {
-      if (doc.selection.kind !== 'cell') editor.copySelection();
-    } else if (menuKey === 'edit/cut') {
-      if (doc.selection.kind !== 'cell') editor.cutSelection();
+    } else if (menuKey === 'edit/copy' || menuKey === 'edit/cut') {
+      // Table cells copy through the copy event (spreadsheet text). Slides and
+      // objects write the system clipboard themselves; cancelling the key
+      // keeps the browser's own copy from replacing that write.
+      if (doc.selection.kind === 'cell') return;
+      e.preventDefault();
+      if (menuKey === 'edit/cut') editor.cutSelection();
+      else editor.copySelection();
     } else if (menuKey === 'edit/paste') {
-      if (doc.selection.kind !== 'cell') editor.paste();
+      // The paste event that follows carries the clipboard without a
+      // permission prompt. Where the key raises none (Ctrl+V on a Mac), paste
+      // through the async Clipboard API instead.
+      if (doc.selection.kind !== 'cell') {
+        clearTimeout(keyPaste);
+        keyPaste = setTimeout(() => {
+          keyPaste = undefined;
+          void editor.paste();
+        });
+      }
     } else if (mod && e.key === '0') {
       e.preventDefault();
       editor.zoomFit();
@@ -185,10 +198,25 @@
       else if (!editor.exitGroup()) doc.clearShapeSelection();
     }
   }
-  function onCellClipboard(event: ClipboardEvent) {
+  let keyPaste: ReturnType<typeof setTimeout> | undefined;
+  function onClipboard(event: ClipboardEvent) {
     const target = eventTarget(event) as HTMLElement;
-    if (!editor.ownsEvent(event) || event.defaultPrevented || editor.activeDialog || doc.selection.kind !== 'cell' ||
+    if (!editor.ownsEvent(event) || event.defaultPrevented || editor.activeDialog ||
       target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '') || !event.clipboardData) return;
+    if (doc.selection.kind !== 'cell') {
+      if (event.type === 'paste') {
+        clearTimeout(keyPaste);
+        keyPaste = undefined;
+        event.preventDefault();
+        void editor.pasteFromEvent(event.clipboardData);
+      } else if (doc.selection.kind !== 'none') {
+        // The browser's Edit menu, which raises the event without a key.
+        event.preventDefault();
+        if (event.type === 'cut') editor.cutSelection();
+        else editor.copySelection();
+      }
+      return;
+    }
     if (event.type === 'paste') {
       if (!event.clipboardData.types.includes('text/plain')) return;
       event.preventDefault();
@@ -215,7 +243,7 @@
   }
 </script>
 
-<svelte:window on:message={onParentMessage} on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
+<svelte:window on:message={onParentMessage} on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onClipboard} on:cut={onClipboard} on:paste={onClipboard} />
 
 <div bind:this={shell} class="ok-editor ok-shell" class:embedded class:compact-host={compactHost} style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
   <TopBar {onsave} {status} {autoSave} compact={compactHost} />

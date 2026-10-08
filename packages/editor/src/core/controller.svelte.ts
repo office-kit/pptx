@@ -24,6 +24,8 @@ import {
   importSlide,
   moveSlide,
   addSlideImage,
+  addSlideTextBox,
+  getShapeText,
   getShapeKind,
   getShapeRotation,
   setShapeImage,
@@ -81,6 +83,27 @@ import { shapeScope, invert, project, type Matrix } from '../canvas/group-space.
 import { projectedBounds } from '../canvas/transformed-snapping.ts';
 import type { Rect } from '../canvas/snapping.ts';
 import { selectedSlideIndices, selectedShapeId, selectedShapeIds } from './selection.ts';
+import {
+  buildClipboardDeck,
+  clipboardShapes,
+  pasteSource,
+  selectedSlidesFileName,
+  type ClipboardContent,
+  type ClipboardDeck,
+  type ClipboardKind,
+} from './clipboard-deck.ts';
+import {
+  canReadSystemClipboard,
+  pastedPicture,
+  readSystemClipboard,
+  systemClipboardFromEvent,
+  writeSystemClipboard,
+  type SystemClipboard,
+} from './system-clipboard.ts';
+import { parseHtmlTextClipboard } from './html-text-clipboard.ts';
+import { replayTextEdits } from './text-edit-preview.ts';
+import { downloadPptxBytes } from './download.ts';
+import { PRESET } from '../ribbon/config.ts';
 import type { PendingProposal } from './proposal.ts';
 
 export interface Toast {
@@ -131,12 +154,24 @@ export interface ContextMenuState {
   readonly y: number;
 }
 
-/** A byte snapshot keeps copied content independent of live edits and history. */
-interface Clipboard {
-  presentation: Promise<PresentationData>;
-  slideIndex: number;
-  content: { kind: 'slide'; slideIndices: number[] } | { kind: 'shapes'; shapeIds: number[] };
+/**
+ * This editor's last copy. The payload is built from a byte snapshot, so it is
+ * independent of live edits and history.
+ */
+interface OwnClipboard {
+  readonly id: string;
+  readonly kind: ClipboardKind;
+  readonly deck: Promise<ClipboardDeck>;
+  /** Whether the copy reached the system clipboard. */
+  written: 'pending' | 'done' | 'failed';
 }
+
+/** A paste's source: this editor's payload, or one read back from another editor's. */
+type PasteDeck = { readonly kind: ClipboardKind; readonly pres: Promise<PresentationData> };
+
+const EMU_PER_PX = 9525;
+const DEFAULT_SLIDE = { width: 12192000, height: 6858000 };
+const CLIPBOARD_ID_BYTES = 16;
 
 const PASTE_OFFSET = inches(0.25);
 
@@ -786,7 +821,7 @@ export class EditorController {
   }
 
   // --- Clipboard & shape actions -----------------------------------------
-  #clipboard = $state.raw<Clipboard | { values: string[][] } | null>(null);
+  #clipboard = $state.raw<OwnClipboard | { values: string[][] } | null>(null);
 
   /** Resolve the currently selected shapes to live objects. */
   selectedShapes(): SlideShapeData[] {
@@ -1143,16 +1178,26 @@ export class EditorController {
     const ids = selectedShapeIds(sel);
     if (sel.kind !== 'slide' && !ids.length) return;
     if (!this.doc.slideAt(sel.slideIndex)) return;
-    this.#clipboard = {
-      presentation: this.doc.toBytes().then(loadPresentation),
-      slideIndex: sel.slideIndex,
-      content:
-        sel.kind === 'slide'
-          ? { kind: 'slide', slideIndices: selectedSlideIndices(sel) }
-          : { kind: 'shapes', shapeIds: [...ids] },
-    };
+    const content: ClipboardContent =
+      sel.kind === 'slide'
+        ? { kind: 'slides', slideIndices: selectedSlideIndices(sel) }
+        : { kind: 'shapes', slideIndex: sel.slideIndex, shapeIds: [...ids] };
+    // toBytes takes its snapshot synchronously, before a cut deletes the selection.
+    const deck = this.doc.toBytes().then((bytes) => buildClipboardDeck(bytes, content));
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(CLIPBOARD_ID_BYTES)), (byte) =>
+      byte.toString(16).padStart(2, '0'),
+    ).join('');
+    const clip: OwnClipboard = { id, kind: content.kind, deck, written: 'pending' };
+    this.#clipboard = clip;
     // Attach a handler immediately; a later paste reports the captured failure.
-    void this.#clipboard.presentation.catch((error: Error) => this.toast('error', error.message));
+    void deck.catch((error: Error) => this.toast('error', error.message));
+    // Still inside the user gesture, which the browser requires for the write.
+    // Without the system clipboard (no API, or permission denied), pastes in
+    // this editor keep using the copy.
+    writeSystemClipboard(id, deck).then(
+      () => (clip.written = 'done'),
+      () => (clip.written = 'failed'),
+    );
   }
 
   cutSelection(): string | undefined {
@@ -1162,30 +1207,86 @@ export class EditorController {
     return text;
   }
 
+  /** Paste from a command (menu, ribbon): reads the system clipboard through the async API. */
   async paste(): Promise<void> {
-    const clip = this.#clipboard;
-    if (!clip) return;
-    if ('values' in clip) {
-      this.pasteCellValues(clip.values);
+    const own = this.#clipboard;
+    if (this.doc.selection.kind === 'cell') {
+      if (own && 'values' in own) this.pasteCellValues(own.values);
       return;
     }
+    let system: SystemClipboard | null = null;
+    let denied = false;
+    if (canReadSystemClipboard()) {
+      try {
+        system = await readSystemClipboard();
+      } catch {
+        // Permission denied or the page lost focus: this editor's own copy still pastes.
+        denied = true;
+      }
+    }
+    await this.#pasteFrom(system, denied);
+  }
+
+  /**
+   * ⌘V / Ctrl+V outside text: the paste event's data, which needs no
+   * permission. Another editor's copy is read back through the async API for
+   * its payload; without access, its picture or text pastes instead.
+   */
+  async pasteFromEvent(data: DataTransfer): Promise<void> {
+    let system = systemClipboardFromEvent(data);
+    const own = this.#clipboard;
+    const ownId = own && 'id' in own ? own.id : null;
+    if (system.marker && system.marker.id !== ownId && canReadSystemClipboard()) {
+      try {
+        system = await readSystemClipboard();
+      } catch {
+        // Access denied: the event's renditions still paste.
+      }
+    }
+    await this.#pasteFrom(system, false);
+  }
+
+  async #pasteFrom(system: SystemClipboard | null, denied: boolean): Promise<void> {
+    const stored = this.#clipboard;
+    const own = stored && 'id' in stored ? stored : null;
+    const source = pasteSource(
+      own,
+      system && { id: system.marker?.id ?? null, empty: system.empty },
+    );
+    if (own && source === 'own') {
+      await this.#pasteDeck({ kind: own.kind, pres: own.deck.then((deck) => deck.pres) });
+      return;
+    }
+    if (!system || source === 'none') {
+      if (denied) this.toast('error', t('Clipboard access was denied'));
+      return;
+    }
+    if (system.deck && system.marker) {
+      const pres = system.deck().then(loadPresentation);
+      await this.#pasteDeck({ kind: system.marker.kind, pres });
+    } else if (system.image) {
+      await this.#pastePicture(system.image());
+    } else {
+      this.#pasteText(system.html, system.text);
+    }
+  }
+
+  /** Slides go after the current slide; objects onto it, offset like a duplicate. */
+  async #pasteDeck(deck: PasteDeck): Promise<void> {
     const targetPresentation = this.doc.pres;
     const targetSlide = this.doc.slideAt(this.doc.selection.slideIndex);
-    if (!targetSlide && clip.content.kind !== 'slide') return;
+    if (!targetSlide && deck.kind !== 'slides') return;
     try {
-      const source = await clip.presentation;
+      const source = await deck.pres;
       // New/Open or undo replaces the document. Never paste into a stale target.
       if (this.doc.pres !== targetPresentation) return;
       const slideIndex = targetSlide ? getSlides(targetPresentation).indexOf(targetSlide) : -1;
       if (targetSlide && slideIndex < 0) return;
-      const sourceSlide = getSlides(source)[clip.slideIndex]!;
-      if (clip.content.kind === 'slide') {
+      if (deck.kind === 'slides') {
         this.doc.transact(t('Paste'), () => {
           const inserted: number[] = [];
-          for (const sourceIndex of clip.content.kind === 'slide'
-            ? clip.content.slideIndices
-            : []) {
-            const imported = importSlide(targetPresentation, getSlides(source)[sourceIndex]!);
+          for (const sourceSlide of getSlides(source)) {
+            const imported = importSlide(targetPresentation, sourceSlide);
             const at = slideIndex + 1 + inserted.length;
             moveSlide(targetPresentation, imported, at);
             inserted.push(at);
@@ -1199,7 +1300,7 @@ export class EditorController {
         });
         return;
       }
-      const sources = clip.content.shapeIds.map((id) => findShapeById(sourceSlide, id)!);
+      const sources = clipboardShapes(source);
       this.doc.transact(t('Paste'), () => {
         const newIds = this.#cloneOnto(sources, slideIndex, PASTE_OFFSET);
         this.doc.select({ kind: 'shape', slideIndex, shapeIds: newIds });
@@ -1209,6 +1310,68 @@ export class EditorController {
         'error',
         `${t('Paste')}: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+  }
+
+  /** A picture from another app, at its own size (shrunk to fit) in the middle of the slide. */
+  async #pastePicture(blob: Promise<Blob>): Promise<void> {
+    const target = this.doc.pres;
+    const slide = this.doc.slideAt(this.doc.selection.slideIndex);
+    if (!slide) return;
+    try {
+      const picture = await pastedPicture(await blob);
+      if (this.doc.pres !== target) return;
+      const size = getSlideSize(target) ?? DEFAULT_SLIDE;
+      const natural = { w: picture.width * EMU_PER_PX, h: picture.height * EMU_PER_PX };
+      const scale = Math.min(1, size.width / natural.w, size.height / natural.h);
+      const w = natural.w * scale;
+      const h = natural.h * scale;
+      const slideIndex = getSlides(target).indexOf(slide);
+      this.doc.transact(t('Paste'), () => {
+        const shape = addSlideImage(slide, picture.bytes, {
+          x: emu((size.width - w) / 2),
+          y: emu((size.height - h) / 2),
+          w: emu(w),
+          h: emu(h),
+        });
+        this.doc.select({ kind: 'shape', slideIndex, shapeIds: [getShapeId(shape)] });
+      });
+    } catch (error) {
+      this.toast(
+        'error',
+        `${t('Paste')}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /** Text from another app as a new text box, keeping the formatting its HTML carries. */
+  #pasteText(html: string, plain: string): void {
+    const slide = this.doc.slideAt(this.doc.selection.slideIndex);
+    const copied = parseHtmlTextClipboard(html, plain) ?? { text: plain, formats: [] };
+    if (!slide || !copied.text.trim()) return;
+    const slideIndex = this.doc.selection.slideIndex;
+    this.doc.transact(t('Paste'), () => {
+      const { x, y, w, h, text } = PRESET.textBox.opts;
+      const box = addSlideTextBox(slide, { x: emu(x), y: emu(y), w: emu(w), h: emu(h), text });
+      replayTextEdits(box, [
+        { start: 0, end: getShapeText(box).length, text: copied.text, formats: copied.formats },
+      ]);
+      this.doc.select({ kind: 'shape', slideIndex, shapeIds: [getShapeId(box)] });
+    });
+  }
+
+  /** Saves the selected slides (or the current one) as a separate `.pptx` download. */
+  async downloadSelectedSlides(): Promise<void> {
+    const slideIndices = selectedSlideIndices(this.doc.selection);
+    if (!slideIndices.every((index) => this.doc.slideAt(index))) return;
+    try {
+      const deck = await buildClipboardDeck(await this.doc.toBytes(), {
+        kind: 'slides',
+        slideIndices,
+      });
+      downloadPptxBytes(deck.bytes, selectedSlidesFileName(this.doc.fileName, slideIndices));
+    } catch (error) {
+      this.toast('error', error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -1235,8 +1398,16 @@ export class EditorController {
     });
   }
 
+  /**
+   * Whether Paste can have something to paste: this editor's own copy, or a
+   * system clipboard the browser lets the editor read (what it holds is only
+   * known once read).
+   */
   hasClipboard(): boolean {
-    return this.#clipboard != null;
+    // Selected table cells paste only cells copied in this editor.
+    if (this.doc.selection.kind === 'cell')
+      return this.#clipboard != null && 'values' in this.#clipboard;
+    return this.#clipboard != null || canReadSystemClipboard();
   }
 
   exitGroup(): boolean {

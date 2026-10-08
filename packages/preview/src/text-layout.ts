@@ -59,6 +59,9 @@ export interface RenderSlideOptions {
    *  Bodies with custom tab stops use SVG positioning in either mode, since
    *  CSS cannot represent their alignment. The harness opts into 'svg'. */
   readonly textLayout?: TextLayoutMode;
+  /** `false` paints only the slide's own shapes on a transparent surface:
+   *  no background fill and no master or layout graphics. Defaults to `true`. */
+  readonly background?: boolean;
 }
 
 // ---------------------------------------------------------------------------

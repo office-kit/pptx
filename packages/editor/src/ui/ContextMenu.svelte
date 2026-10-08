@@ -400,6 +400,9 @@
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
         { label: 'Select All', accel: '⌘A', sep: true, run: () => doc.select({ kind: 'slide', slideIndex: anchor, slideIndices: doc.slides.map((_, index) => index), anchorIndex: anchor }) },
+        // Not in the reference desktop app's menu. A browser cannot put slides on
+        // the clipboard in a form other apps import, so the file carries them.
+        { label: 'Download Selected Slides...', sep: true, run: () => void editor.downloadSelectedSlides() },
         { label: 'New Slide', accel: '⇧⌘N', run: () => editor.addNewSlide() },
         { label: 'Duplicate Slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
         { label: 'Delete Slide', run: () => editor.invoke('removeSlide') },
