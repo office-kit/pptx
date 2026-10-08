@@ -1,10 +1,10 @@
 // The editor page (`/editor`) inside the preview: it loads, saves and merges
-// the deck through the server's `/editor/*` endpoints, around `mountEditor`.
+// the deck through the server's `/editor/*` endpoints, around `mountDevEditor`.
 // Source rebuilds reach the editor as proposals from the source, so unsaved
 // edits merge with them and only real collisions ask the user.
 
-import { mountEditor, type EditorOptions, type ProposeResult } from '@office-kit/pptx-editor';
-import { mountPreviewFrameEditor } from '@office-kit/pptx-editor/internal';
+import type { EditorOptions, ProposeResult } from '@office-kit/pptx-editor';
+import { mountDevEditor } from '@office-kit/pptx-editor/internal';
 import { DraftStore, type EditorDraft } from './draft-store.ts';
 
 interface ServerState {
@@ -86,6 +86,8 @@ const STYLES = `
   .loading { background:#1f1f1f90; }
 }`;
 
+const FEEDBACK_URL = 'https://github.com/office-kit/pptx/issues';
+
 const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 const bytesOf = async (response: Response) => new Uint8Array(await response.arrayBuffer());
 
@@ -105,11 +107,12 @@ document.head.append(style);
 
 const status = element('div', { className: 'dev-status' });
 const options: EditorOptions = { isolate: false, compact: true, autoSave: true, status, onSave };
-// Opened on its own rather than in the preview's frame, there is no page to present on.
-const editor =
-  window.parent === window
-    ? mountEditor(document.body, options)
-    : mountPreviewFrameEditor(document.body, options);
+const editor = mountDevEditor(document.body, options, {
+  // Opened on its own rather than in the preview's frame, there is no page to present on.
+  previewFrame: window.parent !== window,
+  // The dev tool is ours, so its Help ▸ Feedback leads to our issue tracker.
+  feedback: { url: FEEDBACK_URL },
+});
 const t = (key: string) => (editor.locale === 'ja' ? (JA[key] ?? key) : key);
 
 let serverState: ServerState | undefined;

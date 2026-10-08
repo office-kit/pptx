@@ -1603,7 +1603,7 @@
                 }
                 // Menu-bar shortcuts (⌘T, ⌘K, ⌘E, the object-style keys …) go on
                 // to the menu bar, which runs them on the selected text.
-                if (!e.isComposing && menuKeyLeavesText(e)) return;
+                if (!e.isComposing && menuKeyLeavesText(editor, e)) return;
                 e.stopPropagation();
                 if (e.isComposing) return;
                 const formatKey = e.key.toLowerCase();

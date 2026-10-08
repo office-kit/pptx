@@ -141,7 +141,7 @@
 
     // Undo, Repeat, the clipboard and Select All keep their keys from the
     // menu bar's table, so they follow PowerPoint's shortcuts exactly.
-    const menuKey = menuItemForKey(nativeMenus(), e)?.id;
+    const menuKey = menuItemForKey(nativeMenus(editor), e)?.id;
     if (menuKey === 'edit/undo') {
       e.preventDefault();
       doc.undo();
