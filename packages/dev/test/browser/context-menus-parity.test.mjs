@@ -95,7 +95,7 @@ const CELL_MENU = [
 const PICTURE_MENU = [
   'Cut ⌘X',
   'Copy ⌘C',
-  'Paste ⌘V (disabled)',
+  'Paste ⌘V',
   '----',
   'Change Picture ▸',
   '----',
@@ -126,7 +126,7 @@ const PICTURE_MENU = [
 const BACKGROUND_MENU = [
   'Cut ⌘X (disabled)',
   'Copy ⌘C (disabled)',
-  'Paste ⌘V (disabled)',
+  'Paste ⌘V',
   'Paste Special... ⌃⌘V (disabled)',
   '----',
   'New Slide ⇧⌘N',

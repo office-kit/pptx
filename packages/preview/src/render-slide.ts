@@ -7228,7 +7228,8 @@ const renderSurface = (
   // appear. Picture bytes resolve because the shapes are bound to their part.
   let layoutBgShapes = '';
   const layoutForBg = surface.layout;
-  if (layoutForBg && !(slide && isSlideBackgroundGraphicsHidden(slide))) {
+  const paintBackground = opts.background ?? true;
+  if (paintBackground && layoutForBg && !(slide && isSlideBackgroundGraphicsHidden(slide))) {
     try {
       const masterShapes = topLevelShapes(
         !master && isSlideLayoutBackgroundGraphicsHidden(layoutForBg)
@@ -7261,9 +7262,13 @@ const renderSurface = (
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
     bgGradientDefs,
+    // A shape with a background fill still references the definition when the
+    // surface itself is left transparent.
     ctx.background.id
-      ? `<defs><g id="${ctx.background.id}">${backgroundSvg}</g></defs><use href="#${ctx.background.id}" xlink:href="#${ctx.background.id}"/>`
-      : backgroundSvg,
+      ? `<defs><g id="${ctx.background.id}">${backgroundSvg}</g></defs>${paintBackground ? `<use href="#${ctx.background.id}" xlink:href="#${ctx.background.id}"/>` : ''}`
+      : paintBackground
+        ? backgroundSvg
+        : '',
     layoutBgShapes,
     shapesSvg,
     '</svg>',

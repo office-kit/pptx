@@ -93,7 +93,7 @@ test(
       assert.deepEqual(entries, [
         'Cut',
         'Copy',
-        'Paste (disabled)',
+        'Paste',
         '----',
         'Edit Text',
         'Edit Points (disabled)',
