@@ -67,30 +67,32 @@ function pngDensityDpi(png) {
 async function readClipboard(frame, previous) {
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
-    const result = await frame.evaluate(async (deckType) => {
-      // A read during a pending write fails with "Clipboard data has changed"; poll again.
-      const items = await navigator.clipboard.read().catch((error) => {
-        if (error.name === 'InvalidStateError') return [];
+    const result = await frame
+      .evaluate(async (deckType) => {
+        const [item] = await navigator.clipboard.read();
+        if (!item) return null;
+        const out = { types: [...item.types] };
+        for (const type of item.types) {
+          const blob = await item.getType(type);
+          if (type.startsWith('text/') || type === 'image/svg+xml') out[type] = await blob.text();
+          else if (type === 'image/png') {
+            const bitmap = await createImageBitmap(blob);
+            out[type] = { width: bitmap.width, height: bitmap.height };
+          } else if (type === deckType) {
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            let binary = '';
+            for (const byte of bytes) binary += String.fromCharCode(byte);
+            out[type] = btoa(binary);
+          }
+        }
+        return out;
+      }, DECK_TYPE)
+      .catch((error) => {
+        // Reading while the editor's write is still pending fails with "Clipboard
+        // data has changed", from read() or from a later getType(); poll again.
+        if (/Clipboard data has changed/.test(error.message)) return null;
         throw error;
       });
-      const [item] = items;
-      if (!item) return null;
-      const out = { types: [...item.types] };
-      for (const type of item.types) {
-        const blob = await item.getType(type);
-        if (type.startsWith('text/') || type === 'image/svg+xml') out[type] = await blob.text();
-        else if (type === 'image/png') {
-          const bitmap = await createImageBitmap(blob);
-          out[type] = { width: bitmap.width, height: bitmap.height };
-        } else if (type === deckType) {
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          let binary = '';
-          for (const byte of bytes) binary += String.fromCharCode(byte);
-          out[type] = btoa(binary);
-        }
-      }
-      return out;
-    }, DECK_TYPE);
     const marker = /data-pptx-editor-clipboard="([^"]+)"/.exec(result?.['text/html'] ?? '')?.[1];
     if (marker && marker !== previous && result.types.includes(DECK_TYPE))
       return {
