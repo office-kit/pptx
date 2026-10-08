@@ -515,7 +515,7 @@ const tableStylePartsForCell = (pres: PresentationData, cell: TableCellData): Xm
   add('wholeTbl');
   // MS-OI29500 §2.1.1265 applies these regions in this order; the later,
   // more-specific region wins. This is the DrawingML table-style priority,
-  // rather than the similarly named Word table-style priority.
+  // rather than the similarly named WordprocessingML table-style priority.
   const bodyRow = row - (flags.firstRow ? 1 : 0);
   const bodyCol = col - (flags.firstCol ? 1 : 0);
   const bodyRows = rowCount - (flags.firstRow ? 1 : 0) - (flags.lastRow ? 1 : 0);

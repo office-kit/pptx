@@ -324,7 +324,7 @@ export interface ChartDataLabels {
   readonly showPercent: boolean;
   /**
    * Number-format code from `<c:dLbls><c:numFmt formatCode="…"/>`. When
-   * set, value labels are projected through this Excel-style format
+   * set, value labels are projected through this spreadsheet-style format
    * (same subset the value axis honors: `"0%"`, `"#,##0"`, `"$#,##0"`,
    * `"0.00"`). Independent of `ChartAxisScaling.numberFormat`.
    */
@@ -387,7 +387,7 @@ export interface ChartAxisScaling {
   /**
    * Number-format code from `<c:numFmt formatCode="…"/>`. Common
    * values: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.
-   * Renderers project a subset of Excel-style formats to label text.
+   * Renderers project a subset of spreadsheet number formats to label text.
    */
   readonly numberFormat?: string;
   /**
@@ -818,7 +818,7 @@ export interface ReadChartSpec {
   /**
    * Number-format code for the category-axis tick labels —
    * `<c:catAx><c:numFmt formatCode="…"/>`. Most useful on date-style
-   * categories (`"mm/dd/yyyy"`, `"mmm"`, etc.) but accepts any Excel
+   * categories (`"mm/dd/yyyy"`, `"mmm"`, etc.) but accepts any spreadsheet
    * format string. Independent of `valueAxis.numberFormat` (which
    * targets the value axis).
    */
@@ -888,7 +888,7 @@ export interface ReadChartSpec {
    */
   readonly language?: string;
   /**
-   * `<c:chartSpace><c:date1904 val="…"/>` — the Excel date-system flag.
+   * `<c:chartSpace><c:date1904 val="…"/>` — the spreadsheet date-system flag.
    * `false` (the default) uses the 1900-epoch; `true` uses 1904.
    * Surface for parity; renderers don't act on it yet.
    */

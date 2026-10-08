@@ -3200,7 +3200,7 @@ const formatTick = (v: number): string => {
   return v.toFixed(abs < 1 ? 2 : 1);
 };
 
-// Project a subset of Excel-style number-format codes onto a label.
+// Project a subset of spreadsheet number-format codes onto a label.
 // Covers the most common cases real templates emit:
 //   - '0%'  / '0.0%'  / '#%' : percent (multiplied by 100)
 //   - '#,##0' / '#,##0.0'    : thousand separator
@@ -3209,7 +3209,7 @@ const formatTick = (v: number): string => {
 // Unrecognised formats fall through to formatTick.
 const formatAxisLabel = (v: number, formatCode: string | undefined): string => {
   if (!formatCode) return formatTick(v);
-  // Strip Excel "literal" quoted text. `"\$"#,##0` and `"$"#,##0`
+  // Strip quoted "literal" text from the format code. `"\$"#,##0` and `"$"#,##0`
   // are both common encodings of "dollar prefix then formatted number".
   let prefix = '';
   let suffix = '';
@@ -3270,7 +3270,7 @@ interface AxisSpec {
   readonly minorGridlines?: boolean;
   readonly minorGridlineColor?: string;
   readonly minorGridlineWidthEmu?: number;
-  /** Excel-style number-format code from <c:numFmt formatCode=…>. */
+  /** Spreadsheet number-format code from <c:numFmt formatCode=…>. */
   readonly numberFormat?: string;
   /** When `false`, gridlines aren't painted (only the tick labels). */
   readonly majorGridlines?: boolean;
@@ -3698,12 +3698,12 @@ const seriesMinMax = (spec: ReadChartSpec): { min: number; max: number; step: nu
   if (max === min) max = min + 1;
   if (min > 0) min = 0; // include the zero line, like the reference desktop app does
   // percentStacked is always exactly 0..100% with 20% ticks — it gets no
-  // Excel-style headroom (which would push the axis to 120% and leave the
+  // spreadsheet-style headroom (which would push the axis to 120% and leave the
   // full-height bar short of the plot top).
   if (isPercent) {
     return { min: 0, max: 1, step: 0.2 };
   }
-  // Excel-style headroom: the auto axis maximum is the first major-unit
+  // Spreadsheet-style headroom: the auto axis maximum is the first major-unit
   // multiple strictly above the data max (data 300 with step 50 → axis 350),
   // so the tallest bar never touches the plot edge. Matches the reference desktop app and
   // LibreOffice auto-scaling; an authored max below overrides this.
@@ -3930,7 +3930,7 @@ const renderColumnChart = (
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
   const isPercent = grouping === 'percentStacked';
   // seriesMinMax already scales stacked / percentStacked to the per-category
-  // total (with the same Excel-style headroom the axis uses), so the bars and
+  // total (with the same spreadsheet-style headroom the axis uses), so the bars and
   // the axis labels share one range.
   const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;

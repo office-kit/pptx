@@ -39,7 +39,7 @@ const isXyKind = (spec: ReadChartSpec): boolean =>
 /** Parses a date-axis category; the caller has validated it is numeric. */
 export const dateSerial = (category: string): number => Number(category);
 
-// Category kinds — the layout Excel itself produces for a chart sheet:
+// Category kinds — the layout spreadsheet apps themselves produce for a chart sheet:
 //
 //   |  (level columns, outermost first)  | series 0 | series 1 | …
 //   |  2024  |  Q1                       |    10    |    7     |
@@ -51,7 +51,7 @@ const layoutCategorySheet = (spec: ReadChartSpec): ChartSheetLayout => {
   const isDateAxis = spec.categoryAxisDate !== undefined;
 
   // A1 (and the rest of the level header) is written as an empty string
-  // rather than omitted, the way Excel marks the corner of a chart range.
+  // rather than omitted, the way spreadsheet apps mark the corner of a chart range.
   const header: SheetCell[] = [
     ...Array.from({ length: levelCount }, () => ''),
     ...spec.series.map((s) => s.name),

@@ -2344,7 +2344,7 @@ export const generatedTools: GeneratedTools = {
           CategoryAxisNumberFormat: {
             type: 'string',
             description:
-              'Number-format code for the category-axis tick labels —\n`<c:catAx><c:numFmt formatCode="…"/>`. Most useful on date-style\ncategories (`"mm/dd/yyyy"`, `"mmm"`, etc.) but accepts any Excel\nformat string. Independent of `valueAxis.numberFormat` (which\ntargets the value axis).',
+              'Number-format code for the category-axis tick labels —\n`<c:catAx><c:numFmt formatCode="…"/>`. Most useful on date-style\ncategories (`"mm/dd/yyyy"`, `"mmm"`, etc.) but accepts any spreadsheet\nformat string. Independent of `valueAxis.numberFormat` (which\ntargets the value axis).',
           },
           CategoryAxisOrientation: {
             type: 'string',
@@ -2424,7 +2424,7 @@ export const generatedTools: GeneratedTools = {
               numberFormat: {
                 type: 'string',
                 description:
-                  'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of Excel-style formats to label text.',
+                  'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of spreadsheet number formats to label text.',
               },
               logBase: {
                 type: 'number',
@@ -2468,7 +2468,7 @@ export const generatedTools: GeneratedTools = {
               numberFormat: {
                 type: 'string',
                 description:
-                  'Number-format code from `<c:dLbls><c:numFmt formatCode="…"/>`. When\nset, value labels are projected through this Excel-style format\n(same subset the value axis honors: `"0%"`, `"#,##0"`, `"$#,##0"`,\n`"0.00"`). Independent of `ChartAxisScaling.numberFormat`.',
+                  'Number-format code from `<c:dLbls><c:numFmt formatCode="…"/>`. When\nset, value labels are projected through this spreadsheet-style format\n(same subset the value axis honors: `"0%"`, `"#,##0"`, `"$#,##0"`,\n`"0.00"`). Independent of `ChartAxisScaling.numberFormat`.',
               },
               position: {
                 type: 'string',
@@ -2841,7 +2841,7 @@ export const generatedTools: GeneratedTools = {
           Date1904: {
             type: 'boolean',
             description:
-              '`<c:chartSpace><c:date1904 val="…"/>` — the Excel date-system flag.\n`false` (the default) uses the 1900-epoch; `true` uses 1904.\nSurface for parity; renderers don\'t act on it yet.',
+              '`<c:chartSpace><c:date1904 val="…"/>` — the spreadsheet date-system flag.\n`false` (the default) uses the 1900-epoch; `true` uses 1904.\nSurface for parity; renderers don\'t act on it yet.',
           },
           DispBlanksAs: {
             type: 'string',
@@ -5628,7 +5628,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'setChartSpec',
       description:
-        'Replaces the chart definition on an existing graphic-frame chart\nshape. Updates the inline `<c:strCache>` / `<c:numCache>` blocks so\nthe reference desktop app renders the new data without opening the embedded\nworkbook. The shape\'s geometry (position / size / rotation) is\npreserved verbatim.\n\nThe embedded xlsx is re-written too — it\'s what the "Edit data"\naffordance opens. The previous workbook is replaced wholesale (no\nattempt to preserve styles a user added through Excel).\n\nPass any `ChartSpec`, including a different `kind` from the\noriginal; this acts as "change my column chart to a line chart with\nfresh data."',
+        'Replaces the chart definition on an existing graphic-frame chart\nshape. Updates the inline `<c:strCache>` / `<c:numCache>` blocks so\nthe reference desktop app renders the new data without opening the embedded\nworkbook. The shape\'s geometry (position / size / rotation) is\npreserved verbatim.\n\nThe embedded xlsx is re-written too — it\'s what the "Edit data"\naffordance opens. The previous workbook is replaced wholesale (no\nattempt to preserve styles a user added in a spreadsheet app).\n\nPass any `ChartSpec`, including a different `kind` from the\noriginal; this acts as "change my column chart to a line chart with\nfresh data."',
       args: ['chart', 'spec'],
       input_schema: {
         type: 'object',
@@ -7595,7 +7595,7 @@ export const generatedTools: GeneratedTools = {
           CategoryAxisNumberFormat: {
             type: 'string',
             description:
-              'Number-format code for the category-axis tick labels —\n`<c:catAx><c:numFmt formatCode="…"/>`. Most useful on date-style\ncategories (`"mm/dd/yyyy"`, `"mmm"`, etc.) but accepts any Excel\nformat string. Independent of `valueAxis.numberFormat` (which\ntargets the value axis).',
+              'Number-format code for the category-axis tick labels —\n`<c:catAx><c:numFmt formatCode="…"/>`. Most useful on date-style\ncategories (`"mm/dd/yyyy"`, `"mmm"`, etc.) but accepts any spreadsheet\nformat string. Independent of `valueAxis.numberFormat` (which\ntargets the value axis).',
           },
           CategoryAxisOrientation: {
             type: 'string',
@@ -7675,7 +7675,7 @@ export const generatedTools: GeneratedTools = {
               numberFormat: {
                 type: 'string',
                 description:
-                  'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of Excel-style formats to label text.',
+                  'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of spreadsheet number formats to label text.',
               },
               logBase: {
                 type: 'number',
@@ -7719,7 +7719,7 @@ export const generatedTools: GeneratedTools = {
               numberFormat: {
                 type: 'string',
                 description:
-                  'Number-format code from `<c:dLbls><c:numFmt formatCode="…"/>`. When\nset, value labels are projected through this Excel-style format\n(same subset the value axis honors: `"0%"`, `"#,##0"`, `"$#,##0"`,\n`"0.00"`). Independent of `ChartAxisScaling.numberFormat`.',
+                  'Number-format code from `<c:dLbls><c:numFmt formatCode="…"/>`. When\nset, value labels are projected through this spreadsheet-style format\n(same subset the value axis honors: `"0%"`, `"#,##0"`, `"$#,##0"`,\n`"0.00"`). Independent of `ChartAxisScaling.numberFormat`.',
               },
               position: {
                 type: 'string',
@@ -8096,7 +8096,7 @@ export const generatedTools: GeneratedTools = {
           Date1904: {
             type: 'boolean',
             description:
-              '`<c:chartSpace><c:date1904 val="…"/>` — the Excel date-system flag.\n`false` (the default) uses the 1900-epoch; `true` uses 1904.\nSurface for parity; renderers don\'t act on it yet.',
+              '`<c:chartSpace><c:date1904 val="…"/>` — the spreadsheet date-system flag.\n`false` (the default) uses the 1900-epoch; `true` uses 1904.\nSurface for parity; renderers don\'t act on it yet.',
           },
           DispBlanksAs: {
             type: 'string',
