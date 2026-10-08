@@ -158,7 +158,7 @@ describe('Table merges', () => {
       );
   });
 
-  // PowerPoint paints a merged block from its top-left cell alone, fill and all
+  // The reference desktop app paints a merged block from its top-left cell alone, fill and all
   // four borders, so a covered position is left bare and styleCell never sees it.
   it('styles the top-left cell of a merge and leaves covered positions bare', async () => {
     const seen: string[] = [];

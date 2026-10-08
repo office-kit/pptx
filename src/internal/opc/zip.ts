@@ -20,11 +20,11 @@
 //
 // What we do NOT preserve:
 //
-//   - File timestamps (`mtime`). PowerPoint sets these to the current time
+//   - File timestamps (`mtime`). The reference desktop app sets these to the current time
 //     anyway; preserving the original would be misleading.
 //   - ZIP64 extensions. fflate auto-promotes when needed.
 //   - Extra fields, file attributes, UTF-8 flags. These are not load-bearing
-//     for PPTX as consumed by PowerPoint.
+//     for PPTX as consumed by the reference desktop app.
 
 import { type ZipOptions, unzipSync, zipSync } from 'fflate';
 

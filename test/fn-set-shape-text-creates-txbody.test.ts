@@ -1,4 +1,4 @@
-// A preset shape authored without `text` has no <p:txBody>. PowerPoint always
+// A preset shape authored without `text` has no <p:txBody>. The reference desktop app always
 // gives an autoshape one so you can click in and type; setShapeText /
 // appendShapeText must therefore create the body on demand rather than throw.
 // Regression for the editor's "can't type into an inserted shape" bug.

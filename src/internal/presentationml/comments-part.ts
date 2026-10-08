@@ -206,7 +206,7 @@ export const readCommentList = (root: XmlElement): CommentList => {
 
 const commentAuthorElement = (a: CommentAuthor): XmlElement => {
   // `clrIdx` is required by the strict ECMA-376 schema even though
-  // PowerPoint tolerates its absence in practice. Default to 0 so we
+  // the reference desktop app tolerates its absence in practice. Default to 0 so we
   // always pass `xmllint --schema` validation.
   const attrs = [
     attr(ATTR_ID, String(a.id)),

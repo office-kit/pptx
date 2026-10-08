@@ -89,7 +89,7 @@ export type ShapeEffect =
  * `CT_EffectStyleItem` (ECMA-376 §20.1.8.x) — outer shadow, inner
  * shadow, glow, reflection, soft-edge, blur. Returned in document
  * order so renderers can chain filters with the same composition
- * PowerPoint applies.
+ * the reference desktop app applies.
  *
  * Lengths are EMU; angles are degrees clockwise from 3 o'clock;
  * opacity is a unit fraction (0..1) when the spec exposes one.
@@ -135,7 +135,7 @@ export type ShapeEffectAny =
       readonly scaleX?: number;
       readonly alignment?: 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
       readonly rotateWithShape?: boolean;
-      // Vertical scale (`sy`) as a signed unit fraction — PowerPoint
+      // Vertical scale (`sy`) as a signed unit fraction — the reference desktop app
       // encodes the mirror as a negative `sy` (e.g. -1 = full-height
       // flip), so renderers must honor the sign, not just the magnitude.
       readonly scaleY?: number;
@@ -199,7 +199,7 @@ export const getShapeEffect = (shape: SlideShapeData): ShapeEffect | null => {
  * soft edge, blur. Empty array when no effects apply.
  *
  * Companion to `getShapeEffect`, which is the v1 "first effect only"
- * helper. `getShapeEffects` is what renderers want because PowerPoint
+ * helper. `getShapeEffects` is what renderers want because the reference desktop app
  * composes multiple effects in a single filter (shadow + glow, etc.).
  */
 export const getShapeEffects = (
@@ -247,7 +247,7 @@ export const findShapesByEffect = (
  * cascade when the shape itself has no `<a:effectLst>`. Inherits
  * "all or nothing" — once any layer supplies an effect list, that
  * list is used; layers further down aren't merged in. This matches
- * PowerPoint's behaviour (effect lists override rather than compose).
+ * the reference desktop app's behaviour (effect lists override rather than compose).
  */
 export const getShapeEffectsEffective = (
   pres: PresentationData,
@@ -427,7 +427,7 @@ export const clearShapeEffects = (shape: SlideShapeData): void => {
 /**
  * Sets the shape's own 3-D — `<a:scene3d>` (camera, rotation, lighting) and
  * `<a:sp3d>` (bevels, depth, contour, material, distance from ground) in
- * `<p:spPr>`, what PowerPoint's 3-D Format and 3-D Rotation write. Same
+ * `<p:spPr>`, what the reference desktop app's 3-D Format and 3-D Rotation write. Same
  * vocabulary as `setShapeText3D`, which puts it on the text body instead. A
  * field left out removes what it describes; settings this API does not model
  * (camera zoom, backdrop, ...) are kept while their element remains. `null`

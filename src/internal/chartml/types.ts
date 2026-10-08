@@ -45,7 +45,7 @@ export interface ChartSeries {
   readonly name: string;
   /**
    * Numeric values, one per category. `null` slots become empty cells in
-   * the embedded workbook (PowerPoint draws them as a gap). Lengths
+   * the embedded workbook (the reference desktop app draws them as a gap). Lengths
    * shorter than the category count are right-padded with `null`.
    *
    * For `scatter` / `bubble` kinds there are no categories: `values`
@@ -84,7 +84,7 @@ export interface ChartSeries {
   readonly chartKind?: 'bar' | 'column' | 'line' | 'area';
   /**
    * Plot this series against the secondary value axis — the right-hand
-   * axis PowerPoint shows for combo charts with mixed units
+   * axis the reference desktop app shows for combo charts with mixed units
    * (`<c:valAx>` pair with `axPos="r"` plus a deleted companion
    * `<c:catAx>`). The builder emits the secondary axis pair on demand.
    * Only meaningful for the category kinds; rejected for pie / doughnut.
@@ -130,14 +130,14 @@ export interface ChartSeries {
     | 'dot'
     | 'picture';
   /**
-   * Marker size in points (`<c:marker><c:size val="N"/>`). PowerPoint
+   * Marker size in points (`<c:marker><c:size val="N"/>`). The reference desktop app
    * default ~5. Only meaningful when `markerSymbol` isn't `none`.
    */
   readonly markerSizePt?: number;
   /**
    * Optional marker fill + outline color (`<c:marker><c:spPr>`), as an sRGB
    * hex. Defaults to `color`. The builder always writes it for line /
-   * scatter / radar series, because PowerPoint paints a marker without
+   * scatter / radar series, because the reference desktop app paints a marker without
    * `<c:spPr>` in the theme's automatic color instead of the series color.
    */
   readonly markerColor?: string;
@@ -170,7 +170,7 @@ export interface ChartSeries {
   /**
    * Optional per-data-point data-label overrides
    * (`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back
-   * to the series-level `dataLabels`. PowerPoint draws the per-point element
+   * to the series-level `dataLabels`. The reference desktop app draws the per-point element
    * over the series defaults, which is how pie / doughnut exporters give each
    * slice its own label content and font.
    */
@@ -246,7 +246,7 @@ export interface ChartErrorBars {
 export interface ChartTrendline {
   /**
    * Optional custom label for the trendline (`<c:trendline><c:name>…`).
-   * Defaults to PowerPoint's auto-generated label
+   * Defaults to the reference desktop app's auto-generated label
    * (e.g. "Linear (X)" / "MA(5) (X)") when omitted.
    */
   readonly name?: string;
@@ -439,10 +439,10 @@ export interface ChartView3D {
   readonly rotY?: number;
   /**
    * Right-angle axes (`<c:rAngAx>`): an oblique projection that ignores
-   * `perspective`. PowerPoint's default for bar / column / line / area.
+   * `perspective`. The reference desktop app's default for bar / column / line / area.
    */
   readonly rightAngleAxes?: boolean;
-  /** Field of view, 0..240 (`<c:perspective>`); PowerPoint's default is 30. */
+  /** Field of view, 0..240 (`<c:perspective>`); the reference desktop app's default is 30. */
   readonly perspective?: number;
   /** Depth as a percent of the chart width, 20..2000 (`<c:depthPercent>`). */
   readonly depthPercent?: number;
@@ -478,7 +478,7 @@ export interface ChartOfPie {
 
 /** Up / down bars between the first and last line series (`<c:upDownBars>`). */
 export interface ChartUpDownBars {
-  /** Bar width gap, 0..500 percent (`<c:gapWidth>`); PowerPoint's default is 150. */
+  /** Bar width gap, 0..500 percent (`<c:gapWidth>`); the reference desktop app's default is 150. */
   readonly gapWidthPct?: number;
   /** Fill of the rising bars as `#RRGGBB` (`<c:upBars>`). */
   readonly upColor?: string;
@@ -573,7 +573,7 @@ export interface ChartTextStyle {
    * `<a:rPr><a:latin typeface="…"/><a:ea typeface="…"/>`. East-asian is
    * set alongside latin so a Japanese / CJK family (e.g. `'Yu Gothic'`)
    * renders the labels instead of the renderer's latin-only fallback.
-   * Mirrors the latin/ea pairing PowerPoint emits for CJK chart fonts.
+   * Mirrors the latin/ea pairing the reference desktop app emits for CJK chart fonts.
    */
   readonly font?: string;
   /**
@@ -598,7 +598,7 @@ export interface ChartTextStyle {
  * that `ChartSeries.secondaryAxis` series plot against. The fields mirror
  * the primary `valueAxis*` fields of `ChartSpec` without the prefix, limited
  * to what a right-hand axis needs; the axis position (`r`) and crossing
- * (`max`) stay fixed. Omit the whole object for PowerPoint's defaults.
+ * (`max`) stay fixed. Omit the whole object for the reference desktop app's defaults.
  */
 export interface ChartSecondaryValueAxis {
   readonly scaling?: ChartAxisScaling;
@@ -681,7 +681,7 @@ export interface ReadChartSpec {
   /**
    * Authored rotation on the category-axis tick labels, in degrees. From
    * `<c:catAx><c:txPr><a:bodyPr rot="N"/>` where N is in 60000ths of a
-   * degree. Positive values rotate clockwise (PowerPoint convention),
+   * degree. Positive values rotate clockwise (the reference desktop app's convention),
    * matching the SVG `transform=rotate()` sense.
    */
   readonly categoryAxisLabelRotationDeg?: number;
@@ -689,7 +689,7 @@ export interface ReadChartSpec {
   /** Authored font / color on the value-axis title. */
   readonly valueAxisTitleStyle?: ChartTextStyle;
   /**
-   * Rotation of the value-axis title, in degrees clockwise. PowerPoint
+   * Rotation of the value-axis title, in degrees clockwise. The reference desktop app
    * often emits `-90` (or `vert270`) so the title reads bottom-to-top
    * alongside the axis. Maps to `<c:valAx><c:title><c:tx><c:rich>
    * <a:bodyPr rot="N"/>` (60000ths of a degree on the wire).
@@ -747,7 +747,7 @@ export interface ReadChartSpec {
   /**
    * Authored width of the value-axis major gridlines in EMU — the `w` of
    * the same `<a:ln>` as `valueAxisMajorGridlineColor` (12700 = 1 pt).
-   * `undefined` leaves the width to the application (PowerPoint: 0.75 pt).
+   * `undefined` leaves the width to the application (the reference desktop app: 0.75 pt).
    */
   readonly valueAxisMajorGridlineWidthEmu?: number;
   /** Companion width of the value-axis minor gridlines. */
@@ -811,7 +811,7 @@ export interface ReadChartSpec {
   readonly categoryAxisLabelOffset?: number;
   /**
    * Multi-line category-label alignment relative to the tick mark —
-   * `<c:catAx><c:lblAlgn val="ctr|l|r"/>`. PowerPoint defaults to
+   * `<c:catAx><c:lblAlgn val="ctr|l|r"/>`. The reference desktop app defaults to
    * `ctr` when omitted; the authored value wins.
    */
   readonly categoryAxisLabelAlign?: 'ctr' | 'l' | 'r';
@@ -825,14 +825,14 @@ export interface ReadChartSpec {
   readonly categoryAxisNumberFormat?: string;
   /**
    * Toggle multi-level (hierarchical) category labels —
-   * `<c:catAx><c:noMultiLvlLbl val="0|1"/>`. PowerPoint defaults to
+   * `<c:catAx><c:noMultiLvlLbl val="0|1"/>`. The reference desktop app defaults to
    * `0` (multi-level labels stack). Set to `true` to flatten
    * hierarchical categories into a single row.
    */
   readonly categoryAxisNoMultiLevelLabel?: boolean;
   /**
    * Category-axis order — `'minMax'` (the data's natural order) or
-   * `'maxMin'` (reversed). For bar charts PowerPoint typically emits
+   * `'maxMin'` (reversed). For bar charts the reference desktop app typically emits
    * `maxMin` so the first category sits at the top instead of the
    * bottom; honour the authored value when present.
    */
@@ -843,7 +843,7 @@ export interface ReadChartSpec {
    * Where the category axis crosses the value axis. Either an enum
    * keyword (`<c:valAx><c:crosses val="autoZero|min|max"/>`) or a
    * specific numeric value (`<c:valAx><c:crossesAt val="N"/>`). The two
-   * forms are mutually exclusive — PowerPoint emits one or the other.
+   * forms are mutually exclusive — the reference desktop app emits one or the other.
    * Default is `autoZero` (the category axis sits at value 0 if the
    * range straddles zero, otherwise at the closer extreme).
    */
@@ -852,38 +852,38 @@ export interface ReadChartSpec {
    * Whether the value axis crosses the category axis *between* tick
    * marks (the default for bar / column / area) or *at* each tick mark
    * (the default for line / scatter). Maps to `<c:valAx>
-   * <c:crossBetween val="between|midCat"/>`. PowerPoint emits this when
+   * <c:crossBetween val="between|midCat"/>`. The reference desktop app emits this when
    * the chart kind makes the default value non-obvious — surface it
    * here so the round-trip preserves the authored intent.
    */
   readonly valueAxisCrossBetween?: 'between' | 'midCat';
   /**
    * When `false`, plot data from hidden cells in the embedded workbook
-   * — maps to `<c:plotVisOnly val="0"/>`. PowerPoint's default is
+   * — maps to `<c:plotVisOnly val="0"/>`. The reference desktop app's default is
    * `true` (only plot visible cells), so omitting this field emits
-   * `val="1"` to stay round-trip-safe with PowerPoint-authored files.
+   * `val="1"` to stay round-trip-safe with files the reference desktop app authored.
    */
   readonly plotVisibleCellsOnly?: boolean;
   /**
    * Renders the chart area with rounded corners
-   * (`<c:chartSpace><c:roundedCorners val="1"/>`). PowerPoint's default
+   * (`<c:chartSpace><c:roundedCorners val="1"/>`). The reference desktop app's default
    * is `false`; surface only when explicitly `true` so the round-trip
    * doesn't add a redundant `false`.
    */
   readonly roundedCorners?: boolean;
   /**
-   * PowerPoint built-in chart-style preset
+   * The reference desktop app's built-in chart-style preset
    * (`<c:chartSpace><c:style val="N"/>`), 1–48. Encodes a curated combo
    * of theme accent colors, gradients, effects, and font sizes that
-   * PowerPoint applies when the user picks a chart style from the
+   * the reference desktop app applies when the user picks a chart style from the
    * "Chart Styles" gallery. Surface for round-trip parity; renderers in
    * @office-kit/pptx don't (yet) interpret it.
    */
   readonly chartStyle?: number;
   /**
    * Language code for the chart's number / date formatters
-   * (`<c:chartSpace><c:lang val="…"/>`). PowerPoint emits the user's
-   * Office UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for
+   * (`<c:chartSpace><c:lang val="…"/>`). The reference desktop app emits the user's
+   * Authoring app UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for
    * round-trip parity; renderers in @office-kit/pptx don't act on it yet.
    */
   readonly language?: string;
@@ -908,14 +908,14 @@ export interface ReadChartSpec {
   readonly hiLowLines?: boolean;
   /**
    * Whether a line chart draws point markers (`<c:lineChart><c:marker
-   * val="1"/>`). `true` is PowerPoint's "Line with Markers" subtype;
+   * val="1"/>`). `true` is the reference desktop app's "Line with Markers" subtype;
    * absent / `false` is the plain "Line" subtype (no markers). Only
    * meaningful for `kind: 'line'`.
    */
   readonly lineMarkers?: boolean;
   /**
    * Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units
-   * (0..500, percent of bar width). Default 150 (= 1.5×) in PowerPoint.
+   * (0..500, percent of bar width). Default 150 (= 1.5×) in the reference desktop app.
    */
   readonly gapWidthPct?: number;
   /**
@@ -1002,7 +1002,7 @@ export interface ReadChartSpec {
   readonly radarStyle?: 'standard' | 'marker' | 'filled';
   /**
    * Bubble-size scale percentage from `<c:bubbleChart><c:bubbleScale
-   * val="N"/>` (0..300, PowerPoint default 100). Scales every bubble's
+   * val="N"/>` (0..300, the reference desktop app's default 100). Scales every bubble's
    * rendered radius proportionally.
    */
   readonly bubbleScale?: number;
@@ -1010,13 +1010,13 @@ export interface ReadChartSpec {
    * Whether a bubble's `<c:bubbleSize>` maps to the bubble's area or its
    * width — `<c:bubbleChart><c:sizeRepresents val="area|w"/>` (ECMA-376
    * ST_SizeRepresents; the `'w'` token is surfaced as `'width'`).
-   * PowerPoint's default is `'area'`, so radius scales with `sqrt(size)`;
+   * The reference desktop app's default is `'area'`, so radius scales with `sqrt(size)`;
    * `'width'` scales radius linearly with size.
    */
   readonly bubbleSizeRepresents?: 'area' | 'width';
   /**
    * Shade bubbles as spheres — `<c:bubble3D val="1"/>` on each series of the
-   * bubble chart (PowerPoint's "3-D Bubble" subtype). Unlike the
+   * bubble chart (the reference desktop app's "3-D Bubble" subtype). Unlike the
    * other 3-D variants it has no camera, so `view3D` does not apply.
    */
   readonly bubble3D?: boolean;
@@ -1026,7 +1026,7 @@ export interface ReadChartSpec {
    * 3-D view. Its presence selects the 3-D plot-group element for `bar` /
    * `column` / `line` / `area` / `pie`; for `surface` it only positions the
    * camera. Rejected for every other kind, and for combo charts (a 3-D
-   * group cannot share a plot area with another group in PowerPoint).
+   * group cannot share a plot area with another group in the reference desktop app).
    */
   readonly view3D?: ChartView3D;
   /** Shape of 3-D bars / columns (`<c:bar3DChart><c:shape>`). Requires `view3D`. */

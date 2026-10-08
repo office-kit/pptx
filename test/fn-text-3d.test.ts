@@ -1,5 +1,5 @@
 // Text-body 3-D — `<a:scene3d>` / `<a:sp3d>` inside `<a:bodyPr>`, where
-// PowerPoint writes its WordArt bevels.
+// the reference desktop app writes its WordArt bevels.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -39,7 +39,8 @@ const compact = (xml: string) => xml.replace(/>\s+</g, '><').replace(/\s+\/>/g, 
 const bodyPr = (xml: string) =>
   compact(xml).match(/<a:bodyPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:bodyPr>)/)![0];
 
-// Mac PowerPoint's Sharp Bevel (test/fixtures/native/wordart-accent3-sharp-bevel-shape.xml).
+// The reference desktop app's Sharp Bevel
+// (test/fixtures/native/wordart-accent3-sharp-bevel-shape.xml).
 const SHARP: Text3D = {
   scene: { camera: 'orthographicFront', lightRig: { type: 'harsh', direction: 't' } },
   bevelTop: { widthEmu: 63500, heightEmu: 12700, preset: 'angle' },

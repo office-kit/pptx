@@ -55,7 +55,7 @@ import { getSlides } from './slide-query.ts';
 //
 // Authoring path for ChartML (`/ppt/charts/chart{N}.xml`) + the embedded
 // `/ppt/embeddings/Microsoft_Excel_Worksheet{N}.xlsx` workbook that
-// PowerPoint requires for the "Edit data" action to work. See plan §P9
+// the reference desktop app requires for the "Edit data" action to work. See plan §P9
 // and §Risks for the scope constraints.
 //
 // Public surface is intentionally narrow: one `addSlideChart` entry point
@@ -138,7 +138,7 @@ const buildChartGraphicFrame = (opts: {
 // The chart builder emits every authored color as `<a:srgbClr>`, so chart
 // colors must be sRGB hex (`#RRGGBB` or `RRGGBB`) — scheme tokens like
 // `accent1` are not valid here. Without this gate an invalid string was
-// written verbatim into `val="…"`, producing a chart PowerPoint silently
+// written verbatim into `val="…"`, producing a chart the reference desktop app silently
 // dropped (or repaired). Validate at the authoring boundary so callers get
 // a clear error instead of a broken deck. The `#` prefix is optional; the
 // builder normalizes it.
@@ -225,7 +225,7 @@ const validateChartSpecAxes = (spec: ChartSpec): void => {
  *   - Allocates `/ppt/charts/chart{N}.xml` for the chart definition.
  *   - Allocates `/ppt/embeddings/Microsoft_Excel_Worksheet{N}.xlsx` as
  *     a placeholder workbook (single sheet, header row + one row per
- *     category). PowerPoint reads the inline `<c:strCache>` /
+ *     category). The reference desktop app reads the inline `<c:strCache>` /
  *     `<c:numCache>` so the workbook is for "Edit data" only.
  *   - Slide → chart and chart → workbook rels are wired with fresh rIds.
  *   - `<a:graphicFrame>` is appended to the slide's `<p:spTree>`.
@@ -240,7 +240,7 @@ const validateChartSpecAxes = (spec: ChartSpec): void => {
  *     missing values are treated as blanks (gaps in the visualization).
  *   - A spec whose fields contradict each other (e.g. `view3D` on a
  *     scatter chart, error bars on a pie) throws instead of writing a
- *     chart PowerPoint would repair.
+ *     chart the reference desktop app would repair.
  */
 // A chart inherits no master text style, so any label without an authored
 // color falls back to the `tx1` token — which a deck with an inverted color
@@ -297,7 +297,7 @@ const withChartDefaultTextColor = (spec: ChartSpec, color: string | null): Chart
 
 /**
  * Adds a native chart to the slide at `x`/`y` with size `w`×`h` (EMU),
- * built from `spec`, with an embedded workbook so PowerPoint's "Edit data"
+ * built from `spec`, with an embedded workbook so the reference desktop app's "Edit data"
  * opens the chart's numbers. Returns the chart's graphic-frame shape.
  */
 export const addSlideChart = (
@@ -422,7 +422,7 @@ export const resolveChartPartName = (
 /**
  * Replaces the chart definition on an existing graphic-frame chart
  * shape. Updates the inline `<c:strCache>` / `<c:numCache>` blocks so
- * PowerPoint renders the new data without opening the embedded
+ * the reference desktop app renders the new data without opening the embedded
  * workbook. The shape's geometry (position / size / rotation) is
  * preserved verbatim.
  *

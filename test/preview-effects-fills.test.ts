@@ -60,8 +60,8 @@ const slideEntryName = (entries: readonly ZipEntry[]): string => {
 };
 
 describe('renderSlideToSvg: reflection effect', () => {
-  // A standard PowerPoint "tight reflection": 50% near alpha, ~0% far alpha,
-  // a full-height mirror (sy = -100%), pushed down by `dist`.
+  // The standard "tight reflection" preset of the reference desktop app: 50% near alpha, ~0% far
+  // alpha, a full-height mirror (sy = -100%), pushed down by `dist`.
   const REFLECTION =
     '<a:effectLst><a:reflection blurRad="6350" stA="50000" stPos="0" endA="300" endPos="55000" dist="50800" dir="5400000" sy="-100000" algn="bl" rotWithShape="0"/></a:effectLst>';
 

@@ -1,7 +1,7 @@
 // PptxGenJS-parity corpus.
 //
 // PptxGenJS is the most widely-used PPTX generator in the JS ecosystem and its
-// output is battle-tested to open cleanly in PowerPoint, Keynote, Google
+// output is battle-tested to open cleanly in the reference desktop app, Keynote, Google
 // Slides, and LibreOffice. This suite authors the *same* slide through both
 // PptxGenJS and @office-kit/pptx and compares the result, turning "is @office-kit/pptx's
 // generated output any good?" into two concrete, falsifiable checks:
@@ -62,7 +62,7 @@ describe.skipIf(!pptxGenJsAvailable())('PptxGenJS parity corpus', () => {
 
       // 1b. Chart cases: raw chart XML can't match (PptxGenJS stamps its own
       // chrome defaults — gridlines, data-label blocks, palette, multi-level
-      // categories — that PowerPoint treats as optional). What must match is
+      // categories — that the reference desktop app treats as optional). What must match is
       // the *semantic* content: chart type, categories, and every series'
       // values. Read both back with @office-kit/pptx and compare.
       if (r.kitChartSemantics || r.pgjsChartSemantics) {

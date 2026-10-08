@@ -1,6 +1,6 @@
-// PowerPoint's built-in table styles: the generated data reproduces
-// PowerPoint's serialization, and applying a style writes its definition into
-// ppt/tableStyles.xml the way PowerPoint does.
+// The reference desktop app's built-in table styles: the generated data reproduces
+// the reference desktop app's serialization, and applying a style writes its definition into
+// ppt/tableStyles.xml the way the reference desktop app does.
 
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
@@ -50,7 +50,7 @@ const deckWithTable = () => {
 };
 
 describe('built-in table style data', () => {
-  it("expands every style to PowerPoint's own bytes, in gallery order", async () => {
+  it("expands every style to the reference desktop app's own bytes, in gallery order", async () => {
     const fixture = await readFile(FIXTURE, 'utf8');
     const native = [...fixture.matchAll(/<a:tblStyle [\s\S]*?<\/a:tblStyle>/g)].map((m) => m[0]);
     expect(native).toHaveLength(74);
@@ -59,7 +59,7 @@ describe('built-in table style data', () => {
     expect(new Set(BUILTIN_TABLE_STYLES.map((style) => style.id)).size).toBe(74);
   });
 
-  it('groups the gallery like PowerPoint', () => {
+  it('groups the gallery like the reference desktop app', () => {
     const count = (category: string) =>
       BUILTIN_TABLE_STYLES.filter((style) => style.category === category).length;
     expect([count('bestMatch'), count('light'), count('medium'), count('dark')]).toEqual([

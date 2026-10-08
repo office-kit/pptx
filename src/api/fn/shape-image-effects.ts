@@ -59,8 +59,8 @@ export type ImageRecolorColor =
     };
 
 /**
- * A PowerPoint image recolor operation. Threshold is expressed as a percent
- * (0..100), matching `getShapeImageBiLevelThreshold` and PowerPoint's UI.
+ * An image recolor operation from the reference desktop app. Threshold is expressed as a percent
+ * (0..100), matching `getShapeImageBiLevelThreshold` and the reference desktop app's UI.
  */
 export type ImageRecolor =
   | { readonly kind: 'none' }
@@ -73,7 +73,7 @@ export type ImageRecolor =
 // Picture opacity — `<a:alphaModFix>` inside the picture's `<a:blip>`.
 //
 // `amt` is ECMA-376's ST_PositiveFixedPercentage (0–100000, scale 1/1000
-// of a percent). PowerPoint defaults to fully opaque when the element
+// of a percent). The reference desktop app defaults to fully opaque when the element
 // is absent. Pass `null` to remove a prior `<a:alphaModFix>`.
 
 /**
@@ -172,7 +172,7 @@ export const findOverlappingShapePairs = (
 /**
  * Returns every shape on the slide whose bounding box extends past
  * the slide canvas (`getSlideSize(pres)`). Useful audit helper for
- * catching shapes that PowerPoint will silently render off-screen
+ * catching shapes that the reference desktop app will silently render off-screen
  * or clip on export. Shapes without `<a:xfrm>` bounds are skipped.
  *
  * If the presentation has no slide-size declared, every positioned
@@ -277,14 +277,14 @@ export const findSlidesByLayoutType = (
  * `null` for embedded pictures, non-picture shapes, or when the
  * relationship doesn't resolve.
  *
- * PowerPoint emits `r:link` when the user inserts via "Link to file"
+ * The reference desktop app emits `r:link` when the user inserts via "Link to file"
  * instead of "Insert Picture". The bytes live outside the package, so
  * `getShapeImageBytes` can't render them — readers / preview tools
  * should fall back to this URL or a placeholder.
  */
 /**
  * Returns `true` when the picture's `<a:blip>` carries `<a:grayscl/>`
- * — PowerPoint's "Color > Grayscale" recolor preset. Renderers can
+ * — the reference desktop app's "Color > Grayscale" recolor preset. Renderers can
  * project this onto a CSS `filter: grayscale(100%)` or an SVG
  * `<feColorMatrix>` desaturation.
  */
@@ -305,7 +305,7 @@ export const isShapeImageGrayscale = (shape: SlideShapeData): boolean => {
 
 /**
  * Returns the threshold of the picture's `<a:blip><a:biLevel thresh="…"/>`
- * effect — PowerPoint's "Color > Black and White" preset. Threshold is
+ * effect — the reference desktop app's "Color > Black and White" preset. Threshold is
  * a percent (0..100); pixels brighter become white, darker become black.
  * Returns `null` when no biLevel transform is set.
  */
@@ -332,7 +332,7 @@ export const getShapeImageBiLevelThreshold = (shape: SlideShapeData): number | n
 
 /**
  * Reads the picture's duotone color transform from `<a:blip><a:duotone>`.
- * PowerPoint emits two `<a:srgbClr>` (or scheme color) children for a
+ * The reference desktop app emits two `<a:srgbClr>` (or scheme color) children for a
  * two-color duotone effect — typical "Picture Tools › Recolor".
  * By default colors are resolved to RGB for rendering. Pass
  * `{ resolveColors: false }` to preserve authoring color models and
@@ -539,7 +539,7 @@ const getImageOpacityBlip = (shape: SlideShapeData): XmlElement | null => {
   return fill ? firstChildElement(fill, qname('a', 'blip', NS.dml)) : null;
 };
 
-/** One of PowerPoint's Artistic Effects ([MS-ODRAWXML] CT_PictureEffect, `a14:artistic*`). */
+/** One of the reference desktop app's Artistic Effects ([MS-ODRAWXML] CT_PictureEffect, `a14:artistic*`). */
 export type ImageArtisticEffect =
   | 'marker'
   | 'pencilGrayscale'
@@ -603,10 +603,10 @@ const ARTISTIC_EFFECT_BY_ELEMENT: ReadonlyMap<string, ImageArtisticEffect> = new
 const IMAGE_PROPERTIES_URI = '{BEBA8EAE-BF5A-486C-A8C5-ECC9F3942E4B}';
 
 /**
- * Reads the Artistic Effect PowerPoint applied to a picture or image fill, or
+ * Reads the Artistic Effect the reference desktop app applied to a picture or image fill, or
  * `null` when there is none.
  *
- * PowerPoint stores the effect in the blip's `a14:imgProps` extension next to
+ * The reference desktop app stores the effect in the blip's `a14:imgProps` extension next to
  * a relationship to the original picture (JPEG XR). The embedded picture is
  * already the effect's result, so renderers draw it as is.
  */
@@ -640,7 +640,7 @@ export const getShapeImageArtisticEffect = (shape: SlideShapeData): ImageArtisti
 
 /**
  * Reads the picture or image fill's opacity (0–1 fraction). Returns `null` when no
- * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
+ * `<a:alphaModFix>` is present (the reference desktop app treats absence as fully
  * opaque); returns `1` when an explicit alphaModFix sets full opacity.
  */
 export const getShapeImageOpacity = (shape: SlideShapeData): number | null => {
@@ -767,7 +767,7 @@ export const getShapeImageContrast = (shape: SlideShapeData): number | null =>
 export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
   getLumAttr(shape, 'bright');
 
-// Mac PowerPoint's Video pane Reset clears these recolor/correction effects;
+// The reference desktop app's Video pane Reset clears these recolor/correction effects;
 // its ribbon Reset also clears shape formatting, which this operation preserves.
 const IMAGE_COLOR_EFFECT_NAMES = new Set(['grayscl', 'duotone', 'biLevel', 'lum']);
 
@@ -781,7 +781,7 @@ const removeImageColorEffects = (blip: XmlElement): void => {
 };
 
 /**
- * Clears PowerPoint's image color corrections from a picture or image fill.
+ * Clears the reference desktop app's image color corrections from a picture or image fill.
  * This removes grayscale (`grayscl`), duotone, bi-level recolor, and
  * brightness/contrast (`lum`) effects while preserving opacity, media
  * references, and all other known or extension effects.
@@ -805,7 +805,7 @@ const makeImageRecolorColor = (value: ImageRecolorColor): XmlElement => {
 };
 
 /**
- * Applies a PowerPoint image recolor to a picture or image-filled shape.
+ * Applies an image recolor from the reference desktop app to a picture or image-filled shape.
  * `none` removes the recolor while preserving opacity, media references, and
  * unrelated DrawingML effects. Threshold is a percentage from 0 to 100.
  */
@@ -834,7 +834,7 @@ export const setShapeImageRecolor = (shape: SlideShapeData, recolor: ImageRecolo
       children: recolor.colors.map(makeImageRecolorColor),
     });
   } else if (recolor.kind === 'washout') {
-    // PowerPoint's native Washout preset is a luminance correction, not a
+    // The reference desktop app's native Washout preset is a luminance correction, not a
     // duotone: bright=70000 and contrast=-70000 in the blip effect.
     replacement = elem(qname('a', 'lum', NS.dml), {
       attrs: [attr(qname('', 'bright', ''), '70000'), attr(qname('', 'contrast', ''), '-70000')],
@@ -848,7 +848,7 @@ export const setShapeImageRecolor = (shape: SlideShapeData, recolor: ImageRecolo
 
 /**
  * Sets picture or image-fill opacity (0–1; `1` is fully opaque).
- * Pass `null` to restore PowerPoint's default opacity.
+ * Pass `null` to restore the reference desktop app's default opacity.
  * Rejects shapes without an image and values outside `[0, 1]` without changing them.
  */
 export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | null): void => {

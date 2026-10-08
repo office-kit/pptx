@@ -37,9 +37,9 @@ import { internMediaPart } from './media.ts';
 const isPml = (node: XmlNode, localName: string): boolean =>
   node.kind === 'element' && node.name.namespaceURI === NS.pml && node.name.localName === localName;
 
-// PowerPoint 2010+ writes a transition with a duration (or a newer effect) as
-// `mc:AlternateContent`: the p14 choice first, an ECMA-376 fallback second.
-// The choice is the one PowerPoint itself reads.
+// The reference desktop app (2010 and later) writes a transition with a duration (or a
+// newer effect) as `mc:AlternateContent`: the p14 choice first, an ECMA-376 fallback second.
+// The choice is the one the reference desktop app itself reads.
 const transitionsIn = (node: XmlNode): XmlElement[] => {
   if (node.kind !== 'element') return [];
   if (isPml(node, 'transition')) return [node];
@@ -171,7 +171,7 @@ export const getSlideTransition = (slide: SlideData): SlideTransition | null => 
 
 /**
  * Sets the slide's transition effect. A sound set with
- * `setSlideTransitionSound` is kept, as PowerPoint keeps it when the effect
+ * `setSlideTransitionSound` is kept, as the reference desktop app keeps it when the effect
  * changes.
  */
 export const setSlideTransition = (slide: SlideData, options: TransitionOptions): void => {
@@ -254,7 +254,7 @@ const releaseUnusedSoundRels = (slide: SlideData): void => {
 /**
  * Sets (or with `null` removes) the sound played when the slide's transition
  * starts. A slide without a transition gets one with no effect, which is how
- * PowerPoint stores a sound on a "None" transition.
+ * the reference desktop app stores a sound on a "None" transition.
  */
 export const setSlideTransitionSound = (
   slide: SlideData,

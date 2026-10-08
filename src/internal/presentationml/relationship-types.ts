@@ -1,7 +1,7 @@
 // Relationship type URIs used inside PPTX packages. Subset of what
 // ECMA-376 Part 1 §13.2 documents, limited to types we model directly.
 //
-// All values are exactly what PowerPoint emits. Matching them character-for-
+// All values are exactly what the reference desktop app emits. Matching them character-for-
 // character matters: some PPTX consumers compare by string rather than by
 // semantic equivalence.
 
@@ -47,8 +47,8 @@ export const REL_TYPES = {
   diagramQuickStyle: `${OFFICE_DOC}/diagramQuickStyle`,
   diagramColors: `${OFFICE_DOC}/diagramColors`,
   // A clip carries two rels to the same part: the ECMA-376 `video` / `audio`
-  // one (`<a:videoFile r:link>`) and PowerPoint 2010's `media` one
-  // (`<p14:media r:embed>`), which lives in Microsoft's 2007 namespace.
+  // one (`<a:videoFile r:link>`) and the [MS-PPTX] `media` one
+  // (`<p14:media r:embed>`), which lives in the 2007 vendor extension namespace.
   media: `${MS_2007}/media`,
   video: `${OFFICE_DOC}/video`,
   audio: `${OFFICE_DOC}/audio`,

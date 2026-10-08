@@ -1,6 +1,6 @@
 // Minimal xlsx writer scoped to chart-data needs.
 //
-// PowerPoint requires an embedded workbook to back every chart so the
+// The reference desktop app requires an embedded workbook to back every chart so the
 // "Edit data" affordance works. We don't need a real spreadsheet — just
 // a single sheet with the chart's category labels and series values.
 // Everything beyond that (styles, calculated columns, defined names,

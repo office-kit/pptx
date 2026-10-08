@@ -189,7 +189,7 @@ export interface SlideAnimationStep {
    * How the effect's build entry reveals the shape's text (`<p:bldP build>`):
    * as one object (`whole`, or no entry), all paragraphs at once
    * (`allAtOnce`), one paragraph at a time (`p`), or `'custom'` (`cust`) — a
-   * build PowerPoint's own Effect Options do not offer.
+   * build the reference desktop app's own Effect Options do not offer.
    */
   readonly build: AnimationTextBuild | 'custom';
   readonly buildLevel: number | null;
@@ -249,7 +249,7 @@ export const findSlideTimingElement = (slide: SlideData): XmlElement | null =>
   firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_TIMING);
 
 // `<p:bldP spid grpId build bldLvl>` keyed by the pair that ties it to an
-// effect. PowerPoint groups a shape's build with its effect through grpId.
+// effect. The reference desktop app groups a shape's build with its effect through grpId.
 const readBuilds = (timing: XmlElement): Map<string, XmlElement> => {
   const out = new Map<string, XmlElement>();
   const bldLst = firstChildElement(timing, NAME_BLD_LST);
@@ -282,7 +282,7 @@ const holdsBehaviour = (cTn: XmlElement): boolean => {
   );
 };
 
-// A step is a time node that stands for one effect, whether or not PowerPoint
+// A step is a time node that stands for one effect, whether or not the reference desktop app
 // wrote preset attributes on it. Behaviour time nodes (inside `<p:cBhvr>`)
 // describe *how* an effect animates, so they are never steps — the walk skips
 // those subtrees entirely.
@@ -393,9 +393,9 @@ const isVisibilityKick = ({ owner, cBhvr }: BehaviourNode): boolean => {
   return (attrName?.children.find((c) => c.kind === 'text')?.data ?? '') === VISIBILITY_ATTR_NAME;
 };
 
-// PowerPoint's Duration: the effect node's own `dur` when it states one,
+// The reference desktop app's Duration: the effect node's own `dur` when it states one,
 // otherwise when the last of its behaviours ends — so a Bounce reports the two
-// seconds its eighteen behaviours take together, as PowerPoint's box does.
+// seconds its eighteen behaviours take together, as the reference desktop app's box does.
 const readDuration = (step: XmlElement): number | null =>
   intAttr(step, ATTR_DUR) ?? effectDurationMs(step);
 
@@ -452,7 +452,7 @@ const readValueAfterEnd = (step: XmlElement): AnimationValueAfterEnd => {
   return stated ? 'held' : 'unstated';
 };
 
-// ST_TLParaBuildType tokens. `whole`, the default, is PowerPoint's "As One Object".
+// ST_TLParaBuildType tokens. `whole`, the default, is the reference desktop app's "As One Object".
 const BUILD_TYPES: Readonly<Record<string, AnimationTextBuild | 'custom'>> = {
   whole: 'asOneObject',
   allAtOnce: 'allAtOnce',
@@ -476,7 +476,7 @@ interface PresetEffect {
  * one as the other and animate the shape the wrong way.
  *
  * `'-'` stands for a subtype the tree does not state. It is accepted only where
- * PowerPoint's gallery offers the preset no options at all, so there is a
+ * the reference desktop app's gallery offers the preset no options at all, so there is a
  * single thing it could have meant; a fly or a zoom without a subtype is an
  * effect we cannot name.
  */
@@ -549,7 +549,7 @@ const toStep = (
   const preset = emphasis === null ? null : named;
   const effect = preset?.effect ?? null;
   // An emphasis effect hands its target back on the slide whatever its `fill`
-  // says — PowerPoint's own Color Pulse takes its colour away again
+  // says — the reference desktop app's own Color Pulse takes its colour away again
   // (`fill="remove"`) and Transparency states none — so only effects that put
   // the shape on the slide or take it off have to say that they hold.
   const playable =
@@ -641,7 +641,7 @@ export const readTimingSteps = (timing: XmlElement): AnimationStepNode[] => {
 // The click stop's clock.
 //
 // Sibling `<p:par>` nodes are parallel — they all begin when their parent
-// does — so `nodeType="afterEffect"` is a label for PowerPoint's UI, not a
+// does — so `nodeType="afterEffect"` is a label for the reference desktop app's UI, not a
 // dependency a player could honour. What actually makes one group run after
 // another is the start offset on the later group. Writing an effect, changing
 // its duration or delay, and reordering a stop all have to agree about where
@@ -649,7 +649,7 @@ export const readTimingSteps = (timing: XmlElement): AnimationStepNode[] => {
 //
 // Measuring is deliberately narrow: an authored slide can time an effect in
 // ways this library does not model, and a guessed end would place the next
-// effect at a moment PowerPoint never plays it. Anything outside the modelled
+// effect at a moment the reference desktop app never plays it. Anything outside the modelled
 // shapes reports `null`, and the caller refuses rather than guessing.
 
 // Whole milliseconds only. `indefinite`, a missing value or anything that is
@@ -668,7 +668,7 @@ const wholeMs = (raw: string | null): number | null => {
  * Several conditions mean several triggers, and `evt` or a `<p:tn>` / `<p:rtn>`
  * / `<p:tgtEl>` child ties the start to another node's lifetime — neither is a
  * number of milliseconds, and reading the `delay` attribute beside one as if it
- * were the offset would place the node at a time PowerPoint never plays it.
+ * were the offset would place the node at a time the reference desktop app never plays it.
  */
 export const offsetCond = (cTn: XmlElement): XmlElement | null => {
   const stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
@@ -693,7 +693,7 @@ const startOffsetMs = (cTn: XmlElement): number | null => {
 /**
  * Attributes that repeat or rescale a time node (CT_TLCommonTimeNodeData).
  * We measure a node by its `dur`, so any of these means the number we computed
- * is not how long PowerPoint runs it. `accel` / `decel` are shares of `dur`
+ * is not how long the reference desktop app runs it. `accel` / `decel` are shares of `dur`
  * and leave the total alone, so they are not here; `autoRev` on a behaviour
  * runs it once forwards and once back, which `lastBehaviourEndMs` counts.
  */

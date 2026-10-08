@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The slide-transition part of the p14 schema, transcribed from [MS-PPTX]
-  v20240820 §5.1 (PowerPoint (.pptx) Extensions to the Office Open XML File
-  Format, Microsoft Open Specifications). Test-only: it validates the effect
+  v20240820 §5.1. Test-only: it validates the effect
   elements setSlideTransition writes inside an mc:Choice Requires="p14".
 -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"

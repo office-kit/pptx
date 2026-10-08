@@ -1,6 +1,6 @@
 // Builds the XML element for a picture shape (`<p:pic>`).
 //
-// PowerPoint emits pictures with this skeleton:
+// The reference desktop app emits pictures with this skeleton:
 //
 //   <p:pic>
 //     <p:nvPicPr>
@@ -58,7 +58,7 @@ export interface PictureOptions {
   y: number;
   w: number;
   h: number;
-  /** When true, emits `<a:picLocks noChangeAspect="1"/>`. PowerPoint sets
+  /** When true, emits `<a:picLocks noChangeAspect="1"/>`. The reference desktop app sets
    * this for pictures inserted via "Insert > Picture" but not for ones
    * dropped onto the canvas; default true to mirror the common case. */
   lockAspect?: boolean;

@@ -182,7 +182,7 @@ export const setShapeImage = (
 
   // 'contain' re-fits the picture's extent to the new image's aspect ratio
   // inside the shape's current box; 'fill' (the default) leaves geometry as
-  // PowerPoint had it. Natural size is best-effort — unreadable headers
+  // the reference desktop app had it. Natural size is best-effort — unreadable headers
   // leave the box unchanged.
   if (options.fit === 'contain') {
     const pos = readPosition(shape[SHAPE_ELEMENT], 'picture');

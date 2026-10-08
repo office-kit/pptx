@@ -1,5 +1,5 @@
-// PowerPoint's built-in DrawingML table styles. PowerPoint identifies them by
-// GUID alone and draws them from its own definitions, so a deck may reference
+// The reference desktop app's built-in DrawingML table styles. The reference desktop app identifies
+// them by GUID alone and draws them from its own definitions, so a deck may reference
 // one without carrying it in `tableStyles.xml`.
 
 import { NS, parseXml, type XmlElement } from '../xml/index.ts';
@@ -11,7 +11,7 @@ import {
 
 export { BUILTIN_TABLE_STYLES };
 
-/** English name PowerPoint writes as `styleName` for a built-in table style. */
+/** English name the reference desktop app writes as `styleName` for a built-in table style. */
 export type BuiltinTableStyleName = (typeof BUILTIN_TABLE_STYLES)[number]['name'];
 
 /** One entry of {@link BUILTIN_TABLE_STYLES}. */
@@ -25,7 +25,7 @@ export const builtinTableStyleIdByName = (name: string): string | null =>
   builtinNames.get(name) ?? null;
 
 /**
- * The `a:tblStyle` markup PowerPoint writes into `tableStyles.xml` for a
+ * The `a:tblStyle` markup the reference desktop app writes into `tableStyles.xml` for a
  * built-in style (without a namespace declaration), or `null` when the GUID is
  * not built in.
  */

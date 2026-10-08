@@ -1,7 +1,7 @@
 // Regression net for the boundary-validation bug class: a batch of authoring
 // setters used to serialize caller-supplied numbers/strings straight into
 // constrained OOXML attributes, so an out-of-range value produced a `.pptx`
-// PowerPoint marks corrupt. Each authoring entry point now validates at the
+// the reference desktop app marks corrupt. Each authoring entry point now validates at the
 // boundary (src/internal/bounds.ts). These tests pin that an out-of-range value
 // THROWS (instead of emitting invalid XML), and that a valid extreme stays
 // schema-valid. See the fuzz-sweep findings these came from.

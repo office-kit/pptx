@@ -213,7 +213,7 @@ describe('fn API: getShapeRunFormatEffective', () => {
     expect(getShapeRunFormat(tb, 0, 0)?.font).toBeUndefined();
     // The cascade should resolve the typeface from the theme's
     // minor font (body fallback). `two-slides.pptx` carries the
-    // Office theme, which sets both major and minor to Calibri.
+    // The default theme, which sets both major and minor to Calibri.
     const fmt = getShapeRunFormatEffective(pres, tb, 0, 0);
     expect(fmt.font).toBe('Calibri');
   });
@@ -304,14 +304,14 @@ describe('fn API: getShapeRunFormatEffective', () => {
     const title = findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle');
     expect(title).not.toBeNull();
     const fmt = getShapeRunFormatEffective(pres, title!, 0, 0);
-    // The Office theme master sets the title to 44pt in its titleStyle.
+    // The default theme's master sets the title to 44pt in its titleStyle.
     expect(fmt.size).toBeGreaterThan(28);
     // Title-class placeholders should pull the major font.
     expect(fmt.font).toBe('Calibri');
   });
 
   it('resolves +mj-lt / +mn-lt theme tokens authored on the master', async () => {
-    // PowerPoint masters typically set <a:latin typeface="+mj-lt"/> on
+    // The reference desktop app's masters typically set <a:latin typeface="+mj-lt"/> on
     // title placeholders. The cascade must re-write that token through
     // the theme so renderers get a real font family.
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));

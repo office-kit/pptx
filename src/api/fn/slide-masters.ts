@@ -1,4 +1,4 @@
-// Slide masters and the structure of their layouts: what PowerPoint's Slide
+// Slide masters and the structure of their layouts: what the reference desktop app's Slide
 // Master tab edits (Insert Slide Master, Insert Layout, Delete, Rename,
 // Preserve, Master Layout, Insert Placeholder, the Title and Footers
 // checkboxes and Hide Background Graphics).
@@ -9,7 +9,7 @@
 //
 // ECMA-376 Part 1 §19.3.1.42 `sldMaster` lists its layouts in
 // `<p:sldLayoutIdLst>`; §19.2.1.34 / §19.3.1.40 give masters and layouts ids
-// from one space of at least 2³¹, which PowerPoint requires to be unique across
+// from one space of at least 2³¹, which the reference desktop app requires to be unique across
 // every master and layout of the presentation.
 
 import { boundedInt } from '../../internal/bounds.ts';
@@ -22,7 +22,7 @@ import {
   relsPartNameFor,
   resolveTarget,
 } from '../../internal/opc/index.ts';
-import { OFFICE_THEME_XML, type OpcPackage } from '../../internal/parts/index.ts';
+import { DEFAULT_THEME_XML, type OpcPackage } from '../../internal/parts/index.ts';
 import {
   type LayoutPlaceholderKind,
   MASTER_PLACEHOLDER_TYPES,
@@ -106,7 +106,7 @@ const ATTR_SHOW_MASTER_SP = qname('', 'showMasterSp', '');
 const MASTER_LAYOUT_ID_MIN = 2147483648;
 const MASTER_LAYOUT_ID_MAX = 4294967295;
 
-// What PowerPoint names a master it inserts and a layout it inserts. Repeats
+// What the reference desktop app names a master it inserts and a layout it inserts. Repeats
 // are numbered in front: "1_Custom Design", "2_Custom Design", …
 const INSERTED_MASTER_NAME = 'Custom Design';
 const INSERTED_LAYOUT_NAME = 'Custom Layout';
@@ -200,7 +200,7 @@ const allocateMasterLayoutIds = (
   return Array.from({ length: count }, (_, i) => max + 1 + i);
 };
 
-/** `base`, or PowerPoint's `1_base`, `2_base`, … when `base` is taken. */
+/** `base`, or the reference desktop app's `1_base`, `2_base`, … when `base` is taken. */
 const uniqueName = (base: string, taken: ReadonlySet<string>): string => {
   if (!taken.has(base)) return base;
   for (let n = 1; ; n++) if (!taken.has(`${n}_${base}`)) return `${n}_${base}`;
@@ -209,7 +209,7 @@ const uniqueName = (base: string, taken: ReadonlySet<string>): string => {
 // ---------------------------------------------------------------------------
 // Reading.
 
-/** The master's layouts, in the order PowerPoint's Slide Master pane lists them. */
+/** The master's layouts, in the order the reference desktop app's Slide Master pane lists them. */
 export const getSlideMasterLayouts = (
   pres: PresentationData,
   master: string,
@@ -236,8 +236,8 @@ export const getSlideMasterPlaceholders = (
 };
 
 /**
- * The master's name, as PowerPoint shows it in Slide Master view ("Office
- * Theme Slide Master"). PowerPoint keeps it as the name of the master's theme
+ * The master's name, as the reference desktop app shows it in Slide Master view ("<theme
+ * name> Slide Master"). The reference desktop app keeps it as the name of the master's theme
  * (`<a:theme name>`), not in the master part, so renaming a master renames its
  * theme.
  */
@@ -249,7 +249,7 @@ export const getSlideMasterName = (pres: PresentationData, master: string): stri
 };
 
 /**
- * Whether the master is preserved (`<p:sldMaster preserve="1">`): PowerPoint
+ * Whether the master is preserved (`<p:sldMaster preserve="1">`): the reference desktop app
  * deletes a master that is not preserved once no slide uses it.
  */
 export const isSlideMasterPreserved = (pres: PresentationData, master: string): boolean => {
@@ -294,9 +294,9 @@ const setAttribute = (
 };
 
 /**
- * Insert Slide Master: adds PowerPoint's default Office master, with its own
- * copy of the Office theme named "Custom Design" and the eleven Office
- * layouts, after the existing masters. The master is preserved, as PowerPoint
+ * Insert Slide Master: adds the reference desktop app's default master, with its own
+ * copy of the default theme named "Custom Design" and the eleven default
+ * layouts, after the existing masters. The master is preserved, as the reference desktop app
  * marks a master it inserts. Returns the new master's part name.
  */
 export const addSlideMaster = (pres: PresentationData): string => {
@@ -316,7 +316,7 @@ export const addSlideMaster = (pres: PresentationData): string => {
   const masterNames = new Set(
     getSlideMasterPartNames(pres).map((name) => getSlideMasterName(pres, name)),
   );
-  const theme = parseXml(OFFICE_THEME_XML);
+  const theme = parseXml(DEFAULT_THEME_XML);
   setAttribute(theme.root, ATTR_NAME, uniqueName(INSERTED_MASTER_NAME, masterNames));
   pkg.addPart(themeName, THEME_CONTENT_TYPE, encode(serializeXml(theme)));
 
@@ -402,7 +402,7 @@ const removePartWithRels = (pkg: OpcPackage, name: PartName): void => {
 
 /**
  * Deletes a master with its layouts and, when nothing else uses it, its theme.
- * Like PowerPoint's Delete, this refuses (throws) while any slide uses one of
+ * Like the reference desktop app's Delete, this refuses (throws) while any slide uses one of
  * the master's layouts, and for the presentation's only master.
  */
 export const removeSlideMaster = (pres: PresentationData, master: string): void => {
@@ -442,7 +442,7 @@ export const removeSlideMaster = (pres: PresentationData, master: string): void 
 // Layouts.
 
 /**
- * Insert Layout: adds PowerPoint's "Custom Layout" — a title and the date,
+ * Insert Layout: adds the reference desktop app's "Custom Layout" — a title and the date,
  * footer and slide-number placeholders — to `master`, at `index` in its layout
  * list (the end by default). Repeats are named "1_Custom Layout", and so on.
  */
@@ -504,7 +504,7 @@ const masterOfLayout = (layout: SlideLayoutData): PartName => {
 };
 
 /**
- * Deletes a layout. Like PowerPoint's Delete, this refuses (throws) while any
+ * Deletes a layout. Like the reference desktop app's Delete, this refuses (throws) while any
  * slide uses the layout, and for a master's only layout.
  */
 export const removeSlideLayout = (layout: SlideLayoutData): void => {
@@ -545,7 +545,7 @@ const MASTER_TYPE_TOKENS: Record<MasterPlaceholderType, ReadonlySet<string>> = {
 
 /**
  * Master Layout: removes one of the master's five placeholders, or puts it
- * back where PowerPoint's default master has it.
+ * back where the reference desktop app's default master has it.
  */
 export const setSlideMasterPlaceholderIncluded = (
   pres: PresentationData,
@@ -572,7 +572,7 @@ export const setSlideMasterPlaceholderIncluded = (
 
 const TITLE_TOKENS: ReadonlySet<string> = new Set(['title', 'ctrTitle']);
 const FOOTER_TOKENS = ['dt', 'ftr', 'sldNum'] as const;
-// PowerPoint's layouts give their footers these indices; a layout that already
+// The reference desktop app's layouts give their footers these indices; a layout that already
 // uses one for something else gets the next free index instead.
 const FOOTER_IDX = [10, 11, 12] as const;
 
@@ -659,7 +659,7 @@ export const addSlideLayoutPlaceholder = (
     h: boundedInt(bounds.h, 'positiveCoordinate', 'addSlideLayoutPlaceholder: h'),
   };
   const spTree = layoutSpTree(layout);
-  // Custom layout placeholders start after the footers' 10–12, as PowerPoint's do.
+  // Custom layout placeholders start after the footers' 10–12, as the reference desktop app's do.
   const idx = Math.max(12, ...placeholderIndices(spTree)) + 1;
   const element = placeholderElement(
     insertedPlaceholderXml(kind, nextShapeIdInTree(spTree), idx, box),

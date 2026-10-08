@@ -2,7 +2,7 @@
 // path to pick the right content type and file extension without forcing the
 // caller to spell them out.
 //
-// Detection is by magic bytes — sufficient for the formats PowerPoint
+// Detection is by magic bytes — sufficient for the formats the reference desktop app
 // accepts. We do not run a full validator (that's the image library's job).
 
 export type ImageFormat = 'png' | 'jpeg' | 'gif' | 'bmp' | 'tiff' | 'webp' | 'svg';
@@ -118,7 +118,7 @@ export const readImagePixelSize = (bytes: Uint8Array): ImagePixelSize | null => 
 
 /**
  * Returns the conventional file-extension token (no leading dot) for the
- * given format. `jpeg` maps to `jpg` because that's what PowerPoint emits.
+ * given format. `jpeg` maps to `jpg` because that's what the reference desktop app emits.
  */
 export const extensionForFormat = (format: ImageFormat): string => {
   switch (format) {

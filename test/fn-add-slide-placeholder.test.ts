@@ -41,7 +41,7 @@ describe('addSlidePlaceholder', () => {
   it('adds only the requested slot, empty and inheriting its geometry', async () => {
     const { pres, slide } = await templateSlide();
     // `addSlide` copies every slot the layout defines, so the three footer
-    // placeholders go first — the state a deck authored in PowerPoint without
+    // placeholders go first — the state a deck authored in the reference desktop app without
     // footers arrives in.
     for (const type of ['sldNum', 'ftr', 'dt'] as const)
       removeShape(findSlidePlaceholder(slide, type)!);

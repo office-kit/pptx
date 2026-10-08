@@ -1,6 +1,6 @@
 // Shared color parsing for the authoring APIs.
 //
-// Accepts the three forms PowerPoint emits: srgb hex (`#RRGGBB`,
+// Accepts the three forms the reference desktop app emits: srgb hex (`#RRGGBB`,
 // `RRGGBB`), scheme tokens (`tx1`, `accent1`... — bare or `scheme:`-prefixed),
 // and an explicit `null` to indicate "clear / no fill". Anything else throws so
 // callers don't silently emit `<a:srgbClr val="undefined"/>`.

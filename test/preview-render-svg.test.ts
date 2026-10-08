@@ -169,7 +169,7 @@ describe('renderSlideToSvg', () => {
   it('foreignObject mode: wavy underline + strikethrough keeps the strikethrough solid', async () => {
     // CSS text-decoration-style applies to the WHOLE underline+line-through
     // shorthand, so naively combining them would wave the strikethrough too —
-    // PowerPoint always draws it solid regardless of underline style.
+    // the reference desktop app always draws it solid regardless of underline style.
     const { pres, slide } = await blankSlide();
     const box = addSlideTextBox(slide, {
       x: inches(1),
@@ -248,7 +248,7 @@ describe('renderSlideToSvg', () => {
       return renderSlideToSvg(pres, slide, { textLayout });
     };
 
-    // PowerPoint's 1/100pt threshold is inclusive at the boundary.
+    // The reference desktop app's 1/100pt threshold is inclusive at the boundary.
     expect(await render(10, 1200, 'foreignObject')).toContain('font-kerning:none');
     expect(await render(12, 1200, 'foreignObject')).toContain('font-kerning:normal');
     expect(await render(12, 0, 'foreignObject')).toContain('font-kerning:none');
@@ -364,7 +364,7 @@ describe('renderSlideToSvg', () => {
   });
 
   it('overlapping (non-stacked) area chart: first-authored series paints on top, fill AND stroke', async () => {
-    // PowerPoint/LibreOffice always keep the first-authored series in front
+    // The reference desktop app and LibreOffice always keep the first-authored series in front
     // for an overlapping area chart, so a taller front series fully occludes
     // a shorter one behind it — both its fill AND its outline stroke, since
     // each series paints as one atomic unit back-to-front.
@@ -699,7 +699,7 @@ describe('renderSlideToSvg', () => {
     const svg = await renderInjectedChart(scatterPlotArea('marker'));
     expect(svg).not.toContain('data-pptx-fallback="chart"');
     // One marker per data point (3). Series 0's automatic marker is a
-    // diamond (PowerPoint's auto-marker rotation, shared with line charts),
+    // diamond (the reference desktop app's auto-marker rotation, shared with line charts),
     // which renders as a <polygon>; markers-only means no plot <path>.
     expect(countTags(svg, 'polygon')).toBeGreaterThanOrEqual(3);
     expect(countTags(svg, 'path')).toBe(0);

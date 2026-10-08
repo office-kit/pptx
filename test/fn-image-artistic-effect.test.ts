@@ -19,12 +19,12 @@ import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-sch
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const HDPHOTO_REL = 'http://schemas.microsoft.com/office/2007/relationships/hdphoto';
-// Opaque stand-in for PowerPoint's JPEG XR original: the library only has to
+// Opaque stand-in for the reference desktop app's JPEG XR original: the library only has to
 // keep it, never decode it. Starts with the JPEG XR signature.
 const ORIGINAL = new Uint8Array([0x49, 0x49, 0xbc, 0x01, 1, 2, 3, 4, 5, 6, 7, 8]);
 
-// The structure PowerPoint writes ([MS-ODRAWXML] "Pictures", and the
-// Wood Type theme shipped with Mac PowerPoint): the blip embeds the processed
+// The structure the reference desktop app writes ([MS-ODRAWXML] "Pictures", and the
+// Wood Type theme shipped with the reference desktop app on Mac): the blip embeds the processed
 // picture; the a14:imgLayer points at the original in JPEG XR.
 const blipWithEffect = (effect: string) =>
   `<a:blip r:embed="rId2"><a:extLst><a:ext uri="{BEBA8EAE-BF5A-486C-A8C5-ECC9F3942E4B}"><a14:imgProps xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main"><a14:imgLayer r:embed="rId3"><a14:imgEffect>${effect}</a14:imgEffect><a14:imgEffect><a14:saturation sat="200000"/></a14:imgEffect></a14:imgLayer></a14:imgProps></a:ext><a:ext uri="{28A0092B-C50C-407E-A947-70E740481C1C}"><a14:useLocalDpi xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" val="0"/></a:ext></a:extLst></a:blip>`;
@@ -134,7 +134,7 @@ describe('Artistic Effects (a14:imgProps)', () => {
     const rendered = Buffer.from(getShapeImageBytes(picture(pres))!).toString('base64');
     expect(svg).toContain(rendered);
     expect(svg).not.toContain(Buffer.from(ORIGINAL).toString('base64'));
-    // No filter approximates the effect on top of the result PowerPoint saved.
+    // No filter approximates the effect on top of the result the reference desktop app saved.
     expect(svg).not.toMatch(/<filter/);
   });
 });

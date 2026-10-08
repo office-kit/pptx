@@ -1,7 +1,7 @@
 // The factor the preview shrinks a shape's text by, exposed on its own.
 //
 // `<a:normAutofit/>` without a baked `fontScale` means "shrink to fit", and
-// PowerPoint computes that reduction at display time — so does the renderer,
+// the reference desktop app computes that reduction at display time — so does the renderer,
 // once per shape, with the measurer it lays text out with. An editing surface
 // that paints its own text over the preview has to shrink by the SAME factor
 // or the glyphs jump the moment the caret appears.
@@ -39,7 +39,7 @@ export interface ShapeAutoFitScaleOptions {
  *
  * `1` for a shape with no `<a:normAutofit>`: `<a:noAutofit>` overflows and
  * `<a:spAutoFit>` grows the box instead, so neither shrinks the text. A shape
- * with a baked `fontScale` reports that, unchanged — it is what PowerPoint
+ * with a baked `fontScale` reports that, unchanged — it is what the reference desktop app
  * itself applied.
  */
 export function shapeAutoFitScale(

@@ -5,7 +5,7 @@
 
 import type { getShapeTextColumns, getShapeTextDirection } from '@office-kit/pptx';
 
-/** Mac PowerPoint uses zero spacing when `spcCol` is absent. */
+/** The reference desktop app on Mac uses zero spacing when `spcCol` is absent. */
 const DEFAULT_COLUMN_GAP_PX = 0;
 
 const EMU_PER_PX = 9525;

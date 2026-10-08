@@ -1,9 +1,9 @@
 // Modern comments — `/ppt/authors.xml` and one comment part per slide.
 //
-// This is Microsoft's own format, not ECMA-376: [MS-PPTX] §2.16.1 (Author
+// This is a vendor extension format, not ECMA-376: [MS-PPTX] §2.16.1 (Author
 // Part and Comment Part) with the schema in §5.14, target namespace
-// `http://schemas.microsoft.com/office/powerpoint/2018/8/main`. PowerPoint
-// 2021 and Microsoft 365 write comments this way; everything older writes
+// `http://schemas.microsoft.com/office/powerpoint/2018/8/main`. The reference desktop app
+// writes comments this way from 2021 on; everything older writes
 // the ECMA `<p:cm>` list in `comments-part.ts`, and one package can carry
 // both at once.
 //
@@ -293,7 +293,7 @@ export const buildModernAuthorListDoc = (authors: ReadonlyArray<ModernAuthor>): 
 /**
  * The anchor that says which slide a comment belongs to. The relationship
  * from the slide part already says it, but the schema wants the moniker as
- * well, and it is what PowerPoint matches on.
+ * well, and it is what the reference desktop app matches on.
  */
 export const buildSlideAnchor = (creationId: number, slideId: number): XmlElement =>
   elem(NAME_SLD_MK_LST, {
@@ -418,7 +418,7 @@ export const removeModernComment = (root: XmlElement, id: string): boolean => {
         ),
     );
     if (replyLst.children.length === had) continue;
-    // An empty `<p188:replyLst>` is schema-valid, but PowerPoint does not
+    // An empty `<p188:replyLst>` is schema-valid, but the reference desktop app does not
     // write one, so neither do we once the last reply goes.
     if (allChildElements(replyLst, NAME_REPLY).length === 0) {
       comment.children = comment.children.filter((node) => node !== replyLst);

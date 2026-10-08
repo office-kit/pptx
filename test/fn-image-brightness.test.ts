@@ -131,7 +131,7 @@ describe('fn API: setShapeImageBrightness', () => {
     expect(() => setShapeImageBrightness(picture, -1.5)).toThrow(RangeError);
   });
 
-  it('clears PowerPoint color corrections while preserving unrelated blip effects', async () => {
+  it('clears the reference desktop app’s color corrections while preserving unrelated blip effects', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
     setShapeImageBrightness(picture, 0.2);
@@ -220,7 +220,7 @@ describe('fn API: setShapeImageRecolor', () => {
     expect(getShapeImageBiLevelThreshold(roundTrippedPicture)).toBeCloseTo(0.001, 6);
   });
 
-  it('writes PowerPoint recolor effects and clears them without touching opacity', async () => {
+  it('writes the reference desktop app’s recolor effects and clears them without touching opacity', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
     const blipFill = firstChildElement(picture[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml))!;
@@ -287,7 +287,7 @@ describe('fn API: setShapeImageRecolor', () => {
     expect(isShapeImageGrayscale(picture)).toBe(true);
   });
 
-  it('rejects thresholds outside PowerPoint percent range', async () => {
+  it('rejects thresholds outside the reference desktop app’s percent range', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
     expect(() => setShapeImageRecolor(picture, { kind: 'threshold', threshold: -1 })).toThrow(

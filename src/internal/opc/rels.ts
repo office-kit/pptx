@@ -86,7 +86,7 @@ export const serializeRels = (rels: Relationships): string => {
       { name: ATTR_TARGET, value: r.target },
     ];
     // OOXML convention: only emit TargetMode when External. Tools that
-    // do otherwise sometimes get flagged by Office's diff comparison.
+    // do otherwise sometimes get flagged by Open XML diff tools.
     if (r.targetMode === 'External') {
       attrs.push({ name: ATTR_TARGET_MODE, value: 'External' });
     }
@@ -113,8 +113,8 @@ export const emptyRels = (): Relationships => ({ items: [] });
 
 /**
  * Returns the next free `rId<N>` id given a list of existing ids. The OPC
- * spec doesn't require this naming pattern, but PowerPoint emits it and our
- * authoring code follows suit so output diffs cleanly against PowerPoint.
+ * spec doesn't require this naming pattern, but the reference desktop app emits it and our
+ * authoring code follows suit so output diffs cleanly against the reference desktop app.
  */
 export function nextRelId(existing: ReadonlyArray<string>): string;
 export function nextRelId(existing: ReadonlyArray<string>, count: number): string[];

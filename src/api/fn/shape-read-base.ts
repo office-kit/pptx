@@ -165,7 +165,7 @@ export const getShapeCustomGeometry = (shape: SlideShapeData): CustomGeometry | 
 /**
  * Evaluates a preset shape's outline (`<a:prstGeom>`, ECMA-376 §20.1.9.18)
  * at `size`, from the standard's own preset definitions: the same paths,
- * shading modes (`lighten` / `darken` …) and text rectangle PowerPoint uses.
+ * shading modes (`lighten` / `darken` …) and text rectangle the reference desktop app uses.
  * The result has the shape of {@link getShapeCustomGeometry}'s, so a
  * renderer draws presets and custom geometry the same way.
  *
@@ -321,13 +321,13 @@ export const getShapeName = (shape: SlideShapeData): string => shape[SHAPE_SNAPS
 
 /**
  * Renames the shape's `cNvPr@name`. The display name is what
- * PowerPoint shows in the Selection Pane and what `findShapeByName`
- * matches on. Empty strings are allowed (matches PowerPoint behavior).
+ * the reference desktop app shows in the Selection Pane and what `findShapeByName`
+ * matches on. Empty strings are allowed (matches the reference desktop app's behavior).
  */
 /**
  * Reads the shape's alt-text description (`<p:cNvPr descr="...">`).
  * Accessibility tools (screen readers, contrast checkers) and
- * PowerPoint's "Alt Text" pane look at this field. Returns `null`
+ * the reference desktop app's "Alt Text" pane look at this field. Returns `null`
  * when no description is set.
  */
 export const getShapeDescription = (shape: SlideShapeData): string | null => {
@@ -358,7 +358,7 @@ export const setShapeDescription = (shape: SlideShapeData, description: string |
 
 /**
  * Reads the shape's alt-text title (`<p:cNvPr title="...">`).
- * PowerPoint surfaces this alongside `descr` in its Alt Text pane
+ * The reference desktop app surfaces this alongside `descr` in its Alt Text pane
  * as a short heading. Returns `null` when no title is set.
  */
 export const getShapeAltTitle = (shape: SlideShapeData): string | null => {
@@ -388,7 +388,7 @@ export const setShapeAltTitle = (shape: SlideShapeData, title: string | null): v
 
 /**
  * `true` when the shape's `<p:cNvPr hidden="1">` is set. Hidden
- * shapes are skipped by PowerPoint's renderer but stay in the
+ * shapes are skipped by the reference desktop app's renderer but stay in the
  * shape tree — useful for variant slides that toggle which boxes
  * are visible.
  */
@@ -401,7 +401,7 @@ export const isShapeHidden = (shape: SlideShapeData): boolean => {
 
 /**
  * Sets or clears `<p:cNvPr hidden="...">` on the shape. Hidden
- * shapes remain in the document but PowerPoint doesn't render them.
+ * shapes remain in the document but the reference desktop app doesn't render them.
  */
 export function setShapeHidden(shape: SlideShapeData, hidden: boolean): void;
 export function setShapeHidden(shapes: readonly SlideShapeData[], hidden: boolean): void;
@@ -472,7 +472,7 @@ const ATTR_TX_BOX = qname('', 'txBox', '');
 
 /**
  * `true` when the shape is a **text box** (`<p:cNvSpPr txBox="1">`) rather than
- * an autoshape. The distinction drives default text formatting: PowerPoint /
+ * an autoshape. The distinction drives default text formatting: the reference desktop app and
  * LibreOffice left-align and top-anchor text-box text, but center-align and
  * middle-anchor autoshape text when the deck author left those unset.
  */

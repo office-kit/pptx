@@ -320,7 +320,7 @@ const plainRunProperties = (node: XmlElement): string | null => {
   return properties;
 };
 
-// PowerPoint extends the run the caret is in, so typing never leaves one
+// The reference desktop app extends the run the caret is in, so typing never leaves one
 // `<a:r>` per keystroke, and deleting the text between two halves of a run
 // leaves one run again. Only the seam between `before` and `after` is
 // joined; runs elsewhere keep their own structure.

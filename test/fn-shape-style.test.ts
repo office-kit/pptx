@@ -138,7 +138,7 @@ describe('fn API: setShapeStyle', () => {
     if (isSchemaValidationAvailable()) expectSchemaValid(xml, 'pml');
 
     // Preserve the same setter behavior when a legacy producer leaves an
-    // effectDag in spPr, even though PowerPoint itself normally writes effectLst.
+    // effectDag in spPr, even though the reference desktop app itself normally writes effectLst.
     const patched = readZip(saved).entries.map((entry) => {
       if (entry.name !== 'ppt/slides/slide1.xml') return entry;
       const source = new TextDecoder().decode(entry.data);

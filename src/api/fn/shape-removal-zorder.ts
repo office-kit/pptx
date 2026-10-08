@@ -155,7 +155,7 @@ const rewriteShapeIds = (root: XmlElement, firstId: number): Map<string, string>
 //
 // OOXML shape z-order is just the document order of children of
 // `<p:spTree>`: the first child renders behind, the last in front.
-// PowerPoint's "Bring to Front" / "Send to Back" affordances translate
+// The reference desktop app's "Bring to Front" / "Send to Back" affordances translate
 // directly to reordering those children.
 //
 // Each function targets only "real" shape children — `<p:sp>`, `<p:pic>`,

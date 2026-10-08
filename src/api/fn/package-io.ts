@@ -36,15 +36,15 @@ export type PresentationSize = '16:9' | '4:3';
 /**
  * Creates a fresh, immediately-authorable `PresentationData`.
  *
- * The returned deck carries a slide master, the Office theme, and three
+ * The returned deck carries a slide master, the default theme, and three
  * slide layouts — `'Blank'`, `'Title Slide'`, and `'Title and Content'` —
  * but no slides yet. Add one with {@link addSlide} (or the
  * `addBlankSlide` / `addTitleSlide` / `addContentSlide` helpers), then
- * `savePresentation` to emit a `.pptx` that opens cleanly in PowerPoint,
+ * `savePresentation` to emit a `.pptx` that opens cleanly in the reference desktop app,
  * Keynote, Google Slides, and LibreOffice.
  *
  * @param options.size Slide aspect ratio. `'16:9'` (12192000×6858000 EMU,
- *   PowerPoint's modern default) or `'4:3'` (9144000×6858000). Defaults to
+ *   The reference desktop app's modern default) or `'4:3'` (9144000×6858000). Defaults to
  *   `'16:9'`.
  */
 export const createPresentation = (options: { size?: PresentationSize } = {}): PresentationData => {

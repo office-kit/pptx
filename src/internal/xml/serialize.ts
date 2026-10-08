@@ -9,7 +9,7 @@
 //     element than where the parser placed them.
 //   - Predictable output for hand-built ASTs. Authoring-time code can assume
 //     the same input element produces the same byte sequence.
-//   - Escape rules tight enough for PowerPoint to accept the output: the
+//   - Escape rules tight enough for the reference desktop app to accept the output: the
 //     predefined entities, numeric references for the whitespace controls that
 //     attribute-value normalization would otherwise eat (tab / LF / CR), and a
 //     hard reject for characters outside the XML 1.0 Char production.
@@ -112,7 +112,7 @@ const writeNode = (n: XmlNode, parts: string[]): void => {
       // illegal sequence by ending one CDATA section and starting another:
       // replace `]]>` with `]]]]><![CDATA[>` (which re-parses as `]]` followed
       // by `>`). The result is two adjacent CDATA sections whose concatenated
-      // content equals the original. PowerPoint never emits CDATA in PPTX, so
+      // content equals the original. The reference desktop app never emits CDATA in PPTX, so
       // this path only ever runs for hand-built ASTs.
       parts.push('<![CDATA[');
       parts.push(n.data.split(']]>').join(']]]]><![CDATA[>'));

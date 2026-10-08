@@ -108,7 +108,7 @@ describe('shapeAutoFitScale', () => {
   });
 
   it('never shrinks a body that does not autofit', async () => {
-    // noAutofit overflows and spAutoFit grows the box instead — PowerPoint
+    // noAutofit overflows and spAutoFit grows the box instead — the reference desktop app
     // shrinks neither, however far the text runs past the box.
     for (const autofit of ['none', 'shape'] as const) {
       const { pres, shape } = await boxWith({ w: 2, h: 1, autofit });

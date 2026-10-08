@@ -14,10 +14,10 @@ import { type XmlElement, NS, attr, elem, qname, text as textNode } from '../xml
 
 const TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table';
 
-// PowerPoint's default for a new table, "Medium Style 2 - Accent 1". Without a
+// The reference desktop app's default for a new table, "Medium Style 2 - Accent 1". Without a
 // style the `firstRow` / `bandRow` flags have nothing to resolve against and
 // the table paints as a borderless block. `addSlideTable` also writes the
-// style's definition into `tableStyles.xml`, as PowerPoint does.
+// style's definition into `tableStyles.xml`, as the reference desktop app does.
 export const DEFAULT_TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}';
 
 const NAME_GRAPHIC_FRAME = qname('p', 'graphicFrame', NS.pml);
@@ -89,7 +89,7 @@ export interface TableOptions {
   bandRow?: boolean;
   /**
    * Table-style GUID written to `<a:tblPr><a:tableStyleId>`. Defaults to
-   * PowerPoint's "Medium Style 2 - Accent 1", its default for new tables.
+   * the reference desktop app's "Medium Style 2 - Accent 1", its default for new tables.
    */
   styleId?: string;
   /**
@@ -114,7 +114,7 @@ const buildCellRunProps = (textColorHex: string | undefined): XmlElement => {
 };
 
 // `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` suppresses any inherited
-// list bullet on the cell paragraph — what PowerPoint and PptxGenJS both emit.
+// list bullet on the cell paragraph — what the reference desktop app and PptxGenJS both emit.
 // Renders the same as omitting it (table cells inherit no bullet), but makes the
 // cell self-describing.
 const buildCellParagraph = (line: string, textColorHex: string | undefined): XmlElement => {
@@ -131,7 +131,7 @@ const buildCellParagraph = (line: string, textColorHex: string | undefined): Xml
 };
 
 const buildTextCellBody = (value: string, textColorHex: string | undefined): XmlElement => {
-  // A newline in `<a:t>` is not a line break — PowerPoint needs one paragraph
+  // A newline in `<a:t>` is not a line break — the reference desktop app needs one paragraph
   // per line. Split on '\n' so multi-line cell text renders as multiple rows.
   const lines = value.length === 0 ? [''] : value.split('\n');
   const paragraphs = lines.map((line) => buildCellParagraph(line, textColorHex));
@@ -140,8 +140,8 @@ const buildTextCellBody = (value: string, textColorHex: string | undefined): Xml
   });
 };
 
-// PowerPoint's default cell insets (0.1in horizontal, 0.05in vertical).
-// Emitting them explicitly — as PowerPoint and PptxGenJS do — renders
+// The reference desktop app's default cell insets (0.1in horizontal, 0.05in vertical).
+// Emitting them explicitly — as the reference desktop app and PptxGenJS do — renders
 // identically to omitting them, but keeps the cell self-describing.
 const buildCellProps = (): XmlElement =>
   elem(NAME_TC_PR, {
@@ -182,7 +182,7 @@ const equalShares = (total: number, n: number): number[] => {
 export const buildTable = (opts: TableOptions): XmlElement => {
   const rows = opts.rows;
   // Empty rows (or a row with no cells) would emit an `<a:tbl>` with no
-  // grid — XML PowerPoint rejects with a repair dialog. Fail loudly at the
+  // grid — XML the reference desktop app rejects with a repair dialog. Fail loudly at the
   // authoring boundary instead. Errors name the public `addSlideTable`
   // entry point (this builder's sole caller) so the message is actionable.
   if (rows.length === 0) throw new Error('addSlideTable: at least one row is required');

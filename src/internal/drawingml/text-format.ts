@@ -136,7 +136,7 @@ export interface TextFormat {
   color?: Color | null;
   /**
    * Ordered adjustments to `color` (`<a:lumMod>`, `<a:tint>`, `<a:alpha>`,
-   * ...), written as children of its color element — PowerPoint's theme
+   * ...), written as children of its color element — the reference desktop app's theme
    * tints, such as Accent 2 Lighter 60%. Same field as on gradient stops;
    * requires `color`, and replaces any transforms the run's color had.
    */
@@ -179,15 +179,15 @@ export interface TextFormat {
   /**
    * Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same
    * unit as `spc`): `0` disables kerning, `1200` = apply kerning for runs
-   * ≥12pt. Mirrors `<a:rPr kern="…"/>`. Mac PowerPoint was observed to
+   * ≥12pt. Mirrors `<a:rPr kern="…"/>`. The reference desktop app on Mac was observed to
    * save the value as `kern="0"` when its Use kerning checkbox is cleared.
    */
   kern?: number;
-  /** Normalize character heights (`<a:rPr normalizeH>`; PowerPoint's Equalize character height). */
+  /** Normalize character heights (`<a:rPr normalizeH>`; the reference desktop app's Equalize character height). */
   normalizeHeight?: boolean;
   /**
    * Baseline offset as a fraction of 1 (`0.3` = superscript ~30% up,
-   * `-0.25` = subscript). PowerPoint emits ST_Percentage; this getter
+   * `-0.25` = subscript). The reference desktop app emits ST_Percentage; this getter
    * returns the unit-fraction form for ergonomic comparisons.
    */
   baseline?: number;
@@ -226,7 +226,7 @@ export interface TextFormat {
 /**
  * Non-solid glyph fill. `none` is `<a:noFill>` (glyphs show only their
  * outline); `image` is `<a:blipFill>`, the picture stretched over the text
- * block — PowerPoint's Picture or texture fill. Its `bytes` must be PNG, JPEG,
+ * block — the reference desktop app's Picture or texture fill. Its `bytes` must be PNG, JPEG,
  * GIF, BMP, TIFF or WebP, and each edit embeds them once per part.
  */
 export type TextFill =
@@ -262,7 +262,7 @@ export interface TextOutline {
   readonly color?: Color;
   /** Ordered adjustments to `color`, as on `TextFormat.colorTransforms`. Requires `color`. */
   readonly colorTransforms?: readonly ColorTransform[];
-  /** Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt). */
+  /** Line width in EMU. The reference desktop app's thinnest visible text outline is 9525 (0.75pt). */
   readonly widthEmu?: number;
   /**
    * Gradient outline (`<a:gradFill>` in the run's `<a:ln>`), as on
@@ -522,7 +522,7 @@ const setTextFill = (rPr: XmlElement, fill: TextFill, images: ImageEmbedder | un
     // validateFormatEnums rejects a picture fill without an embedder.
     const relationshipId = images!.embed(fill.bytes);
     removeAnyFill(rPr);
-    // PowerPoint's own picture text fill: the image stretched over the text block.
+    // The reference desktop app's own picture text fill: the image stretched over the text block.
     rPr.children.push(
       elem(NAME_BLIP_FILL, {
         attrs: [attr(qname('', 'rotWithShape', ''), '1')],

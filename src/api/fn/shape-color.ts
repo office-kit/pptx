@@ -245,10 +245,10 @@ const adjustHsl = (
  * Applies DrawingML color transforms (ECMA-376 §20.1.2.3) in document order.
  *
  * tint, shade, satMod and the HSL luminance transforms were checked against
- * PowerPoint's own renderings (Mac PowerPoint 16.113 exports of all 74
- * built-in table styles in the Office 2007 theme, and a native capture of
- * Medium Style 2 - Accent 1 in the Office 2023 theme); test/color-transforms.test.ts
- * holds those PowerPoint colors. The others follow the spec and LibreOffice's
+ * the reference desktop app's own renderings (its Mac 16.113 exports of all
+ * 74 built-in table styles in the 2007 default theme, and a native capture of
+ * Medium Style 2 - Accent 1 in the 2023 default theme); test/color-transforms.test.ts
+ * holds those colors from the reference desktop app. The others follow the spec and LibreOffice's
  * importer (oox/source/drawingml/color.cxx, Color::getColor) and say so.
  */
 const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp[]): string => {
@@ -257,7 +257,7 @@ const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp
   for (const t of transforms) {
     switch (t.kind) {
       case 'tint':
-        // PowerPoint mixes toward white in LINEAR light, not in sRGB as the
+        // The reference desktop app mixes toward white in LINEAR light, not in sRGB as the
         // spec's "10% of the input color combined with 90% white" reads:
         // accent1 #156082 at tint 40% paints #CCD2D8 (an sRGB mix would be
         // #A1BFCD). out = srgb(linear(c) × val + (1 − val)).
@@ -272,11 +272,11 @@ const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp
         break;
       case 'satMod':
       case 'satOff':
-        // PowerPoint does NOT cap saturation at 100%, although §20.1.2.3.27
+        // The reference desktop app does NOT cap saturation at 100%, although §20.1.2.3.27
         // says increases "never increase the saturation beyond 100%" (and
         // LibreOffice caps it). The over-saturated HSL value is converted as
         // is and the RGB channels are clamped, which also darkens the color:
-        // accent6 #F79646 with tint 50% + satMod 300% (an Office 2007 theme
+        // accent6 #F79646 with tint 50% + satMod 300% (a 2007 default theme
         // gradient stop) paints #FFBE87, where a capped saturation gives
         // #FFD2BD. Measured on all six accents at satMod 130%, 300% and 350%;
         // satOff is assumed to behave the same way.
@@ -306,7 +306,7 @@ const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp
       case 'green':
       case 'blue':
         // Component percentages are linear light, as in scrgbClr (LibreOffice
-        // does the same; not verified against PowerPoint).
+        // does the same; not verified against the reference desktop app).
         rgb = adjustLinearChannel(rgb, t.kind, () => t.val);
         break;
       case 'redMod':
@@ -329,12 +329,12 @@ const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp
         break;
       case 'inv':
         // 1 − c on the sRGB channels. LibreOffice inverts in linear light
-        // instead; neither has been compared with PowerPoint.
+        // instead; neither has been compared with the reference desktop app.
         rgb = mapChannels(rgb, (c) => 1 - c);
         break;
       case 'gray': {
         // Rec. 601 luma weights. LibreOffice uses 22/72/6; neither has been
-        // compared with PowerPoint.
+        // compared with the reference desktop app.
         const y = 0.3 * rgb[0] + 0.59 * rgb[1] + 0.11 * rgb[2];
         rgb = [y, y, y];
         break;
@@ -345,7 +345,7 @@ const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp
         // the <a:gamma/><a:shade/><a:invGamma/> wrapping found in converted
         // legacy gradients turns the linear-light shade into an sRGB one.
         // LibreOffice approximates the curve with a 2.3 power. Not verified
-        // against PowerPoint.
+        // against the reference desktop app.
         rgb = mapChannels(rgb, linearToSrgb);
         break;
       case 'invGamma':
@@ -470,7 +470,7 @@ export const resolveDrawingColor = (
  * `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children (ECMA-376
  * §20.1.2.3.1–3) to a `0`–`1` fraction, applied in document order from a
  * fully opaque base. Returns `null` when the element has no alpha
- * transform — PowerPoint paints that opaque, but callers can still tell
+ * transform — the reference desktop app paints that opaque, but callers can still tell
  * "unspecified" apart from an explicit `1`.
  *
  * Kept separate from `resolveDrawingColor` because alpha never changes the

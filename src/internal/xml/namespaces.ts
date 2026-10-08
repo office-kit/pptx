@@ -1,6 +1,6 @@
 // Canonical OOXML / PPTX namespace URIs. Keep both the URI and the prefix
-// PowerPoint emits in the wild — code that re-serializes XML must use the same
-// prefix the input file used (or, for fresh output, the prefix PowerPoint emits)
+// the reference desktop app emits in the wild — code that re-serializes XML must use the same
+// prefix the input file used (or, for fresh output, the prefix the reference desktop app emits)
 // to maximize compatibility with downstream readers that string-match the prefix
 // rather than resolving by URI.
 
@@ -26,7 +26,7 @@ export const NS = {
   wml: 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
   // Markup Compatibility & Extensibility
   mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
-  // Office 2007+ extension namespaces (a14, p14, p15, p16, etc.)
+  // 2007+ vendor extension namespaces (a14, p14, p15, p16, etc.)
   // These appear inside mc:AlternateContent blocks; we list a few here for
   // canonical prefix mapping. Others get auto-prefixed by their declaration.
   a14: 'http://schemas.microsoft.com/office/drawing/2010/main',
@@ -35,14 +35,14 @@ export const NS = {
   p14: 'http://schemas.microsoft.com/office/powerpoint/2010/main',
   p15: 'http://schemas.microsoft.com/office/powerpoint/2012/main',
   p16: 'http://schemas.microsoft.com/office/powerpoint/2015/main',
-  // PowerPoint 2016's Morph transition ([MS-PPTX] §2.6).
+  // The p159 Morph transition ([MS-PPTX] §2.6).
   p159: 'http://schemas.microsoft.com/office/powerpoint/2015/09/main',
   // Reserved XML namespaces
   xml: 'http://www.w3.org/XML/1998/namespace',
   xmlns: 'http://www.w3.org/2000/xmlns/',
 } as const;
 
-// Suggested prefix for each known namespace URI, mirroring what PowerPoint
+// Suggested prefix for each known namespace URI, mirroring what the reference desktop app
 // emits. Used as a fallback when authoring fresh XML and no prefix has been
 // declared yet. The parser preserves whatever prefix was actually in the input.
 export const SUGGESTED_PREFIX: Readonly<Record<string, string>> = {

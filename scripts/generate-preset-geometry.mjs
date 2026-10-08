@@ -84,7 +84,7 @@ for (const shape of definitions.children) {
 
 // The published file defines `upDownArrow` twice and `upArrow` not at all.
 // This is `downArrow` mirrored top to bottom, the same way `leftArrow`
-// mirrors `rightArrow`, and it is the outline PowerPoint draws.
+// mirrors `rightArrow`, and it is the outline the reference desktop app draws.
 presets.upArrow = {
   av: [
     ['adj1', 'val 50000'],

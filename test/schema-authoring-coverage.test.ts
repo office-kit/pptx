@@ -428,7 +428,7 @@ describe('schema coverage: images, notes, connectors, animation', () => {
   });
 
   // Validated against the XSD rather than only read back through our own
-  // parser, which would accept a tree PowerPoint would not.
+  // parser, which would accept a tree the reference desktop app would not.
   skipIfNoXmllint('fly, zoom and spin are schema-valid', async () => {
     await authoredXml(motionDeck());
   });

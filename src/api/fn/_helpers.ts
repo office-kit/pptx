@@ -57,7 +57,7 @@ export const NAME_SP_TREE = qname('p', 'spTree', NS.pml);
 export const ATTR_ID = qname('', 'id', '');
 export const ATTR_R_ID = qname('r', 'id', NS.officeDocRels);
 
-// PowerPoint accepts sldIds in [256, 2³¹−1024]. See plan §Risks.
+// The reference desktop app accepts sldIds in [256, 2³¹−1024]. See plan §Risks.
 export const SLD_ID_MIN = 256;
 export const SLD_ID_MAX = 2147482623;
 
@@ -152,7 +152,7 @@ export const createTxBody = (): XmlElement =>
 /**
  * Returns the shape's `<p:txBody>`, creating an empty one if absent.
  *
- * PowerPoint always gives an autoshape a text body so it can hold text the
+ * The reference desktop app always gives an autoshape a text body so it can hold text the
  * moment you click in and type. A shape authored without text (e.g.
  * `addSlideShape` with no `text`) has none, so setting text later would
  * otherwise fail — this makes every text-bearing shape editable. Unlike
@@ -228,7 +228,7 @@ export const nextShapeId = (slide: SlideData): number => nextShapeIdInTree(requi
 
 /**
  * `count` unused part names `${stem}N.xml`, numbered after the highest `N`
- * already in the package (PowerPoint numbers new masters, layouts and themes
+ * already in the package (the reference desktop app numbers new masters, layouts and themes
  * the same way).
  */
 export const allocatePartNames = (pkg: OpcPackage, stem: string, count: number): PartName[] => {

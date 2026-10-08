@@ -42,7 +42,7 @@ import { containingGroupFillElement } from './shape-group-paint.ts';
 // Useful for renderers (preview generators, PDF exporters) that need
 // to reproduce the gradient instead of substituting a placeholder.
 
-// CT_RelativeRect defaults omitted insets to zero. Mac PowerPoint omits
+// CT_RelativeRect defaults omitted insets to zero. The reference desktop app on Mac omits
 // right/bottom focus insets for the From Bottom Right Corner direction.
 function readRelativeRect(element: XmlElement | null): ReadGradientFill['focus'] {
   if (!element) return undefined;

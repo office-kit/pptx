@@ -1,8 +1,8 @@
-// Modern comments — the `<p188:cm>` threads PowerPoint 2021 and Microsoft 365
+// Modern comments — the `<p188:cm>` threads the reference desktop app (2021 and later)
 // write ([MS-PPTX] §2.16.1, schema §5.14).
 //
-// There is no fixture from a real PowerPoint here, so the parts are written
-// out the way that specification says PowerPoint writes them — including the
+// There is no fixture from the reference desktop app here, so the parts are written
+// out the way that specification says the reference desktop app writes them — including the
 // things this library does not model (a shape anchor, an extension list, a
 // reaction) so that leaving them alone can be checked rather than assumed.
 

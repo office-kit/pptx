@@ -355,7 +355,7 @@ function updateViewProperties(
   }
 }
 
-/** Slides whose bodies are collapsed in PowerPoint's outline view, in deck order. */
+/** Slides whose bodies are collapsed in the reference desktop app's outline view, in deck order. */
 export function getCollapsedOutlineSlides(presentation: PresentationData): readonly SlideData[] {
   const view = viewProperties(presentation);
   const outline = view && firstChildElement(view.doc.root, p('outlineViewPr'));

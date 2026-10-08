@@ -30,7 +30,7 @@ const deck = () => {
 };
 
 describe('apply background to all', () => {
-  it('matches PowerPoint by clearing slide/layout overrides and storing the source on the master', async () => {
+  it('matches the reference desktop app by clearing slide/layout overrides and storing the source on the master', async () => {
     const { pres, source } = deck();
     applySlideBackgroundToAll(pres, source);
     const loaded = await loadPresentation(await savePresentation(pres));

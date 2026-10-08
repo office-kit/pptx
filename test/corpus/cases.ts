@@ -1,6 +1,6 @@
 // Corpus of parity cases. Each case authors the *same* visual slide twice —
 // once through PptxGenJS (the battle-tested reference whose output opens
-// cleanly in PowerPoint) and once through @office-kit/pptx — so the harness can diff
+// cleanly in the reference desktop app) and once through @office-kit/pptx — so the harness can diff
 // the two drawing trees and turn "is our output good?" into a number.
 //
 // `pgjs` receives a fresh PptxGenJS slide. `kit` receives a fresh @office-kit/pptx
@@ -813,7 +813,7 @@ export const CASES: CorpusCase[] = [
         y: inches(0.5),
         w: inches(6),
         // PptxGenJS auto-sizes the frame to ~1in here; match it so the
-        // graphic-frame extent lines up (PowerPoint recomputes from row heights).
+        // graphic-frame extent lines up (the reference desktop app recomputes from row heights).
         h: inches(1),
         rows: [
           ['H1', 'H2', 'H3'],

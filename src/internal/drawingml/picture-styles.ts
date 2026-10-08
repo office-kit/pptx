@@ -1,5 +1,5 @@
-// PowerPoint's built-in Picture Styles. PowerPoint compiles them into the
-// application and writes each one out as plain `p:spPr` content — geometry,
+// The reference desktop app's built-in Picture Styles. The reference desktop app compiles them into
+// the application and writes each one out as plain `p:spPr` content — geometry,
 // an optional fill, `a:ln`, `a:effectLst` and sometimes `a:scene3d` / `a:sp3d`,
 // all with literal sRGB colors — so a deck never names the style it used.
 
@@ -11,7 +11,7 @@ import {
 
 export { BUILTIN_PICTURE_STYLES };
 
-/** English name of one of PowerPoint's built-in picture styles (its gallery tooltip). */
+/** English name of one of the reference desktop app's built-in picture styles (its gallery tooltip). */
 export type BuiltinPictureStyleName = (typeof BUILTIN_PICTURE_STYLES)[number];
 
 const styleIndex = new Map<string, number>(BUILTIN_PICTURE_STYLES.map((name, i) => [name, i]));
@@ -31,7 +31,7 @@ const isDml = (node: XmlNode, localName: string): node is XmlElement =>
 
 /**
  * Replaces everything a picture style controls in `spPr` — all children but
- * `a:xfrm` and `a:extLst` — with the style's content, as PowerPoint does.
+ * `a:xfrm` and `a:extLst` — with the style's content, as the reference desktop app does.
  */
 export const applyPictureStyle = (spPr: XmlElement, name: BuiltinPictureStyleName): void => {
   const xfrm = spPr.children.filter((child) => isDml(child, 'xfrm'));

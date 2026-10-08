@@ -8,7 +8,7 @@ import type { ReadText3D } from '@office-kit/pptx';
 const EMU_PER_PX = 9525;
 // ECMA-376 CT_Bevel: `w` and `h` default to 76200 EMU (6 pt).
 const DEFAULT_BEVEL_EMU = 76200;
-// Where PowerPoint's default rigs light a bevel from: the upper left.
+// Where the reference desktop app's default rigs light a bevel from: the upper left.
 const LIGHT_AZIMUTH_DEG = 225;
 const LIGHT_ELEVATION_DEG = 45;
 

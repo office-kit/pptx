@@ -1,5 +1,5 @@
-// PowerPoint 2010+ transitions ([MS-PPTX] §2.2.1): the p14 effects, the p15
-// preset transitions and p159 Morph, written as PowerPoint writes them — an
+// Extension transitions ([MS-PPTX] §2.2.1): the p14 effects, the
+// p15 preset transitions and p159 Morph, written as the reference desktop app writes them — an
 // mc:AlternateContent whose choice requires the extension and whose fallback
 // is a <p:fade/>.
 
@@ -33,7 +33,7 @@ const firstSlide = async () => {
   return { pres, slide: getSlides(pres)[0]! };
 };
 
-// Every extension effect, with the options PowerPoint's Effect Options menus
+// Every extension effect, with the options the reference desktop app's Effect Options menus
 // write, the element expected in the choice and the namespace it requires.
 const CASES: ReadonlyArray<readonly [TransitionOptions, string, 'p14' | 'p15' | 'p159']> = [
   [{ effect: 'morph' }, '<p159:morph option="byObject"/>', 'p159'],
@@ -125,7 +125,7 @@ const resolveChoiceForEcma = (xml: string): string =>
       choice.replace(/ p14:dur="\d+"/, '').replace(/<(p14|p15|p159):[^>]*\/>/, ''),
   );
 
-describe('PowerPoint extension transitions', () => {
+describe('The reference desktop app’s extension transitions', () => {
   it.each(CASES)(
     'writes %j in an AlternateContent with a fade fallback',
     async (options, element, required) => {

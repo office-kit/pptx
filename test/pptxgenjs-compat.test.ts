@@ -163,7 +163,7 @@ describe('pptxgenjs compatibility: charts', () => {
     });
     expect(after).toEqual(before);
 
-    // An axis title keeps PowerPoint's default orientation: no rot, no vert.
+    // An axis title keeps the reference desktop app's default orientation: no rot, no vert.
     const titles = axisTitleBodyPrs(newXml);
     expect(titles).toHaveLength(axisTitleBodyPrs(oldXml).length);
     expect(titles.length).toBeGreaterThan(0);
@@ -177,7 +177,7 @@ describe('pptxgenjs compatibility: charts', () => {
     expect(valuesOf(newXml, 'showLeaderLines')).toEqual(valuesOf(oldXml, 'showLeaderLines'));
     expect(valuesOf(newXml, 'showLeaderLines').every((v) => v === '0')).toBe(true);
     expect(axisLayout(newXml)).toEqual(axisLayout(oldXml));
-    // pptxgenjs draws axis lines and gridlines at 1 pt; PowerPoint's default
+    // pptxgenjs draws axis lines and gridlines at 1 pt; the reference desktop app's default
     // without `w` is 0.75 pt, so the widths must survive.
     expect(before).toMatchObject({
       valueAxisMajorGridlineWidthEmu: 12700,

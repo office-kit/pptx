@@ -3,7 +3,7 @@
 // colour effects — and the duration a changed preset takes.
 //
 // None of these options is in the preset numbers, so each is checked where it
-// is written: the behaviour PowerPoint's capture of the gallery default shows
+// is written: the behaviour the reference desktop app's capture of the gallery default shows
 // it in (test/fixtures/native/animations/emphasis/). The defaults themselves
 // are compared byte for byte in fn-animation-native.test.ts.
 
@@ -326,7 +326,7 @@ describe('animations: the emphasis effects’ own Effect Options', () => {
 describe('animations: emphasis options the reader cannot name', () => {
   /**
    * The effect as written, with its saved slide edited by `edit` and loaded
-   * again — a tree PowerPoint could hand us that says more than the options do.
+   * again — a tree the reference desktop app could hand us that says more than the options do.
    */
   const edited = async (opts: AnimationOptions, edit: (xml: string) => string) => {
     const { pres } = await openDeck();
@@ -377,7 +377,7 @@ describe('animations: emphasis options the reader cannot name', () => {
     expect(step.editable).toBe(false);
   });
 
-  it('a colour with transforms PowerPoint wrote is named with them', async () => {
+  it('a colour with transforms the reference desktop app wrote is named with them', async () => {
     const step = await edited({ effect: 'fontColor' }, (xml) =>
       xml.replace(
         '<a:schemeClr val="accent2"/>',

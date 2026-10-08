@@ -1,11 +1,11 @@
-// PowerPoint's default master structures, as XML strings: the Office slide
+// The reference desktop app's default master structures, as XML strings: the default slide
 // master and its eleven layouts (Insert Slide Master), the custom layout
 // (Insert Layout), the placeholders the Master Layout and Insert Placeholder
 // commands add, and the default notes and handout masters.
 //
-// The geometry is PowerPoint 2013+'s for a 16:9 slide (12192000 × 6858000
+// The geometry is what the reference desktop app (2013 and later) uses for a 16:9 slide (12192000 × 6858000
 // EMU) and a portrait 7.5 × 10 in notes page (6858000 × 9144000 EMU). For any
-// other size the boxes are scaled per axis, which is how PowerPoint keeps a
+// other size the boxes are scaled per axis, which is how the reference desktop app keeps a
 // master's layout when the slide or page size changes.
 //
 // Everything here is static boilerplate, so it is held as strings rather than
@@ -21,7 +21,7 @@ const SLIDE_H = 6858000;
 const PAGE_W = 6858000;
 const PAGE_H = 9144000;
 
-// Field ids only have to be GUIDs; PowerPoint reuses one per field kind too.
+// Field ids only have to be GUIDs; the reference desktop app reuses one per field kind too.
 const DATE_FIELD_ID = '{0B8E6F38-1A47-4C55-9C2B-3D5A1F0E7A01}';
 const SLIDE_NUMBER_FIELD_ID = '{0B8E6F38-1A47-4C55-9C2B-3D5A1F0E7A02}';
 
@@ -221,8 +221,8 @@ const TX_STYLES =
   '</p:txStyles>';
 
 /**
- * The Office slide master Insert Slide Master adds. `layouts` are the
- * `<p:sldLayoutId>` entries (`id`, `rId`) in order. PowerPoint marks a
+ * The default slide master Insert Slide Master adds. `layouts` are the
+ * `<p:sldLayoutId>` entries (`id`, `rId`) in order. The reference desktop app marks a
  * master it inserts as preserved, so it survives having no slides.
  */
 export const defaultSlideMasterXml = (
@@ -346,8 +346,8 @@ interface LayoutSpec {
   readonly placeholders: ReadonlyArray<PlaceholderSpec>;
 }
 
-// The eleven layouts of the Office master, in PowerPoint's order.
-const OFFICE_LAYOUTS: ReadonlyArray<LayoutSpec> = [
+// The eleven layouts of the default master, in the reference desktop app's order.
+const DEFAULT_LAYOUTS: ReadonlyArray<LayoutSpec> = [
   {
     name: 'Title Slide',
     type: 'title',
@@ -513,13 +513,13 @@ const layoutXml = (
   return `${XML_DECL}<p:sldLayout ${NS_DECLS}${extraAttrs}><p:cSld name="${escapeAttr(spec.name)}">${spTree(placeholders)}</p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`;
 };
 
-/** The Office master's eleven layouts, in order, for a slide of `size`. */
+/** The default master's eleven layouts, in order, for a slide of `size`. */
 export const defaultSlideLayoutsXml = (size: { w: number; h: number }): string[] =>
-  OFFICE_LAYOUTS.map((spec) => layoutXml(spec, size, ` type="${spec.type}" preserve="1"`));
+  DEFAULT_LAYOUTS.map((spec) => layoutXml(spec, size, ` type="${spec.type}" preserve="1"`));
 
 /**
  * The layout Insert Layout adds: a title and the three footers, named
- * "Custom Layout" (callers number repeats as PowerPoint does).
+ * "Custom Layout" (callers number repeats as the reference desktop app does).
  */
 export const customSlideLayoutXml = (name: string, size: { w: number; h: number }): string =>
   layoutXml(
@@ -531,7 +531,7 @@ export const customSlideLayoutXml = (name: string, size: { w: number; h: number 
 // ---------------------------------------------------------------------------
 // Insert Placeholder.
 
-/** Insert Placeholder's menu, in PowerPoint's order. */
+/** Insert Placeholder's menu, in the reference desktop app's order. */
 export type LayoutPlaceholderKind =
   | 'content'
   | 'verticalContent'
@@ -567,7 +567,7 @@ const INSERTED: Record<
   table: { name: 'Table Placeholder', ph: 'type="tbl" ', prompt: 'Table' },
   smartArt: { name: 'SmartArt Placeholder', ph: 'type="dgm" ', prompt: 'SmartArt' },
   media: { name: 'Media Placeholder', ph: 'type="media" ', prompt: 'Media' },
-  // PowerPoint keeps the pre-2013 `clipArt` token for its Online Image placeholder.
+  // The reference desktop app keeps the pre-2013 `clipArt` token for its Online Image placeholder.
   onlineImage: { name: 'Online Image Placeholder', ph: 'type="clipArt" ', prompt: 'Online Image' },
 };
 
@@ -654,7 +654,7 @@ const cornerSpec = (
 };
 
 /**
- * Where the notes page's slide image goes. PowerPoint keeps the slide's aspect
+ * Where the notes page's slide image goes. The reference desktop app keeps the slide's aspect
  * ratio: a widescreen slide fills the 6 in width 1.25 in from the top, a 4:3
  * one fills 3.75 in of height 0.75 in from the top, centred.
  */
@@ -761,7 +761,7 @@ const NOTES_STYLE = `<p:notesStyle>${levels(
 
 const PAGE_BACKGROUND = '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>';
 
-/** PowerPoint's default notes master for a page of `page` and slides of `slide`. */
+/** The reference desktop app's default notes master for a page of `page` and slides of `slide`. */
 export const defaultNotesMasterXml = (
   page: { w: number; h: number },
   slide: { w: number; h: number },
@@ -770,7 +770,7 @@ export const defaultNotesMasterXml = (
   return `${XML_DECL}<p:notesMaster ${NS_DECLS}><p:cSld>${PAGE_BACKGROUND}${spTree(specs)}</p:cSld><p:clrMap ${STANDARD_CLR_MAP}/>${NOTES_STYLE}</p:notesMaster>`;
 };
 
-/** PowerPoint's default handout master for a page of `page`. */
+/** The reference desktop app's default handout master for a page of `page`. */
 export const defaultHandoutMasterXml = (page: { w: number; h: number }): string => {
   const scale = pageScale(page);
   const specs = HANDOUT_MASTER_PLACEHOLDER_TYPES.map((type) =>

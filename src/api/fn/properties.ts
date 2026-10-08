@@ -24,9 +24,9 @@ const CORE_PROPS_PART_NAME = partName('/docProps/core.xml');
 
 /**
  * Document-level metadata from `/docProps/core.xml` (Open Packaging
- * Conventions). Surfaces the fields PowerPoint, Keynote, and
+ * Conventions). Surfaces the fields the reference desktop app, Keynote, and
  * everyone else exchange via OPC core-properties — these are the
- * values shown in PowerPoint's "File › Properties" / "Info" panel.
+ * values shown in the reference desktop app's "File › Properties" / "Info" panel.
  */
 export interface CoreProperties {
   readonly title: string | null;
@@ -167,7 +167,7 @@ const buildEmptyCorePropsRoot = (): XmlElement => {
  * override) if the package didn't have one.
  *
  * Note: setting `created` / `modified` requires an ISO-8601 timestamp
- * string (e.g. `'2026-05-15T12:34:56Z'`). PowerPoint expects the
+ * string (e.g. `'2026-05-15T12:34:56Z'`). The reference desktop app expects the
  * `xsi:type="dcterms:W3CDTF"` attribute on these elements but readers
  * we tested all accept missing-attribute output too; this helper
  * therefore omits the attribute for simplicity.
@@ -238,13 +238,13 @@ const EXT_PROPS_PART_NAME = partName('/docProps/app.xml');
 
 /**
  * Selected string fields from `/docProps/app.xml`
- * (extended-properties / "app props"). PowerPoint exposes these
+ * (extended-properties / "app props"). The reference desktop app exposes these
  * under File › Info / Properties as the "Origin" and "Related
  * People" groups.
  *
  * Numeric / derived fields (`Slides`, `Words`, `Paragraphs`, …) are
- * intentionally omitted — they're recomputed by PowerPoint on save
- * and reading them tends to lie about decks edited outside Office.
+ * intentionally omitted — they're recomputed by the reference desktop app on save
+ * and reading them tends to lie about decks edited in other apps.
  */
 export interface ExtendedProperties {
   readonly application: string | null;

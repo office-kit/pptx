@@ -3,7 +3,7 @@
 //   - Unit conversions and shape geometry always emit whole EMU. Fractional
 //     ST_Coordinate values (floating-point drift from unit math, or an
 //     `as Emu` cast on a computed value) are schema-invalid and make
-//     PowerPoint mark the file corrupt and zero the offending offsets.
+//     the reference desktop app mark the file corrupt and zero the offending offsets.
 //   - Stacked / 100%-stacked bar charts default to overlap=100 so the stack
 //     doesn't spread sideways across the category.
 
@@ -176,7 +176,7 @@ describe('bar chart overlap defaults', () => {
     expect(xml).not.toContain('<c:overlap val="100"/>');
   });
 
-  it('clustered column emits no default overlap (keeps PowerPoint default)', () => {
+  it('clustered column emits no default overlap (keeps the reference desktop app’s default)', () => {
     const { pres, slide } = blankSlide();
     addSlideChart(slide, {
       x: inches(0.5),

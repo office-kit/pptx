@@ -2,7 +2,7 @@
 // (`gridSpan`, `rowSpan`, `hMerge`, `vMerge`) and per-cell borders
 // (`<a:tcPr><a:ln{L,R,T,B,TlToBr,BlToTr}>`). These complete the table
 // read-back surface so renderers can place merged regions and draw the
-// borders PowerPoint actually emits.
+// borders the reference desktop app actually emits.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

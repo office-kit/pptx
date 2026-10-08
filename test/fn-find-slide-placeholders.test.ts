@@ -22,7 +22,7 @@ describe('fn API: findSlidePlaceholders', () => {
     const layout = findSlideLayout(pres, 'Two Content')!;
     const slide = addSlide(pres, { layout });
     const bodies = findSlidePlaceholders(slide, 'body');
-    // PowerPoint's stock "Two Content" layout has two body slots.
+    // The reference desktop app's stock "Two Content" layout has two body slots.
     expect(bodies.length).toBe(2);
     // Set distinct text to confirm they're independent.
     setShapeText(bodies[0]!, 'left');
