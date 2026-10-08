@@ -1,7 +1,8 @@
-// "PowerPoint", "Microsoft" and "Office" are Microsoft trademarks, and this
-// project is not affiliated with Microsoft. Source, tests and scripts describe
-// compatibility neutrally: "presentation apps" in general, or "the reference
-// desktop app" for a verified behaviour that deviates from ECMA-376. This
+// "PowerPoint", "Microsoft", "Office", "Excel" and "Word" are Microsoft
+// trademarks, and this project is not affiliated with Microsoft. Source, tests
+// and scripts describe compatibility neutrally: "presentation apps" in general,
+// or "the reference desktop app" for a verified behaviour that deviates from
+// ECMA-376; "spreadsheet app" / "word processor" for the other products. This
 // guard fails on any new use outside the allowlist below.
 //
 // Markdown files are documentation and are maintained separately.
@@ -19,6 +20,14 @@ const BINARY =
 const BANNED = [
   /powerpoint|パワーポイント|microsoft|ms[ -]?office/gi,
   /\bOffice\b|\bOFFICE(?=\b|_)/g,
+  // Case-sensitive so the `vnd.ms-excel` content types and the verb "excel"
+  // stay out; `\b` already skips `Microsoft_Excel_Worksheet` and `QtExcel`.
+  /\bExcel\b|\bEXCEL\b|エクセル/g,
+  // The word processor. Case-sensitive so the English word ("word wrap") is
+  // not it, and `\b` skips `WordArt` and `WordprocessingML`. In Japanese,
+  // ワード alone is too common (パスワード, キーワード), so only the
+  // product-shaped uses are banned.
+  /\bWord\b|(?:Microsoft|MS|マイクロソフト) ?ワード|ワード(?:文書|ファイル|形式)/g,
 ];
 
 // Spans that may contain a banned word, removed before the scan. Each one is a
@@ -43,6 +52,11 @@ const ALLOWED: readonly RegExp[] = [
   /\bOFFICE_DOC\b/g,
   // The `Application` value of a fixture's docProps/app.xml, asserted on read.
   /'Microsoft Macintosh PowerPoint'/g,
+  // Title-case UI labels where "Word" is the English word, e.g. the Change
+  // Case command.
+  /\b(?:Each|Whole) Words?\b/g,
+  // "Word" at the start of a sentence, as the English word.
+  /\bWord (?=wrap|spacing|break|count|boundar)/g,
 ];
 
 // Trademark disclaimers: a sentence saying the project is not affiliated with
@@ -79,6 +93,15 @@ describe('neutral wording', () => {
       1,
     );
     expect(findings('a.ts', '// This project is not affiliated with Microsoft.')).toEqual([]);
+    expect(findings('a.ts', '// headroom, as in Excel')).toHaveLength(1);
+    expect(findings('a.ts', '// エクセルで開く')).toHaveLength(1);
+    expect(findings('a.ts', '// open it in Word')).toHaveLength(1);
+    expect(findings('a.ts', '// ワード文書として保存')).toHaveLength(1);
+    expect(findings('a.ts', "'/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx'")).toEqual([]);
+    expect(findings('a.ts', "'application/vnd.ms-excel'")).toEqual([]);
+    expect(findings('a.ts', '// WordArt and WordprocessingML; word wrap')).toEqual([]);
+    expect(findings('a.ts', "'Capitalize Each Word'; // Word wrap mode")).toEqual([]);
+    expect(findings('a.ts', "'パスワード', 'ワードアート', 'キーワード'")).toEqual([]);
   });
 
   it('keeps Microsoft product names out of source, tests and scripts', () => {

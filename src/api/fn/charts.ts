@@ -428,7 +428,7 @@ export const resolveChartPartName = (
  *
  * The embedded xlsx is re-written too — it's what the "Edit data"
  * affordance opens. The previous workbook is replaced wholesale (no
- * attempt to preserve styles a user added through Excel).
+ * attempt to preserve styles a user added in a spreadsheet app).
  *
  * Pass any `ChartSpec`, including a different `kind` from the
  * original; this acts as "change my column chart to a line chart with

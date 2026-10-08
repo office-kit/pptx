@@ -490,7 +490,7 @@ describe('chart features shared across kinds', () => {
     expect(xml).toContain('<c:dateAx>');
     expect(xml).not.toContain('<c:catAx>');
     expect(xml).toContain('<c:baseTimeUnit val="months"/>');
-    // Date categories are numbers in the sheet, not text, so Excel can space them.
+    // Date categories are numbers in the sheet, not text, so a spreadsheet app can space them.
     expect(sheetXml).toContain('<c r="A2"><v>45292</v></c>');
     expect(readBack.categories).toEqual(['45292', '45323', '45352']);
     expect(readBack.categoryAxisDate).toEqual({

@@ -148,7 +148,7 @@ describe('chart fidelity vs the reference desktop app', () => {
     expect(Math.max(...labels)).toBeGreaterThanOrEqual(20);
   });
 
-  it('labels a percentStacked value axis 0%..100% (no Excel headroom)', async () => {
+  it('labels a percentStacked value axis 0%..100% (no spreadsheet-style headroom)', async () => {
     const svg = await renderChart({
       kind: 'column',
       grouping: 'percentStacked',
