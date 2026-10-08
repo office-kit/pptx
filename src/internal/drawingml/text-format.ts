@@ -146,7 +146,11 @@ export interface TextFormat {
    * fill. Both are the same OOXML fill choice, so supplying both is rejected.
    */
   textFill?: TextFill;
-  bold?: boolean;
+  /**
+   * `null` removes `b`, so the run inherits its weight again; `false` writes
+   * `b="0"`, which overrides an inherited bold.
+   */
+  bold?: boolean | null;
   italic?: boolean;
   /**
    * Underline style. `true` is shorthand for `'sng'` (single). Pass the
@@ -168,9 +172,10 @@ export interface TextFormat {
   strike?: boolean | string;
   /**
    * Character spacing in 1/100 points (`0` = default). Negative values
-   * tighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`.
+   * tighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`. `null`
+   * removes it, so the run inherits its spacing again.
    */
-  spc?: number;
+  spc?: number | null;
   /**
    * Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same
    * unit as `spc`): `0` disables kerning, `1200` = apply kerning for runs
@@ -284,6 +289,8 @@ export interface ImageEmbedder {
  */
 export type ReadTextFormat = Omit<
   TextFormat,
+  | 'bold'
+  | 'spc'
   | 'color'
   | 'textFill'
   | 'underlineColor'
@@ -294,6 +301,8 @@ export type ReadTextFormat = Omit<
   | 'glow'
   | 'reflection'
 > & {
+  bold?: boolean;
+  spc?: number;
   color?: string | null;
   underlineColor?: string | null;
   highlight?: string | null;
@@ -686,7 +695,7 @@ const applyValidatedRunFormat = (
     attrs = setOrRemoveAttr(attrs, ATTR_SZ, String(sz));
   }
   if (format.bold !== undefined) {
-    attrs = setOrRemoveAttr(attrs, ATTR_B, format.bold ? '1' : '0');
+    attrs = setOrRemoveAttr(attrs, ATTR_B, format.bold === null ? null : format.bold ? '1' : '0');
   }
   if (format.italic !== undefined) {
     attrs = setOrRemoveAttr(attrs, ATTR_I, format.italic ? '1' : '0');
@@ -702,8 +711,11 @@ const applyValidatedRunFormat = (
     attrs = setOrRemoveAttr(attrs, ATTR_STRIKE, value);
   }
   if (format.spc !== undefined) {
-    const spc = textPointSpacing(format.spc, 'setShapeRunFormat: spc');
-    attrs = setOrRemoveAttr(attrs, ATTR_SPC, String(spc));
+    attrs = setOrRemoveAttr(
+      attrs,
+      ATTR_SPC,
+      format.spc === null ? null : String(textPointSpacing(format.spc, 'setShapeRunFormat: spc')),
+    );
   }
   if (format.kern !== undefined) {
     attrs = setOrRemoveAttr(attrs, ATTR_KERN, String(Math.round(format.kern)));

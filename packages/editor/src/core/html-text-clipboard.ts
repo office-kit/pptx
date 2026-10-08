@@ -323,10 +323,10 @@ export function textClipboardHtml(
       style.color = 'transparent';
       style.caretColor = cssColor(textFillCaretColor(authored));
     }
-    if (format.bold !== undefined) style.fontWeight = format.bold ? 'bold' : 'normal';
+    if (format.bold != null) style.fontWeight = format.bold ? 'bold' : 'normal';
     if (format.italic !== undefined) style.fontStyle = format.italic ? 'italic' : 'normal';
     if (format.size !== undefined) style.fontSize = `${format.size}pt`;
-    if (format.spc !== undefined) style.letterSpacing = `${(format.spc / 100) * (96 / 72)}px`;
+    if (format.spc != null) style.letterSpacing = `${(format.spc / 100) * (96 / 72)}px`;
     const families = [format.font, format.fontEastAsian].filter((font): font is string => !!font);
     if (families.length) style.fontFamily = families.map((font) => JSON.stringify(font)).join(', ');
     if (format.color) style.color = cssColor(format.color);

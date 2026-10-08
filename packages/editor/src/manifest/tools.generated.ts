@@ -12815,7 +12815,11 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Non-solid glyph fill. The `color` field remains the shorthand for a solid\nfill. Both are the same OOXML fill choice, so supplying both is rejected.',
               },
-              bold: { type: 'boolean' },
+              bold: {
+                type: ['boolean', 'null'],
+                description:
+                  '`null` removes `b`, so the run inherits its weight again; `false` writes\n`b="0"`, which overrides an inherited bold.',
+              },
               italic: { type: 'boolean' },
               underline: {
                 type: ['boolean', 'string'],
@@ -12833,9 +12837,9 @@ export const generatedTools: GeneratedTools = {
                   "Strikethrough style. `true` is shorthand for `'sngStrike'` (single\nline). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,\n`'dblStrike'`, `'noStrike'`) for other styles. `false` clears.",
               },
               spc: {
-                type: 'number',
+                type: ['null', 'number'],
                 description:
-                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`.',
+                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`. `null`\nremoves it, so the run inherits its spacing again.',
               },
               kern: {
                 type: 'number',
@@ -13774,7 +13778,11 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Non-solid glyph fill. The `color` field remains the shorthand for a solid\nfill. Both are the same OOXML fill choice, so supplying both is rejected.',
               },
-              bold: { type: 'boolean' },
+              bold: {
+                type: ['boolean', 'null'],
+                description:
+                  '`null` removes `b`, so the run inherits its weight again; `false` writes\n`b="0"`, which overrides an inherited bold.',
+              },
               italic: { type: 'boolean' },
               underline: {
                 type: ['boolean', 'string'],
@@ -13792,9 +13800,9 @@ export const generatedTools: GeneratedTools = {
                   "Strikethrough style. `true` is shorthand for `'sngStrike'` (single\nline). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,\n`'dblStrike'`, `'noStrike'`) for other styles. `false` clears.",
               },
               spc: {
-                type: 'number',
+                type: ['null', 'number'],
                 description:
-                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`.',
+                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`. `null`\nremoves it, so the run inherits its spacing again.',
               },
               kern: {
                 type: 'number',
@@ -16269,7 +16277,11 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Non-solid glyph fill. The `color` field remains the shorthand for a solid\nfill. Both are the same OOXML fill choice, so supplying both is rejected.',
               },
-              bold: { type: 'boolean' },
+              bold: {
+                type: ['boolean', 'null'],
+                description:
+                  '`null` removes `b`, so the run inherits its weight again; `false` writes\n`b="0"`, which overrides an inherited bold.',
+              },
               italic: { type: 'boolean' },
               underline: {
                 type: ['boolean', 'string'],
@@ -16287,9 +16299,9 @@ export const generatedTools: GeneratedTools = {
                   "Strikethrough style. `true` is shorthand for `'sngStrike'` (single\nline). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,\n`'dblStrike'`, `'noStrike'`) for other styles. `false` clears.",
               },
               spc: {
-                type: 'number',
+                type: ['null', 'number'],
                 description:
-                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`.',
+                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`. `null`\nremoves it, so the run inherits its spacing again.',
               },
               kern: {
                 type: 'number',
@@ -18009,7 +18021,11 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Non-solid glyph fill. The `color` field remains the shorthand for a solid\nfill. Both are the same OOXML fill choice, so supplying both is rejected.',
               },
-              bold: { type: 'boolean' },
+              bold: {
+                type: ['boolean', 'null'],
+                description:
+                  '`null` removes `b`, so the run inherits its weight again; `false` writes\n`b="0"`, which overrides an inherited bold.',
+              },
               italic: { type: 'boolean' },
               underline: {
                 type: ['boolean', 'string'],
@@ -18027,9 +18043,9 @@ export const generatedTools: GeneratedTools = {
                   "Strikethrough style. `true` is shorthand for `'sngStrike'` (single\nline). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,\n`'dblStrike'`, `'noStrike'`) for other styles. `false` clears.",
               },
               spc: {
-                type: 'number',
+                type: ['null', 'number'],
                 description:
-                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`.',
+                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`. `null`\nremoves it, so the run inherits its spacing again.',
               },
               kern: {
                 type: 'number',
@@ -19847,7 +19863,11 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Non-solid glyph fill. The `color` field remains the shorthand for a solid\nfill. Both are the same OOXML fill choice, so supplying both is rejected.',
               },
-              bold: { type: 'boolean' },
+              bold: {
+                type: ['boolean', 'null'],
+                description:
+                  '`null` removes `b`, so the run inherits its weight again; `false` writes\n`b="0"`, which overrides an inherited bold.',
+              },
               italic: { type: 'boolean' },
               underline: {
                 type: ['boolean', 'string'],
@@ -19865,9 +19885,9 @@ export const generatedTools: GeneratedTools = {
                   "Strikethrough style. `true` is shorthand for `'sngStrike'` (single\nline). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,\n`'dblStrike'`, `'noStrike'`) for other styles. `false` clears.",
               },
               spc: {
-                type: 'number',
+                type: ['null', 'number'],
                 description:
-                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`.',
+                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`. `null`\nremoves it, so the run inherits its spacing again.',
               },
               kern: {
                 type: 'number',
@@ -20416,7 +20436,11 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Non-solid glyph fill. The `color` field remains the shorthand for a solid\nfill. Both are the same OOXML fill choice, so supplying both is rejected.',
               },
-              bold: { type: 'boolean' },
+              bold: {
+                type: ['boolean', 'null'],
+                description:
+                  '`null` removes `b`, so the run inherits its weight again; `false` writes\n`b="0"`, which overrides an inherited bold.',
+              },
               italic: { type: 'boolean' },
               underline: {
                 type: ['boolean', 'string'],
@@ -20434,9 +20458,9 @@ export const generatedTools: GeneratedTools = {
                   "Strikethrough style. `true` is shorthand for `'sngStrike'` (single\nline). Pass the exact `ST_TextStrikeType` token (`'sngStrike'`,\n`'dblStrike'`, `'noStrike'`) for other styles. `false` clears.",
               },
               spc: {
-                type: 'number',
+                type: ['null', 'number'],
                 description:
-                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`.',
+                  'Character spacing in 1/100 points (`0` = default). Negative values\ntighten, positive values loosen. Mirrors `<a:rPr spc="…"/>`. `null`\nremoves it, so the run inherits its spacing again.',
               },
               kern: {
                 type: 'number',

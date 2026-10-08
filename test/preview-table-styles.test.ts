@@ -177,6 +177,68 @@ describe('built-in table styles in the preview', () => {
       expect(channelDistance(stops.at(-1)!, last), stops.at(-1)).toBeLessThanOrEqual(2);
   });
 
+  // Themed Style 2's two-stop background does not blend at a constant rate in
+  // PowerPoint. Reference pixels: Mac PowerPoint 16.113's 1200 × 700 exports,
+  // column x = 1000 of a table spanning y = 100–500, in the header and the two
+  // unbanded body rows; keys are the pixel centres as a fraction of the table
+  // height from its top. 2 levels of tolerance: the fitted curve's worst
+  // residual over all six accents is 1.6.
+  it.each([
+    [
+      'Themed Style 2 - Accent 1',
+      [
+        [0.0512, '9BC1FF'],
+        [0.1512, '98BFFE'],
+        [0.4512, '86B2F4'],
+        [0.5513, '7DACEF'],
+        [0.8512, '5791DA'],
+        [0.9513, '4786D1'],
+      ],
+    ],
+    [
+      'Themed Style 2 - Accent 6',
+      [
+        [0.0512, 'FFB977'],
+        [0.1512, 'FFB875'],
+        [0.4512, 'FFB066'],
+        [0.5513, 'FFAC5E'],
+        [0.8512, 'FF9D3F'],
+        [0.9513, 'FF9632'],
+      ],
+    ],
+  ] as const)('blends %s’s background down the table as PowerPoint does', (style, samples) => {
+    const { svg } = render(style, { firstRow: true, bandRow: true });
+    const out = svg();
+    const gradient = out.slice(out.indexOf('<linearGradient'), out.indexOf('</linearGradient>'));
+    const attr = (name: string) => Number(new RegExp(` ${name}="([-\\d.]+)"`).exec(gradient)![1]);
+    // A vertical gradient in the table's bounding box.
+    expect(attr('x1')).toBe(attr('x2'));
+    const [y1, y2] = [attr('y1'), attr('y2')];
+    const stops = [...gradient.matchAll(/offset="([\d.]+)" stop-color="#([0-9A-F]{6})"/gi)].map(
+      (m) => ({
+        offset: Number(m[1]),
+        rgb: [0, 2, 4].map((i) => parseInt(m[2]!.slice(i, i + 2), 16)),
+      }),
+    );
+    // SVG interpolates between stops in sRGB, as PowerPoint does here.
+    const colorAt = (fraction: number): string => {
+      const offset = (fraction - y1) / (y2 - y1);
+      const after = stops.findIndex((stop) => stop.offset >= offset);
+      const b = stops[after]!;
+      const a = stops[Math.max(0, after - 1)]!;
+      const t = b.offset === a.offset ? 0 : (offset - a.offset) / (b.offset - a.offset);
+      return a.rgb
+        .map((v, k) => Math.round(v + (b.rgb[k]! - v) * t))
+        .map((v) => v.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase();
+    };
+    for (const [fraction, expected] of samples) {
+      const actual = colorAt(fraction);
+      expect(channelDistance(actual, expected), `${fraction}: ${actual}`).toBeLessThanOrEqual(2);
+    }
+  });
+
   it('paints the Themed Styles’ theme gradient behind translucent bands', () => {
     const { svg } = render('Themed Style 1 - Accent 1', { firstRow: true, bandRow: true });
     const out = svg();

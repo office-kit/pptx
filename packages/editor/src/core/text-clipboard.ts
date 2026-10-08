@@ -139,7 +139,6 @@ export function copyTextRange(
     let fieldIndex = 0;
     let breakIndex = 0;
     for (const element of elements) {
-      let format = element.format;
       const selector =
         element.kind === 'r'
           ? runIndex++
@@ -147,11 +146,16 @@ export function copyTextRange(
             ? { fieldIndex: fieldIndex++ }
             : { breakIndex: breakIndex++ };
       const length = element.kind === 'br' ? 1 : element.text.length;
-      if (resolveRunFormat && text.length < end && text.length + length > start)
-        format = resolveRunFormat(index, selector) ?? format;
+      const resolved =
+        resolveRunFormat && text.length < end && text.length + length > start
+          ? resolveRunFormat(index, selector)
+          : undefined;
       // What the reader hands back widens colors to strings; the clipboard
       // carries a format that can be written straight into another shape.
-      append(element.kind === 'br' ? '\n' : element.text, toWritableTextFormat(format ?? {}));
+      append(
+        element.kind === 'br' ? '\n' : element.text,
+        resolved ?? toWritableTextFormat(element.format ?? {}),
+      );
     }
   });
   return { version: 1, text: text.slice(start, end), formats };

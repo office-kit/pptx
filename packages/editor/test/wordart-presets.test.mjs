@@ -225,11 +225,21 @@ test('a preset replaces the previous one instead of merging with it', async () =
   const shape = box();
   applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('white-accent5-shadow')]);
   applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('black-shadow')]);
-  const rPr = normalize(properties(getShapeXmlString(shape), 'rPr'));
-  // Native removes `b`; the library can only write it off.
-  assert.equal(rPr.b, '0');
-  assert.deepEqual(
-    { ...rPr, b: undefined },
-    normalize(properties(await fixture('black-shadow'), 'rPr')),
-  );
+  const xml = getShapeXmlString(shape);
+  const black = normalize(properties(await fixture('black-shadow'), 'rPr'));
+  // Native removes `b` instead of writing `b="0"`.
+  assert.deepEqual(normalize(properties(xml, 'rPr')), black);
+  assert.deepEqual(normalize(properties(xml, 'endParaRPr')), black);
+});
+
+test('a preset without spacing removes the previous preset’s `spc`', async () => {
+  const { box } = deck();
+  const shape = box();
+  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('white-accent1-glow')]);
+  assert.equal(normalize(properties(getShapeXmlString(shape), 'rPr')).spc, '50');
+  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('accent2-outline')]);
+  const xml = getShapeXmlString(shape);
+  const native = normalize(properties(await fixture('accent2-outline'), 'rPr'));
+  assert.deepEqual(normalize(properties(xml, 'rPr')), native);
+  assert.doesNotMatch(xml, /\bspc="/);
 });

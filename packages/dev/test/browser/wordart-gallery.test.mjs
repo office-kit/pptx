@@ -142,7 +142,8 @@ test(
       );
       const black = getShapeRunFormat((await shapes())[0], 0, 0);
       assert.equal(black.color, undefined);
-      assert.equal(black.bold, false);
+      // PowerPoint removes `b` rather than writing it off.
+      assert.equal(black.bold, undefined);
       assert.deepEqual(black.outline, { widthEmu: 0 });
       assert.equal(black.shadow.opacity, 0.4);
 
