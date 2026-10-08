@@ -49,7 +49,7 @@ export function shapeTextRect(shape: SlideShapeData): TextRectFractions | null {
  * {@link shapeTextRect}, or `null` for the whole box) placed in `bounds`, less
  * the body insets. All coordinates and margins must use the same unit
  * (normally EMU). When margins collapse a region, the region is kept without
- * them, as PowerPoint does.
+ * them, as the reference desktop app does.
  */
 export function resolveTextBodyRect(
   bounds: { x: number; y: number; w: number; h: number },

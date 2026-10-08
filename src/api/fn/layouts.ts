@@ -22,7 +22,7 @@ import { getSlides } from './slide-query.ts';
 // ---------------------------------------------------------------------------
 // Slide layouts.
 
-/** PowerPoint's user-visible layout name. */
+/** The reference desktop app's user-visible layout name. */
 export const getSlideLayoutName = (layout: SlideLayoutData): string => layout[LAYOUT_PART].name;
 
 /**
@@ -71,7 +71,7 @@ export const getSlideLayoutPlaceholders = (
  * String matching is **case-sensitive** and exact: `findSlideLayout(pres,
  * 'Blank')` matches a layout named `"Blank"` but not `"blank"`. The
  * user-visible name is also locale-dependent (a deck authored in a
- * non-English PowerPoint localizes `"Blank"`), so prefer
+ * The reference desktop app localizes `"Blank"`), so prefer
  * {@link findSlideLayoutByType} — which matches the locale-stable
  * `<p:sldLayout type="…">` token (`'blank'`, `'title'`, `'obj'`, …) —
  * when you need a robust lookup. Pass a `RegExp` with the `i` flag here
@@ -115,7 +115,7 @@ export const findLayoutsWithPlaceholderType = (
  * token. Unlike `findSlideLayout` (which matches the user-visible
  * name, and is therefore locale-sensitive), this matches the spec
  * token — `title`, `obj`, `twoObj`, `blank`, etc. — and is stable
- * across PowerPoint UI languages.
+ * across the reference desktop app's UI languages.
  */
 export const findSlideLayoutByType = (
   pres: PresentationData,

@@ -246,7 +246,7 @@ export const buildClickAction = (slide: SlideData, action: ShapeClickAction): Xm
       if (action.slide[INTERNAL_PACKAGE] !== pkg || !pkg.getPart(target)) {
         throw new Error('setShapeClickAction: target slide must belong to this presentation');
       }
-      // PowerPoint writes slide-jump targets relative to the slide part; an
+      // The reference desktop app writes slide-jump targets relative to the slide part; an
       // absolute one is legal OPC but nothing else in a deck spells it that way.
       const relative = `../slides/${basename(target)}`;
       const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();

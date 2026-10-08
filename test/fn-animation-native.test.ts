@@ -1,5 +1,5 @@
-// Every effect of PowerPoint's Entrance, Emphasis and Exit galleries, written
-// at its defaults and compared byte for byte with what Mac PowerPoint 16.113
+// Every effect of the reference desktop app's Entrance, Emphasis and Exit galleries, written
+// at its defaults and compared byte for byte with what the reference desktop app (Mac 16.113)
 // itself saved for the same gallery entry (test/fixtures/native/animations/,
 // provenance in test/fixtures/SOURCES.md).
 //
@@ -183,7 +183,7 @@ const filledShape = async () => {
 const writtenTiming = (xml: string, spid: number): string =>
   timingOf(xml).replaceAll(`spid="${spid}"`, 'spid="2"');
 
-describe('animations: every gallery effect as PowerPoint writes it', () => {
+describe('animations: every gallery effect as the reference desktop app writes it', () => {
   it('covers the 95 effects of the three galleries, one capture each', () => {
     expect(ALL).toHaveLength(95);
     expect(new Set(ALL.map((c) => c.effect)).size).toBe(95);
@@ -203,7 +203,7 @@ describe('animations: every gallery effect as PowerPoint writes it', () => {
   );
 
   it.each(ALL.map((c) => [c.file, c] as const))(
-    '%s reads back as the effect it is, with PowerPoint’s duration',
+    '%s reads back as the effect it is, with the reference desktop app’s duration',
     async (_, capture) => {
       const { pres, shape } = await filledShape();
       setShapeAnimation(shape, { effect: capture.effect });
@@ -218,7 +218,7 @@ describe('animations: every gallery effect as PowerPoint writes it', () => {
   );
 
   it.each(ALL.map((c) => [c.file, c] as const))(
-    '%s, as PowerPoint saved it, reads as the effect it is',
+    '%s, as the reference desktop app saved it, reads as the effect it is',
     async (_, capture) => {
       const { pres } = await filledShape();
       const part = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
@@ -384,7 +384,7 @@ describe('animations: text build (Effect Options › Sequence)', () => {
       const steps = getSlideAnimations(slide);
       expect(steps[0]!.id).toBe(id);
       expect(steps.every((s) => s.build === build)).toBe(true);
-      // The same tree PowerPoint writes, ids aside.
+      // The same tree the reference desktop app writes, ids aside.
       const xml = getSlideXmlString(slide);
       const spid = Number(/spid="(\d+)"/.exec(xml.split('<p:timing>')[1]!)![1]);
       const strip = (s: string): string => s.replaceAll(/ id="\d+"/g, '');

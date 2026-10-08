@@ -278,7 +278,7 @@ const appendPar = (par: XmlElement, child: XmlElement): boolean => {
 };
 
 /**
- * The build group a merged effect joins. PowerPoint ties an effect to its
+ * The build group a merged effect joins. The reference desktop app ties an effect to its
  * `<p:bldP>` through `grpId`, and a by-paragraph build is several effects
  * sharing one entry, so only the first of them carries `addBuild`.
  */
@@ -329,7 +329,7 @@ const insertBldLst = (timing: XmlElement, bldLst: XmlElement): void => {
   else timing.children.splice(timing.children.indexOf(extLst), 0, bldLst);
 };
 
-// PowerPoint renders an effect only when a `<p:bldP>` names its shape and
+// The reference desktop app renders an effect only when a `<p:bldP>` names its shape and
 // group, so every group that opens brings its entry with it.
 const addBuildEntry = (
   timing: XmlElement,
@@ -348,7 +348,7 @@ const addBuildEntry = (
 /** The pieces of a freshly-built single-effect tree the merge paths need. */
 interface FreshEffect {
   readonly par: XmlElement;
-  /** `null` for Fill Color and Line Color, which PowerPoint writes no build entry for. */
+  /** `null` for Fill Color and Line Color, which the reference desktop app writes no build entry for. */
   readonly bldP: XmlElement | null;
   readonly cTn: XmlElement | null;
 }
@@ -371,7 +371,7 @@ const openFreshEffect = (fresh: XmlElement): FreshEffect | null => {
 /**
  * Adopts a fresh tree's whole main sequence into a timing that has none: a
  * slide holding a video or audio clip has a root with media nodes, and
- * possibly interactive sequences, but no `mainSeq`. PowerPoint keeps the main
+ * possibly interactive sequences, but no `mainSeq`. The reference desktop app keeps the main
  * sequence first, ahead of both.
  *
  * Returns the cursor for the sequence it just added, so the effects after this
@@ -416,7 +416,7 @@ const mergeEffectInto = (
   group: BuildGroup,
 ): boolean => {
   // Only what lands in the tree is numbered, so the ids run on without the gaps
-  // the discarded wrappers would leave — the way PowerPoint numbers them.
+  // the discarded wrappers would leave — the way the reference desktop app numbers them.
 
   // A click effect becomes its own stop. A with/after effect joins the stop
   // already there: `withPrevious` alongside the effects that run together,
@@ -487,13 +487,13 @@ const timingWithEffects = (
   // Every paragraph of one build joins the group the first of them opened. A
   // fresh group takes max-existing-grpId + 1 (not a count) because a template's
   // authored build grpIds need not be the contiguous 0..n-1 sequence —
-  // PowerPoint can leave gaps after a delete or reorder, and a count would then
+  // the reference desktop app can leave gaps after a delete or reorder, and a count would then
   // collide with an existing group.
   let buildGrpId: string | null = null;
 
   for (const [at, paragraph] of targets.entries()) {
     // All at once: the first paragraph starts the way the caller said and the
-    // rest run with it, in the same group — which is how PowerPoint writes it.
+    // rest run with it, in the same group — which is how the reference desktop app writes it.
     const start: AnimationStartCondition =
       opts.build === 'allAtOnce' && at > 0 ? 'withPrevious' : (opts.start ?? 'click');
     const fresh = buildSingleEffectTiming(spid, opts, {
@@ -533,7 +533,7 @@ const TEXT_BUILDS: readonly AnimationTextBuild[] = ['asOneObject', 'allAtOnce', 
 
 /**
  * The paragraphs each effect of this call targets, in order. `null` is the
- * whole shape — one effect, the way PowerPoint animates a shape as one object.
+ * whole shape — one effect, the way the reference desktop app animates a shape as one object.
  */
 const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number | null)[] => {
   const build = opts.build ?? 'asOneObject';
@@ -568,12 +568,12 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  * renumbered to stay unique. To clear every animation first, call
  * `clearSlideAnimations`.
  *
- * `effect` is any entry of PowerPoint's Entrance, Emphasis and Exit
- * galleries (see `AnimationEffect`), written exactly as PowerPoint writes it:
+ * `effect` is any entry of the reference desktop app's Entrance, Emphasis and Exit
+ * galleries (see `AnimationEffect`), written exactly as the reference desktop app writes it:
  * the same preset numbers and the same behaviours, so the deck plays the same
- * in PowerPoint as an effect picked from its gallery.
+ * in the reference desktop app as an effect picked from its gallery.
  *
- * Effect Options are the options PowerPoint offers for the preset:
+ * Effect Options are the options the reference desktop app offers for the preset:
  *
  *   - `direction` — `'flyIn'` / `'flyOut'` take any edge or corner of the
  *     slide (`'bottom'` by default); `'wipe…'` and `'peek…'` one of the four
@@ -581,7 +581,7 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  *   - `orientation` — blinds, random bars and checkerboard (`'horizontal'`)
  *     and split (`'vertical'`).
  *   - `inOut` — shape and split: close in on the centre (`'in'`) or open out
- *     of it (`'out'`). PowerPoint's Shape exit defaults to `'out'`.
+ *     of it (`'out'`). The reference desktop app's Shape exit defaults to `'out'`.
  *   - `shape` — `'circle'` (the default), `'box'`, `'diamond'` or `'plus'`.
  *   - `spokes` — wheel: 1 (the default), 2, 3, 4 or 8.
  *   - `spinDirection` and `spinDegrees` — spin: `'clockwise'` (the default)
@@ -597,9 +597,9 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  * An option passed for an effect that does not take it is an error rather
  * than a no-op.
  *
- * `durationMs` defaults to PowerPoint's default for the preset
+ * `durationMs` defaults to the reference desktop app's default for the preset
  * (`defaultAnimationDurationMs`). An effect made of several behaviours — a
- * Bounce, a Teeter — is scaled as a whole, the way PowerPoint's Duration box
+ * Bounce, a Teeter — is scaled as a whole, the way the reference desktop app's Duration box
  * scales it. `appear` and `disappear` are instantaneous and write no timed
  * behaviour; `transparency` and `boldReveal` hold until the slide ends and
  * take no duration.
@@ -617,11 +617,11 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  * The slide is left untouched; `'click'` and `'withPrevious'` need no such
  * measurement.
  *
- * `build` is PowerPoint's Effect Options "Sequence". `'asOneObject'` (the
+ * `build` is the reference desktop app's Effect Options "Sequence". `'asOneObject'` (the
  * default) animates the shape with its text as one effect. `'allAtOnce'` and
  * `'byParagraph'` give every paragraph its own effect: all of them starting
  * together, or each on its own `start` — so the default `'click'` advances a
- * paragraph per click. They share a single `<p:bldP>`, which is how PowerPoint
+ * paragraph per click. They share a single `<p:bldP>`, which is how the reference desktop app
  * and Google Slides both present the build as one animation.
  * `getSlideAnimations` reports each paragraph as its own step, targeting a
  * paragraph range.
@@ -675,7 +675,7 @@ const namesAPreset = (cTn: XmlElement): boolean => {
   return presetId !== null && presetId !== '' && presetClass !== null && presetClass !== '';
 };
 
-// PowerPoint needs a `<p:bldLst><p:bldP spid="...">` entry for an effect that
+// The reference desktop app needs a `<p:bldLst><p:bldP spid="...">` entry for an effect that
 // belongs to a build group to render, so a shape whose effect names a group
 // with no entry has no animation as far as the read API is concerned. Fill
 // Color and Line Color join no group and need none. Built once per call and
@@ -718,7 +718,7 @@ export const getSlideAnimations = (slide: SlideData): readonly SlideAnimationSte
  * effect (i.e. `getShapeAnimation(shape)` is not `null`). Pair to
  * `slideHasAnimations`. Useful for audit reports — "which shapes on
  * this slide actually animate?" before exporting to a video pipeline
- * that doesn't honor PowerPoint's timing tree.
+ * that doesn't honor the reference desktop app's timing tree.
  */
 export const findShapesWithAnimation = (slide: SlideData): ReadonlyArray<SlideShapeData> => {
   const effects = firstEffectByShape(slide);
@@ -982,7 +982,7 @@ const emptyMainSeqTiming = (): XmlElement => {
 /**
  * Puts an empty main sequence ahead of the sequences a timing already has, for
  * a target slide whose timing holds only media or interactive nodes.
- * PowerPoint keeps the main sequence first.
+ * The reference desktop app keeps the main sequence first.
  */
 const adoptEmptyMainSeq = (timing: XmlElement): MergeCursor | null => {
   const rootList = rootChildTnLst(timing);
@@ -1119,7 +1119,7 @@ export const planAnimationCopy = (
       const id = nowNumbered[i];
       if (previous !== null && id != null) renumbered.set(previous, id);
     }
-    // A composite effect drives more than one shape, and PowerPoint wants an
+    // A composite effect drives more than one shape, and the reference desktop app wants an
     // entry per shape under the group they share.
     for (const extra of entries.slice(1)) {
       setGrpId(extra, grpId);

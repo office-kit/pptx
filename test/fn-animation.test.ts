@@ -38,7 +38,7 @@ describe('fn API: animations (v1 — single click-effect)', () => {
     expect(xml).toContain('presetClass="entr"');
     expect(xml).toContain('nodeType="clickEffect"');
     expect(xml).toContain('<p:bldLst>');
-    // PowerPoint's Fade is the fade filter, not an opacity animation.
+    // The reference desktop app's Fade is the fade filter, not an opacity animation.
     expect(xml).toContain('<p:animEffect transition="in" filter="fade">');
   });
 
@@ -102,7 +102,7 @@ describe('fn API: animations (v1 — single click-effect)', () => {
     const xml = getSlideXmlString(getSlides(pres)[0]!);
     const grpIds = [...xml.matchAll(/grpId="(\d+)"/g)].map((m) => m[1]);
     // Each shape's build group must carry a distinct grpId — a duplicate would
-    // make PowerPoint fold two shapes' effects into one group.
+    // make the reference desktop app fold two shapes' effects into one group.
     const bldGrpIds = [...xml.matchAll(/<p:bldP[^>]*grpId="(\d+)"/g)].map((m) => m[1]);
     expect(bldGrpIds.length).toBe(3);
     expect(new Set(bldGrpIds).size).toBe(3);

@@ -3,7 +3,7 @@
 // ECMA-376 Part 1 §19.3.1.39 — `<p:sldLayout>` is the same shape as `<p:sld>`
 // (it wraps a `<p:cSld>` with a `<p:spTree>`) plus a layout-specific `type`
 // attribute and an optional `<p:cSld name="...">` that user-visible code
-// looks at (PowerPoint shows it in the layout picker).
+// looks at (the reference desktop app shows it in the layout picker).
 //
 // Layouts inherit non-overridden placement and formatting from their slide
 // master; in turn, each slide inherits from its layout. We expose the raw

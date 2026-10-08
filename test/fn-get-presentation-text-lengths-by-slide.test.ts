@@ -40,7 +40,7 @@ describe('fn API: getPresentationTextLengthsBySlide', () => {
     });
     const after = getPresentationTextLengthsBySlide(pres);
     // Adding the textbox raises the slide's text length by at least the
-    // string itself; PowerPoint inserts an inter-paragraph separator
+    // string itself; the reference desktop app inserts an inter-paragraph separator
     // between text bodies so we don't pin to an exact delta.
     expect(after[0]!).toBeGreaterThanOrEqual(before[0]! + 'hello'.length);
   });

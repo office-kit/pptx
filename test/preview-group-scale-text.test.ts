@@ -1,5 +1,5 @@
 // Resizing a group moves and resizes its children but leaves their text at the
-// authored point size — PowerPoint and LibreOffice both render a group child's
+// authored point size — the reference desktop app and LibreOffice both render a group child's
 // glyphs undistorted however far `<a:ext>` drifts from `<a:chExt>`.
 
 import { readFile } from 'node:fs/promises';

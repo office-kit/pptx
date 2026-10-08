@@ -3,7 +3,7 @@
 // Regression coverage for the issues surfaced integrating @office-kit/pptx into a
 // downstream app:
 //   - chart series colors that aren't sRGB hex were silently emitted as
-//     invalid `<a:srgbClr val="…"/>` (PowerPoint dropped/repaired them);
+//     invalid `<a:srgbClr val="…"/>` (the reference desktop app dropped/repaired them);
 //   - `addSlideTable` with empty `rows: []` produced a table with no grid;
 //   - `findSlideLayout` name matching is case-sensitive (documented, not
 //     changed — this test pins the behavior so it doesn't drift).

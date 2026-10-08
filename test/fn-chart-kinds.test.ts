@@ -162,7 +162,7 @@ describe('chart kinds: xy charts', () => {
     expect(xml).toContain('<c:bubbleScale val="80"/>');
     expect(xml).toContain('<c:sizeRepresents val="w"/>');
     expect(xml).toContain('<a:alpha val="60000"/>');
-    // PowerPoint repairs a deck with `<c:bubble3D>` directly under
+    // The reference desktop app repairs a deck with `<c:bubble3D>` directly under
     // `<c:bubbleChart>`; the flag belongs to the series alone.
     expect(xml).toContain('<c:bubble3D val="1"/></c:ser>');
     expect(xml.split('<c:bubble3D').length - 1).toBe(1);

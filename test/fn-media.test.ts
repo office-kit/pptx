@@ -99,7 +99,7 @@ const SLIDE1 = '/ppt/slides/slide1.xml';
 const SLIDE1_RELS = '/ppt/slides/_rels/slide1.xml.rels';
 
 describe('addSlideMedia: embedded video', () => {
-  it('writes the PowerPoint wire shape: pic + two rels to one part + poster + time node', () => {
+  it('writes the wire shape the reference desktop app writes: pic + two rels to one part + poster + time node', () => {
     const { pres, slide } = newDeck();
     const shape = addSlideMedia(slide, { kind: 'video', data: mp4(), ...box });
 
@@ -353,7 +353,7 @@ describe('getShapeMedia', () => {
 
   // PptxGenJS 4.x writes no time node, no hlinkClick on online videos, and no
   // <p14:media> for them; the embedded case is only reachable via r:link when
-  // the extension list is absent (PowerPoint 2007-era files).
+  // the extension list is absent (pre-2010 files).
   it('reads a foreign-authored deck: r:link only, no p14:media, no timing', async () => {
     const { pres, slide } = newDeck();
     addSlideMedia(slide, { kind: 'video', data: mp4(), ...box });

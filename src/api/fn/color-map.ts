@@ -1,6 +1,6 @@
 // Effective color-map resolution.
 //
-// PowerPoint resolves every `schemeClr` token (`tx1`, `bg1`, `accent1`, …)
+// The reference desktop app resolves every `schemeClr` token (`tx1`, `bg1`, `accent1`, …)
 // through the slide's effective color map before indexing the theme. The map
 // comes from the slide master's `<p:clrMap>`, optionally overridden by layouts
 // and slides through `<p:clrMapOvr><a:overrideClrMapping>`. Most decks use the standard map
@@ -108,7 +108,7 @@ const readClrMapElement = (root: XmlElement): Record<string, string> | null => {
  * layout itself is drawn with (its master's, under its own override).
  *
  * Pass the result to color resolution / renderers so `schemeClr` tokens map to
- * the theme slot PowerPoint actually paints — critical for decks with an
+ * the theme slot the reference desktop app actually paints — critical for decks with an
  * inverted map (`bg1="dk1" tx1="lt1"`).
  */
 export const getEffectiveColorMap = (

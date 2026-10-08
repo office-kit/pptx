@@ -1,6 +1,6 @@
 // Group / ungroup shapes (`<p:grpSp>`).
 //
-// PowerPoint's "Group" command wraps a selection's shapes in a `<p:grpSp>`
+// The reference desktop app's "Group" command wraps a selection's shapes in a `<p:grpSp>`
 // whose transform maps a child coordinate space onto the slide. At
 // creation time the child space is set 1:1 with the group's own slide-space
 // bounds (`chOff == off`, `chExt == ext`) — see `group-builder.ts`. That

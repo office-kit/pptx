@@ -1,5 +1,5 @@
 // Color transforms on a run's solid fill, outline and effect colors — the
-// theme tints PowerPoint writes as `<a:schemeClr val="accent2"><a:lumMod/>…`.
+// theme tints the reference desktop app writes as `<a:schemeClr val="accent2"><a:lumMod/>…`.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -64,7 +64,7 @@ describe('run color transforms', () => {
     expect(xml).toContain(
       '<a:ln w="12700"><a:solidFill><a:schemeClr val="accent3"><a:lumMod val="50000"/></a:schemeClr></a:solidFill></a:ln>',
     );
-    // PowerPoint's order: the tint, then the shadow's opacity.
+    // The reference desktop app's order: the tint, then the shadow's opacity.
     expect(xml).toContain(
       '<a:schemeClr val="dk1"><a:lumMod val="50000"/><a:alpha val="40000"/></a:schemeClr>',
     );

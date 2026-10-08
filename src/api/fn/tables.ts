@@ -283,7 +283,7 @@ export const getTableCells = (
 
 /**
  * Reads the table-style GUID from `<a:tbl><a:tblPr><a:tableStyleId>`.
- * PowerPoint uses GUIDs to reference built-in table styles
+ * The reference desktop app uses GUIDs to reference built-in table styles
  * (`{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}` = "Medium Style 2 -
  * Accent 1", etc.) and theme-local styles. Returns `null` when the
  * table doesn't reference one (uses the slide's default style).
@@ -306,10 +306,10 @@ export const getTableStyleId = (table: SlideShapeData): string | null => {
  * Applies a table style by writing `<a:tbl><a:tblPr><a:tableStyleId>`.
  * `styleId` is a style GUID with its curly braces — e.g.
  * `'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` — or the English name of one
- * of PowerPoint's built-in styles (`'Medium Style 2 - Accent 1'`; see
- * `BUILTIN_TABLE_STYLES`). For a built-in style, PowerPoint's definition is
+ * of the reference desktop app's built-in styles (`'Medium Style 2 - Accent 1'`; see
+ * `BUILTIN_TABLE_STYLES`). For a built-in style, the reference desktop app's definition is
  * added to `ppt/tableStyles.xml` (creating the part if needed) unless the
- * deck already defines that GUID, as PowerPoint does when you pick a style.
+ * deck already defines that GUID, as the reference desktop app does when you pick a style.
  * Pass `null` to remove the element so the table falls back to the deck's
  * default style. Creates `<a:tblPr>` if absent. Throws when the shape isn't
  * a table graphic frame or `styleId` is neither a GUID nor a built-in name.
@@ -500,7 +500,7 @@ const tableStylePartsForCell = (pres: PresentationData, cell: TableCellData): Xm
   const flags = getTableStyleFlags(table);
   const row = cell[CELL_ROW];
   const col = cell[CELL_COL];
-  // Mac PowerPoint applies Total Row / Last Column to merged cells reaching
+  // The reference desktop app on Mac applies Total Row / Last Column to merged cells reaching
   // those edges, even when their anchors are in earlier rows or columns.
   const span = getTableCellSpan(cell);
   const rowEnd = row + span.rowSpan - 1;
@@ -567,7 +567,7 @@ const tableStyleFormatForCell = (
  * Sets one or more boolean style flags on `<a:tblPr>`. Only the keys
  * present in `flags` are touched — omitted keys are left at their
  * current state. A flag set to `false` strips the attribute (rather
- * than emitting `="0"`), matching how PowerPoint round-trips defaults.
+ * than emitting `="0"`), matching how the reference desktop app round-trips defaults.
  *
  * See `getTableStyleFlags` for the meaning of each flag.
  */
@@ -670,7 +670,7 @@ export const getTableRowHeights = (table: SlideShapeData): ReadonlyArray<Emu> =>
  * Sets a single column's width on the table grid. Throws on
  * out-of-range column indices or non-table shapes. The total table
  * width is not auto-adjusted — callers are responsible for keeping
- * the sum consistent with the table's `<a:xfrm>` extent if PowerPoint
+ * the sum consistent with the table's `<a:xfrm>` extent if the reference desktop app
  * is to render the table without clipping.
  */
 export const setTableColumnWidth = (table: SlideShapeData, col: number, width: Emu): void => {
@@ -871,7 +871,7 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  * The block's top-left cell `(row, col)` becomes the anchor and carries
  * `gridSpan` (= `colSpan`) / `rowSpan`; the cells it covers are marked
  * `hMerge` / `vMerge` per ECMA-376 §21.1.3.18 (`CT_TableCell`) so the
- * grid stays rectangular while PowerPoint paints only the anchor. This
+ * grid stays rectangular while the reference desktop app paints only the anchor. This
  * is the write counterpart to {@link getTableCellSpan}.
  *
  * Constraints, enforced loudly (these are authoring-boundary inputs):
@@ -880,7 +880,7 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  *     (a 1×1 "merge" is a no-op the caller didn't mean).
  *   - The block must lie fully inside the table grid.
  *   - No cell in the block may already participate in another merge —
- *     overlapping merges corrupt the grid and trip PowerPoint's repair
+ *     overlapping merges corrupt the grid and trip the reference desktop app's repair
  *     dialog. Split the existing merge first.
  *
  * The anchor cell's text is preserved. `coveredText: 'keep'` (the default)
@@ -1336,7 +1336,7 @@ export const setTableCellAnchor = (
 /**
  * Reads the cell's inset margins (`<a:tcPr marL marR marT marB>`) in
  * EMU. Each side is `null` when the cell doesn't author it (renderers
- * should fall back to PowerPoint's defaults — 91440 EMU / 0.1 inch
+ * should fall back to the reference desktop app's defaults — 91440 EMU / 0.1 inch
  * for the horizontal margins, 45720 EMU for the vertical).
  */
 export const getTableCellMargins = (
@@ -1362,7 +1362,7 @@ export const getTableCellMargins = (
 /**
  * Sets the cell's inset margins (`<a:tcPr marL marR marT marB>`) in
  * EMU. Sides set to `null` are stripped from the XML so they fall back
- * to PowerPoint's defaults. Creates `<a:tcPr>` if absent.
+ * to the reference desktop app's defaults. Creates `<a:tcPr>` if absent.
  *
  * Pass `null` for the whole `margins` arg to drop every authored side
  * at once.
@@ -1408,7 +1408,7 @@ export const getTableCellText = (cell: TableCellData): string => {
 export interface TableCellParagraph {
   /**
    * Horizontal alignment from `<a:pPr algn>`, or `null` when unset (the
-   * cell then inherits PowerPoint's left default).
+   * cell then inherits the reference desktop app's left default).
    */
   readonly align: ParagraphAlignment | null;
   /** Runs / fields / breaks in document order, with their literal `<a:rPr>` format. */
@@ -1873,7 +1873,7 @@ export interface TableBackgroundEffective {
 
 /**
  * Resolves the table background: a fill on `<a:tblPr>` itself, else the
- * table style's `<a:tblBg>` (PowerPoint's Themed Styles use a theme
+ * table style's `<a:tblBg>` (the reference desktop app's Themed Styles use a theme
  * style-matrix fill there). Cells without a fill of their own show it.
  * Returns `null` when neither defines one. The `tblBg` effect is not read.
  */
@@ -1966,7 +1966,7 @@ export const getTableCellPosition = (cell: TableCellData): { row: number; col: n
  * spec token (`l`, `ctr`, `r`, `just`, `dist`, `justLow`, `thaiDist`) — so
  * `setTableCellAlignment(cell, 'center')` reads back as `'ctr'`. Returns
  * `null` when the cell has no `<a:txBody>`, or its first paragraph has no
- * valid `algn` attribute (PowerPoint then defaults to `l`). For a
+ * valid `algn` attribute (the reference desktop app then defaults to `l`). For a
  * plain-English name per paragraph, use `getTableCellParagraphs`.
  */
 export const getTableCellAlignment = (cell: TableCellData): ParagraphAlignmentToken | null => {

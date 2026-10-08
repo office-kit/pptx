@@ -11,7 +11,7 @@ const EMU_PER_PT = 12700;
 
 // EMU is an integer unit: `<a:off>` / `<a:ext>` coordinates are ST_Coordinate
 // (xsd:long). A fractional value like `3090672.0000000005` (floating-point
-// drift from unit conversion) is schema-invalid and makes PowerPoint mark the
+// drift from unit conversion) is schema-invalid and makes the reference desktop app mark the
 // file corrupt and "repair" it — zeroing the offending offsets, which collapses
 // shapes to the origin. Round at the unit boundary so conversions always yield
 // whole EMU.
@@ -22,5 +22,5 @@ export const pt = (n: number): Emu => Math.round(n * EMU_PER_PT) as Emu;
 
 // Escape hatch for callers that already hold an EMU value (e.g. read from an
 // existing pptx). Use sparingly. Rounded too: EMU is integer-valued, and a
-// fractional value here would reach the XML and trip PowerPoint's repair.
+// fractional value here would reach the XML and trip the reference desktop app's repair.
 export const emu = (n: number): Emu => Math.round(n) as Emu;

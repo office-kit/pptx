@@ -362,7 +362,7 @@ describe('Layer 1: schema validation', () => {
   });
 
   // `CT_TextField` requires `id` (ST_Guid) and orders rPr before t; a field
-  // written with either wrong makes PowerPoint offer to repair the file.
+  // written with either wrong makes the reference desktop app offer to repair the file.
   skipIfNoXmllint('a slide-number field validates', async () => {
     const { getSlides, getSlideShapes, setShapeTextField, setShapeTextFormat } =
       await import('../src/api/index.ts');

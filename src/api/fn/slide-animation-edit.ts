@@ -117,7 +117,7 @@ export interface AnimationPatch {
   /**
    * How long the effect runs. Left out, a changed effect keeps the duration
    * the slide gave it, unless the patch changes the preset itself: a new
-   * preset takes its own default length, as picking one from PowerPoint's
+   * preset takes its own default length, as picking one from the reference desktop app's
    * gallery does.
    */
   readonly durationMs?: number;
@@ -434,7 +434,7 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
         throw new Error(`${fn}: animation ${id} ${NOT_REPLACEABLE}.`);
       }
       // A different preset starts from its own default length, the way picking
-      // it from PowerPoint's gallery does; a new option or text build keeps the
+      // it from the reference desktop app's gallery does; a new option or text build keeps the
       // length the effect already had.
       const durationMs = patch.durationMs ?? (changesEffect ? null : node.step.durationMs);
       const delayMs = patch.delayMs ?? node.step.delayMs;
@@ -499,7 +499,7 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
         }
         // The addressed effect becomes the first paragraph and keeps its id;
         // the rest are new effects, so only that one handle stays valid. All
-        // at once runs them together, the way PowerPoint writes it.
+        // at once runs them together, the way the reference desktop app writes it.
         replacements = Array.from({ length: count }, (_, at) =>
           rebuiltStep(
             node,

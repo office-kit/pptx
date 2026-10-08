@@ -3,7 +3,7 @@
 // Transparency makes the shape, and the colour the colour effects change to.
 //
 // Unlike a fly's direction or a wheel's spokes, none of these is part of the
-// preset numbers. PowerPoint writes Spin as `presetID="8" presetSubtype="0"`
+// preset numbers. The reference desktop app writes Spin as `presetID="8" presetSubtype="0"`
 // whatever it turns through; what changes is the behaviour itself — the
 // `by` of `<p:animRot>` (an `a:ST_Angle`, negative counter-clockwise), the
 // `<p:by>` point of `<p:animScale>` (ECMA-376 §19.5.45, `a:ST_Percentage` per
@@ -12,11 +12,11 @@
 // written into the behaviours the preset template already holds, and read
 // back from those behaviours rather than from the preset table.
 //
-// Mac PowerPoint 16.113 was captured with each effect's gallery default only
+// The reference desktop app (Mac 16.113) was captured with each effect's gallery default only
 // (test/fixtures/native/animations/emphasis/). The defaults below are those
 // captures; every other value is written into the same attribute the capture
 // shows, which is what the schema and the captured shape settle, but has not
-// been compared with a file PowerPoint saved for that option.
+// been compared with a file the reference desktop app saved for that option.
 
 import {
   type Color,
@@ -28,7 +28,7 @@ import {
 import { buildColorTransforms, readColorTransforms } from '../drawingml/color-transforms.ts';
 import { NS, type XmlElement, attr, firstChildElement, getAttrValue, qname } from '../xml/index.ts';
 
-/** Which way Spin turns — PowerPoint's Effect Options "Direction". */
+/** Which way Spin turns — the reference desktop app's Effect Options "Direction". */
 export type AnimationSpinDirection = 'clockwise' | 'counterclockwise';
 
 /**
@@ -331,7 +331,7 @@ export const applyAnimationEmphasisOptions = (
         const strVal = firstChildElement(firstChildElement(behaviour, NAME_TO)!, NAME_STR_VAL);
         if (strVal !== null) setAttr(strVal, 'val', opacity);
       }
-      // PowerPoint repeats the opacity as the image filter's property list.
+      // The reference desktop app repeats the opacity as the image filter's property list.
       if (isPml(behaviour, 'animEffect') && getAttrValue(behaviour, ATTR_PR_LST) !== null) {
         setAttr(behaviour, 'prLst', `opacity: ${opacity}`);
       }

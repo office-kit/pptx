@@ -236,8 +236,8 @@ describe('buildFontkitMeasurer — registered fonts and glyph fallback', () => {
     expect(fromBytes.widthPx).toBeCloseTo(serif.widthPx, 5);
   });
 
-  it('substitutes authored Office names like the render path does', () => {
-    // The audit passes authored names through; unknown/Office names must land
+  it('substitutes authored proprietary font names like the render path does', () => {
+    // The audit passes authored names through; unknown/proprietary names must land
     // on the same bundled faces the emitter substitutes.
     const arial = measureText('Measurement sample', { ...spec, family: 'Arial' });
     const liberation = measureText('Measurement sample', { ...spec, family: 'Liberation Sans' });

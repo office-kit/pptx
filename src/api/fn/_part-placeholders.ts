@@ -32,7 +32,7 @@ export interface SlideLayoutPlaceholder {
   readonly type: string | null;
   /** `<p:ph idx="...">`. `null` when omitted — spec default is `0`. */
   readonly idx: number | null;
-  /** `<p:cNvPr name="...">` — what PowerPoint shows in the selection pane. */
+  /** `<p:cNvPr name="...">` — what the reference desktop app shows in the selection pane. */
   readonly name: string;
   /**
    * Position + size in EMU. A layout placeholder with no `<a:xfrm>` of its
@@ -43,7 +43,7 @@ export interface SlideLayoutPlaceholder {
 }
 
 // Only `p:sp` shapes carry placeholders in real templates; pictures and
-// connectors can technically have `<p:ph>` per the schema but PowerPoint never
+// connectors can technically have `<p:ph>` per the schema but the reference desktop app never
 // authors that. Filter on the `<p:ph>` either way.
 export const placeholderShapes = (shapes: ReadonlyArray<SlideShape>): SlideShape[] =>
   shapes.filter((shape) => shape.placeholderType !== null || shape.placeholderIdx !== null);
@@ -146,7 +146,7 @@ export const placeholderElement = (xml: string): XmlElement => {
 /**
  * Inserts placeholder `element` of `type` keeping `order` — the part's
  * placeholder types in their canonical sequence — so a restored footer lands
- * after the body and before any later placeholder, where PowerPoint re-adds it.
+ * after the body and before any later placeholder, where the reference desktop app re-adds it.
  */
 export const insertPlaceholderInOrder = (
   spTree: XmlElement,

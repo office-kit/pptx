@@ -1,4 +1,4 @@
-// Auto-numbering keeps one counter per indent level, like PowerPoint: a
+// Auto-numbering keeps one counter per indent level, like the reference desktop app: a
 // nested list between two top-level items must not restart the outer list.
 
 import { readFile } from 'node:fs/promises';

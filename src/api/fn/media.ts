@@ -134,10 +134,10 @@ const youtubeVideoId = (url: URL): string | null => {
   return null;
 };
 
-// PowerPoint loads the relationship target directly in its embedded player, so
+// The reference desktop app loads the relationship target directly in its embedded player, so
 // a YouTube *page* URL (watch / youtu.be / shorts) would render the whole web
 // page instead of the clip. Rewrite those to the embed endpoint, in the exact
-// form PowerPoint's own "Insert > Online Video" stores. Anything else —
+// form the reference desktop app's own "Insert > Online Video" stores. Anything else —
 // including a URL already in embed form — is kept as given.
 const resolveOnlineVideoUrl = (input: string): string => {
   let url: URL;
@@ -285,7 +285,7 @@ export const addSlideMedia = (slide: SlideData, opts: SlideMediaOptions): SlideS
     rLink = relate(fileRelType, source.url, 'External');
   } else {
     const clipPart = internMediaPart(pkg, source.extension, source.contentType, source.data);
-    // PowerPoint orders the `media` rel before the `video` / `audio` one.
+    // The reference desktop app orders the `media` rel before the `video` / `audio` one.
     rMedia = relate(REL_TYPES.media, relativeTarget(clipPart), 'Internal');
     rLink = relate(fileRelType, relativeTarget(clipPart), 'Internal');
   }
@@ -317,7 +317,7 @@ export const addSlideMedia = (slide: SlideData, opts: SlideMediaOptions): SlideS
 
 /**
  * Returns the clip behind a media picture, or `null` when the shape is not
- * one. Reads PowerPoint-, PptxGenJS- and python-pptx-authored media alike: the
+ * one. Reads media authored by the reference desktop app, PptxGenJS and python-pptx alike: the
  * embedded part is taken from `<p14:media r:embed>` when present and from the
  * DrawingML `r:link` otherwise; a relationship with an external target is
  * reported as `'online'`.
@@ -378,7 +378,7 @@ export interface MediaBookmark {
  * How a clip plays in the slide show — the attributes of its
  * `<p:cMediaNode>` and the start condition of its time node.
  *
- * Trimming and fades are stored in the PowerPoint 2010 `p14:media` extension.
+ * Trimming and fades are stored in the `p14:media` extension ([MS-PPTX]).
  * `trim.endMs` is the duration removed from the end of the clip, matching the
  * OOXML `p14:trim@end` meaning (it is not the playback end position).
  */
@@ -389,7 +389,7 @@ export interface MediaPlayback {
   readonly delayMs?: number;
   /** Plays again from the beginning until the slide moves on. */
   readonly loop: boolean;
-  /** Playback volume, 0–1. PowerPoint's own default is 0.8. */
+  /** Playback volume, 0–1. The reference desktop app's own default is 0.8. */
   readonly volume: number;
   readonly muted: boolean;
   /** Video only: plays filling the screen. */
@@ -452,7 +452,7 @@ const ATTR_SPID = qname('', 'spid', '');
 const ATTR_BMK_NAME = qname('', 'bmkName', '');
 const P14_MEDIA_EXT_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
 
-// ST_PositiveFixedPercentage accepts both `80000` and `80%`; PowerPoint writes
+// ST_PositiveFixedPercentage accepts both `80000` and `80%`; the reference desktop app writes
 // the integer form, and the schema's own default is spelled `50%`.
 const percentFraction = (raw: string | null, fallback: number): number => {
   if (raw === null) return fallback;
@@ -476,7 +476,7 @@ const setOrRemove = (
 };
 
 // Bookmark attributes are edited in place so unrelated attributes keep their
-// original order and any future PowerPoint metadata remains untouched.
+// original order and any metadata the reference desktop app adds later remains untouched.
 const setOrRemovePreservingOrder = (
   el: XmlElement,
   name: ReturnType<typeof qname>,
@@ -512,7 +512,7 @@ const qnameSame = (a: ReturnType<typeof qname>, b: ReturnType<typeof qname>): bo
   a.namespaceURI === b.namespaceURI && a.localName === b.localName;
 
 // ST_UniversalTimeOffset is expressed in milliseconds when no suffix is
-// present. PowerPoint commonly writes fractional milliseconds in this form.
+// present. The reference desktop app commonly writes fractional milliseconds in this form.
 const universalTimeMs = (raw: string | null): number | null => {
   if (raw === null) return null;
   const match = /^([+]?(?:\d+(?:\.\d*)?|\.\d+))(ms|s|min|h|µs|ns)?$/.exec(raw);
@@ -1009,7 +1009,7 @@ const mediaCommandTiming = (shape: SlideShapeData): MediaCommandTiming => {
   return mainSequenceIndex >= 0 ? 'background' : 'interactive';
 };
 
-// Mac PowerPoint uses these two dedicated command trees for background audio
+// The reference desktop app on Mac uses these two dedicated command trees for background audio
 // and When Clicked On. Match the complete tree before replacing it: changing a
 // shared sequence's start condition would also change unrelated animations.
 const nativeMediaSequence = (
@@ -1456,7 +1456,7 @@ export const setShapeMediaPlayback = (
   }
   if (options.slideCount !== undefined) {
     // One is the schema default; omit it so newly-authored files stay as
-    // compact as PowerPoint's ordinary single-slide playback form.
+    // compact as the reference desktop app's ordinary single-slide playback form.
     setOrRemove(media, ATTR_NUM_SLD, options.slideCount === 1 ? null : String(options.slideCount));
   }
   if (options.fullScreen !== undefined) {
@@ -1467,7 +1467,7 @@ export const setShapeMediaPlayback = (
     setMediaBookmarks(p14Media, options.bookmarks);
 
   if (cTn !== null) {
-    // Mac PowerPoint stores Rewind After Playing as remove (on) or hold (off).
+    // The reference desktop app on Mac stores Rewind After Playing as remove (on) or hold (off).
     if (options.rewindAfterPlaying !== undefined) {
       setOrRemove(cTn, ATTR_FILL, options.rewindAfterPlaying ? 'remove' : 'hold');
     }

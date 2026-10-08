@@ -119,7 +119,7 @@ export const addSlideLine = (
 
 /**
  * Adds a table to the slide. Cells render as plain text; `firstRow` /
- * `bandRow` flags drive PowerPoint's banded-header look unless options say
+ * `bandRow` flags drive the reference desktop app's banded-header look unless options say
  * otherwise.
  *
  * Cell text color is baked from the deck's resolved body-text color so the

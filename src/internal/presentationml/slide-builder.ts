@@ -1,6 +1,6 @@
 // Builds the XML payload for a new slide from scratch.
 //
-// PowerPoint's "new slide from layout" emits a minimal `<p:sld>` whose
+// The reference desktop app's "new slide from layout" emits a minimal `<p:sld>` whose
 // shape tree contains only the placeholder stubs the layout exposes
 // (title, body, footer, etc.). Each stub carries a `<p:ph>` element with
 // the layout's same idx/type so the slide inherits geometry, fill, and
@@ -54,7 +54,7 @@ const ATTR_NO_GRP = qname('', 'noGrp', '');
  * `layoutSpTree`.
  *
  * The stubs retain the layout's placeholder type, index, orientation and size, and
- * the names follow PowerPoint's `"Title 1"`, `"Content Placeholder 2"`
+ * the names follow the reference desktop app's `"Title 1"`, `"Content Placeholder 2"`
  * convention based on the placeholder type and an incrementing index.
  */
 export const buildSlideFromLayout = (layoutSpTree: XmlElement): XmlDocument => {
@@ -73,7 +73,7 @@ export const buildSlideFromLayout = (layoutSpTree: XmlElement): XmlDocument => {
   }
 
   // Shape-id allocator: id=1 is the slide-root group, id=2+ are the
-  // placeholder stubs. PowerPoint's emission order is `nvGrpSpPr` (root
+  // placeholder stubs. The reference desktop app's emission order is `nvGrpSpPr` (root
   // group metadata) → `grpSpPr` (root group properties) → placeholder
   // shapes as siblings, so we mirror that.
   let nextShapeId = 2;
@@ -104,7 +104,7 @@ export const buildSlideFromLayout = (layoutSpTree: XmlElement): XmlDocument => {
   };
 };
 
-// `nvGrpSpPr` for the slide root group: id=1, name="" (PowerPoint requires
+// `nvGrpSpPr` for the slide root group: id=1, name="" (the reference desktop app requires
 // the empty name; other writers' non-empty names get treated as quirky).
 const buildNvGrpSpPr = (id: number): XmlElement =>
   elem(NAME_NV_GRP_SP_PR, {
@@ -153,7 +153,7 @@ export const buildPlaceholderStub = (id: number, layoutPlaceholder: XmlElement):
 };
 
 /**
- * Maps a placeholder type to a human-readable name PowerPoint emits. The
+ * Maps a placeholder type to a human-readable name the reference desktop app emits. The
  * `id` becomes part of the name to keep them unique within the slide.
  */
 const inferPlaceholderName = (id: number, phType: string | null): string => {

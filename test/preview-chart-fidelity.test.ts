@@ -1,14 +1,14 @@
 // Structural regression tests for chart rendering. They assert on the emitted
 // SVG so they run in CI without a presentation engine, and pin the renderer to
-// PowerPoint's behavior for:
+// the reference desktop app's behavior for:
 //
-//   - no invented chart-area border (PowerPoint draws none unless authored)
+//   - no invented chart-area border (the reference desktop app draws none unless authored)
 //   - value + category axis spines and major tick marks are drawn
 //   - bar charts order categories bottom-to-top
 //   - stacked charts use the authored series color and scale the value axis
 //     to the per-category stacked total
 //   - area fills are opaque and draw no markers
-//   - line markers follow the "Line with Markers" subtype + PowerPoint's
+//   - line markers follow the "Line with Markers" subtype + the reference desktop app's
 //     automatic marker-symbol rotation (diamond, square, triangle, x, …)
 
 import { readFile } from 'node:fs/promises';
@@ -53,7 +53,7 @@ const labelY = (svg: string, label: string): number => {
 const numericLabels = (svg: string): number[] =>
   [...svg.matchAll(/<text[^>]*>(\d+)<\/text>/g)].map((m) => Number(m[1]));
 
-describe('chart fidelity vs PowerPoint', () => {
+describe('chart fidelity vs the reference desktop app', () => {
   it('draws no chart-area border by default', async () => {
     const svg = await renderChart({
       kind: 'column',
@@ -289,7 +289,7 @@ describe('chart fidelity vs PowerPoint', () => {
     expect(countTags(svg, 'polygon')).toBeGreaterThanOrEqual(4);
   });
 
-  // `pointColors` writes a `<c:dPt>` per point, which PowerPoint paints over
+  // `pointColors` writes a `<c:dPt>` per point, which the reference desktop app paints over
   // the series fill on any chart kind: the "one bar in colour, the rest in
   // grey" exhibit depends on it.
   it.each(['column', 'bar'] as const)(

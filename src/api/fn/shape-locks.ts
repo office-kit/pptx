@@ -53,7 +53,7 @@ function lockProperties(shape: SlideShapeData) {
   return properties ? { config, properties } : null;
 }
 
-/** Whether the object's movement and resizing are both locked, as in PowerPoint's Selection Pane. */
+/** Whether the object's movement and resizing are both locked, as in the reference desktop app's Selection Pane. */
 export const isShapeLocked = (shape: SlideShapeData): boolean => {
   const target = lockProperties(shape);
   if (!target) return false;
@@ -67,7 +67,7 @@ export const isShapeLocked = (shape: SlideShapeData): boolean => {
   );
 };
 
-/** Whether PowerPoint preserves this object's aspect ratio while resizing it. */
+/** Whether the reference desktop app preserves this object's aspect ratio while resizing it. */
 export const isShapeAspectRatioLocked = (shape: SlideShapeData): boolean => {
   const target = lockProperties(shape);
   if (!target) return false;
@@ -78,7 +78,7 @@ export const isShapeAspectRatioLocked = (shape: SlideShapeData): boolean => {
 };
 
 /**
- * Locks or unlocks object geometry like PowerPoint's Selection Pane. Text,
+ * Locks or unlocks object geometry like the reference desktop app's Selection Pane. Text,
  * selection, aspect-ratio constraints and extension data remain unchanged.
  * Group children keep their own locks; pass all descendants for Lock All.
  * Arrays are committed once per slide, including selections across slides.
@@ -100,7 +100,7 @@ export const setShapeLocked = (
       locks = elem(qname('a', config.element, NS.dml));
       properties.children.unshift(locks);
     }
-    // Mac PowerPoint locks geometry but deliberately leaves text editable.
+    // The reference desktop app on Mac locks geometry but deliberately leaves text editable.
     const flags = new Set(config.flags);
     locks.attrs = locks.attrs.filter(
       (a) => a.name.namespaceURI !== '' || !flags.has(a.name.localName),

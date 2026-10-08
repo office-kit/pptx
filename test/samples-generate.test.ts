@@ -1,7 +1,7 @@
 // Manual-inspection sample generator.
 //
 // Produces one `.pptx` per major feature area under `samples/out/`. Open them
-// in PowerPoint, Keynote, Google Slides, or LibreOffice Impress to confirm
+// in the reference desktop app, Keynote, Google Slides, or LibreOffice Impress to confirm
 // the output renders as intended.
 //
 // Gated on `GENERATE_SAMPLES=1` so it doesn't churn artifacts in CI. Run:
@@ -868,7 +868,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
     setSlideTitle(slide, 'Multi-column text');
 
     const para =
-      'PowerPoint fills multi-column text bodies sequentially: the first column ' +
+      'The reference desktop app fills multi-column text bodies sequentially: the first column ' +
       'is filled down to the box height, then the overflow continues in the next ' +
       'column, and so on across the body. ';
 
@@ -1180,7 +1180,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
     setSlideTitle(slide, 'Rotation + flip');
 
     // rightArrow is asymmetric on both axes, so each rotation/flip combo
-    // points in a visibly distinct direction. PowerPoint flips about the
+    // points in a visibly distinct direction. The reference desktop app flips about the
     // shape centre first, then rotates — the combined cells below differ
     // from the isolated transforms in deck 12.
     const combos: {
@@ -1450,7 +1450,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         title: 'Monthly traffic',
         categoryAxisTitle: 'Month',
         // -90° so the value-axis title reads bottom-to-top alongside the axis,
-        // the orientation PowerPoint emits by default.
+        // the orientation the reference desktop app emits by default.
         valueAxisTitle: 'Sessions (thousands)',
         valueAxisTitleRotationDeg: -90,
         valueAxisMajorGridlines: true,
@@ -2231,7 +2231,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
     setShapeStrokeArrow(spine, 'tail', { type: 'triangle' });
 
     // Four quarterly milestones as chevron markers, two mirrored left-right
-    // (flipH keeps text right-reading-up — unlike flipV, which PowerPoint
+    // (flipH keeps text right-reading-up — unlike flipV, which the reference desktop app
     // renders upside-down by design; see 27-rotation-flip.pptx for that case)
     // and two rotated, for a hand-arranged rather than perfectly gridded look.
     const quarters: {

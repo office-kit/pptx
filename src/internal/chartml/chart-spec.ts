@@ -362,7 +362,7 @@ export type SurfaceChartSpec = Fields<VariantField<'surface'>> &
  * A chart this library can draw. Each kind carries only the fields its
  * OOXML element has, so a field the chart cannot show is a compile error
  * rather than a value that serializes into nothing — or into a deck
- * PowerPoint offers to repair.
+ * the reference desktop app offers to repair.
  *
  * `readChartSpec` returns the permissive `ReadChartSpec` instead, because a
  * deck authored elsewhere can combine fields no kind allows; narrow one back

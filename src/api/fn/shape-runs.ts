@@ -350,7 +350,7 @@ export const getShapeRunHyperlink = (
 /**
  * Reads the tooltip text on the shape's `<a:hlinkClick tooltip="…"/>`.
  * Returns `null` when no hyperlink is set or the link doesn't author
- * a tooltip. Tooltips show up in PowerPoint when the user hovers over
+ * a tooltip. Tooltips show up in the reference desktop app when the user hovers over
  * a linked shape in slide-show mode.
  *
  * Scans run-level `<a:rPr><a:hlinkClick>` first (where
@@ -461,7 +461,7 @@ export const setParagraphAlignment = (
 
 /**
  * Sets the paragraph's nesting level (`<a:pPr lvl="N"/>`). Levels are
- * 0-indexed; PowerPoint accepts 0 through 8. Pass `0` to clear an
+ * 0-indexed; the reference desktop app accepts 0 through 8. Pass `0` to clear an
  * existing level — `<a:pPr lvl="0"/>` is the same as omitting the attr.
  * Indents matching the previous level's default bullet pair follow the level;
  * other indent values are preserved.
@@ -543,7 +543,7 @@ export const getParagraphAlignment = (
 
 /**
  * Reads the paragraph's nesting level (`lvl` attribute), or `0` when
- * absent — PowerPoint's default. A UTF-16 range returns the levels of all
+ * absent — the reference desktop app's default. A UTF-16 range returns the levels of all
  * touched paragraphs in order. Invalid indices or ranges throw RangeError.
  */
 export function getParagraphLevel(
@@ -599,7 +599,7 @@ const pPrChildRank = (el: XmlElement): number =>
 
 /**
  * Sets the spacing before and/or after a paragraph, in points (where
- * a "point" is 1/72 inch). PowerPoint stores these as hundredths of a
+ * a "point" is 1/72 inch). The reference desktop app stores these as hundredths of a
  * point inside `<a:pPr><a:spcBef>/<a:spcAft><a:spcPts val="…"/>` —
  * the helper converts.
  *
@@ -673,7 +673,7 @@ export const getParagraphSpacing = (
 /**
  * Reads the paragraph's left / right / first-line indents from
  * `<a:pPr marL="…" marR="…" indent="…"/>`. Each is in EMU (matching
- * PowerPoint's internal storage); positive means a positive indent,
+ * the reference desktop app's internal storage); positive means a positive indent,
  * negative `indent` is a hanging indent (typical for bullets).
  *
  * Returns `null` for sides the paragraph doesn't set (those inherit
@@ -732,7 +732,7 @@ export const setParagraphIndent = (
 };
 
 /**
- * Reads the paragraph's `<a:lnSpc>` line spacing. PowerPoint stores
+ * Reads the paragraph's `<a:lnSpc>` line spacing. The reference desktop app stores
  * line spacing two ways:
  *
  *   - Multiple of the natural line height — `<a:spcPct val="150000"/>`

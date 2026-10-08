@@ -25,8 +25,8 @@ const requirePicture = (shape: SlideShapeData, fnName: string): void => {
 };
 
 /**
- * Applies one of PowerPoint's built-in Picture Styles (see
- * `BUILTIN_PICTURE_STYLES`) to a picture. Like PowerPoint, it replaces the
+ * Applies one of the reference desktop app's built-in Picture Styles (see
+ * `BUILTIN_PICTURE_STYLES`) to a picture. Like the reference desktop app, it replaces the
  * picture's geometry, fill, border, effects and 3-D in `<p:spPr>` with the
  * style's own markup — which names no theme color, so the result does not
  * follow the theme — and keeps the picture, its crop and its position. Throws
@@ -56,7 +56,7 @@ export const getShapePictureStyle = (shape: SlideShapeData): BuiltinPictureStyle
 };
 
 /**
- * `ST_BlipCompression`: the target a picture was compressed for. PowerPoint's
+ * `ST_BlipCompression`: the target a picture was compressed for. The reference desktop app's
  * Compress Pictures writes `print` (220 ppi), `screen` (150 ppi) and `email`
  * (96 ppi); `hqprint` and `none` are the schema's other values.
  */
@@ -72,7 +72,7 @@ const COMPRESSION_STATES: ReadonlySet<string> = new Set<ImageCompressionState>([
 const isCompressionState = (value: string | null): value is ImageCompressionState =>
   value !== null && COMPRESSION_STATES.has(value);
 const ATTR_CSTATE = qname('', 'cstate', '');
-// [MS-ODRAWXML] 2.3.1.13 `useLocalDpi` and the ext URI PowerPoint files it under.
+// [MS-ODRAWXML] 2.3.1.13 `useLocalDpi` and the ext URI the reference desktop app files it under.
 const USE_LOCAL_DPI_URI = '{28A0092B-C50C-407E-A947-70E740481C1C}';
 const NAME_EXT_LST = qname('a', 'extLst', NS.dml);
 const NAME_EXT = qname('a', 'ext', NS.dml);
@@ -95,7 +95,7 @@ export const getShapeImageCompressionState = (
 /**
  * Records what a picture was compressed for, as Compress Pictures does: it
  * sets `a:blip/@cstate` and adds the `a14:useLocalDpi` extension (without a
- * `val`, meaning true) that PowerPoint writes alongside it. `null` removes
+ * `val`, meaning true) that the reference desktop app writes alongside it. `null` removes
  * both. This only labels the picture; resample the pixels with
  * `setShapeImage`.
  */

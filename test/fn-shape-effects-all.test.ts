@@ -1,6 +1,6 @@
 // `getShapeEffects` — returns every effect on the shape's `<a:effectLst>`
 // in document order, not just the first one. Renderers need the full
-// list because PowerPoint composes shadow + glow + softEdge into a
+// list because the reference desktop app composes shadow + glow + softEdge into a
 // single filter stack.
 
 import { readFile } from 'node:fs/promises';

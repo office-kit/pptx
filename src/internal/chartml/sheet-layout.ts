@@ -1,7 +1,7 @@
 // Where each chart channel lives in the embedded workbook.
 //
 // The chart XML and the workbook must agree cell for cell: every `<c:f>`
-// formula in the chart names a range, and PowerPoint's "Edit data" rewrites
+// formula in the chart names a range, and the reference desktop app's "Edit data" rewrites
 // the chart from whatever it finds there. Computing the grid and the
 // formulas in one place is what keeps the two from drifting.
 

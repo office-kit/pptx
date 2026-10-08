@@ -1,4 +1,4 @@
-// A `slidenum` field shows the slide's own number. PowerPoint recomputes it on
+// A `slidenum` field shows the slide's own number. The reference desktop app recomputes it on
 // open, so the `<a:t>` cached in the file is stale the moment a slide moves —
 // the preview has to count instead of reading.
 
@@ -57,7 +57,7 @@ describe('renderSlideToSvg: slide-number fields', () => {
   });
 
   it('starts at the deck’s firstSlideNum', async () => {
-    // No public setter writes `firstSlideNum` — PowerPoint puts it in its page
+    // No public setter writes `firstSlideNum` — the reference desktop app puts it in its page
     // setup dialog and decks that use it are rare — so the attribute goes in
     // through the file, which is also how a real such deck arrives.
     const entries = unzipSync(await savePresentation(await deckWithFields(2)));

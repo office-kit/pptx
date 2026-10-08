@@ -4,7 +4,7 @@
 // Round-trip rules:
 //
 //   - Parts are kept in their original load order. New parts append at the
-//     end. This matches what PowerPoint emits and keeps diffs small.
+//     end. This matches what the reference desktop app emits and keeps diffs small.
 //   - `.rels` files are first-class parts. They are NOT auto-regenerated from
 //     a parsed model on every save — that would force callers who only edit
 //     content parts to pay the cost of round-tripping every relationship.
@@ -110,7 +110,7 @@ export class OpcPackage {
         contentTypes = parseContentTypes(decode(entry.data));
         continue;
       }
-      // Some producers (PowerPoint on Windows, third-party tools) include
+      // Some producers (the reference desktop app on Windows, third-party tools) include
       // explicit directory entries in the ZIP central directory — zero-byte
       // names ending with "/". They are not OPC parts; skip them so part-name
       // validation does not reject them.

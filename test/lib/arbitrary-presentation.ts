@@ -243,7 +243,7 @@ const textArb: fc.Arbitrary<string> = fc
   .map(([first, rest]) => `${first}${rest.join('')}`.replace(/\s+$/u, ''));
 
 // Whole-EMU coordinates and extents. EMU is integer-valued (ST_Coordinate
-// is xsd:long); a fractional value would trip PowerPoint's repair, so the
+// is xsd:long); a fractional value would trip the reference desktop app's repair, so the
 // public `emu()` helper rounds — we feed it integers to begin with. Bounds
 // keep shapes on a 4:3 canvas (the smaller of the two we emit).
 const posArb: fc.Arbitrary<number> = fc.integer({ min: 0, max: 6_000_000 });

@@ -4,7 +4,7 @@
 // surface: width (EMU), cap, dash, fill choice (solid/no/grad), join
 // (round/bevel/miter), and head/tail arrow markers. We expose width, solid
 // and gradient paint, noFill, preset dash, join, head/tail arrowheads and the
-// Office 2021 sketched style — each inserted at its CT_LineProperties slot via
+// The 2021 sketched style — each inserted at its CT_LineProperties slot via
 // LN_CHILD_RANK below.
 
 import type { Color } from './color.ts';
@@ -86,7 +86,7 @@ const insertLn = (spPr: XmlElement, ln: XmlElement): XmlElement => {
 /**
  * A non-solid line paint — the fill choice of `CT_LineProperties` other than
  * `<a:solidFill>` (which `color` spells) and `<a:noFill>`. Only gradients are
- * modelled; PowerPoint's Format pane offers no other kind for a line.
+ * modelled; the reference desktop app's Format pane offers no other kind for a line.
  */
 export type LineFill = { readonly kind: 'gradient' } & GradientFillOptions;
 
@@ -96,12 +96,12 @@ export type ReadLineFill = { readonly kind: 'gradient' } & ReadGradientFill;
 export interface StrokeOptions {
   /** Line color. Same accepted forms as `setFill`. */
   color?: Color;
-  /** Line width in EMU. PowerPoint's default for a hairline is 9525 (0.75pt). */
+  /** Line width in EMU. The reference desktop app's default for a hairline is 9525 (0.75pt). */
   widthEmu?: number;
   /** Solid outline opacity, from 0 (transparent) to 1 (opaque). */
   opacity?: number;
   /**
-   * Gradient paint (`<a:gradFill>` inside `<a:ln>`), PowerPoint's Gradient
+   * Gradient paint (`<a:gradFill>` inside `<a:ln>`), the reference desktop app's Gradient
    * line. It is the same fill choice as `color`, so passing both, or `fill`
    * with `opacity`, is rejected; stop opacities carry a gradient's alpha.
    */
@@ -174,7 +174,7 @@ export const clearStroke = (spPr: XmlElement): void => {
 };
 
 /**
- * ECMA-376 §20.1.10.49 `ST_PresetLineDashVal` tokens. PowerPoint's
+ * ECMA-376 §20.1.10.49 `ST_PresetLineDashVal` tokens. The reference desktop app's
  * "Dash type" dropdown maps to these.
  */
 export type LineDash =
@@ -229,7 +229,7 @@ const ATTR_LEN = qname('', 'len', '');
  * arrowhead on the selected end.
  *
  * Pass `{ type: 'none' }` to clear an existing arrowhead (this still
- * emits the element with `type="none"`, matching PowerPoint's
+ * emits the element with `type="none"`, matching the reference desktop app's
  * behavior).
  */
 export const setStrokeArrow = (
@@ -298,16 +298,16 @@ export const setStrokeCompound = (spPr: XmlElement, cmpd: LineCompound | null): 
 };
 
 /**
- * PowerPoint's Sketched style presets ([MS-ODRAWXML] §2.38,
+ * The reference desktop app's Sketched style presets ([MS-ODRAWXML] §2.38,
  * `EG_LineSketchType`), named after their `ask:lineSketch*` elements.
  */
 export type LineSketch = 'curved' | 'freehand' | 'scribble';
 
 const LINE_SKETCHES: readonly LineSketch[] = ['curved', 'freehand', 'scribble'];
 
-// [MS-ODRAWXML] §2.38 sketchyshapes. Office stores the props in an
+// [MS-ODRAWXML] §2.38 sketchyshapes. The reference desktop app stores the props in an
 // `<a:ln><a:extLst><a:ext>` under this URI; the spec's tables do not list the
-// URI, so it is taken from Office-written files.
+// URI, so it is taken from files the reference desktop app wrote.
 const NS_ASK = 'http://schemas.microsoft.com/office/drawing/2018/sketchyshapes';
 const SKETCH_EXT_URI = '{C807C97D-BFC1-408E-A445-0C87EB9F89A2}';
 const NAME_EXT_LST = qname('a', 'extLst', NS.dml);
@@ -353,7 +353,7 @@ export const readStrokeSketch = (ln: XmlElement): LineSketch | null => {
 };
 
 /**
- * True when the shape's geometry already is the sketched outline: Office
+ * True when the shape's geometry already is the sketched outline: the reference desktop app
  * writes the hand-drawn path into `<p:spPr>` and keeps the original geometry
  * inside the sketch props, so a renderer must not roughen it a second time.
  */
@@ -363,7 +363,7 @@ export const hasSketchedGeometry = (ln: XmlElement): boolean =>
 /**
  * Sets (or with `null` removes) the sketched style on `spPr`'s outline.
  *
- * Office replaces the shape geometry with the generated hand-drawn path and
+ * The reference desktop app replaces the shape geometry with the generated hand-drawn path and
  * keeps the original inside the props. This writer cannot generate that path,
  * so it moves any kept original back into `spPr` and leaves the roughening to
  * the renderer: afterwards `spPr` holds the shape's true outline. `seed` is

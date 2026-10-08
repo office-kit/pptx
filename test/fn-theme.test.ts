@@ -9,7 +9,7 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: getPresentationTheme', () => {
-  it('returns the Office Theme color scheme on the python-pptx default', async () => {
+  it('returns the default theme color scheme on the python-pptx default', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const theme = getPresentationTheme(pres);
     expect(theme).not.toBeNull();

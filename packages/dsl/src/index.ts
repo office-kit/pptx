@@ -199,7 +199,7 @@ function style(shape: api.SlideShapeData, props: ShapeStyle) {
   if (props.glow) api.setShapeGlow(shape, props.glow);
   if (props.click) api.setShapeClickAction(shape, props.click);
 }
-/** A paragraph's indent level: 0 is the top, 8 the deepest PowerPoint has. */
+/** A paragraph's indent level: 0 is the top, 8 the deepest the reference desktop app has. */
 export type TextLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export interface TextParagraph extends api.ParagraphSpec {
   /** This paragraph's own bullet; wins over `bullets`. */
@@ -431,7 +431,7 @@ function checkCells(rows: TableProps['rows'], covered: Map<string, CellPosition>
       if ((spec.text === undefined) === (spec.paragraphs === undefined))
         throw new Error(`Table cell (${row}, ${col}) accepts either text or paragraphs.`);
       const anchor = covered.get(positionKey(row, col));
-      // PowerPoint paints only the merge's top-left cell, so anything written
+      // The reference desktop app paints only the merge's top-left cell, so anything written
       // here would vanish from the slide without a trace.
       if (anchor && cell !== '')
         throw new Error(

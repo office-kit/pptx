@@ -3,7 +3,7 @@ import { SHAPE_PRESETS } from '../enum-values.ts';
 // Builds a generic preset shape (`<p:sp>` with `<a:prstGeom prst="...">`).
 //
 // Different from `text-box-builder` in two ways:
-//   - No `txBox="1"` on `<p:cNvSpPr>`; PowerPoint treats this as a regular
+//   - No `txBox="1"` on `<p:cNvSpPr>`; the reference desktop app treats this as a regular
 //     shape with optional text rather than a free-form text frame.
 //   - The geometry preset is caller-chosen from the full ECMA-376
 //     `ST_ShapeType` catalog (rect, ellipse, triangle, rightArrow, star5,
@@ -105,7 +105,7 @@ export type PresetShape =
   | 'plus'
   // ECMA-376 ST_ShapeType spells the math operators `math*`; the bare
   // `minus`/`mult`/`div`/`equal`/`notEqual` are not in the enum and emitted a
-  // `prstGeom` PowerPoint silently dropped (the shape vanished on open).
+  // `prstGeom` the reference desktop app silently dropped (the shape vanished on open).
   | 'mathPlus'
   | 'mathMinus'
   | 'mathMultiply'
@@ -130,7 +130,7 @@ export interface ShapeOptions {
   /**
    * Vertical anchor of any text body (`ST_TextAnchoringType`: `t` top,
    * `ctr` middle, `b` bottom). Defaults to `'ctr'` so preset shapes render
-   * with centered text, which is what PowerPoint does when you "insert shape
+   * with centered text, which is what the reference desktop app does when you "insert shape
    * → type text". For horizontal alignment, set the paragraph alignment via
    * `setShapeAlignment` / `setParagraphAlignment` after creating the shape.
    */
@@ -179,7 +179,7 @@ export const buildShape = (opts: ShapeOptions): XmlElement => {
 
   // EMU coordinates are integers (ST_Coordinate / xsd:long). Round on the way
   // out so a fractional value from EMU arithmetic (e.g. an `as Emu` cast on a
-  // computed fit/translate) can't reach the XML and trip PowerPoint's repair.
+  // computed fit/translate) can't reach the XML and trip the reference desktop app's repair.
   const off = elem(NAME_OFF, {
     attrs: [
       attr(ATTR_X, String(emuCoordinate(opts.x, 'addSlideShape: x'))),

@@ -25,7 +25,7 @@ const SCHEMAS = {
   chart: 'ECMA-376/OfficeOpenXML-XMLSchema-Transitional/dml-chart.xsd',
   rels: 'ECMA-376/OpenPackagingConventions-XMLSchema/opc-relationships.xsd',
   contentTypes: 'ECMA-376/OpenPackagingConventions-XMLSchema/opc-contentTypes.xsd',
-  // PowerPoint's own transition elements (p14 / p15 / p159), which ECMA-376
+  // The reference desktop app's own transition elements (p14 / p15 / p159), which ECMA-376
   // does not define: [MS-PPTX]'s schema fragments, transcribed under test/lib.
   pptxTransitions: fileURLToPath(new URL('./ms-pptx/transitions.xsd', import.meta.url)),
 } as const;

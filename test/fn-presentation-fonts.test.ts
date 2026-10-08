@@ -9,13 +9,13 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: getPresentationFonts', () => {
-  it('returns Calibri for the Office theme', async () => {
+  it('returns Calibri for the default theme', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const fonts = getPresentationFonts(pres);
     expect(fonts).not.toBeNull();
     expect(fonts!.majorLatin).toBe('Calibri');
     expect(fonts!.minorLatin).toBe('Calibri');
-    // Office theme leaves ea/cs blank → null.
+    // The default theme leaves ea/cs blank → null.
     expect(fonts!.majorEastAsian).toBeNull();
     expect(fonts!.majorComplexScript).toBeNull();
   });

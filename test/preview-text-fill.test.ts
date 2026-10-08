@@ -1,5 +1,5 @@
 // Gradient and pattern glyph fills (`<a:gradFill>` / `<a:pattFill>` on a run),
-// as Mac PowerPoint's WordArt presets write them — see
+// as the reference desktop app's WordArt presets write them — see
 // test/fixtures/native/wordart-capture.md.
 
 import { readFileSync } from 'node:fs';

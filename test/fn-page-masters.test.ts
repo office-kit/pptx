@@ -1,4 +1,4 @@
-// The notes and handout masters: created with PowerPoint's default structure
+// The notes and handout masters: created with the reference desktop app's default structure
 // the first time they are edited, their placeholder checkboxes, the shared
 // notes-page orientation and the handout's slides per page. Every result is
 // saved, reloaded and validated part by part against the ECMA-376 schemas.
@@ -34,7 +34,7 @@ const types = (placeholders: ReadonlyArray<{ type: string | null }> | null) =>
   placeholders?.map((p) => p.type) ?? null;
 
 describe('notes master', () => {
-  it('is absent until edited, then PowerPoint’s default', async () => {
+  it('is absent until edited, then the reference desktop app’s default', async () => {
     const pres = createPresentation();
     expect(getNotesMasterPlaceholders(pres)).toBeNull();
 

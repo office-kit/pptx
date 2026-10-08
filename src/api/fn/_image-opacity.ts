@@ -14,7 +14,7 @@ const ATTR_AMT_FN = qname('', 'amt', '');
 
 /**
  * Adds a CT_Blip effect. Effects form an unordered choice, but they must all
- * precede the blip's `<a:extLst>` (where PowerPoint keeps `a14:imgProps` and
+ * precede the blip's `<a:extLst>` (where the reference desktop app keeps `a14:imgProps` and
  * `a14:useLocalDpi`).
  */
 export const insertBlipEffect = (blip: XmlElement, effect: XmlElement): void => {

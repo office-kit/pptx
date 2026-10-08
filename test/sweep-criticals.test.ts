@@ -1,6 +1,6 @@
 // Regression net for the final generative-sweep findings (the batch after the
 // boundary-validation pass): each test pins one defect where the writer emitted
-// a `.pptx` PowerPoint marks corrupt — XML-illegal control characters, chart
+// a `.pptx` the reference desktop app marks corrupt — XML-illegal control characters, chart
 // percentages outside their ECMA-376 simple-type ranges, unvalidated effect
 // EMU, a scheme-color round-trip the setter rejected, importSlide leaving a
 // dangling chart relationship, and invalid `ST_ShapeType` math tokens.

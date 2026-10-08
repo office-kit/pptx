@@ -166,7 +166,7 @@ describe('fn API: fly, zoom and spin', () => {
       expect(step.effect, effect).toBe(effect);
       expect(step.playable, effect).toBe(true);
       expect(step.editable, effect).toBe(true);
-      // PowerPoint leaves `fill` off a filter and off every behaviour of an
+      // The reference desktop app leaves `fill` off a filter and off every behaviour of an
       // exit, so those state nothing about what is left behind.
       expect(step.valueAfterEnd, effect).not.toBe('removed');
     }

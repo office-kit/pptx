@@ -282,8 +282,8 @@ const asCommentData = (
 // ---------------------------------------------------------------------------
 // Modern comments ([MS-PPTX] §2.16.1).
 //
-// A second, incompatible way to say the same thing: PowerPoint 2021 and
-// Microsoft 365 write `<p188:cm>` threads into a per-slide part related from
+// A second, incompatible way to say the same thing: the reference desktop app (2021 and
+// later) writes `<p188:cm>` threads into a per-slide part related from
 // the slide, with the authors in one `/ppt/authors.xml`. The differences that
 // matter here are that a thread owns its replies rather than the replies
 // pointing back, and that a thread can be resolved.
@@ -321,7 +321,7 @@ const openModernComments = (slide: SlideData): { part: Part; doc: XmlDocument } 
 };
 
 const saveModernComments = (slide: SlideData, open: { part: Part; doc: XmlDocument }): void => {
-  // A part with no threads left is an orphan: PowerPoint writes neither it
+  // A part with no threads left is an orphan: the reference desktop app writes neither it
   // nor the relationship that reaches it.
   if (modernCommentElements(open.doc.root).length === 0) {
     const pkg = slide[INTERNAL_PACKAGE];
@@ -432,7 +432,7 @@ const slideIdOf = (slide: SlideData): number | null => {
  * The anchor for a new thread. An existing thread on the same slide already
  * names it exactly, so that one is copied; otherwise the moniker is built
  * from the slide's own identifiers. A slide that carries no creation id —
- * every PowerPoint slide does, decks built from scratch do not — gets the
+ * every slide the reference desktop app writes does, decks built from scratch do not — gets the
  * schema's own `unknownAnchor` rather than a made-up moniker.
  */
 const anchorForSlide = (slide: SlideData, root: XmlElement): XmlElement => {
@@ -1090,7 +1090,7 @@ export const getCommentParent = (comment: SlideCommentData): SlideCommentData | 
 /**
  * Which of the two comment formats this handle came from. `'legacy'` is the
  * ECMA-376 `<p:cm>` list every reader understands; `'modern'` is the
- * `<p188:cm>` thread PowerPoint 2021 and Microsoft 365 write.
+ * `<p188:cm>` thread the reference desktop app writes from 2021 on.
  */
 export const getCommentFormat = (comment: SlideCommentData): 'legacy' | 'modern' =>
   comment[COMMENT_MODERN] === null ? 'legacy' : 'modern';

@@ -1,7 +1,7 @@
-// Mac PowerPoint's twenty WordArt presets (test/fixtures/native/wordart-*-shape.xml)
+// The reference desktop app's twenty WordArt presets (test/fixtures/native/wordart-*-shape.xml)
 // read through the run and text-body readers and written back through the
 // public setters: every color — theme tints included — and the bevel 3-D come
-// out as PowerPoint wrote them.
+// out as the reference desktop app wrote them.
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';

@@ -1,7 +1,7 @@
-// Writes PowerPoint's definition of a built-in table style into the
+// Writes the reference desktop app's definition of a built-in table style into the
 // presentation's `tableStyles.xml` when a table starts using it.
 //
-// PowerPoint itself draws a built-in GUID from its own definitions, but it
+// The reference desktop app itself draws a built-in GUID from its own definitions, but it
 // also serializes the definition of every style a deck uses, and other
 // consumers (Keynote, Google Slides, LibreOffice) render from that part.
 

@@ -102,7 +102,7 @@ describe('fn API: chart title defaults', () => {
 describe('fn API: axis title rotation', () => {
   skipIfNoXmllint('omits rot on a value-axis title without titleRotationDeg', async () => {
     const { spec, xml } = await roundTrip({ ...base, valueAxisTitle: 'Score' });
-    // PowerPoint reads `vert="horz"` without `rot` as "not rotated", so both
+    // The reference desktop app reads `vert="horz"` without `rot` as "not rotated", so both
     // stay out and its vertical default applies.
     expect(titleIn(xml, 'valAx')).toContain('<a:bodyPr spcFirstLastPara="1"');
     expect(titleIn(xml, 'valAx')).not.toContain('rot=');

@@ -2,7 +2,7 @@
 // one target shape. The caller (`setShapeAnimation`) merges it into the slide's
 // existing tree, so a slide ends up with as many effects as there were calls.
 //
-// Scope: every effect of PowerPoint's Entrance, Emphasis and Exit galleries,
+// Scope: every effect of the reference desktop app's Entrance, Emphasis and Exit galleries,
 // on the whole shape or on one paragraph of its text body (`<p:txEl><p:pRg>`).
 // Motion paths (`presetClass="path"`) are not modelled.
 //
@@ -11,9 +11,9 @@
 // ECMA-376 leaves `presetID` / `presetSubtype` as plain integers (§19.5.19,
 // CT_TLCommonTimeNodeData) and `<p:attrName>` as a plain string: neither the
 // preset catalogue nor the attribute vocabulary is in the standard. Both are
-// PowerPoint conventions, so each effect is written exactly as PowerPoint
-// writes it: the behaviours come from Mac PowerPoint 16.113's own output for
-// each gallery entry (`animation-presets.generated.ts`, generated from the
+// the reference desktop app's conventions, so each effect is written exactly as the reference
+// desktop app writes it: the behaviours come from the reference desktop app's own output (Mac
+// 16.113) for each gallery entry (`animation-presets.generated.ts`, generated from the
 // captures in `test/fixtures/native/animations/`). Only what an option decides
 // — a fly's direction, a filter's pattern — and the length are filled in here.
 //
@@ -84,7 +84,7 @@ const ATTR_ANIM_BG = qname('', 'animBg', '');
 const ATTR_AUTO_REV = qname('', 'autoRev', '');
 
 /**
- * What kind of effect to apply — one token per entry of PowerPoint's Entrance,
+ * What kind of effect to apply — one token per entry of the reference desktop app's Entrance,
  * Emphasis and Exit galleries, named after the gallery entry.
  *
  * Entrance effects put the shape on the slide and end in `In` (`appear` aside);
@@ -93,7 +93,7 @@ const ATTR_AUTO_REV = qname('', 'autoRev', '');
  * whether it is shown.
  *
  * Where a gallery name would not tell two presets apart, the token does:
- * `zoomIn` is PowerPoint's "Zoom" (preset 53, which fades as it grows) and
+ * `zoomIn` is the reference desktop app's "Zoom" (preset 53, which fades as it grows) and
  * `basicZoomIn` its "Basic Zoom" (preset 23); `floatIn` / `floatOut` are
  * "Float In" / "Float Out" (preset 42) and `floatingIn` / `floatingOut` the
  * "Float" entrance and exit (preset 30).
@@ -208,7 +208,7 @@ export const ANIMATION_EFFECTS = Object.keys(TEMPLATES) as readonly AnimationEff
 
 /**
  * Which edge of the slide a `flyIn` comes from, or a `flyOut` leaves by —
- * PowerPoint's "From Bottom" / Google Slides' "Fly in from bottom" — or, for
+ * the reference desktop app's "From Bottom" / Google Slides' "Fly in from bottom" — or, for
  * the four corners, the corner. A wipe or a peek names an edge too; strips
  * name a corner.
  */
@@ -232,7 +232,7 @@ export type AnimationInOut = 'in' | 'out';
 export type AnimationShape = 'circle' | 'box' | 'diamond' | 'plus';
 
 /**
- * How an effect on a shape with text treats the text — PowerPoint's Effect
+ * How an effect on a shape with text treats the text — the reference desktop app's Effect
  * Options "Sequence":
  *
  *   - `'asOneObject'` animates the shape and its text together, as one effect.
@@ -250,11 +250,11 @@ export const ANIMATION_DIRECTIONS: readonly AnimationDirection[] = [...SIDES, ..
 
 const ORIENTATIONS: readonly AnimationOrientation[] = ['horizontal', 'vertical'];
 const SHAPES: readonly AnimationShape[] = ['circle', 'box', 'diamond', 'plus'];
-/** The spoke counts PowerPoint's Wheel offers (1, 2, 3, 4 and 8 Spokes). */
+/** The spoke counts the reference desktop app's Wheel offers (1, 2, 3, 4 and 8 Spokes). */
 const WHEEL_SPOKES: readonly number[] = [1, 2, 3, 4, 8];
 
 /**
- * The `presetSubtype` PowerPoint writes for a directional preset. It is a
+ * The `presetSubtype` the reference desktop app writes for a directional preset. It is a
  * bitmask over the four edges, so a corner is the two bits together
  * (top-left is 1|8 = 9).
  *
@@ -303,9 +303,9 @@ export interface AnimationOptionDomains {
  * numbers, and the `{…}` placeholders its template leaves for them.
  */
 interface OptionFamily {
-  /** The values each option may have; the first is PowerPoint's default. */
+  /** The values each option may have; the first is the reference desktop app's default. */
   readonly domains: AnimationOptionDomains;
-  /** The same for the exit, where PowerPoint's default differs. */
+  /** The same for the exit, where the reference desktop app's default differs. */
   readonly exitDomains?: AnimationOptionDomains;
   readonly presetId?: (o: AnimationEffectOptions) => number;
   readonly presetSubtype: (o: AnimationEffectOptions) => number;
@@ -355,7 +355,7 @@ const verticalEdge = (direction: AnimationDirection): 'top' | 'bottom' | null =>
 
 /**
  * The keyframes of a fly. Both axes are written even though only one of them
- * may move: PowerPoint holds the other one steady.
+ * may move: the reference desktop app holds the other one steady.
  *
  * `#` marks the shape's own authored value. Entrance keyframes carry it and
  * exit keyframes do not, which is the difference between the two preset rows.
@@ -388,9 +388,9 @@ const EDGES_FROM_BOTTOM: readonly AnimationDirection[] = [
   ...SIDES.filter((d) => d !== 'bottom'),
 ];
 
-// What PowerPoint writes for each Effect Options choice — preset id, subtype
-// and filter — as its object model records them (MsoAnimEffect, PowerPoint 16;
-// see POWERPOINT_PARITY.md "Animations"). The defaults are the ones the
+// What the reference desktop app writes for each Effect Options choice — preset id, subtype
+// and filter — as its object model records them (MsoAnimEffect, version 16;
+// see the dev package's parity notes, "Animations"). The defaults are the ones the
 // captures were made with, and the native-capture test checks them.
 const OPTION_FAMILIES: Readonly<Record<string, OptionFamily>> = {
   fly: {
@@ -441,13 +441,13 @@ const OPTION_FAMILIES: Readonly<Record<string, OptionFamily>> = {
   randomBars: {
     domains: { orientation: ORIENTATIONS },
     presetSubtype: (o) => ORIENTATION_SUBTYPES[o.orientation!],
-    // ECMA-376's filter table spells this `randomBars(…)`; PowerPoint writes
+    // ECMA-376's filter table spells this `randomBars(…)`; the reference desktop app writes
     // and reads `randombar(…)`, so that is what is written.
     values: filterOnly((o) => `randombar(${o.orientation})`),
   },
   shape: {
     domains: { shape: SHAPES, inOut: ['in', 'out'] },
-    // PowerPoint's Shape exit closes onto the centre rather than opening.
+    // The reference desktop app's Shape exit closes onto the centre rather than opening.
     exitDomains: { shape: SHAPES, inOut: ['out', 'in'] },
     presetId: (o) => SHAPE_PRESET_IDS[o.shape!],
     presetSubtype: (o) => IN_OUT_SUBTYPES[o.inOut!],
@@ -542,7 +542,7 @@ const presetSubtypeOf = (effect: AnimationEffect, options: AnimationEffectOption
   optionFamilyOf(effect)?.presetSubtype(options) ?? TEMPLATES[effect][2];
 
 /**
- * Which `<p:bldP>` PowerPoint writes for the effect: `'shape'` animates the
+ * Which `<p:bldP>` the reference desktop app writes for the effect: `'shape'` animates the
  * shape's background along with its text (`animBg`), `'text'` — the effects
  * that only restyle text, such as Font Color or Underline — the text alone,
  * and `'none'` — Fill Color and Line Color — writes no build entry and leaves
@@ -600,14 +600,14 @@ export const ANIMATION_PRESET_ENTRIES: readonly AnimationPresetEntry[] = ANIMATI
 /**
  * Where the `<p:set>` that ends an exit stands, measured from the start of the
  * effect. The shape has to stay on the slide until its motion is over, and the
- * kick itself takes the one millisecond PowerPoint gives it.
+ * kick itself takes the one millisecond the reference desktop app gives it.
  */
 export const trailingHideDelayMs = (durationMs: number): number => Math.max(0, durationMs - 1);
 
 // ---------------------------------------------------------------------------
 // An effect's length.
 //
-// PowerPoint's Duration is when the effect's last behaviour ends: a behaviour
+// The reference desktop app's Duration is when the effect's last behaviour ends: a behaviour
 // that reverses (`autoRev`) runs twice, and one that waits starts that much
 // later. Changing it scales every behaviour's length and wait by the same
 // factor, which is how Bounce keeps its shape at any speed. The writer and the
@@ -708,7 +708,7 @@ const behaviourEndMs = (cTn: XmlElement): number | null => {
 };
 
 /**
- * PowerPoint's Duration for an effect: when the last of its behaviours ends,
+ * The reference desktop app's Duration for an effect: when the last of its behaviours ends,
  * the visibility kicks aside. `null` when any behaviour runs indefinitely,
  * states no length, repeats or waits on something other than a plain offset,
  * and when there is no timed behaviour at all (`appear`).
@@ -824,7 +824,7 @@ const START_NODE_TYPES: Record<AnimationStartCondition, string> = {
 };
 
 /**
- * The effect node PowerPoint writes for `effect` at its own default length,
+ * The effect node the reference desktop app writes for `effect` at its own default length,
  * with the given target, start and delay. Its cTn ids are left for the caller
  * to number.
  */
@@ -863,7 +863,7 @@ const effectNode = (
 // all 95 effects when the module loads.
 const defaultDurations = new Map<AnimationEffect, number | null>();
 
-/** PowerPoint's default length for the preset in milliseconds; `null` when it holds until the slide ends. */
+/** The reference desktop app's default length for the preset in milliseconds; `null` when it holds until the slide ends. */
 export const defaultAnimationDurationMs = (effect: AnimationEffect): number | null => {
   if (!defaultDurations.has(effect)) {
     const options = resolveAnimationOptions(effect, {}, 'defaultAnimationDurationMs');
@@ -873,7 +873,7 @@ export const defaultAnimationDurationMs = (effect: AnimationEffect): number | nu
   return defaultDurations.get(effect)!;
 };
 
-/** The local names of the behaviour elements PowerPoint writes for `effect`. */
+/** The local names of the behaviour elements the reference desktop app writes for `effect`. */
 export const effectBehaviourNames = (effect: AnimationEffect): ReadonlySet<string> => {
   const names = new Set<string>();
   for (const match of expandTemplate(TEMPLATES[effect][5]).matchAll(/<p:(\w+)/g)) {
@@ -889,7 +889,7 @@ export interface AnimationOptions {
    * Which edge of the slide a `'flyIn'` comes from, or a `'flyOut'` leaves by
    * — any of the eight. `'wipeIn'`, `'wipeOut'`, `'peekIn'` and `'peekOut'`
    * take one of the four edges, `'stripsIn'` and `'stripsOut'` one of the four
-   * corners. Defaults to PowerPoint's own default for the preset (`'bottom'`;
+   * corners. Defaults to the reference desktop app's own default for the preset (`'bottom'`;
    * `'bottomLeft'` for strips). Passing it for an effect that takes no
    * direction is an error rather than a no-op: it would otherwise read as a
    * direction the file never records. The same holds for the options below.
@@ -897,13 +897,13 @@ export interface AnimationOptions {
   readonly direction?: AnimationDirection;
   /**
    * For blinds, random bars and split: which way the bars run. For a
-   * checkerboard, `'horizontal'` is PowerPoint's "Across" and `'vertical'` its
+   * checkerboard, `'horizontal'` is the reference desktop app's "Across" and `'vertical'` its
    * "Down". Defaults to `'horizontal'` (`'vertical'` for split).
    */
   readonly orientation?: AnimationOrientation;
   /**
    * For shape and split: open from the centre (`'out'`) or close in on it
-   * (`'in'`). Defaults to `'in'` — `'out'` for `'shapeOut'`, as in PowerPoint.
+   * (`'in'`). Defaults to `'in'` — `'out'` for `'shapeOut'`, as in the reference desktop app.
    */
   readonly inOut?: AnimationInOut;
   /** For `'shapeIn'` / `'shapeOut'`: the outline. Defaults to `'circle'`. */
@@ -913,7 +913,7 @@ export interface AnimationOptions {
   /** For `'spin'`: which way it turns. Defaults to `'clockwise'`. */
   readonly spinDirection?: AnimationSpinDirection;
   /**
-   * For `'spin'`: how far it turns, in degrees. PowerPoint's menu offers 90
+   * For `'spin'`: how far it turns, in degrees. The reference desktop app's menu offers 90
    * (Quarter Spin), 180 (Half Spin), 360 (Full Spin, the default) and 720
    * (Two Spins); any positive angle can be written.
    */
@@ -925,12 +925,12 @@ export interface AnimationOptions {
   readonly scaleDirection?: AnimationScaleDirection;
   /**
    * For `'growShrink'`: the size to reach, in percent of the shape's own.
-   * PowerPoint's menu offers 25 (Tiny), 50 (Smaller), 150 (Larger, the
+   * The reference desktop app's menu offers 25 (Tiny), 50 (Smaller), 150 (Larger, the
    * default) and 400 (Huge).
    */
   readonly scalePercent?: number;
   /**
-   * For `'transparency'`: how transparent the shape becomes, 0–100. PowerPoint
+   * For `'transparency'`: how transparent the shape becomes, 0–100. The reference desktop app
    * offers 25, 50 (the default), 75 and 100.
    */
   readonly transparencyPercent?: number;
@@ -938,13 +938,13 @@ export interface AnimationOptions {
    * For the colour emphasis effects — `'fillColor'`, `'fontColor'`,
    * `'lineColor'`, `'brushColor'`, `'objectColor'`, `'colorPulse'` and
    * `'growWithColor'` — the colour to change to. Defaults to Accent 2, and to
-   * Background 1 for `'colorPulse'`, as PowerPoint's gallery does.
+   * Background 1 for `'colorPulse'`, as the reference desktop app's gallery does.
    */
   readonly color?: AnimationColor;
   /**
-   * How long the effect runs, in milliseconds. Defaults to PowerPoint's default
+   * How long the effect runs, in milliseconds. Defaults to the reference desktop app's default
    * for the preset (`defaultAnimationDurationMs`). An effect made of several
-   * behaviours is scaled as a whole, the way PowerPoint's Duration box does.
+   * behaviours is scaled as a whole, the way the reference desktop app's Duration box does.
    * `'appear'` and `'disappear'` are instantaneous and write no timed
    * behaviour, so it does not reach them; `'transparency'` and `'boldReveal'`
    * hold until the end of the slide and take none.
@@ -961,7 +961,7 @@ export interface AnimationOptions {
   /** How long to wait once the start condition is met. Defaults to 0ms. */
   readonly delayMs?: number;
   /**
-   * How the shape's text is animated — PowerPoint's Effect Options "Sequence".
+   * How the shape's text is animated — the reference desktop app's Effect Options "Sequence".
    * Defaults to `'asOneObject'`, the gallery's own default. `'allAtOnce'` and
    * `'byParagraph'` give every paragraph an effect of its own: started together
    * for the first, each on its own start (a click apiece by default) for the
@@ -972,7 +972,7 @@ export interface AnimationOptions {
 
 /**
  * Numbers every `<p:cTn>` under `el` in document order from `first`, the way
- * PowerPoint numbers a tree it writes.
+ * the reference desktop app numbers a tree it writes.
  */
 const numberCTns = (el: XmlElement, first: number): number => {
   let next = first;
@@ -1000,7 +1000,7 @@ export interface EffectContext {
   readonly build?: AnimationTextBuild;
   /**
    * Whether the shape draws a background — a fill or an outline — that animates
-   * with its text. PowerPoint marks the build entry `animBg` then.
+   * with its text. The reference desktop app marks the build entry `animBg` then.
    */
   readonly background?: boolean;
   /** Overrides `opts.start` — the later paragraphs of an all-at-once build run with the first. */
@@ -1114,7 +1114,7 @@ export const buildSingleEffectTiming = (
   const tnLst = elem(NAME_TN_LST, { children: [elem(NAME_PAR, { children: [rootCTn] })] });
   numberCTns(tnLst, 1);
 
-  // The build entry PowerPoint needs to render the effect. `build` tells it
+  // The build entry the reference desktop app needs to render the effect. `build` tells it
   // the body is revealed paragraph by paragraph; without it (`whole`) the
   // first paragraph's effect would reveal all of them. `animBg` animates the
   // shape's own fill and outline with its text.

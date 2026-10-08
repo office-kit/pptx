@@ -176,9 +176,9 @@ describe('fn API: addSlideChart', () => {
     expect(chartStr.match(/<c:ser>/g)?.length).toBe(2);
   });
 
-  it('emits a line series color on <a:ln> so PowerPoint paints the line', async () => {
+  it('emits a line series color on <a:ln> so the reference desktop app paints the line', async () => {
     // Regression: a line series wrote its color only as a bare <a:solidFill>,
-    // which does not color a line's stroke — PowerPoint ignored it and fell
+    // which does not color a line's stroke — the reference desktop app ignored it and fell
     // back to its automatic palette. The color must reach <a:ln>.
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideChart(getSlides(pres)[0]!, {

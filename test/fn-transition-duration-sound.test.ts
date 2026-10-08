@@ -1,4 +1,4 @@
-// Transition duration (PowerPoint 2010's p14:dur in mc:AlternateContent) and
+// Transition duration ([MS-PPTX] p14:dur in mc:AlternateContent) and
 // transition sounds (p:sndAc).
 
 import { readFile } from 'node:fs/promises';
@@ -78,7 +78,7 @@ describe('transition duration', () => {
 
   it('replaces an AlternateContent transition with a single plain one', async () => {
     const { slide } = await firstSlide();
-    // PowerPoint leaves out spd when it is the default, fast (Cut at 0.1 s).
+    // The reference desktop app leaves out spd when it is the default, fast (Cut at 0.1 s).
     setSlideTransition(slide, { effect: 'fade', durationMs: 400 });
     expect(getSlideTransition(slide)).toEqual({ effect: 'fade', durationMs: 400 });
     setSlideTransition(slide, { effect: 'push', direction: 'l' });
@@ -89,7 +89,7 @@ describe('transition duration', () => {
     expect(getSlideTransition(slide)).toBeNull();
   });
 
-  // Mac PowerPoint saves Push (1 s) as `spd="slow"` alone, Uncover (0.75 s) as
+  // The reference desktop app on Mac saves Push (1 s) as `spd="slow"` alone, Uncover (0.75 s) as
   // `spd="med"` and Flash (1 s) without p14:dur inside its p14 wrapper.
   it('writes a duration equal to its speed as the speed alone', async () => {
     const { slide } = await firstSlide();

@@ -18,8 +18,9 @@ import {
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 
-it('resolves the Medium Style 2 definition saved by Mac PowerPoint', async () => {
-  // Captured from Mac PowerPoint tableStyles.xml; validated against dml-main.xsd.
+it('resolves the Medium Style 2 definition saved by the reference desktop app on Mac', async () => {
+  // Captured from the tableStyles.xml the reference desktop app wrote on Mac; validated against
+  // dml-main.xsd.
   const style = await readFile(new URL('./fixtures/native-table-style.xml', import.meta.url));
   const original = createPresentation();
   const table = addSlideTable(addBlankSlide(original), {
@@ -123,7 +124,7 @@ it('retains the built-in No Style, Table Grid appearance across flags and saving
   );
 });
 
-it('applies Total Row to a vertical merge ending at the last row, as in Mac PowerPoint', async () => {
+it('applies Total Row to a vertical merge ending at the last row, as in the reference desktop app on Mac', async () => {
   const pres = createPresentation();
   const table = addSlideTable(addBlankSlide(pres), {
     x: inches(1),
@@ -157,7 +158,7 @@ it('applies Total Row to a vertical merge ending at the last row, as in Mac Powe
   });
 });
 
-it('applies Last Column to a horizontal merge reaching the right edge, as in Mac PowerPoint', async () => {
+it('applies Last Column to a horizontal merge reaching the right edge, as in the reference desktop app on Mac', async () => {
   const pres = createPresentation();
   const table = addSlideTable(addBlankSlide(pres), {
     x: inches(1),

@@ -48,7 +48,7 @@ const ensureTransform = (shape: XmlElement, kind: ShapeKindForGeometry): XmlElem
   if (host === null) {
     host = elem(hostName);
     // The host element comes after nvSpPr / nvPicPr / nvGrpSpPr / nvCxnSpPr.
-    // Easiest: append; PowerPoint tolerates ordering at the spPr level.
+    // Easiest: append; the reference desktop app tolerates ordering at the spPr level.
     shape.children.push(host);
   }
   let xfrm = firstChildElement(host, NAME_A_XFRM);
@@ -108,7 +108,7 @@ const ATTR_FLIP_V = qname('', 'flipV', '');
 
 /**
  * Sets the shape's rotation. `degrees` is degrees (positive clockwise),
- * fractional values allowed. PowerPoint serializes the value in
+ * fractional values allowed. The reference desktop app serializes the value in
  * 60000ths of a degree per ECMA-376 ST_Angle, which we mirror.
  *
  * The full range is `0..360`; values outside that range are normalized.

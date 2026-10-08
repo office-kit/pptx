@@ -13,7 +13,7 @@ export interface ShapeStyleReference {
   readonly idx: number;
   /** Theme slot or sRGB color replacing the style list's `phClr`. */
   readonly color?: Color;
-  /** Ordered DrawingML color transforms (for example PowerPoint's shade). */
+  /** Ordered DrawingML color transforms (for example the reference desktop app's shade). */
   readonly colorTransforms?: readonly ColorTransform[];
 }
 

@@ -1,4 +1,4 @@
-// The shape effects PowerPoint's Format Shape pane edits one at a time: outer
+// The shape effects the reference desktop app's Format Shape pane edits one at a time: outer
 // and inner shadow (with scale and skew), reflection, soft edge, glow removal
 // and the shape's own 3-D in `<p:spPr>`.
 
@@ -46,7 +46,7 @@ const rect = () => {
 const compact = (xml: string) => xml.replace(/>\s+</g, '><').replace(/\s+\/>/g, '/>');
 const spPr = (xml: string) => compact(xml).match(/<p:spPr\b[\s\S]*?<\/p:spPr>/)![0];
 
-// PowerPoint's Shadow ▸ Perspective: Upper Left preset carries scale and skew.
+// The reference desktop app's Shadow ▸ Perspective: Upper Left preset carries scale and skew.
 const PERSPECTIVE = {
   color: '#000000',
   opacity: 0.2,

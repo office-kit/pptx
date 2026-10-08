@@ -1,6 +1,6 @@
 // Builds and reads the media flavour of a picture shape (`<p:pic>`).
 //
-// PowerPoint stores an inserted video / audio clip as an ordinary picture (the
+// The reference desktop app stores an inserted video / audio clip as an ordinary picture (the
 // poster frame) whose non-visual properties point at the media:
 //
 //   <p:pic>
@@ -23,7 +23,7 @@
 //   </p:pic>
 //
 // `r:link` is the ECMA-376 (2006) reference and `p14:media r:embed` the
-// PowerPoint 2010+ one; both relationships target the same media part. An
+// [MS-PPTX] (2010) one; both relationships target the same media part. An
 // online video has only the `r:link`, pointing at an external URL.
 //
 // The slide also needs a media time node under `<p:timing>`:
@@ -37,7 +37,7 @@
 //     </p:cMediaNode>
 //   </p:video>
 //
-// Without that node PowerPoint shows the poster but no play button / seek bar
+// Without that node the reference desktop app shows the poster but no play button / seek bar
 // in the slide show, so the clip cannot be controlled.
 
 import {
@@ -92,9 +92,10 @@ const ATTR_DELAY = qname('', 'delay', '');
 const ATTR_SPID = qname('', 'spid', '');
 
 const MEDIA_ACTION = 'ppaction://media';
-// The `<p:ext>` URI PowerPoint 2010+ uses for its `<p14:media>` reference.
+// The `<p:ext>` URI the reference desktop app (2010 and later) uses for its `<p14:media>`
+// reference.
 const P14_MEDIA_EXT_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
-// PowerPoint's default clip volume (ST_PositiveFixedPercentage, 80%).
+// The reference desktop app's default clip volume (ST_PositiveFixedPercentage, 80%).
 const DEFAULT_MEDIA_VOLUME = '80000';
 
 export interface MediaPictureOptions extends PictureOptions {
@@ -114,7 +115,7 @@ export const buildMediaPicture = (opts: MediaPictureOptions): XmlElement => {
   const nvPr = firstChildElement(nvPicPr, NAME_NV_PR)!;
 
   // The empty r:id is intentional: `ppaction://media` carries no target, and
-  // PowerPoint itself writes `r:id=""` here.
+  // the reference desktop app itself writes `r:id=""` here.
   cNvPr.children.push(
     elem(NAME_HLINK_CLICK, { attrs: [attr(ATTR_R_ID, ''), attr(ATTR_ACTION, MEDIA_ACTION)] }),
   );
@@ -125,7 +126,7 @@ export const buildMediaPicture = (opts: MediaPictureOptions): XmlElement => {
     }),
   );
   if (opts.rMedia !== undefined) {
-    // Declared locally, as PowerPoint does: the slide root only binds a / r / p.
+    // Declared locally, as the reference desktop app does: the slide root only binds a / r / p.
     const media = elem(NAME_P14_MEDIA, {
       attrs: [attr(ATTR_R_EMBED, opts.rMedia)],
       prefixDecls: new Map([['p14', NS.p14]]),

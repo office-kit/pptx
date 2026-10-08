@@ -2,8 +2,8 @@
 // (`<p:animEffect filter>`), the peeks that slide while they wipe, and the
 // diagonal flies.
 //
-// The expected rows are PowerPoint's own: preset id, subtype, filter and
-// default duration as PowerPoint 16 writes them for each gallery entry and
+// The expected rows are the reference desktop app's own: preset id, subtype, filter and
+// default duration as the reference desktop app (16) writes them for each gallery entry and
 // Effect Options choice. They are spelled out here rather than derived from the
 // writer's table, so a slip in that table cannot agree with itself.
 
@@ -90,7 +90,7 @@ const ROWS: readonly Row[] = [
   ...both('strips', { direction: 'topRight' }, 18, 3, 'strips(upRight)'),
   ...both('strips', { direction: 'bottomRight' }, 18, 6, 'strips(downRight)'),
   ...both('shape', { inOut: 'in' }, 6, 16, 'circle(in)', 2000),
-  // PowerPoint's Shape exit closes onto the centre unless told otherwise.
+  // The reference desktop app's Shape exit closes onto the centre unless told otherwise.
   { opts: { effect: 'shapeIn' }, presetId: 6, subtype: 16, filter: 'circle(in)', durationMs: 2000 },
   {
     opts: { effect: 'shapeOut' },
@@ -114,7 +114,7 @@ const OPTION_FIELDS = ['direction', 'orientation', 'inOut', 'shape', 'spokes'] a
 
 describe('fn API: filter entrance and exit effects', () => {
   it.each(ROWS.map((row) => [JSON.stringify(row.opts), row] as const))(
-    '%s writes PowerPoint’s preset, filter and default duration, and reads back',
+    '%s writes the reference desktop app’s preset, filter and default duration, and reads back',
     async (_, row) => {
       const { pres, shape } = await openDeck();
       setShapeAnimation(shape, row.opts);
@@ -217,7 +217,7 @@ describe('fn API: filter entrance and exit effects', () => {
 });
 
 describe('fn API: peek', () => {
-  // PowerPoint slides the shape 1.125 of its size on the edge's axis only, and
+  // The reference desktop app slides the shape 1.125 of its size on the edge's axis only, and
   // wipes it from the far side as it comes in.
   it.each([
     ['peekIn', 'bottom', 4, 'ppt_y', ['#ppt_y+#ppt_h*1.125000', '#ppt_y'], 'wipe(up)'],
@@ -239,7 +239,7 @@ describe('fn API: peek', () => {
     expect(anims[0]).toContain(`<p:attrName>${axis}</p:attrName>`);
     expect([...anims[0]!.matchAll(/<p:strVal val="([^"]*)"/g)].map((m) => m[1])).toEqual(values);
     expect(xml).toContain(`filter="${filter}"`);
-    // The slide comes first, then the wipe — PowerPoint's order.
+    // The slide comes first, then the wipe — the reference desktop app's order.
     expect(xml.indexOf('<p:anim ')).toBeLessThan(xml.indexOf('<p:animEffect'));
     expect(steps[0]).toMatchObject({ effect, direction, editable: true });
   });

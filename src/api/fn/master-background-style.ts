@@ -22,7 +22,7 @@ import type { ReadGradientFill } from '../../internal/drawingml/index.ts';
 import { themeRootFromPackage } from './theme.ts';
 
 /**
- * Choose one of PowerPoint's twelve Background Styles (numbered row by row).
+ * Choose one of the reference desktop app's twelve Background Styles (numbered row by row).
  * Changes the owning master, so every slide using that master inherits the
  * style. Existing slide and layout background overrides remain in place.
  * The theme must provide the referenced background fill style.
@@ -76,7 +76,7 @@ function configureStyle(root: XmlElement, style: number): void {
       ),
   );
   cSld.children.unshift(background);
-  // Mac PowerPoint swaps both text/background pairs for the two dark columns,
+  // The reference desktop app on Mac swaps both text/background pairs for the two dark columns,
   // preserving the theme's accent and hyperlink mappings.
   const dark = column >= 2;
   const pairs: Record<string, string> = {

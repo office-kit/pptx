@@ -234,7 +234,7 @@ export const getShapeStrokeWidth = (shape: SlideShapeData): number | null => {
  *
  * Companion to `getShapeStrokeColor`, which surfaces only the raw
  * `#RRGGBB` / `scheme:<token>` string — fine for round-tripping but
- * wrong for rendering, because PowerPoint paints the *transformed*
+ * wrong for rendering, because the reference desktop app paints the *transformed*
  * color, not the base one.
  */
 export const getShapeStrokeColorResolved = (
@@ -255,7 +255,7 @@ export const getShapeStrokeColorResolved = (
  * Returns the opacity (`0`–`1`) of the shape's own solid outline, read from
  * the `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children of its color
  * element, or `null` when the outline isn't a solid color or carries no
- * alpha transform (PowerPoint draws it fully opaque). Companion to
+ * alpha transform (the reference desktop app draws it fully opaque). Companion to
  * `getShapeStrokeColorResolved`, which never carries the alpha channel.
  */
 export const getShapeStrokeOpacity = (
@@ -458,7 +458,7 @@ export const getShapeFillColor = (shape: SlideShapeData): string | null => {
  *
  * Companion to `getShapeFillColor`, which surfaces only the raw
  * `#RRGGBB` / `scheme:<token>` string. Renderers and exporters that
- * need the color PowerPoint actually paints should call this.
+ * need the color the reference desktop app actually paints should call this.
  */
 export const getShapeFillColorResolved = (
   pres: PresentationData,
@@ -488,7 +488,7 @@ export const getShapeFillColorResolved = (
  * Returns the opacity (`0`–`1`) of the shape's solid fill, read from
  * the `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children of its color
  * element, or `null` when the fill isn't solid or carries no alpha
- * transform (PowerPoint paints it fully opaque). Companion to
+ * transform (the reference desktop app paints it fully opaque). Companion to
  * `getShapeFillColorResolved`, which never carries the alpha channel —
  * OOXML encodes color and alpha independently. Pass `pres` to resolve the
  * shape's theme fill reference when no direct fill is present.

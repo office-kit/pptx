@@ -22,7 +22,7 @@ const requireCSld = (layout: SlideLayoutData, fn: string): XmlElement => {
 };
 
 /**
- * Renames the layout. This is the name PowerPoint shows in the
+ * Renames the layout. This is the name the reference desktop app shows in the
  * "New Slide" gallery and in the layout pane, so it is what an author
  * picks a layout by — it is not an identifier, and nothing references
  * it.
@@ -70,7 +70,7 @@ const layoutPlaceholderShapes = (layout: SlideLayoutData) =>
  *
  * Slides inherit the new box wherever they have not pushed the
  * placeholder around themselves: a slide placeholder carrying its own
- * `<a:xfrm>` keeps it, exactly as PowerPoint behaves when you edit a
+ * `<a:xfrm>` keeps it, exactly as the reference desktop app behaves when you edit a
  * layout under slides that were already nudged.
  */
 export const setSlideLayoutPlaceholderBounds = (

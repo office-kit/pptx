@@ -77,7 +77,7 @@ export const createImageEmbedder = (
   const embedded = new Map<Uint8Array, string>();
   const rasterFormat = (bytes: Uint8Array): ImageFormat => {
     const format = detectImageFormat(bytes);
-    // An SVG blip needs a raster fallback PowerPoint renders instead; a
+    // An SVG blip needs a raster fallback the reference desktop app renders instead; a
     // picture text fill has nowhere to keep one.
     if (format === null || format === 'svg')
       throw new Error(`${caller}: picture fill bytes must be PNG, JPEG, GIF, BMP, TIFF or WebP`);

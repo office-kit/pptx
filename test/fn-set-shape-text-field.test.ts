@@ -1,4 +1,4 @@
-// `setShapeTextField` writes `<a:fld>` — text PowerPoint fills in on open
+// `setShapeTextField` writes `<a:fld>` — text the reference desktop app fills in on open
 // (the slide's number, today's date) rather than text the file states.
 
 import { describe, expect, it } from 'vitest';
@@ -67,7 +67,7 @@ describe('setShapeTextField', () => {
     setShapeTextField(shape, 'datetime1', { text: '2026-09-23' });
     expect(getShapeText(shape)).toBe('2026-09-23');
     // Without one the field is still valid; `<a:t>` is optional in the schema
-    // and PowerPoint overwrites whatever is there.
+    // and the reference desktop app overwrites whatever is there.
     setShapeTextField(shape, 'slidenum');
     expect(getShapeText(shape)).toBe('');
   });

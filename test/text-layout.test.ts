@@ -18,7 +18,7 @@ import {
 import { decimalSeparatorOf } from '../packages/preview/src/decimal-separator.ts';
 
 describe('substituteFamily', () => {
-  it('maps PowerPoint fonts to bundled internal family names', () => {
+  it('maps the reference desktop app’s fonts to bundled internal family names', () => {
     expect(substituteFamily('Calibri')).toBe('Carlito');
     expect(substituteFamily('Calibri Light')).toBe('Carlito');
     expect(substituteFamily('Aptos')).toBe('Carlito');
@@ -327,7 +327,7 @@ describe('layoutTextSvg', () => {
       body([para([word], { latinLineBreak: true })], { boxWpx: 20 }),
       stubMeasurer,
     );
-    // Office treats an omitted latinLnBrk as false for ordinary line fitting,
+    // The reference desktop app treats an omitted latinLnBrk as false for ordinary line fitting,
     // but still splits a word that cannot fit on an empty line.
     expect(countText(kept)).toBe(3);
     expect(countText(split)).toBe(3);

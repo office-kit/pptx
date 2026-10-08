@@ -1,7 +1,7 @@
 // XML parser tuned for OOXML.
 //
 // Hand-written tokenizer + tree builder. Handles the subset of XML 1.0 that
-// PowerPoint and the OOXML toolchain actually emit:
+// the reference desktop app and the OOXML toolchain actually emit:
 //
 //   - The XML declaration `<?xml ... ?>`.
 //   - Element start / end / empty tags with attributes.
@@ -62,7 +62,7 @@ interface Cursor {
 const isNameStartChar = (c: string): boolean => {
   // XML 1.0 NameStartChar simplified to what OOXML actually emits: ASCII
   // letters, underscore, colon (used in prefixes). The full Unicode predicate
-  // is overkill — PowerPoint never emits non-ASCII element names.
+  // is overkill — the reference desktop app never emits non-ASCII element names.
   const code = c.charCodeAt(0);
   return (
     (code >= 65 && code <= 90) || // A-Z

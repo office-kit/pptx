@@ -2,10 +2,10 @@
 //
 // - QName carries BOTH the namespace URI (for semantic checks) AND the prefix
 //   the input used (so we can serialize back with the same prefix). DOM-style
-//   APIs that re-derive prefixes from URIs break PowerPoint's compatibility
+//   APIs that re-derive prefixes from URIs break the reference desktop app's compatibility
 //   tooling.
 // - Attributes are an ordered array, not a map. OOXML attribute order matters
-//   for tools that string-compare serialized XML (Microsoft Open XML Diff).
+//   for tools that string-compare serialized XML (Open XML diff tools).
 // - Namespace declarations are recorded on the element where they appeared,
 //   not flattened. `mc:AlternateContent` and similar nested namespace scopes
 //   would otherwise lose their structure.

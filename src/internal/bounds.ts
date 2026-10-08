@@ -3,7 +3,7 @@
 // A recurring defect class in a typed OOXML writer: a caller-supplied number is
 // rounded and serialized straight into a constrained attribute (a coordinate, a
 // line width, a font size, a duration, a percentage, an angle), and a value
-// outside the schema's range produces a `.pptx` that PowerPoint marks corrupt
+// outside the schema's range produces a `.pptx` that the reference desktop app marks corrupt
 // and "repairs". Authoring input is an external boundary (per the project's
 // defensive-programming rule: validate at boundaries, trust internally), so the
 // value is checked HERE, once, before it reaches the wire. An out-of-range value
@@ -34,7 +34,7 @@ const RANGES = {
   // ST_GapAmount unions ST_GapAmountPercent and ST_GapAmountUShort; both cap at
   // 500 (we emit the numeric/UShort form). The earlier 65535 was the raw
   // xsd:unsignedShort domain, not the schema's maxInclusive — values 501..65535
-  // serialized to a `<c:gapWidth>` PowerPoint rejects.
+  // serialized to a `<c:gapWidth>` the reference desktop app rejects.
   gapAmount: [0, 500], // ST_GapAmountUShort (bar/column gap width %)
   holeSize: [1, 90], // ST_HoleSizeUByte (doughnut hole %)
   firstSliceAng: [0, 360], // ST_FirstSliceAng (pie/doughnut start angle, degrees)
@@ -107,7 +107,7 @@ export const holeSizePercent = (v: number, field: string): number =>
 export const firstSliceAngle = (v: number, field: string): number =>
   boundedInt(v, 'firstSliceAng', field);
 
-// ST_Guid requires UPPERCASE hex inside braces. PowerPoint emits uppercase, and
+// ST_Guid requires UPPERCASE hex inside braces. The reference desktop app emits uppercase, and
 // `crypto.randomUUID()` yields lowercase, so we accept either case and normalize
 // to upper rather than rejecting a perfectly good GUID over case alone. A value
 // that is not GUID-shaped at all is a caller error and throws.

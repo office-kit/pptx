@@ -26,7 +26,7 @@ describe('fn API: resolveDrawingColor', () => {
   });
 
   it('darkens via shade', () => {
-    // shade=50000 (50%) of pure red. PowerPoint applies shade in LINEAR light,
+    // shade=50000 (50%) of pure red. The reference desktop app applies shade in LINEAR light,
     // so R = srgb(linear(1)·0.5) = srgb(0.5) ≈ 0.735 → 0xBC, giving #BC0000
     // (lighter than the naive sRGB #800000).
     const el = parseColorEl(
@@ -49,8 +49,8 @@ describe('fn API: resolveDrawingColor', () => {
     expect(resolveDrawingColor(el, null)).toBe('#FFBCBC');
   });
 
-  it('combines lumMod + lumOff (PowerPoint "Lighter 60%" preset)', () => {
-    // PowerPoint's "Accent 1, Lighter 60%" theme variant uses
+  it('combines lumMod + lumOff (the reference desktop app "Lighter 60%" preset)', () => {
+    // The reference desktop app's "Accent 1, Lighter 60%" theme variant uses
     // lumMod=40000 + lumOff=60000 — the canonical recipe per §20.1.2.3.20-21.
     const el = parseColorEl(
       `<a:srgbClr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" val="4472C4">
