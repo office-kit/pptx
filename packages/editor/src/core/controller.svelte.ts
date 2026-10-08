@@ -153,15 +153,19 @@ export interface EditorControllerOptions {
    * shows and hosts the Agents pane through `postMessage`.
    */
   hostFrame?: boolean;
+  /** Where Help ▸ Feedback leads; without it the menu has no Feedback item. */
+  feedbackUrl?: string;
 }
 
 export class EditorController {
   readonly hostFrame: boolean;
+  readonly feedbackUrl: string | undefined;
   /** The editor's root element. Queries and key handling stay inside it. */
   #shell: HTMLElement | undefined;
 
   constructor(options: EditorControllerOptions = {}) {
     this.hostFrame = options.hostFrame ?? false;
+    this.feedbackUrl = options.feedbackUrl;
   }
 
   get shell(): HTMLElement | undefined {

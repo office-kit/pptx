@@ -15,7 +15,7 @@
 
   let { file }: { file: Pick<MenuHost, 'save' | 'download' | 'open' | 'newPresentation'> } = $props();
   const editor = getEditor();
-  const menus = $derived(nativeMenus());
+  const menus = $derived(nativeMenus(editor));
   let openMenu = $state<string | null>(null);
   /** Open submenus by depth, outermost first. */
   let path = $state<string[]>([]);

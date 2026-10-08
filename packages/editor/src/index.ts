@@ -4,7 +4,7 @@ import { EditorController } from './core/controller.svelte.ts';
 import type { ChangeSource } from './core/change-source.ts';
 import type { EditorTool, JsonValue } from './core/agent-tools.ts';
 import { downloadPptx } from './core/download.ts';
-import { previewFrameOptions } from './core/preview-frame.ts';
+import { devHostOptions } from './core/dev-host.ts';
 import { propose } from './core/propose.svelte.ts';
 import type { ProposeOptions, ProposeResult } from './core/proposal.ts';
 import { reconcileSelection, selectionShapeRefs, type ShapeRef } from './core/shape-ref.ts';
@@ -183,7 +183,11 @@ export interface EditorHandle {
 export function mountEditor(target: HTMLElement, options: EditorOptions = {}): EditorHandle {
   const { source, fileName, locale, onSave, autoSave = false, compact = false, status } = options;
   if (locale) setLocale(locale, false);
-  const editor = new EditorController({ hostFrame: previewFrameOptions.has(options) });
+  const dev = devHostOptions.get(options);
+  const editor = new EditorController({
+    hostFrame: dev?.previewFrame,
+    feedbackUrl: dev?.feedback?.url,
+  });
   const doc = editor.doc;
   const listeners: { [K in keyof EditorEventMap]: Set<(event: EditorEventMap[K]) => void> } = {
     change: new Set(),

@@ -63,8 +63,25 @@ export interface MenuHost {
   toggleFullScreen(): void;
 }
 
-export function nativeMenus(): readonly NativeMenu[] {
-  return NATIVE_MENUBAR[getLocale()];
+const FEEDBACK = 'help/feedback';
+
+// Help ▸ Feedback and the separator before it. Only the internal dev mount
+// gives the editor a feedback URL; every other host gets these menus.
+function withoutFeedback(menus: readonly NativeMenu[]): readonly NativeMenu[] {
+  return menus.map((menu) => {
+    const at = menu.items.findIndex((item) => item !== '-' && item.id === FEEDBACK);
+    if (at < 0) return menu;
+    return { ...menu, items: menu.items.filter((_, index) => index !== at && index !== at - 1) };
+  });
+}
+
+const MENUS_WITHOUT_FEEDBACK = {
+  en: withoutFeedback(NATIVE_MENUBAR.en),
+  ja: withoutFeedback(NATIVE_MENUBAR.ja),
+};
+
+export function nativeMenus(editor: EditorController): readonly NativeMenu[] {
+  return (editor.feedbackUrl === undefined ? MENUS_WITHOUT_FEEDBACK : NATIVE_MENUBAR)[getLocale()];
 }
 
 const unavailable = (reason: string): MenuCommand => ({ disabled: true, reason });
@@ -676,11 +693,13 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     // Help
     case 'help/editor-help':
       return { run: () => editor.togglePalette(true) };
-    case 'help/feedback':
-      return {
-        run: () =>
-          void window.open('https://github.com/office-kit/pptx/issues', '_blank', 'noopener'),
-      };
+    case FEEDBACK: {
+      // Not in the menus without a URL (see nativeMenus).
+      const url = editor.feedbackUrl;
+      return url === undefined
+        ? { disabled: true }
+        : { run: () => void window.open(url, '_blank', 'noopener') };
+    }
     case 'help/clear-application-data':
       return unavailable('The editor keeps no application data to clear.');
     case 'help/check-for-updates':
@@ -737,8 +756,8 @@ const DOCUMENT_SCOPE = [
  * shortcuts with ⌘ or ⌃ act on the selected text, except the keys the text
  * itself owns.
  */
-export function menuKeyLeavesText(event: KeyboardEvent): boolean {
-  const item = menuItemForKey(nativeMenus(), event);
+export function menuKeyLeavesText(editor: EditorController, event: KeyboardEvent): boolean {
+  const item = menuItemForKey(nativeMenus(editor), event);
   if (!item || TEXT_KEYS.has(item.id)) return false;
   const chord = parseShortcut(item.shortcut!);
   return chord !== null && isModifiedChord(chord);
@@ -757,7 +776,7 @@ export function runMenuKey(
     !editor.ownsEvent(event)
   )
     return false;
-  const item = menuItemForKey(nativeMenus(), event);
+  const item = menuItemForKey(nativeMenus(editor), event);
   if (!item || WINDOW_KEYS.has(item.id)) return false;
   const origin = eventTarget(event);
   const target = origin instanceof HTMLElement ? origin : null;

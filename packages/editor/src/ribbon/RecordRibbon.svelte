@@ -40,10 +40,10 @@
     </button>
   </section>
   <section class="cluster" role="group" aria-label={t('Help')}>
-    <a class="big" style:--w="38px" href="https://support.microsoft.com/office/record-a-slide-show-with-narration-and-slide-timings-0b9502c6-5f6c-40ae-b1e7-e47d8741161c" target="_blank" rel="noreferrer">
+    <button class="big" style:--w="38px" disabled title={t(UNAVAILABLE)}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" /><path d="M11 12a2 2 0 1 1 3 2c-1 .5-1 1-1 2M13 18.5v.5" style="stroke: var(--ok-accent)" /></svg>
       <span>{t('Learn More')}</span>
-    </a>
+    </button>
   </section>
 </div>
 

@@ -62,9 +62,11 @@ for core APIs, not evidence of typed DSL coverage.
 `pptx-dev` is a client of the editor. It reaches the editor through its public
 API (`mountEditor`, the handle, `@office-kit/pptx-editor/merge`) so that gaps
 in the embedding API surface during dev work. `@office-kit/pptx-editor/internal`
-keeps only the preview frame's `postMessage` protocol (Slide Show, Reading View,
-Rehearse Timings, the Agents pane button) and the animation player the preview
-page loads on its own; do not add to it without a plan to remove it.
+keeps only `mountDevEditor` — `mountEditor` plus the preview frame's
+`postMessage` protocol (Slide Show, Reading View, Rehearse Timings, the Agents
+pane button) and Help ▸ Feedback, which public hosts never see because they own
+their support channel — and the animation player the preview page loads on its
+own; do not add to it without a plan to remove it.
 
 ### Core library
 

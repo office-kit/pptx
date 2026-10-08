@@ -102,3 +102,40 @@ test('shipped UI strings name no third-party product and no Office Kit brand', (
   }
   assert.deepEqual(violations, []);
 });
+
+// Feedback is opt-in: Help ▸ Feedback exists only when `mountDevEditor`
+// (`@office-kit/pptx-editor/internal`) is given a URL, and the dev tool is the
+// one caller that passes ours. Keeping the URL out of the editor's bundle
+// entirely means no public host can reach our tracker from the UI, whatever
+// path through the code the user takes; a source grep for menu items alone
+// could not promise that.
+test('the editor bundle carries no issue-tracker URL; only the dev tool passes one', () => {
+  const TRACKER = /github\.com\/office-kit/i;
+  const read = (pattern) =>
+    globSync(pattern, { cwd: root }).map((file) => [
+      file,
+      readFileSync(resolve(root, file), 'utf8'),
+    ]);
+  const editor = read('packages/editor/dist/**/*.js');
+  assert.ok(editor.length > 0, 'the editor bundle was not found; run the build first');
+  assert.deepEqual(
+    editor.filter(([, text]) => TRACKER.test(text)).map(([file]) => file),
+    [],
+  );
+  assert.ok(
+    read('packages/dev/dist/**/*.{js,mjs}').some(([, text]) => TRACKER.test(text)),
+    'the dev tool no longer passes the feedback URL to the editor',
+  );
+});
+
+// Help links to a vendor's support site would send users of any host there.
+// schemas.microsoft.com namespace URIs are part of the file format and stay.
+test('shipped bundles link to no vendor support or product site', () => {
+  const VENDOR_SITE = /https?:\/\/(?!schemas\.)[a-z0-9.-]*(?:microsoft|office|live)\.com\b/i;
+  const files = globSync('packages/{editor,dev}/dist/**/*.{js,mjs}', { cwd: root });
+  assert.ok(files.length > 0, 'no bundles found; run the build first');
+  assert.deepEqual(
+    files.filter((file) => VENDOR_SITE.test(readFileSync(resolve(root, file), 'utf8'))),
+    [],
+  );
+});
