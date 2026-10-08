@@ -93,11 +93,10 @@ const ALLOWED = [
   /https:\/\/support\.microsoft\.com\/office\/record-a-slide-show-with-narration-and-slide-timings-[\w-]+/g,
   // The fidelity harness drives the app over AppleScript, which needs its name.
   /tell application "Microsoft PowerPoint"/g,
-  // Built-in theme, color set and font pair names: data the files and the
-  // editor's galleries carry, quoted as names.
-  /\bOffice (?:20\d\d - 20\d\d )?(?:Theme\b|テーマ)/g,
-  /\bOffice 20\d\d - 20\d\d\b/g,
-  /(['"`‘“])Office\1|‘Office’|“Office”/g,
+  // The color-scheme names decks from the reference desktop app carry, as
+  // `[written, shown]` pairs: the editor's map to its neutral names
+  // (packages/editor/src/core/design-presets.ts) and that map's test.
+  /\['Office(?: 20\d\d - 20\d\d)?', '/g,
   // Not the product.
   /Office Open XML|LibreOffice|OfficeArt|Office Kit/g,
   // "Word" as the English word in title-case labels (the Change Case

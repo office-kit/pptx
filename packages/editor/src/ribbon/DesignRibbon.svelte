@@ -23,7 +23,7 @@
     type SlideSize,
   } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { accentsOf, COLOR_SETS, FONT_PAIRS, THEMES, type ColorSet, type FontPair } from '../core/design-presets.ts';
+  import { accentsOf, COLOR_SETS, FONT_PAIRS, presetName, THEMES, type ColorSet, type FontPair } from '../core/design-presets.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
@@ -64,7 +64,8 @@
   const hex = (value: string | undefined) => (value ?? '').replace('#', '').toUpperCase();
   const sameColors = (colors: ColorSet) => !!theme && accentsOf(colors).every((value, i) => hex(value) === hex(accentsOf(theme)[i]));
   const sameFonts = (pair: FontPair) => !!fonts && fonts.majorLatin === pair.majorLatin && fonts.minorLatin === pair.minorLatin;
-  const currentFontName = $derived(FONT_PAIRS.find(sameFonts)?.name ?? theme?.name ?? '');
+  const themeColorsName = $derived(presetName(theme?.name ?? ''));
+  const currentFontName = $derived(FONT_PAIRS.find(sameFonts)?.name ?? themeColorsName);
   const sameSize = (size: SlideSize) => !!slideSize && slideSize.width === size.width && slideSize.height === size.height;
 
   async function toggle(menu: Menu) {
@@ -148,7 +149,7 @@
               {#if theme}
                 <div role="group" aria-label={t('Theme Colors')}>
                   <div class="heading">{t('Theme Colors')}</div>
-                  <button class="color-item" role="menuitemradio" aria-label={t(theme.name)} aria-checked="true" onclick={() => (open = null)}>{@render chips(theme)}<span>{t(theme.name)}</span></button>
+                  <button class="color-item" role="menuitemradio" aria-label={t(themeColorsName)} aria-checked="true" onclick={() => (open = null)}>{@render chips(theme)}<span>{t(themeColorsName)}</span></button>
                 </div>
               {/if}
               <div role="group" aria-label={t('All Colors')}>

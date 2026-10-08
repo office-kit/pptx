@@ -44,8 +44,6 @@ const ALLOWED: readonly RegExp[] = [
   /Microsoft_Excel_Worksheet/g,
   // Font family names in the default theme's per-script font lists.
   /Microsoft (?:Yi Baiti|Himalaya|Uighur|JhengHei|Tai Le|New Tai Lue)/g,
-  // Theme and scheme names written into the default theme part.
-  /name="Office(?: Theme)?"/g,
   // The ECMA-376 standard's title and the reference schema directory names.
   /Office ?Open ?XML/g,
   // The relationship-type base for the `officeDocument` URIs.
