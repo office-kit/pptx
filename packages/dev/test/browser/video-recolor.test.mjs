@@ -134,7 +134,7 @@ test(
       assert.equal(
         washout.dark,
         217,
-        'Washout must retain the dark poster detail seen in PowerPoint',
+        'Washout must retain the dark poster detail seen in the reference desktop app',
       );
       assert.equal(washout.space.toLowerCase(), 'srgb');
       await color.click();

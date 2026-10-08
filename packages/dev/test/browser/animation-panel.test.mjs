@@ -72,7 +72,7 @@ test(
         editor.getByRole('region', { name: label('Animations', 'アニメーション') });
       const add = () =>
         pane().getByRole('button', { name: label('Add animation', 'アニメーションを追加') });
-      /** Opens the Format pane the way PowerPoint does, from the Animations tab. */
+      /** Opens the Format pane the way the reference desktop app does, from the Animations tab. */
       const openPane = async () => {
         await editor.getByRole('tab', { name: 'Animations', exact: true }).click();
         await editor.getByRole('button', { name: 'Animation Pane', exact: true }).click();
@@ -379,7 +379,7 @@ test(
           )[index],
         );
       const pane = () => editor.getByRole('region', { name: 'Animations' });
-      /** Opens the Format pane the way PowerPoint does, from the Animations tab. */
+      /** Opens the Format pane the way the reference desktop app does, from the Animations tab. */
       const openPane = async () => {
         await editor.getByRole('tab', { name: 'Animations', exact: true }).click();
         await editor.getByRole('button', { name: 'Animation Pane', exact: true }).click();
@@ -531,7 +531,7 @@ test(
         }
         assert.deepEqual(last, expected);
       };
-      /** Opens the Format pane the way PowerPoint does, from the Animations tab. */
+      /** Opens the Format pane the way the reference desktop app does, from the Animations tab. */
       const openPane = async () => {
         await editor.getByRole('tab', { name: 'Animations', exact: true }).click();
         await editor.getByRole('button', { name: 'Animation Pane', exact: true }).click();

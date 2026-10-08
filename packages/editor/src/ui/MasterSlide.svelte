@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A slide master or one of its layouts as Mac PowerPoint's Slide Master view
+  // A slide master or one of its layouts as the reference desktop app's (Mac) Slide Master view
   // draws it: the background and decorative shapes (drawn by the preview
   // renderer), and every placeholder, where the deck's master and layout put
   // it, as a dashed box holding its prompt text in the theme fonts at the
@@ -23,7 +23,7 @@
   } = $props();
 
   const EMU_PER_PT = 12700;
-  // The default Office master: 44 pt titles; 28/24/20/20/20 pt body levels,
+  // The default master: 44 pt titles; 28/24/20/20/20 pt body levels,
   // 0.25 in bullet hang and 0.5 in per level; 12 pt footers; 0.1 × 0.05 in insets.
   const TITLE_PT = 44;
   const CENTERED_TITLE_PT = 60;

@@ -21,7 +21,7 @@ export default (
         @office-kit/pptx editor
       </Text>
       <Text x={0.8} y={1.9} width={8.4} height={0.8} size={20} color="#44546A">
-        PowerPoint スタイルの編集を、プレビューの中で
+        デスクトップアプリ風の編集を、プレビューの中で
       </Text>
       <Shape preset="roundRect" x={0.8} y={3.0} width={3.6} height={1.6} fill="#2E75B6" />
       <Text x={1.1} y={3.4} width={3.0} height={0.8} size={18} color="#FFFFFF">

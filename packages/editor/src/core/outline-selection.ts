@@ -365,7 +365,7 @@ export class OutlineSelectionModel {
     return true;
   }
 
-  /** Apply PowerPoint's relative font-size step as one history entry. */
+  /** Apply the reference desktop app's relative font-size step as one history entry. */
   fontSize(
     direction: 1 | -1,
     label = direction > 0 ? 'Increase Font Size' : 'Decrease Font Size',

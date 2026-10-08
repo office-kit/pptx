@@ -15,14 +15,14 @@ import {
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
-// The picture PowerPoint's capture used (test/fixtures/native/compress-pictures/):
+// The picture the reference desktop app's capture used (test/fixtures/native/compress-pictures/):
 // the site's 1200 × 630 social card, a well-compressed PNG.
 const OG_PNG = new URL('../../../../site/static/og.png', import.meta.url);
 
 const pixelWidth = (bytes) => Buffer.from(bytes).readUInt32BE(16);
 
 test(
-  'Picture Styles gallery applies and detects styles; Compress Pictures labels pictures like PowerPoint (English and Japanese)',
+  'Picture Styles gallery applies and detects styles; Compress Pictures labels pictures like the reference desktop app (English and Japanese)',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-picture-styles-'));
@@ -30,7 +30,7 @@ test(
     try {
       const png = await readFile(OG_PNG);
       const file = join(dir, 'deck.tsx');
-      // 5 in wide, as in PowerPoint's capture: 240 ppi effective.
+      // 5 in wide, as in the reference desktop app's capture: 240 ppi effective.
       await writeFile(
         file,
         `import { Presentation, Slide, Image } from '@office-kit/pptx-dsl';
@@ -90,7 +90,7 @@ export default <Presentation><Slide><Image data={png} x={1} y={1} width={5} heig
       assert.equal(getShapePictureStyle(await picture()), 'Rotated, White');
       assert.equal(await rotated.getAttribute('aria-checked'), 'true');
 
-      // Picture Quality lists PowerPoint's two items; Upscale is cloud-only.
+      // Picture Quality lists the reference desktop app's two items; Upscale is cloud-only.
       await panel.getByRole('button', { name: 'Picture Quality', exact: true }).click();
       const upscale = panel.getByRole('menuitem', { name: 'Upscale Picture', exact: true });
       assert.equal(await upscale.isDisabled(), true);
@@ -100,7 +100,7 @@ export default <Presentation><Slide><Image data={png} x={1} y={1} width={5} heig
       await dialog.getByRole('combobox').selectOption({ label: 'Print (220 ppi)' });
       await changed(() => dialog.getByRole('button', { name: 'OK', exact: true }).click());
       let shape = await picture();
-      // Like PowerPoint: labelled for print, but the pixels are kept (a
+      // Like the reference desktop app: labelled for print, but the pixels are kept (a
       // 1100 px re-encode outgrows the original), and the style is untouched.
       assert.equal(getShapeImageCompressionState(shape), 'print');
       assert.deepEqual(Buffer.from(getShapeImageBytes(shape)), png);
@@ -144,7 +144,7 @@ export default <Presentation><Slide><Image data={png} x={1} y={1} width={5} heig
       await changed(() => dialog.getByRole('button', { name: 'OK', exact: true }).click());
       shape = await picture();
       assert.equal(getShapeImageCompressionState(shape), 'email');
-      // 5 in × 96 ppi, as PowerPoint resampled its capture.
+      // 5 in × 96 ppi, as the reference desktop app resampled its capture.
       assert.equal(pixelWidth(getShapeImageBytes(shape)), 480);
       assert.deepEqual(errors, []);
     } finally {

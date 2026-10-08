@@ -18,7 +18,7 @@ import {
 import { startPreview } from '../helpers/server.mjs';
 
 // Shape Format, Picture Format, Table Design and Table Layout as measured from
-// Mac PowerPoint 16 through the accessibility API in 1512 × 900 and 1200 × 900
+// the reference desktop app (Mac, 16) through the accessibility API in 1512 × 900 and 1200 × 900
 // pt windows (2026-10-07). CSS px equal Mac points; x is window-relative.
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -31,10 +31,10 @@ export default (
 );
 `;
 // Native group starts drift by a few points with label widths (the editor's
-// font is not PowerPoint's), so positions are compared within this tolerance.
+// font is not the reference desktop app's), so positions are compared within this tolerance.
 const TOLERANCE = 9;
 // Native metrics were measured on macOS, where the editor's system-ui font is
-// San Francisco like PowerPoint's. Elsewhere (CI's Linux fonts are wider) a
+// San Francisco like the reference desktop app's. Elsewhere (CI's Linux fonts are wider) a
 // control sized by its label may grow by up to WIDER_FONT, and the growth
 // accumulates from left to right (Table Layout's labelled rows push its last
 // groups about 30 pt right), so group starts may drift by POSITION_DRIFT.
@@ -95,7 +95,7 @@ async function size(locator, width, height, name) {
 }
 
 test(
-  'contextual tabs follow Mac PowerPoint geometry at 1512 and 1200 pt, in English and Japanese',
+  'contextual tabs follow the reference desktop app’s (Mac) geometry at 1512 and 1200 pt, in English and Japanese',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-contextual-geometry-'));
@@ -279,7 +279,7 @@ test(
       assert.equal(borders.top?.widthEmu, 12700);
       assert.equal(borders.right?.widthEmu, 12700);
 
-      // 1200 pt: the compact layouts PowerPoint shows at this width.
+      // 1200 pt: the compact layouts the reference desktop app shows at this width.
       await page.setViewportSize({ width: 1200, height: 900 });
       await page.locator('.hit').nth(2).click();
       await page.getByRole('tab', { name: 'Table Layout', exact: true }).click();
@@ -308,7 +308,7 @@ test(
         panel.locator('.ctx-ribbon').evaluate((node) => node.scrollWidth <= node.clientWidth + 1);
       assert.ok(await fits(), 'Shape Format fits at 1200 pt');
 
-      // Japanese uses Mac PowerPoint's own wording.
+      // Japanese uses the reference desktop app's (Mac) own wording.
       await page.locator('.lang select').selectOption('ja');
       await page.locator('.hit').nth(2).click();
       const tabs = (await page.getByRole('tablist').getByRole('tab').allTextContents()).map(

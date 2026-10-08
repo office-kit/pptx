@@ -78,7 +78,7 @@
     const minimumToolbarWidth = 380;
     const toolbarGap = 4;
     let frame = 0;
-    // Mac PowerPoint keeps playback controls horizontal below the rotated media bounds.
+    // The reference desktop app (Mac) keeps playback controls horizontal below the rotated media bounds.
     // Render in canvas coordinates so group scaling and rotation affect only the media.
     area.append(node);
     const position = () => {

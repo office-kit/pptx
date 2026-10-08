@@ -252,7 +252,7 @@
   <p class="caveat">
     The preview renders preset and custom geometry, theme and placeholder inheritance, gradient,
     pattern, and picture fills, effects, charts, and tables. SmartArt, animations, and 3D show as
-    labelled placeholders. PowerPoint and LibreOffice remain the pixel-exact renderers.
+    labelled placeholders. Desktop presentation apps such as LibreOffice Impress remain the pixel-exact renderers.
   </p>
 
   <p class="status" class:busy aria-live="polite">{status}</p>

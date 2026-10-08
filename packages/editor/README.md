@@ -1,6 +1,6 @@
 # @office-kit/pptx-editor
 
-A browser editor for PowerPoint presentations that you embed in your own web
+A browser editor for `.pptx` presentations that you embed in your own web
 application. It opens a `.pptx`, lets people edit it with a ribbon, menus,
 slide thumbnails and direct manipulation, and hands the edited `.pptx` back.
 Everything it does goes through the public API of
@@ -367,6 +367,4 @@ its own.
 
 ## Trademarks
 
-Microsoft and PowerPoint are trademarks of the Microsoft group of companies.
-This editor is an independent project, not affiliated with or endorsed by
-Microsoft.
+Not affiliated with or endorsed by Microsoft. PowerPoint is a trademark of the Microsoft group of companies.

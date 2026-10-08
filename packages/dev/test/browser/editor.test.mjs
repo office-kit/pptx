@@ -228,7 +228,7 @@ test(
         '2',
       );
       await editor.locator('.lang select').selectOption('ja');
-      // As in PowerPoint, the slide pane has no buttons of its own: reorder and
+      // As in the reference desktop app, the slide pane has no buttons of its own: reorder and
       // delete from the keyboard, and add from Home ▸ New Slide.
       await rows.nth(2).click();
       await page.keyboard.press('Alt+ArrowUp');
@@ -603,7 +603,7 @@ test(
         return getShapeParagraphElements(getSlideShapes(getSlides(pres)[0])[0], 0);
       };
       let result = await runs();
-      // The '!' typed at the end of the italic run extends it, as in PowerPoint.
+      // The '!' typed at the end of the italic run extends it, as in the reference desktop app.
       assert.deepEqual(
         result.map((r) => r.text),
         ['Hello ', '日本語', ' 🌎!'],

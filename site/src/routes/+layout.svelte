@@ -22,8 +22,8 @@
 
 <KitSeo
   product="pptx"
-  title="@office-kit/pptx: read, edit, and write PowerPoint files in TypeScript"
-  description="Open any .pptx or start from an empty deck, change slides, charts, and tables through typed functions, and save a file PowerPoint, Keynote, Google Slides, and LibreOffice open. Runs in Node and the browser."
+  title="@office-kit/pptx: read, edit, and write presentation files in TypeScript"
+  description="Open any .pptx or start from an empty deck, change slides, charts, and tables through typed functions, and save a file that Keynote, Google Slides, LibreOffice Impress and other common presentation apps open. Runs in Node and the browser."
 />
 
 <a class="skip" href="#main">Skip to content</a>

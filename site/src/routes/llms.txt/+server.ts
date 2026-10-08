@@ -15,8 +15,8 @@ export const prerender = true;
 
 const HEADER = `# @office-kit/pptx
 
-> Generate and edit PowerPoint \`.pptx\` (OOXML PresentationML) files from
-> Node 22.18+ and modern browsers, with no PowerPoint, no Python, and no
+> Generate and edit \`.pptx\` (OOXML PresentationML) files from
+> Node 22.18+ and modern browsers, with no desktop presentation app, no Python, and no
 > native runtime dependencies. Round-trip safety is the design center —
 > unknown extensions are preserved verbatim on save.
 
@@ -109,7 +109,7 @@ const pres = await loadPresentation(bytes); // Uint8Array | ArrayBuffer | Blob
 const out: Uint8Array = await savePresentation(pres);
 \`\`\`
 
-\`createPresentation()\` returns an empty deck with a slide master, the Office
+\`createPresentation()\` returns an empty deck with a slide master, a default
 theme, and three layouts (Blank, Title Slide, Title and Content). No template
 file is needed to author a new deck.
 
@@ -235,7 +235,7 @@ addSlideChart(slide, {
 \`\`\`
 
 \`addSlideChart\` generates the chart XML, the drawing rels, **and** the
-embedded xlsx that PowerPoint needs for "Edit data".
+embedded xlsx that desktop presentation apps need for "Edit data".
 
 Every ECMA-376 plot type is authorable. The kind names the data shape; modifiers
 on the spec pick the variant:
@@ -264,7 +264,7 @@ Also on the spec: per-series \`errorBars\` / \`trendline\` / \`fillOpacity\`,
 \`dataTable\`, \`categoryAxisDate\` (date axis), \`categoryGroupLevels\`
 (multi-level categories), \`upDownBars\`, \`plotAreaLayout\`, combo charts via
 per-series \`chartKind\` / \`secondaryAxis\`. A spec whose fields contradict
-each other throws instead of writing a chart PowerPoint would repair.
+each other throws instead of writing a chart a desktop presentation app would repair.
 
 ## Images
 
@@ -327,8 +327,8 @@ addSlideComment(slide, {
 });
 \`\`\`
 
-Animation presets: all 95 of PowerPoint's entrance, emphasis and exit gallery
-presets (\`fadeIn\`, \`flyIn\`, \`basicZoomIn\`, \`pulse\`, \`fadeOut\`, …), with
+Animation presets: all 95 entrance, emphasis and exit gallery presets of the
+reference desktop app (\`fadeIn\`, \`flyIn\`, \`basicZoomIn\`, \`pulse\`, \`fadeOut\`, …), with
 \`build\` (\`'asOneObject'\` / \`'allAtOnce'\` / \`'byParagraph'\`) for text.
 Deeper timing-tree authoring is post-1.0.
 

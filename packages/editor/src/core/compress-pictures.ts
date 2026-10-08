@@ -21,8 +21,8 @@ import {
 } from '@office-kit/pptx';
 
 /**
- * Mac PowerPoint's Compress Pictures ▸ Picture Quality choices, in menu order,
- * with the `a:blip/@cstate` each one writes. PowerPoint 16.113 labels a
+ * The reference desktop app's (Mac) Compress Pictures ▸ Picture Quality choices, in menu order,
+ * with the `a:blip/@cstate` each one writes. The reference desktop app (16.113) labels a
  * picture only for Print, On-screen and Email; High Fidelity, HD and Use
  * Original Quality leave its blip as it was.
  */
@@ -173,9 +173,9 @@ export function planCompression(input: CompressionInput): CompressionPlan | null
   return { source, width, height, crop: empty ? null : crop };
 }
 
-// Browsers' default JPEG quality is lower than PowerPoint's re-encodes.
+// Browsers' default JPEG quality is lower than the reference desktop app's re-encodes.
 const JPEG_QUALITY = 0.9;
-// [MS-ODRAWXML] `imgProps`: the blip extension holding PowerPoint's picture-editing
+// [MS-ODRAWXML] `imgProps`: the blip extension holding the reference desktop app's picture-editing
 // data (Artistic Effects and corrections) and its JPEG XR original.
 const IMAGE_EDITING_DATA_URI = /uri="\{BEBA8EAE-BF5A-486C-A8C5-ECC9F3942E4B\}"/i;
 
@@ -187,13 +187,13 @@ export interface CompressedPicture {
 
 /**
  * Whether resampled bytes replace the picture. A crop deletion always does.
- * A resolution change alone only does when the result is smaller: PowerPoint
+ * A resolution change alone only does when the result is smaller: the reference desktop app
  * 16.113 resampled a 1200 px PNG shown at 240 ppi for Email (to 480 px, the
  * frame's 5 in × 96 ppi, and only 11% fewer bytes: 55978 → 50079) but left it
  * untouched for Print (220 ppi) and On-screen (150 ppi), although both are
  * below 240 ppi. Its 480 px re-encode kept 89% of the bytes for 16% of the
  * pixels, so a 1100 or 750 px one would almost certainly have outgrown the
- * original. PowerPoint does not document its rule; keeping whichever is
+ * original. The reference desktop app does not document its rule; keeping whichever is
  * smaller is the simplest one that matches every captured case.
  */
 export const keepsResampledBytes = (
@@ -209,9 +209,9 @@ export const keepsResampledBytes = (
 
 /**
  * Resamples each PNG or JPEG picture whose plan changes it. Other formats
- * (vector, GIF, TIFF …) are left alone. A picture carrying PowerPoint's
+ * (vector, GIF, TIFF …) are left alone. A picture carrying the reference desktop app's
  * picture-editing data keeps its crop: its JPEG XR original cannot be cropped
- * to match here, and PowerPoint re-renders the picture from that original.
+ * to match here, and the reference desktop app re-renders the picture from that original.
  */
 export async function compressPictures(
   targets: readonly PictureTarget[],

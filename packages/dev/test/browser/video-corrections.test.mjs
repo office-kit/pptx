@@ -117,7 +117,7 @@ test(
       assert.deepEqual(await readAdjustments(), [0.2, 0.2]);
 
       // The live canvas preview must use the same DrawingML transfer function
-      // as the exported picture, including the Office brightness/contrast order.
+      // as the exported picture, including the reference desktop app's brightness/contrast order.
       const video = editor.locator('.media-preview video');
       const mediaPreview = editor.locator('.media-preview:has(video)');
       assert.match(await video.evaluate((node) => getComputedStyle(node).filter), /url\(/);
@@ -138,7 +138,7 @@ test(
         `missing +20/+20 transfer function: ${JSON.stringify(transferValues)}`,
       );
 
-      // A gallery choice is one PowerPoint history action: one Undo removes
+      // A gallery choice is one history action in the reference desktop app: one Undo removes
       // both DrawingML lum transforms together.
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
@@ -295,7 +295,7 @@ test(
       await editor.locator('.hit').first().click();
       await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
 
-      // PowerPoint exposes the same gallery after switching UI language.
+      // The reference desktop app exposes the same gallery after switching UI language.
       await editor.locator('.lang select').selectOption('ja');
       const jaCorrectionsButton = editor
         .locator('#ribbon-panel')

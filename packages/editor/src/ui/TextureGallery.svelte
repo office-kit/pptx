@@ -12,9 +12,9 @@
 
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // PowerPoint's Texture gallery, shared by the Format pane's Texture ▾ and Shape
-  // Fill ▸ Texture: twenty-four swatches, five to a row, sized and spaced like Mac
-  // PowerPoint's (47 pt pitch, 36 pt tiles). Like PowerPoint, it marks no swatch
+  // The reference desktop app's Texture gallery, shared by the Format pane's Texture ▾ and Shape
+  // Fill ▸ Texture: twenty-four swatches, five to a row, sized and spaced like the
+  // reference desktop app's (Mac; 47 pt pitch, 36 pt tiles). Like the reference desktop app, it marks no swatch
   // as the current fill. Only the ribbon's submenu adds More Textures...; the
   // Format pane's gallery has none because Insert... sits beside it.
   import { onMount } from 'svelte';
@@ -25,7 +25,7 @@
     label: string;
     /** The control the gallery opens from. */
     anchor: HTMLElement;
-    /** Below a button, right edges aligned as in PowerPoint, or beside a menu item as a submenu. */
+    /** Below a button, right edges aligned as in the reference desktop app, or beside a menu item as a submenu. */
     side?: 'below' | 'right';
     choose: (id: TextureId) => void;
     more?: () => void;

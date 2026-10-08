@@ -1,7 +1,7 @@
 // What the master views draw: the deck's own slide, notes and handout master
 // placeholders where the deck has them. Where it has none (a deck without a
 // notes or handout master, or a placeholder without a transform), the views
-// fall back to the default Office masters' geometry, which is what PowerPoint
+// fall back to the default masters' geometry, which is what the reference desktop app
 // creates — and what the library writes when the master is first edited.
 import {
   getHandoutMasterPlaceholders,
@@ -28,7 +28,7 @@ export interface Area {
   readonly h: number;
 }
 
-// The default Office slide master (16:9, 12192000 × 6858000 EMU).
+// The default slide master (16:9, 12192000 × 6858000 EMU).
 export const MASTER_AREAS = {
   title: {
     x: 838200 / 12192000,
@@ -57,7 +57,7 @@ export const MASTER_AREAS = {
 const PAGE_WIDTH_PT = 540;
 const PAGE_HEIGHT_PT = 720;
 
-// The default Office notes master (6858000 × 9144000 EMU).
+// The default notes master (6858000 × 9144000 EMU).
 const PAGE_W = 6858000;
 const PAGE_H = 9144000;
 const pageArea = (x: number, y: number, w: number, h: number): Area => ({
@@ -76,7 +76,7 @@ export const NOTES_AREAS = {
 } as const satisfies Record<string, Area>;
 
 // The default handout master shares the notes master's header and footer
-// areas. Its six-slides-per-page frames, measured from Mac PowerPoint 16 on a
+// areas. Its six-slides-per-page frames, measured from the reference desktop app (Mac, 16) on a
 // 540 × 720 pt page: two columns 221 pt wide at x = 38.5 and 281, three rows
 // 125 pt tall at y = 88.5, 297.5 and 506.
 export const HANDOUT_AREAS = {
@@ -97,10 +97,10 @@ const SIX_PER_PAGE: readonly Area[] = [88.5, 297.5, 506].flatMap((y) =>
 /**
  * Where the handout master draws its slide frames for `perPage` slides on a
  * page of `page` (in any unit) with slides of `slideAspect`. Six per page on
- * the default portrait page is measured from Mac PowerPoint; the other
+ * the default portrait page is measured from the reference desktop app (Mac); the other
  * layouts fill the same area (x 38.5–502 pt, y 88.5–631 pt of the page) on a
  * grid with the same 21.5 pt gutter, and three per page keeps the left
- * column, as PowerPoint leaves the right for note lines. The outline layout
+ * column, as the reference desktop app leaves the right for note lines. The outline layout
  * is one text area.
  */
 export function handoutSlideFrames(
@@ -157,7 +157,7 @@ const PAGE_ROLES = new Set<string>(['hdr', 'dt', 'sldImg', 'body', 'ftr', 'sldNu
 
 /**
  * The notes or handout master's placeholders as page fractions: the deck's
- * own when it has the master, else PowerPoint's default master.
+ * own when it has the master, else the reference desktop app's default master.
  */
 export function pageMasterBoxes(
   pres: PresentationData,
@@ -331,7 +331,7 @@ export function solidBackground(
     : '#ffffff';
 }
 
-/** Text that contrasts with `background`, as PowerPoint's prompt text does. */
+/** Text that contrasts with `background`, as the reference desktop app's prompt text does. */
 export function contrastInk(background: string, dark = '#000000', light = '#ffffff'): string {
   const hex = background.replace('#', '');
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));

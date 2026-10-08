@@ -1,6 +1,6 @@
 export type TextRange = { start: number; end: number };
 
-/** PowerPoint applies Change Case to the current word when only a caret is present. */
+/** The reference desktop app applies Change Case to the current word when only a caret is present. */
 export function textCaseRange(text: string, range: TextRange): TextRange {
   if (range.start !== range.end) return range;
   for (const part of new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text)) {

@@ -1,6 +1,6 @@
 <script lang="ts">
   // Draws the shape chosen in the Shapes gallery: drag to size it (Shift keeps
-  // it square), or click to drop a one-inch shape, as PowerPoint does.
+  // it square), or click to drop a one-inch shape, as the reference desktop app does.
   import { addSlideLine, emu, getShapeId, inches, type Emu } from '@office-kit/pptx';
   import { addGalleryShape } from '../core/shape-gallery.ts';
   import { getEditor } from '../core/context.ts';

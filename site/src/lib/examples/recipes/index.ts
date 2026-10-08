@@ -190,7 +190,7 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
         slug: 'add-chart',
         title: 'Add a chart',
         teaser:
-          'addSlideChart writes the chart XML, the drawing rels, and an embedded xlsx so "Edit data" works in PowerPoint.',
+          'addSlideChart writes the chart XML, the drawing rels, and an embedded xlsx so "Edit data" works in desktop presentation apps.',
         path: 'site/src/lib/examples/recipes/add-chart.ts',
         source: addChart,
         notes: [

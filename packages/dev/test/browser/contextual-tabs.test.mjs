@@ -9,7 +9,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Chart,Table} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Chart x={0.5} y={0.5} width={5} height={3} spec={{kind:'column',categories:['Q1','Q2'],series:[{name:'Revenue',values:[120,180]}]}} /><Table x={6.5} y={0.5} width={5} height={2} rows={[["A","B"],["C","D"]]} /></Slide></Presentation>`;
 
 test(
-  'charts get Chart Design and Format tabs, tables get Table Design and Table Layout, like PowerPoint',
+  'charts get Chart Design and Format tabs, tables get Table Design and Table Layout, like the reference desktop app',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-contextual-tabs-'));

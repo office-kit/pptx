@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // A contextual-tab command with a ▾ menu, in one of PowerPoint's four sizes:
+  // A contextual-tab command with a ▾ menu, in one of the reference desktop app's four sizes:
   // `big` (icon over caption), `row` (22 pt, icon and label), `icon` (36 × 22,
   // icon only) and `tool` (38 × 26, icon only). Choosing a menu item closes it.
   import { tick, type Snippet } from 'svelte';

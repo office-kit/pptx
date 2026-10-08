@@ -131,7 +131,7 @@
   .inline-edit { position: absolute; pointer-events: auto; border: 0; background: transparent; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: 1px solid var(--ok-selected-border); }
 
   .inline-edit.outline { position: static; width: 100%; box-sizing: border-box; min-height: 24px; padding: 0 4px; background: transparent; color: var(--ok-text); font: 13px/24px Arial, sans-serif; outline: none; overflow: visible; }
-  /* Mac PowerPoint's outline steps 11.5 pt per level, with the text 6 pt after
+  /* The reference desktop app's (Mac) outline steps 11.5 pt per level, with the text 6 pt after
      its bullet. Unformatted titles are bold; formatted ones show their own weight. */
   .outline :global([data-outline-paragraph]) { position: relative; display: inline-block; box-sizing: border-box; width: 100%; padding-left: calc(6px + var(--outline-level) * 11.5px); vertical-align: top; }
   .outline :global([data-outline-paragraph][data-outline-title]) { padding-left: 0; }

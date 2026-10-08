@@ -2,11 +2,11 @@
 
 ## Project overview
 
-**@office-kit/pptx** is a TypeScript library that generates `.pptx` (PowerPoint /
-Office Open XML Presentation) files from a typed object model. It runs in
-**both Node.js and the browser** from a single ESM bundle, and produces files
-that open cleanly in PowerPoint, Keynote, Google Slides, and LibreOffice
-Impress.
+**@office-kit/pptx** is a TypeScript library that generates `.pptx`
+(Office Open XML Presentation) files from a typed object model. It runs in
+**both Node.js and the browser** from a single ESM bundle, and produces files that
+open cleanly in common desktop and web presentation apps (Keynote, Google
+Slides, LibreOffice Impress, …).
 
 The library has two complementary entry paths:
 
@@ -94,17 +94,17 @@ The ECMA-376 spec defines the wire format. Our TypeScript model is a
 convenience layer over it.
 
 - When the spec and our types disagree, **the spec wins**. Fix the types.
-- When PowerPoint and the spec disagree (and they do, often), **PowerPoint
-  wins** — but leave a comment naming the specific behavior, because the next
-  reader will not know.
+- When the reference desktop app and the spec disagree (and they do, often),
+  **the app wins** — but leave a comment naming the specific behaviour, because
+  the next reader will not know.
 - Round-trip safety matters: `parse(serialize(x))` must be structurally equal
   to `x` for everything we claim to support. Add a fixture test the first time
   a round-trip case comes up; do not rely on visual inspection.
 
 ### Output must be valid PPTX, not "valid enough"
 
-A `.pptx` that opens in PowerPoint but crashes Keynote is a bug. A `.pptx`
-that opens everywhere but is rejected by Microsoft's
+A `.pptx` that opens in one presentation app but crashes Keynote is a bug. A
+`.pptx` that opens everywhere but is rejected by the
 [Open XML SDK Productivity Tool](https://github.com/dotnet/Open-XML-SDK) is
 also a bug.
 

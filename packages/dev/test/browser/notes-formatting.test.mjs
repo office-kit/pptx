@@ -90,7 +90,7 @@ test(
       const edited = await read();
       assert.equal(getSlideNotes(getSlides(edited)[0]), 'New suffix!');
       const xml = new TextDecoder().decode(_internalPackageOf(edited).getPart(name).data);
-      // The '!' typed at the end of the italic run extends it, as in PowerPoint.
+      // The '!' typed at the end of the italic run extends it, as in the reference desktop app.
       assert.ok(
         xml.includes('<a:r><a:rPr i="1"/><a:t> suffix!</a:t></a:r>'),
         'the italic run survives both edits',

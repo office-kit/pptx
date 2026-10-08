@@ -1,10 +1,10 @@
 import type { SlideTransition, TransitionEffect, TransitionOptions } from '@office-kit/pptx';
 
-// Mac PowerPoint 16's Transitions gallery and Effect Options menus, in its
-// order and wording (English and Japanese). PowerPoint 2010 and later effects
-// are written as PowerPoint writes them: p14 / p15 / p159 elements inside an
+// The reference desktop app's (Mac, 16) Transitions gallery and Effect Options menus, in its
+// order and wording (English and Japanese). Effects added in the reference desktop app's 2010 release and later
+// are written as the reference desktop app writes them: p14 / p15 / p159 elements inside an
 // mc:AlternateContent with a fade fallback. Each tile's element, attributes
-// and duration are the ones Mac PowerPoint 16.113 saved for it (the captures
+// and duration are the ones the reference desktop app (Mac, 16.113) saved for it (the captures
 // are test/fixtures/native/transitions).
 
 /** What choosing a gallery tile or an Effect Options item writes. */
@@ -29,13 +29,13 @@ export interface TransitionTile {
   readonly en: string;
   readonly ja: string;
   /**
-   * What the tile writes: PowerPoint's default option for the effect, with
-   * only the attributes PowerPoint writes for it.
+   * What the tile writes: the reference desktop app's default option for the effect, with
+   * only the attributes the reference desktop app writes for it.
    */
   readonly choice: TransitionChoice;
   /**
-   * The Duration PowerPoint fills in when the effect is chosen, in
-   * milliseconds. PowerPoint keeps one per effect rather than per speed.
+   * The Duration the reference desktop app fills in when the effect is chosen, in
+   * milliseconds. The reference desktop app keeps one per effect rather than per speed.
    */
   readonly durationMs: number;
 }
@@ -121,12 +121,12 @@ export const TRANSITION_TILES: readonly TransitionTile[] = [
   tile('Fly Through', 'フライスルー', 800, { effect: 'flythrough' }),
 ];
 
-// The gallery tile each written effect element belongs to. PowerPoint writes
+// The gallery tile each written effect element belongs to. The reference desktop app writes
 // Wipe's diagonals as <p:strips>, Shape's variants as circle / diamond / plus
 // and its In / Out as <p:zoom>, Clock's Counterclockwise and Wedge as
 // <p14:wheelReverse> and <p:wedge>, Zoom as <p14:warp> and its "Zoom and
 // Rotate" as <p:newsflash>. Cube, Box, Rotate and Orbit share <p14:prism>, and
-// the PowerPoint 2013 effects share <p15:prstTrans>.
+// the reference desktop app's 2013 effects share <p15:prstTrans>.
 const TILE_OF_EFFECT: Readonly<Record<string, string>> = {
   none: 'None',
   morph: 'Morph',
@@ -456,7 +456,7 @@ export const TRANSITION_OPTIONS: Readonly<Record<string, readonly TransitionOpti
 };
 
 // The schema's attribute defaults (ECMA-376 pml.xsd, [MS-PPTX] §5.1), so a
-// transition written without one still matches the option PowerPoint shows as
+// transition written without one still matches the option the reference desktop app shows as
 // checked. The left / right effects have no default direction.
 const DEFAULT_DIRECTION: Readonly<Record<string, string>> = {
   push: 'l',

@@ -1,4 +1,4 @@
-// Keyboard shortcuts of the menu bar, read from PowerPoint's own glyph strings
+// Keyboard shortcuts of the menu bar, read from the reference desktop app's own glyph strings
 // (menubar-native.ts) so a menu's hint and its key can never disagree.
 
 import type { NativeMenu, NativeMenuEntry, NativeMenuItem } from './menubar-native.ts';
@@ -24,7 +24,7 @@ const MODIFIERS: Readonly<Record<string, 'cmd' | 'ctrl' | 'alt' | 'shift'>> = {
   '⇧': 'shift',
 };
 
-// PowerPoint names these by the character, which a US layout types with
+// The reference desktop app names these by the character, which a US layout types with
 // Shift; whether Shift is down is not part of the shortcut.
 const SHIFTED_CHARACTERS = new Set(['?', '+', '^']);
 

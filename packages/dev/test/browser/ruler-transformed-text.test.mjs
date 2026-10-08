@@ -393,7 +393,7 @@ test(
         tab: inches(2),
         label: 'タブ位置 5.08 cm',
       });
-      // Across both paragraphs, Mac PowerPoint shows the last paragraph's.
+      // Across both paragraphs, the reference desktop app (Mac) shows the last paragraph's.
       await select(3, 20);
       await assertMarkers({
         left: inches(1),

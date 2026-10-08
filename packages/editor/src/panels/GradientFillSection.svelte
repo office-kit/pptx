@@ -10,7 +10,7 @@
   import { selectedSlideIndices } from '../core/selection.ts';
 
   // The same gradient controls edit a shape fill, the slide background, a
-  // shape's line and the text outline, as in PowerPoint's Format pane.
+  // shape's line and the text outline, as in the reference desktop app's Format pane.
   let { target = 'fill' }: { target?: 'fill' | 'background' | 'line' | 'textOutline' } = $props();
   const background = $derived(target === 'background');
   const editor = getEditor();
@@ -131,7 +131,7 @@
     <label class="field"><span>{t('Type')}</span>
       <select class="ok-input" aria-label={t('Gradient type')} value={pathValue} onchange={event => {
         const path = event.currentTarget.value;
-        // Mac PowerPoint initializes geometry for each type instead of recalling
+        // The reference desktop app (Mac) initializes geometry for each type instead of recalling
         // its previous direction. Color stops and rotation remain unchanged.
         if (path === 'linear') apply({ path, angleDeg: 45, scaled: true, focus: undefined, tileRect: { left: 0, top: 0, right: 0, bottom: 0 } });
         else if (path === 'circle' || path === 'rect' || path === 'shape') {

@@ -47,21 +47,21 @@
   const paths = [
     {
       title: 'Edit a file you already have',
-      body: 'Any .pptx made in PowerPoint, Keynote, or Google Slides is a template. Fill {{tokens}}, swap a picture and keep its crop, add slides from the deck’s own layouts. Parts the library does not model, such as SmartArt, OLE objects, and video, are carried through unchanged.',
+      body: 'Any .pptx made in a desktop presentation app, Keynote, or Google Slides is a template. Fill {{tokens}}, swap a picture and keep its crop, add slides from the deck’s own layouts. Parts the library does not model, such as SmartArt, OLE objects, and video, are carried through unchanged.',
       code: 'loadPresentation(bytes)',
       href: '/docs/getting-started',
       link: 'Read the template guide',
     },
     {
       title: 'Create slides with AI',
-      body: 'Install the Claude Code skill and describe your presentation. Claude handles setup, TSX authoring, live preview, and PowerPoint export. Review the slides and ask for changes.',
+      body: 'Install the Claude Code skill and describe your presentation. Claude handles setup, TSX authoring, live preview, and .pptx export. Review the slides and ask for changes.',
       code: 'deck.tsx → preview → deck.pptx',
       href: '/docs/authoring',
       link: 'Create your first presentation',
     },
     {
       title: 'See the slide before you send it',
-      body: 'The companion @office-kit/pptx-preview package draws a slide as SVG in the browser and as PNG in Node, with no headless Office. It also reports text that overflows its box, which is how an automated pipeline catches a broken slide.',
+      body: 'The companion @office-kit/pptx-preview package draws a slide as SVG in the browser and as PNG in Node, with no headless office suite. It also reports text that overflows its box, which is how an automated pipeline catches a broken slide.',
       code: 'renderSlideToSvg(pres, slide)',
       href: '/playground',
       link: 'Try it in the playground',
@@ -70,7 +70,7 @@
 
   const proof = [
     {
-      claim: 'Every sample deck passes Microsoft’s Open XML SDK validator.',
+      claim: 'Every sample deck passes the Open XML SDK validator.',
       how: 'A CI job runs OpenXmlValidator over the generated samples and fails the build on the first error. Emitted XML is also checked against the ECMA-376 schemas.',
     },
     {
@@ -96,7 +96,7 @@
     },
     {
       topic: 'Templates',
-      ours: { text: 'Any .pptx a designer made in PowerPoint', tone: 'yes' },
+      ours: { text: 'Any .pptx a designer made in a desktop presentation app', tone: 'yes' },
       theirs: { text: 'Slide masters defined in code', tone: 'part' },
     },
     {
@@ -163,15 +163,15 @@
 </script>
 
 <svelte:head>
-  <title>@office-kit/pptx: read, edit, and write PowerPoint files in TypeScript</title>
+  <title>@office-kit/pptx: read, edit, and write presentation files in TypeScript</title>
 </svelte:head>
 
 <section class="band hero">
   <div class="frame hero-inner">
-    <h1>Read, edit, and write PowerPoint files in TypeScript</h1>
+    <h1>Read, edit, and write presentation files in TypeScript</h1>
     <p class="lede">
       Open any .pptx or start from an empty deck. Change slides, charts, and tables through typed
-      functions, then save a file that PowerPoint, Keynote, Google Slides, and LibreOffice all open
+      functions, then save a file that Keynote, Google Slides, LibreOffice Impress and other common presentation apps all open
       cleanly. It runs in Node and in the browser.
     </p>
     <div class="cta">
@@ -203,7 +203,7 @@
     <div class="stage-foot">
       <p>
         That slide is real output. The code shown with it built the deck, and
-        <code>@office-kit/pptx-preview</code> drew it as SVG. Download it and open it in PowerPoint:
+        <code>@office-kit/pptx-preview</code> drew it as SVG. Download it and open it in your presentation app:
         the chart is editable, data and all.
       </p>
       <div class="stage-action">
@@ -261,7 +261,7 @@
   <div class="frame proof-inner">
     <h2 id="proof-title">Valid files, checked by machines</h2>
     <p class="proof-lede">
-      A deck that opens in PowerPoint but breaks Keynote is a bug here. So is one that opens
+      A deck that opens in one desktop presentation app but breaks Keynote is a bug here. So is one that opens
       everywhere and still fails schema validation.
     </p>
     <dl>
@@ -418,7 +418,7 @@
     margin-top: 2.25rem;
   }
 
-  /* Stage: the product accent as a field, dotted like PowerPoint's canvas grid. */
+  /* Stage: the product accent as a field, dotted like a desktop presentation app's canvas grid. */
   .stage {
     background-color: var(--accent);
     background-image: radial-gradient(circle, rgb(255 255 255 / 0.24) 1px, transparent 1.4px);

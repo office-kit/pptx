@@ -7,7 +7,7 @@ import { chromium } from 'playwright';
 import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
-// Metrics measured from Mac PowerPoint 16 through the accessibility API in a
+// Metrics measured from the reference desktop app (Mac, 16) through the accessibility API in a
 // 1512 × 900 pt window (2026-10-07). CSS px equal Mac points.
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={4} y={4} width={3} height={1.5} fill="#2E75B6" /></Slide><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
 
@@ -18,7 +18,7 @@ const box = (locator) =>
   });
 
 test(
-  'window, ribbon, Format pane and status bar follow Mac PowerPoint geometry',
+  'window, ribbon, Format pane and status bar follow the reference desktop app’s (Mac) geometry',
   { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-native-geometry-'));
@@ -87,7 +87,7 @@ test(
       assert.equal(
         await page.getByRole('button', { name: 'Font dialog', exact: true }).count(),
         0,
-        'PowerPoint has no Font dialog button on the Home ribbon',
+        'The reference desktop app has no Font dialog button on the Home ribbon',
       );
 
       // Thumbnail pane, one-line notes pane and status bar.
@@ -105,7 +105,7 @@ test(
         37,
       );
 
-      // Zoom percentages are Mac PowerPoint's: 100% shows a 13.33 in slide
+      // Zoom percentages are the reference desktop app's (Mac): 100% shows a 13.33 in slide
       // 960 pt wide, and Fit leaves 22 pt around it (native: 120% here).
       const percent = page.locator('.statusbar .zpct');
       const fit = Number((await percent.textContent()).replace('%', ''));
@@ -178,7 +178,7 @@ test(
       );
       assert.equal(transparency.height, 26);
 
-      // Japanese uses Mac PowerPoint's own wording.
+      // Japanese uses the reference desktop app's (Mac) own wording.
       await page.locator('.lang select').selectOption('ja');
       assert.deepEqual(
         await page

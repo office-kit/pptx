@@ -18,7 +18,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={1} height={1} text="One" /></Slide><Slide><Shape preset="rect" x={1} y={1} width={3} height={1} text="Two" /></Slide></Presentation>`;
 
 test(
-  'Draw and Record tabs ink, erase, recognize, lasso and play like PowerPoint',
+  'Draw and Record tabs ink, erase, recognize, lasso and play like the reference desktop app',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-draw-tab-'));

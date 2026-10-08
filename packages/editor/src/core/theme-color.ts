@@ -1,4 +1,4 @@
-// The RGB a color paints in this deck once PowerPoint's tint/shade transforms
+// The RGB a color paints in this deck once the reference desktop app's tint/shade transforms
 // apply. Swatches and gallery previews need the same answer the renderer gives,
 // so this goes through the library's resolver rather than its own HSL math.
 

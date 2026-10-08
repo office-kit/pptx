@@ -75,7 +75,7 @@ export function createMediaPlayer(options: {
       if (value !== null) host.setAttribute(name, value);
     }
     host.dataset.pptxMedia = String(clip.shapeId);
-    // PowerPoint's audio "Hide During Show" also hides the playing clip;
+    // The reference desktop app's audio "Hide During Show" also hides the playing clip;
     // video becomes visible during playback.
     const hiddenAudio = clip.kind === 'audio' && clip.playback?.hideWhenStopped;
     if (hiddenAudio) host.style.visibility = 'hidden';
@@ -105,7 +105,7 @@ export function createMediaPlayer(options: {
     element.src = clip.src;
     element.preload = 'metadata';
     element.controls = !mirror;
-    // Native HTML looping restarts the complete source. PowerPoint loops the
+    // Native HTML looping restarts the complete source. The reference desktop app loops the
     // trimmed interval, so the boundary is handled by the timeupdate path
     // below whenever a trim is present.
     element.loop = (clip.playback?.loop ?? false) && trimStart === 0 && trimEndRemoved === 0;
@@ -167,7 +167,7 @@ export function createMediaPlayer(options: {
       if (Number.isFinite(end) && Math.abs(element.currentTime - end) > 0.001)
         element.currentTime = end;
       updateVolume();
-      // The browser never emits `ended` when we stop at a PowerPoint trim
+      // The browser never emits `ended` when we stop at a native trim
       // boundary. Keep the same visibility and focus behavior as a native end.
       if (clip.playback?.hideWhenStopped) host.style.visibility = 'hidden';
       if (overlay) {
@@ -200,7 +200,7 @@ export function createMediaPlayer(options: {
       }
       if (clip.playback?.rewindAfterPlaying) {
         moveToTrimStart();
-        // PowerPoint reports the media as completed even though fill=remove
+        // The reference desktop app reports the media as completed even though fill=remove
         // has already moved its playhead back to the trimmed start.
         trimEnded = true;
       }
@@ -355,7 +355,7 @@ export function createMediaPlayer(options: {
           return;
         }
         if (!mirror && name === 'ended' && clip.playback?.rewindAfterPlaying && !trimEnded) {
-          // PowerPoint rewinds after natural completion while keeping the
+          // The reference desktop app rewinds after natural completion while keeping the
           // stopped state. Keep the ended/focus handling below unchanged.
           element.pause();
           moveToTrimStart();

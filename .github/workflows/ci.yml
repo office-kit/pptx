@@ -225,8 +225,8 @@ jobs:
 
   # Secondary OOXML oracle. The test job validates XML against XSDs.
   # Even full XSD validation can't express the semantic
-  # OOXML rules PowerPoint enforces before it calls a file corrupt. This job
-  # runs Microsoft's own OpenXmlValidator over the generated decks as an
+  # OOXML rules a desktop presentation app enforces before it calls a file corrupt. This job
+  # runs the Open XML SDK's OpenXmlValidator over the generated decks as an
   # independent check. It GATES — CLAUDE.md treats invalid output as a bug, so a
   # real validation error must fail the build, not just warn.
   ooxml-oracle:

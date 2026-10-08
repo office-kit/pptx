@@ -14,12 +14,12 @@ import {
 import { startPreview, waitForState } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
-// Mac PowerPoint 16.113.3's menu bar (AX capture of every menu with nothing
+// The reference desktop app's (Mac, 16.113.3) menu bar (AX capture of every menu with nothing
 // selected, English and Japanese UI, 2026-10-07): order, separators, submenus
 // and shortcut glyphs. The application menu is the browser's and is left
 // out; so are the lists that name the capture machine's state (recent files,
 // subtitle languages, microphones). Undo and Repeat name the last edit, and
-// the Window menu lists this deck, as PowerPoint lists its documents.
+// the Window menu lists this deck, as the reference desktop app lists its documents.
 const NATIVE = {
   en: {
     File: [
@@ -824,7 +824,7 @@ const TITLES = {
   ],
 };
 
-// PowerPoint's enabled state with nothing selected, a shape selected and text
+// The reference desktop app's enabled state with nothing selected, a shape selected and text
 // selected (native capture, menubar/SUMMARY.md). `✓` marks a checked item.
 const STATES = [
   ['Edit ▸ Cut', 'off', 'on', 'on'],
@@ -970,7 +970,7 @@ async function itemState(editor, path) {
 }
 
 test(
-  'the menu bar has PowerPoint’s menus, separators, submenus and shortcuts in English and Japanese',
+  'the menu bar has the reference desktop app’s menus, separators, submenus and shortcuts in English and Japanese',
   { timeout: 300000 },
   async () => {
     const { dir, file } = await deckFile();
@@ -1022,7 +1022,7 @@ test(
 );
 
 test(
-  'menu items are enabled and checked as in PowerPoint with nothing, a shape or text selected',
+  'menu items are enabled and checked as in the reference desktop app with nothing, a shape or text selected',
   { timeout: 300000 },
   async () => {
     const { dir, file } = await deckFile();
@@ -1095,122 +1095,126 @@ test(
   },
 );
 
-test('PowerPoint’s keyboard shortcuts run their menu commands', { timeout: 300000 }, async () => {
-  const { dir, file } = await deckFile();
-  let session;
-  try {
-    session = await open(file);
-    const { page, editor, errors, deck, changed } = session;
-    const shapes = async () => getSlideShapes(getSlides(await deck())[0]);
-    const first = editor.locator('.hit').first();
-    // A click in the text edits it; Escape leaves the shape selected.
-    const selectFirst = async () => {
-      await page.keyboard.press('Escape');
-      await page.keyboard.press('Escape');
+test(
+  'the reference desktop app’s keyboard shortcuts run their menu commands',
+  { timeout: 300000 },
+  async () => {
+    const { dir, file } = await deckFile();
+    let session;
+    try {
+      session = await open(file);
+      const { page, editor, errors, deck, changed } = session;
+      const shapes = async () => getSlideShapes(getSlides(await deck())[0]);
+      const first = editor.locator('.hit').first();
+      // A click in the text edits it; Escape leaves the shape selected.
+      const selectFirst = async () => {
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('Escape');
+        await first.click();
+        await page.keyboard.press('Escape');
+      };
+      const toast = (text) => editor.getByText(text, { exact: true }).last();
+
+      // ⌘D duplicates the selected shape.
+      await selectFirst();
+      await changed(() => page.keyboard.press('Meta+d'));
+      assert.equal((await shapes()).length, 3);
+      await changed(() => page.keyboard.press('Meta+z'));
+      assert.equal((await shapes()).length, 2);
+
+      // ⌥⌘G groups and ⌥⇧⌘G ungroups; ⌘G alone is Find Next, not Group.
+      await selectFirst();
+      await page.keyboard.press('Meta+a');
+      await page.keyboard.press('Meta+g');
+      await page.waitForTimeout(200);
+      assert.equal((await shapes()).length, 2);
+      await changed(() => page.keyboard.press('Meta+Alt+g'));
+      // The slide lists the group, then its members.
+      assert.deepEqual(
+        (await shapes()).map((shape) => getShapeKind(shape)),
+        ['group', 'shape', 'shape'],
+      );
+      await changed(() => page.keyboard.press('Meta+Alt+Shift+g'));
+      assert.deepEqual(
+        (await shapes()).map((shape) => getShapeKind(shape)),
+        ['shape', 'shape'],
+      );
+
+      // ⌘T opens Font, ⌘K the link dialog, ⇧⌘1 the Format pane.
+      await selectFirst();
+      await page.keyboard.press('Meta+t');
+      const font = editor.getByRole('dialog', { name: 'Font', exact: true });
+      await font.waitFor();
+      await font.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await font.waitFor({ state: 'detached' });
+      await page.keyboard.press('Meta+k');
+      const link = editor.getByRole('dialog', { name: 'Edit link', exact: true });
+      await link.waitFor();
+      await link.getByRole('button', { name: 'Close', exact: true }).click();
+      await link.waitFor({ state: 'detached' });
+      await selectFirst();
+      await page.keyboard.press('Meta+Shift+Digit1');
+      await editor.getByRole('button', { name: 'Close Format Shape', exact: true }).waitFor();
+
+      // ⇧⌘C picks up the object style in English; ⌥⌘C is not a shortcut there.
+      await selectFirst();
+      await page.keyboard.press('Meta+Alt+c');
+      await page.waitForTimeout(200);
+      assert.equal(await editor.getByText('Formatting copied', { exact: true }).count(), 0);
+      await page.keyboard.press('Meta+Shift+c');
+      await toast('Formatting copied').waitFor();
+
+      // ⌘E and ⌘L align the text being edited.
+      const align = async () =>
+        getParagraphPropertiesEffective(await deck(), (await shapes())[0], 0).align;
+      const input = editor.locator('.canvas-shell .inline-edit');
       await first.click();
+      await input.waitFor();
+      await input.evaluate((node) => {
+        node.focus({ preventScroll: true });
+        window.selectEditorText(node, 0, 5);
+        node.dispatchEvent(new Event('select', { bubbles: true }));
+      });
+      await changed(() => page.keyboard.press('Meta+l'));
+      assert.equal(await align(), 'left');
+      await changed(() => page.keyboard.press('Meta+e'));
+      assert.equal(await align(), 'center');
+      await page.keyboard.press('Meta+Enter');
+
+      // ⌘4 and ⌘1 switch views; ⇧⌘N adds a slide; ⌥⌘R hides the ribbon.
+      await page.keyboard.press('Meta+4');
+      await editor.getByRole('navigation', { name: 'Outline View', exact: true }).waitFor();
+      await page.keyboard.press('Meta+1');
+      await editor
+        .getByRole('navigation', { name: 'Outline View', exact: true })
+        .waitFor({ state: 'detached' });
+      await changed(() => editor.locator('body').press('Meta+Shift+n'));
+      assert.equal(getSlides(await deck()).length, 2);
+      await page.keyboard.press('Meta+Alt+r');
+      const home = editor.getByRole('tab', { name: 'Home', exact: true });
+      await home.waitFor({ state: 'detached' });
+      await page.keyboard.press('Meta+Alt+r');
+      await home.waitFor();
+
+      // ⌘? (Help ▸ Editor Help) opens the command search.
+      await page.keyboard.press('Meta+Shift+Slash');
+      await editor.getByRole('dialog', { name: 'Command palette', exact: true }).waitFor();
       await page.keyboard.press('Escape');
-    };
-    const toast = (text) => editor.getByText(text, { exact: true }).last();
 
-    // ⌘D duplicates the selected shape.
-    await selectFirst();
-    await changed(() => page.keyboard.press('Meta+d'));
-    assert.equal((await shapes()).length, 3);
-    await changed(() => page.keyboard.press('Meta+z'));
-    assert.equal((await shapes()).length, 2);
-
-    // ⌥⌘G groups and ⌥⇧⌘G ungroups; ⌘G alone is Find Next, not Group.
-    await selectFirst();
-    await page.keyboard.press('Meta+a');
-    await page.keyboard.press('Meta+g');
-    await page.waitForTimeout(200);
-    assert.equal((await shapes()).length, 2);
-    await changed(() => page.keyboard.press('Meta+Alt+g'));
-    // The slide lists the group, then its members.
-    assert.deepEqual(
-      (await shapes()).map((shape) => getShapeKind(shape)),
-      ['group', 'shape', 'shape'],
-    );
-    await changed(() => page.keyboard.press('Meta+Alt+Shift+g'));
-    assert.deepEqual(
-      (await shapes()).map((shape) => getShapeKind(shape)),
-      ['shape', 'shape'],
-    );
-
-    // ⌘T opens Font, ⌘K the link dialog, ⇧⌘1 the Format pane.
-    await selectFirst();
-    await page.keyboard.press('Meta+t');
-    const font = editor.getByRole('dialog', { name: 'Font', exact: true });
-    await font.waitFor();
-    await font.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await font.waitFor({ state: 'detached' });
-    await page.keyboard.press('Meta+k');
-    const link = editor.getByRole('dialog', { name: 'Edit link', exact: true });
-    await link.waitFor();
-    await link.getByRole('button', { name: 'Close', exact: true }).click();
-    await link.waitFor({ state: 'detached' });
-    await selectFirst();
-    await page.keyboard.press('Meta+Shift+Digit1');
-    await editor.getByRole('button', { name: 'Close Format Shape', exact: true }).waitFor();
-
-    // ⇧⌘C picks up the object style in English; ⌥⌘C is not a shortcut there.
-    await selectFirst();
-    await page.keyboard.press('Meta+Alt+c');
-    await page.waitForTimeout(200);
-    assert.equal(await editor.getByText('Formatting copied', { exact: true }).count(), 0);
-    await page.keyboard.press('Meta+Shift+c');
-    await toast('Formatting copied').waitFor();
-
-    // ⌘E and ⌘L align the text being edited.
-    const align = async () =>
-      getParagraphPropertiesEffective(await deck(), (await shapes())[0], 0).align;
-    const input = editor.locator('.canvas-shell .inline-edit');
-    await first.click();
-    await input.waitFor();
-    await input.evaluate((node) => {
-      node.focus({ preventScroll: true });
-      window.selectEditorText(node, 0, 5);
-      node.dispatchEvent(new Event('select', { bubbles: true }));
-    });
-    await changed(() => page.keyboard.press('Meta+l'));
-    assert.equal(await align(), 'left');
-    await changed(() => page.keyboard.press('Meta+e'));
-    assert.equal(await align(), 'center');
-    await page.keyboard.press('Meta+Enter');
-
-    // ⌘4 and ⌘1 switch views; ⇧⌘N adds a slide; ⌥⌘R hides the ribbon.
-    await page.keyboard.press('Meta+4');
-    await editor.getByRole('navigation', { name: 'Outline View', exact: true }).waitFor();
-    await page.keyboard.press('Meta+1');
-    await editor
-      .getByRole('navigation', { name: 'Outline View', exact: true })
-      .waitFor({ state: 'detached' });
-    await changed(() => editor.locator('body').press('Meta+Shift+n'));
-    assert.equal(getSlides(await deck()).length, 2);
-    await page.keyboard.press('Meta+Alt+r');
-    const home = editor.getByRole('tab', { name: 'Home', exact: true });
-    await home.waitFor({ state: 'detached' });
-    await page.keyboard.press('Meta+Alt+r');
-    await home.waitFor();
-
-    // ⌘? (Help ▸ Editor Help) opens the command search.
-    await page.keyboard.press('Meta+Shift+Slash');
-    await editor.getByRole('dialog', { name: 'Command palette', exact: true }).waitFor();
-    await page.keyboard.press('Escape');
-
-    // Japanese PowerPoint picks up the object style with ⌥⌘C instead.
-    await editor.locator('.lang select').selectOption('ja');
-    await editor.locator('.nav [data-slide-index="0"]').click();
-    await selectFirst();
-    await page.keyboard.press('Meta+Shift+c');
-    await page.waitForTimeout(200);
-    assert.equal(await editor.getByText('書式をコピーしました', { exact: true }).count(), 0);
-    await page.keyboard.press('Meta+Alt+c');
-    await toast('書式をコピーしました').waitFor();
-    assert.deepEqual(errors, []);
-  } finally {
-    await session?.browser.close();
-    await session?.preview.close();
-    await rm(dir, { recursive: true, force: true });
-  }
-});
+      // The reference desktop app's Japanese build picks up the object style with ⌥⌘C instead.
+      await editor.locator('.lang select').selectOption('ja');
+      await editor.locator('.nav [data-slide-index="0"]').click();
+      await selectFirst();
+      await page.keyboard.press('Meta+Shift+c');
+      await page.waitForTimeout(200);
+      assert.equal(await editor.getByText('書式をコピーしました', { exact: true }).count(), 0);
+      await page.keyboard.press('Meta+Alt+c');
+      await toast('書式をコピーしました').waitFor();
+      assert.deepEqual(errors, []);
+    } finally {
+      await session?.browser.close();
+      await session?.preview.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

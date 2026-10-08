@@ -13,7 +13,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { mode = 'normal' }: { mode?: 'normal' | 'sorter' } = $props();
-  // Mac PowerPoint's Slide Sorter at its default 80%: 200 pt thumbnails
+  // The reference desktop app's (Mac) Slide Sorter at its default 80%: 200 pt thumbnails
   // (border included) in 206 × 147 pt cells, a 39 pt gutter (245 pt pitch), and
   // as many columns as fit the list — floor((width + 39) / 245), six in a
   // 1512 pt window — centred. The thumbnail scales with the zoom; the gutter
@@ -187,7 +187,7 @@
     padding: 6px 6px 8px 4px;
     cursor: pointer;
   }
-  /* Mac PowerPoint frames the selected thumbnail with a rounded accent ring
+  /* The reference desktop app (Mac) frames the selected thumbnail with a rounded accent ring
      (and hovered ones with a gray ring) instead of tinting the row. */
   .thumb-row:hover .thumb {
     outline: 3px solid var(--ok-border-strong);

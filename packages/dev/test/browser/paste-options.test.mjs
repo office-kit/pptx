@@ -10,7 +10,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide /></Presentation>`;
 
 test(
-  'Paste ▾ offers Keep Text Only and Paste Special like PowerPoint',
+  'Paste ▾ offers Keep Text Only and Paste Special like the reference desktop app',
   { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-paste-options-'));

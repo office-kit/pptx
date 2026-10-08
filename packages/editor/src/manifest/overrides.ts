@@ -230,7 +230,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
         kind: 'object',
         optional: false,
         label: 'Playback',
-        // Trimming is missing on purpose: PowerPoint keeps it in a 2010
+        // Trimming is missing on purpose: the reference desktop app keeps it in a 2010
         // extension, which the library does not write.
         fields: [
           {
@@ -301,9 +301,9 @@ const handOverrides: Record<string, CapabilityOverride> = {
         optional: false,
         label: 'Field',
         // `ST_TextFieldType` is an open string; these are the tokens
-        // PowerPoint itself writes and every reader substitutes. The thirteen
+        // the reference desktop app itself writes and every reader substitutes. The thirteen
         // `datetime` variants differ only in format, so the dialog offers the
-        // two PowerPoint's own Insert menu does.
+        // two the reference desktop app's own Insert menu does.
         enumValues: ['slidenum', 'datetime1', 'datetime2', 'footer', 'headerfooter'],
         default: 'slidenum',
       },

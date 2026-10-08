@@ -103,7 +103,7 @@ for (const locale of ['en', 'ja']) {
           getSlides(pres).map((slide) => getSlideShapes(slide).map(getShapeText).filter(Boolean));
         const original = await read();
         const originalTexts = texts(original);
-        // Show Formatting starts on, as in Mac PowerPoint.
+        // Show Formatting starts on, as in the reference desktop app (Mac).
         for (const enabled of [false, true]) {
           const initialRevision = (await waitForState(preview.url, () => true)).revision;
           await body.click({ button: 'right' });

@@ -36,7 +36,7 @@
   let dragging = false;
 
   // Native range steps round persisted OOXML times, including the media endpoint.
-  // Keep exact values and apply the PowerPoint 50 ms increment only to gestures.
+  // Keep exact values and apply the reference desktop app 50 ms increment only to gestures.
   function input(event: Event, change: (value: number) => number) {
     const control = event.currentTarget as HTMLInputElement;
     const value = control.valueAsNumber;

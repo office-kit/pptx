@@ -24,7 +24,7 @@
   }
   function size(value: SlideSize) {
     open = false;
-    // PowerPoint asks whether to maximize or ensure fit; Ensure Fit never
+    // The reference desktop app asks whether to maximize or ensure fit; Ensure Fit never
     // pushes content off the slide.
     doc.transact(t('Slide Size'), () => setSlideSize(doc.pres, value, { content: 'fit' }));
   }

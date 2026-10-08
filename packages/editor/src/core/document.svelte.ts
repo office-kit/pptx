@@ -169,7 +169,7 @@ export class EditorDocument {
     return result;
   }
 
-  /** Persist a document setting without adding an undo step (as PowerPoint does for aspect locks). */
+  /** Persist a document setting without adding an undo step (as the reference desktop app does for aspect locks). */
   setDocumentSetting(fn: () => void): void {
     this.#atomic(() => {
       this.#invalidateRestore();

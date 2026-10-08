@@ -321,7 +321,7 @@
 </nav>
 
 <style>
-  /* Mac PowerPoint's outline: the slide number at x = 6, a 17 × 12 pt slide
+  /* The reference desktop app's (Mac) outline: the slide number at x = 6, a 17 × 12 pt slide
      icon, titles at x = 36 and a 27 pt pitch between slides without body text. */
   .outline-pane { position: relative; overflow: auto; min-height: 0; padding: 4px 0 12px; background: var(--ok-panel-2); border-right: 1px solid var(--ok-border); }
   .outline-slide { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; min-height: 27px; }

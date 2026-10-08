@@ -249,16 +249,16 @@ export class EditorController {
   formatPaneOptions = $state<'shape' | 'text'>('shape');
   formatPaneTextTab = $state<'textFill' | 'textEffects' | 'textbox'>('textFill');
   /**
-   * Expanded Format pane sections by id. Like PowerPoint, every section
+   * Expanded Format pane sections by id. Like the reference desktop app, every section
    * starts collapsed and keeps what the user opened for the session.
    */
   formatPaneSections = $state<Record<string, boolean>>({});
   thumbnailWidth = $state<number | null>(null);
   outlineWidth = $state<number | null>(null);
-  // Mac PowerPoint's outline shows formatting by default.
+  // The reference desktop app's (Mac) outline shows formatting by default.
   outlineShowFormatting = $state(true);
   viewMode = $state<ViewMode>('normal');
-  // Mac PowerPoint opens Slide Sorter at 80%.
+  // The reference desktop app (Mac) opens Slide Sorter at 80%.
   sorterZoom = $state(0.8);
   /** Notes Page and the handout and notes masters show a page fitted to the window until zoomed. */
   pageZoom = $state(1);
@@ -266,9 +266,9 @@ export class EditorController {
   pageFitZoom = $state(1);
   /** View ▸ Reading View in an editor without a host viewer: the full-window reader. */
   readingView = $state(false);
-  // Normal view shows the notes pane by default, as PowerPoint does.
+  // Normal view shows the notes pane by default, as the reference desktop app does.
   notesVisible = $state(true);
-  // One line tall, as Mac PowerPoint opens it (see NotesPane).
+  // One line tall, as the reference desktop app (Mac) opens it (see NotesPane).
   notesHeight = $state(44);
   notesFocusRequest = $state(0);
   /** Bumped by Edit Text; the canvas starts editing the selected shape's text. */
@@ -279,7 +279,7 @@ export class EditorController {
 
   /** Open the Custom Shows manager. The actual sequence edits still flow
    * through EditorDocument.transact so save/undo treats each gesture as one
-   * PowerPoint-style document edit. */
+   * desktop-app-style document edit. */
   /** Slide times from Rehearse Timings, waiting for the user to keep or discard them. */
   /** Title bar AutoSave: the editor saves through the host while it is on. */
   autoSave = $state(true);
@@ -416,7 +416,7 @@ export class EditorController {
   setViewMode(mode: ViewMode): void {
     this.contextMenu = null;
     if (mode === 'outline') this.thumbnailsVisible = true;
-    // Slide Master view opens on the current slide's layout, as PowerPoint does.
+    // Slide Master view opens on the current slide's layout, as the reference desktop app does.
     if (mode === 'slideMaster' && this.viewMode !== 'slideMaster') {
       const slide = this.doc.currentSlide;
       const layout = slide ? getSlideLayout(slide) : null;
@@ -489,7 +489,7 @@ export class EditorController {
 
   /** Command whose argument dialog is currently open (null = none). */
   activeDialog = $state<string | null>(null);
-  /** Initial tab for the shared Font dialog; PowerPoint opens Character Spacing from its ribbon menu. */
+  /** Initial tab for the shared Font dialog; the reference desktop app opens Character Spacing from its ribbon menu. */
   fontDialogTab = $state<'font' | 'character'>('font');
   /** Where focus goes back when the Font or Paragraph dialog closes. */
   dialogReturnFocus: HTMLElement | null = null;
@@ -501,7 +501,7 @@ export class EditorController {
   /**
    * Shape ids the ribbon Format Painter picked up from. While set, the next
    * selection of other objects receives the copied formatting once, as
-   * PowerPoint's single-click Format Painter does.
+   * the reference desktop app's single-click Format Painter does.
    */
   formatPainterSource = $state<readonly number[] | null>(null);
   toasts = $state<Toast[]>([]);
@@ -719,7 +719,7 @@ export class EditorController {
   }
 
   // --- Zoom --------------------------------------------------------------
-  /** Canvas zoom as a fraction of Mac PowerPoint's 100% (one slide point per screen point). */
+  /** Canvas zoom as a fraction of the reference desktop app's (Mac) 100% (one slide point per screen point). */
   zoom = $state(1);
   autoFitZoom = $state(true);
   /** When set by the canvas, `fit` recomputes to this multiplier. */
@@ -898,7 +898,7 @@ export class EditorController {
     });
   }
 
-  /** Mac PowerPoint includes the outer margins when distributing to the slide. */
+  /** The reference desktop app (Mac) includes the outer margins when distributing to the slide. */
   distributeSelection(direction: 'horizontal' | 'vertical'): void {
     const items = this.selectedGeometry();
     const toSlide = items.length === 1 || this.alignmentReference === 'slide';
@@ -978,7 +978,7 @@ export class EditorController {
     const shape = this.selectedShapes()[0];
     if (!shape) return;
     // The first run's effective format stands for the object's text, the way
-    // PowerPoint's own format painter treats a whole-object pickup.
+    // the reference desktop app's own format painter treats a whole-object pickup.
     const character =
       textFormatsInRange(shape, { start: 0, end: Number.MAX_SAFE_INTEGER }, undefined, {
         pres: this.doc.pres,
@@ -1017,7 +1017,7 @@ export class EditorController {
 
   /**
    * Home ▸ New Slide: inserts after the current slide using the layout
-   * PowerPoint picks for it (see `newSlideLayout`).
+   * the reference desktop app picks for it (see `newSlideLayout`).
    */
   addNewSlide(): void {
     const layout = this.doc.currentSlide

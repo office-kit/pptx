@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint 16's Animations tab: Preview | Entrance Effects gallery |
+  // The reference desktop app's (Mac, 16) Animations tab: Preview | Entrance Effects gallery |
   // Emphasis Effects gallery | Exit Effects | Path Animation | Effect Options,
   // Animation Pane, Trigger, Animation Painter | Start and Duration. In a
   // 1512 pt window both galleries show five 64 pt tiles; at 1200 pt the
@@ -45,7 +45,7 @@
   ];
   const MS_PER_SECOND = 1000;
   const TILE_WIDTH = 64;
-  // The command row width (CSS px) PowerPoint's expanded layout needs; below
+  // The command row width (CSS px) the reference desktop app's expanded layout needs; below
   // it the Emphasis gallery becomes a button and Entrance gains a tile.
   const EXPANDED_FROM = 1380;
 
@@ -53,7 +53,7 @@
   const doc = editor.doc;
   const shapeId = $derived(selectedShapeId(doc.selection));
   // The first effect on the selected shape is the one the galleries show and
-  // replace, like PowerPoint's single-effect galleries.
+  // replace, like the reference desktop app's single-effect galleries.
   const step = $derived.by(() => {
     doc.version;
     const slide = doc.currentSlide;
@@ -66,7 +66,7 @@
   // entrance and an exit.
   const checkedIn = (kind: EffectTile['kind']) => (checkedTile?.kind === kind ? checkedTile.key : null);
   let width = $state(typeof window === 'undefined' ? Number.POSITIVE_INFINITY : window.innerWidth);
-  // The threshold fits PowerPoint's English labels; longer ones (Japanese)
+  // The threshold fits the reference desktop app's English labels; longer ones (Japanese)
   // collapse the Emphasis gallery whenever the expanded row does not fit.
   let squeezed = $state(false);
   let row = $state<HTMLDivElement>();
@@ -84,7 +84,7 @@
   const label = (item: { en: string; ja: string }) => (getLocale() === 'ja' ? item.ja : item.en);
 
   // A new preset replaces the effect and takes the preset's own duration, as
-  // PowerPoint's galleries do; the library resets it when the preset changes.
+  // the reference desktop app's galleries do; the library resets it when the preset changes.
   function choose(effect: AnimationEffect) {
     const slide = doc.currentSlide;
     const shape = editor.selectedShapes()[0];
@@ -220,7 +220,7 @@
         <span>{t('Effect Options')}</span>
       </button>
       {#if menu === 'options' && step}
-        <!-- PowerPoint's Effect Options menu: the effect's own sections
+        <!-- The reference desktop app's Effect Options menu: the effect's own sections
              (Direction, Shapes, Spokes, Amount), the colour palette of a
              colour effect, then Sequence. -->
         <div class="menu options" role="menu" use:placeBelowTrigger aria-label={t('Effect Options')}>
@@ -283,9 +283,9 @@
 </div>
 
 <style>
-  /* Geometry measured from Mac PowerPoint 16 (POWERPOINT_PARITY.md, "Native
+  /* Geometry measured from the reference desktop app (Mac, 16) (NATIVE_PARITY.md, "Native
      geometry audit"): a 72 pt row, a rule with 10 pt each side between groups,
-     PowerPoint's own large-button widths and 26 pt rows on a 32 pt pitch. */
+     the reference desktop app's own large-button widths and 26 pt rows on a 32 pt pitch. */
   .animations { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
   .cluster { display: flex; flex: none; align-items: stretch; padding: 0 10px; border-right: 1px solid var(--ok-border); }
   .cluster:first-child { padding-left: 4px; }
@@ -297,7 +297,7 @@
   .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: var(--w); padding: 4px 1px; font-size: 11px; line-height: 1.15; text-align: center; }
   .big > span:last-child { max-width: var(--w); margin: 0 -2px; }
   /* Japanese labels wrap per character, so they get at least six characters
-     a line and a smaller size that fits three lines (PowerPoint widens them). */
+     a line and a smaller size that fits three lines (the reference desktop app widens them). */
   .big > span:last-child:lang(ja) { max-width: max(calc(var(--w) - 4px), 6em); font-size: 10px; line-height: 1.1; }
   .icon-row { display: flex; align-items: center; gap: 1px; }
   .arrow { font-size: 11px; }

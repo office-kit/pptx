@@ -3,10 +3,10 @@
 // xmllint + the ECMA-376 XSDs check that our XML is *structurally* well-formed
 // against the schema. They do NOT check the semantic OOXML rules layered on top
 // of the grammar (attribute co-constraints, relationship targeting, value
-// ranges, part-level invariants) — exactly the rules PowerPoint enforces when it
+// ranges, part-level invariants) — exactly the rules the reference desktop app enforces when it
 // decides a file is "corrupt" and offers to repair it.
 //
-// This program runs Microsoft's own OpenXmlValidator over each generated .pptx,
+// This program runs the Open XML SDK's OpenXmlValidator over each generated .pptx,
 // prints every ValidationErrorInfo it finds (Id, Description, owning part,
 // XPath), and exits non-zero if any file has errors. It is the same engine that
 // backs the Open XML SDK Productivity Tool referenced in CLAUDE.md / README.

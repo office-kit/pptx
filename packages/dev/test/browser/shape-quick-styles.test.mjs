@@ -14,7 +14,7 @@ import {
 import { startPreview } from '../helpers/server.mjs';
 
 test(
-  'shape quick styles expose the PowerPoint gallery and preserve text through history',
+  'shape quick styles expose the reference desktop app’s gallery and preserve text through history',
   { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-shape-quick-styles-'));

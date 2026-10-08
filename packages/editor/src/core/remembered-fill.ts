@@ -83,7 +83,7 @@ export function insertRememberedPictureFill(
   setShapeImageOpacity(target, opacity);
 }
 
-/** PowerPoint's tiling for a gallery texture: no offset, 100%, top left, no mirror, rotating with the shape. */
+/** The reference desktop app's tiling for a gallery texture: no offset, 100%, top left, no mirror, rotating with the shape. */
 export const TEXTURE_TILE_LAYOUT = {
   mode: 'tile',
   offsetX: emu(0),

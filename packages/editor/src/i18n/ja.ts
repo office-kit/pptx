@@ -1722,7 +1722,7 @@ export const ja: Record<string, string> = {
   'Pattern Fill: Dark Blue, Dark Upward Diagonal Stripe; Hard Shadow':
     'パターン塗りつぶし: 濃い青、右上がり対角線 (太); 影 (ぼかしなし)',
   Agents: 'エージェント',
-  // Mac PowerPoint's object, thumbnail and Format Shape wording (its ja.lproj).
+  // The reference desktop app's (Mac) object, thumbnail and Format Shape wording (its ja.lproj).
   Lock: 'ロック',
   Unlock: 'ロック解除',
   'Hyperlink...': 'ハイパーリンク...',
@@ -1744,7 +1744,7 @@ export const ja: Record<string, string> = {
   'The editor does not keep a default shape style yet.':
     'このエディタはまだ既定の図形スタイルを保持しません。',
   // Contextual tabs (Shape Format, Picture Format, Table Design, Table
-  // Layout), in Mac PowerPoint's own wording (mso40ui tbbtn.strings).
+  // Layout), in the reference desktop app's (Mac) own wording (mso40ui tbbtn.strings).
   'Picture Format': '図の形式',
   'Table Layout': 'テーブル レイアウト',
   'Height:': '高さ:',
@@ -1800,7 +1800,7 @@ export const ja: Record<string, string> = {
     'アート効果は、図を描画した結果と元の図の JPEG XR コピーとして保存されます。エディターは既存の効果を表示できますが、どちらも作成できません。',
   "The picture's format does not record its original size.":
     'この図の形式には元のサイズが記録されていません。',
-  // Mac PowerPoint's Picture Styles gallery tooltips (ja names captured from its UI).
+  // The reference desktop app's (Mac) Picture Styles gallery tooltips (ja names captured from its UI).
   'Simple Frame, White': 'シンプルな枠、白',
   'Beveled Matte, White': '面取り、つや消し、白',
   'Metal Frame': 'メタル フレーム',
@@ -1915,7 +1915,7 @@ export const ja: Record<string, string> = {
   Wide: '広い',
   'Custom Margins...': 'ユーザー設定の余白...',
   'Table Size': '表のサイズ',
-  // Insert, Draw and Design tabs (Mac PowerPoint's ja.lproj wording).
+  // Insert, Draw and Design tabs (the reference desktop app's (Mac) ja.lproj wording).
   Images: '画像',
   Camera: 'カメラ',
   Links: 'リンク',
@@ -2064,7 +2064,7 @@ export const ja: Record<string, string> = {
   'Text Outline Color': '文字の輪郭の色',
   'Text outline width': '文字の輪郭の幅',
   'Sketched style': 'スケッチ スタイル',
-  // Mac PowerPoint's Japanese build names both Freehand and Scribble フリーハンド.
+  // The reference desktop app's (Mac) Japanese build names both Freehand and Scribble フリーハンド.
   Curved: '曲線',
   Freehand: 'フリーハンド',
   Scribble: 'フリーハンド',
@@ -2093,7 +2093,7 @@ export const ja: Record<string, string> = {
   'Presentation Views': 'プレゼンテーションの表示',
   'Master Views': 'マスター表示',
   // Text, table-cell, picture and slide-background context menus. Japanese
-  // context menus were not captured natively; these follow Mac PowerPoint's
+  // context menus were not captured natively; these follow the reference desktop app's (Mac)
   // Japanese ribbon/menu wording and are unverified.
   'Exit Edit Text': 'テキストの編集を終了',
   'Font...': 'フォント...',
@@ -2205,7 +2205,7 @@ export const ja: Record<string, string> = {
     '動作設定ボタンはまだエディタの図形ギャラリーにありません。',
   'macOS provides this to native apps, not to web pages.':
     'これは macOS がネイティブ アプリに提供する機能で、Web ページでは使えません。',
-  // View ▸ masters, Notes Page and the status bar (Mac PowerPoint 16, Japanese UI).
+  // View ▸ masters, Notes Page and the status bar (the reference desktop app (Mac, 16), Japanese UI).
   'Notes {n} of {count}': 'ノート {n} / {count}',
   'Currently in Slide Master View.': '現在のモード: スライド マスター表示',
   'Currently in Handout Master View.': '現在のモード: 配布資料マスター表示',

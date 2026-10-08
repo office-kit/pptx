@@ -1,4 +1,4 @@
-// The swatches of PowerPoint's colour palette: the ten theme colours, their
+// The swatches of the reference desktop app's colour palette: the ten theme colours, their
 // five rows of tints and shades, and the ten standard colours. Shared by the
 // colour picker button and the palette embedded in the Animations tab's
 // Effect Options, so both offer — and write — the same colours.
@@ -49,7 +49,7 @@ type ShadeTransform = Extract<ColorTransform, { value: number }>;
 const lumMod = (value: number): ShadeTransform => ({ kind: 'lumMod', value });
 const lumOff = (value: number): ShadeTransform => ({ kind: 'lumOff', value });
 
-// PowerPoint's five rows under each theme colour, as `lumMod` / `lumOff`.
+// The reference desktop app's five rows under each theme colour, as `lumMod` / `lumOff`.
 const DARKER_ROWS = [0.95, 0.85, 0.75, 0.65, 0.5].map((v) => [lumMod(v)]);
 const LIGHTER_ROWS = [
   [lumMod(0.2), lumOff(0.8)],

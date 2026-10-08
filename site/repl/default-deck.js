@@ -229,7 +229,7 @@ const kpis = [
 ];
 kpis.forEach(([value, label], i) => {
   const y = 1.85 + i * 1.62;
-  // Grouped, so the card moves and resizes as one object in PowerPoint.
+  // Grouped, so the card moves and resizes as one object in a presentation app.
   const card = [
     block(margin, 'roundRect', [9.4, y, 3.23, 1.42], PANEL),
     block(margin, 'rect', [9.4, y + 0.2, 0.08, 1.02], BLUE),

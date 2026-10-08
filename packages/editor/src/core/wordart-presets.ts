@@ -1,5 +1,5 @@
-// Mac PowerPoint's WordArt gallery: its twenty presets in gallery order, each
-// the character payload PowerPoint wrote when the preset was applied
+// The reference desktop app's (Mac) WordArt gallery: its twenty presets in gallery order, each
+// the character payload the reference desktop app wrote when the preset was applied
 // (test/fixtures/native/wordart-*-shape.xml, catalogued in wordart-capture.md).
 
 import {
@@ -14,7 +14,7 @@ import {
 } from '@office-kit/pptx';
 
 export interface WordArtPreset {
-  /** PowerPoint's gallery label, also the swatch's tooltip and accessible name. */
+  /** The reference desktop app's gallery label, also the swatch's tooltip and accessible name. */
   readonly label: string;
   /** The run properties, written to every run and paragraph end. */
   readonly format: TextFormat;
@@ -338,7 +338,7 @@ export const WORDART_PRESETS: readonly WordArtPreset[] = [
 
 // Everything a preset sets. Native replaces these rather than merging, so a
 // white bold preset followed by the black shadow one leaves no white or bold:
-// PowerPoint removes `b` and `spc` rather than writing them off.
+// The reference desktop app removes `b` and `spc` rather than writing them off.
 const CLEARED: TextFormat = {
   color: null,
   bold: null,

@@ -1,7 +1,7 @@
 // Capability-manifest generator — the backbone of the coverage guarantee.
 //
 // Type-checks the @office-kit/pptx public API with the TypeScript compiler,
-// enumerates every *mutating* export (the verbs a PowerPoint-style UI must
+// enumerates every *mutating* export (the verbs a desktop-app-style UI must
 // expose as an operation), and emits two files:
 //
 // - `capabilities.generated.json`: one entry per capability with its operand,

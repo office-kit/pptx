@@ -1,4 +1,4 @@
-// Normal view shows the notes pane by default, as PowerPoint does. Open it
+// Normal view shows the notes pane by default, as the reference desktop app does. Open it
 // only when hidden (the Notes button toggles), then focus it as the button
 // does when it opens the pane.
 export async function openNotes(editor) {

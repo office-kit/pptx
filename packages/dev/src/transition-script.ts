@@ -18,7 +18,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const playableEffects=['fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve','wedge','newsflash','wheel'];
-  // PowerPoint 2010+ effects (p14 / p15 / p159) play as the nearest flat
+  // The reference desktop app (2010+) effects (p14 / p15 / p159) play as the nearest flat
   // effect above: their 3-D turns, particles and page curls are not drawn.
   const approximations={morph:'fade',flash:'fade',reveal:'fade',prstTrans:'fade',honeycomb:'dissolve',glitter:'dissolve',vortex:'dissolve',shred:'dissolve',ripple:'circle',switch:'push',flip:'push',gallery:'push',conveyor:'push',ferris:'push',pan:'push',prism:'push',doors:'split',window:'split',warp:'zoom',flythrough:'zoom',wheelReverse:'wheel'};
   const alias=Object.hasOwn(approximations,options?.effect??'')?approximations[options.effect]:undefined;
@@ -33,7 +33,7 @@ function renderSlide(svg,options){
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previousMarkup;
   outgoing.setAttribute('aria-hidden','true');outgoing.inert=true;
   canvas.innerHTML=style;canvas.append(outgoing,incoming);
-  // PowerPoint plays fast/med/slow as 0.5/0.75/1 s; p14:dur overrides them.
+  // The reference desktop app plays fast/med/slow as 0.5/0.75/1 s; p14:dur overrides them.
   // No spd is the schema default, fast.
   const duration=options.durationMs??(options.speed==='slow'?1000:options.speed==='med'?750:500);
   const timing={duration,easing:'ease-in-out',fill:'both'};

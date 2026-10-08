@@ -1,7 +1,7 @@
 // The editor selection model.
 //
 // A capability's `operand` (presentation / slide / shape / cell) determines
-// which selection makes it applicable — this mirrors PowerPoint's contextual
+// which selection makes it applicable — this mirrors the reference desktop app's contextual
 // behaviour, where the ribbon lights up different controls depending on whether
 // you have a slide, a shape, or a table cell selected.
 //

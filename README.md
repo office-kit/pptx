@@ -4,8 +4,8 @@
 [![CI](https://github.com/office-kit/pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/office-kit/pptx/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@office-kit/pptx)](./LICENSE)
 
-Read, edit, and write `.pptx` (PowerPoint / Office Open XML Presentation) files
-from TypeScript, in **Node.js and the browser**, from a single ESM bundle.
+Read, edit, and write `.pptx` (Office Open XML Presentation) files from
+TypeScript, in **Node.js and the browser**, from a single ESM bundle.
 
 **[Create slides with AI](#create-slides-with-ai-and-live-preview)** ·
 **[Documentation](https://office-kit.github.io/pptx/)** ·
@@ -15,7 +15,7 @@ from TypeScript, in **Node.js and the browser**, from a single ESM bundle.
 ```ts
 import { loadPresentation, replaceTokensInPresentation, savePresentation } from '@office-kit/pptx';
 
-// A designer makes template.pptx in PowerPoint. Your code fills it in.
+// A designer makes template.pptx in a presentation app. Your code fills it in.
 const pres = await loadPresentation(templateBytes);
 replaceTokensInPresentation(pres, { name: 'Alice', event: 'Re:Invent', date: '2026-12-01' });
 const out: Uint8Array = await savePresentation(pres);
@@ -31,7 +31,7 @@ const out: Uint8Array = await savePresentation(pres);
 
 Create presentations in TSX with a live browser preview and Claude Code or Codex
 beside the slide. Select an area and ask the agent to change it, edit text
-directly, and export an editable PowerPoint file. Changes are saved in the TSX
+directly, and export an editable `.pptx` file. Changes are saved in the TSX
 source; saving a source file also updates the preview.
 
 Requires Node.js 22.18 or later. Create a project and start the preview in one
@@ -70,16 +70,16 @@ project setup as well, follow the
 
 ## Why this library
 
-- **It reads as well as it writes.** Open a deck made in PowerPoint, Keynote,
-  or Google Slides, change it, and save it. Every setter has a getter, and
+- **It reads as well as it writes.** Open a deck made in Keynote, Google Slides
+  or any other presentation app, change it, and save it. Every setter has a getter, and
   there are deck-wide queries (find every hyperlink, every comment by an
   author, every slide with an empty title).
 - **Parts it does not model survive the round trip.** SmartArt, OLE objects,
   video, modern threaded comments, and vendor extensions are carried through
   untouched. The library never silently strips what it does not understand.
-- **The output is valid, not "valid enough".** Microsoft's own
-  `OpenXmlValidator` gates every CI run. A file that opens in PowerPoint but
-  breaks Keynote is treated as a bug.
+- **The output is valid, not "valid enough".** The Open XML SDK's
+  `OpenXmlValidator` gates every CI run. A file that opens in one presentation
+  app but breaks Keynote is treated as a bug.
 - **One ESM bundle for Node and the browser.** No `fs`, `Buffer`, or `zlib` on
   the hot path, and one runtime dependency ([fflate](https://github.com/101arrowz/fflate), for ZIP).
 - **You ship only what you import.** The API uses side-effect-free functions.
@@ -101,7 +101,7 @@ Compared against PptxGenJS 4.0.1:
 |                                   | `@office-kit/pptx`                                                                                              | PptxGenJS                                                                        |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Open and edit an existing `.pptx` | ✅ Load, change, save; unknown parts are preserved                                                              | ❌ Creates new files only                                                        |
-| Templates                         | Any `.pptx` a designer made in PowerPoint                                                                       | Slide masters defined in code (`defineSlideMaster`)                              |
+| Templates                         | Any `.pptx` a designer made in a presentation app                                                               | Slide masters defined in code (`defineSlideMaster`)                              |
 | Read back what is in a deck       | ✅ Every setter has a getter, plus deck-wide queries                                                            | ❌ The API is write-only                                                         |
 | API shape                         | Tree-shakeable functions (`addSlideChart(slide, …)`)                                                            | One class with methods (`slide.addChart(…)`)                                     |
 | Module formats                    | ESM only                                                                                                        | ESM, CommonJS, and a script-tag bundle                                           |
@@ -113,7 +113,7 @@ Compared against PptxGenJS 4.0.1:
 | Audio, video, YouTube embeds      | ✅ Embedded from bytes (Node and browser), with read-back (`getShapeMedia`); clips de-duplicated per deck       | ✅ From a path or base64; write-only                                             |
 | HTML `<table>` to slides          | ❌                                                                                                              | ✅ With automatic paging                                                         |
 | Render a slide to an image        | ✅ SVG and PNG, via [`@office-kit/pptx-preview`](packages/preview)                                              | ❌                                                                               |
-| How output is checked             | Open XML SDK validator and ECMA-376 XSDs, in CI                                                                 | Manual runs in PowerPoint and other apps before a release                        |
+| How output is checked             | Open XML SDK validator and ECMA-376 XSDs, in CI                                                                 | Manual runs in presentation apps before a release                                |
 
 **Pick PptxGenJS** if you only ever generate new decks and need HTML-table
 import, CommonJS, or a `<script>`-tag build.
@@ -210,12 +210,12 @@ run `npx --no-install office-pptx build deck.tsx --out out.pptx`.
 
 The core API uses explicit units (`inches(1)`, `cm(2.5)`, `pt(12)`). The DSL uses
 inches for numeric geometry and points for font sizes, and compiles to the same
-core model. Both produce editable PowerPoint text and charts.
+core model. Both produce editable native text and charts.
 
 ## How output is checked
 
-- **Open XML SDK.** A CI job generates the sample decks and runs Microsoft's
-  `OpenXmlValidator` over them (`tools/ooxml-validate`). Any validation error
+- **Open XML SDK.** A CI job generates the sample decks and runs the Open XML
+  SDK's `OpenXmlValidator` over them (`tools/ooxml-validate`). Any validation error
   fails the build.
 - **ECMA-376 XSDs.** Emitted XML is validated against the official schemas
   with `xmllint` in the test suite (these tests skip on a machine without
@@ -260,7 +260,7 @@ When NOT to use this:
   SVG in the browser and to PNG on the server, and its closeness to LibreOffice
   is measured per slide and gated in CI (`site/fidelity`). It is a
   high-fidelity preview, not a spec-complete paint engine. For
-  pixel-authoritative output, use PowerPoint itself or LibreOffice headless.
+  pixel-authoritative output, use a desktop presentation app itself or LibreOffice headless.
 - You only generate new decks and need a feature in the PptxGenJS column
   above. Use PptxGenJS.
 - You want to convert PPTX to another format (Keynote, ODP). Out of scope
@@ -278,13 +278,13 @@ yarn add @office-kit/pptx
 
 ## Packages
 
-| Package                                        | What it does                                                                |
-| ---------------------------------------------- | --------------------------------------------------------------------------- |
-| `@office-kit/pptx` (this directory)            | Read, edit and write `.pptx` files. Node and browser.                       |
-| [`@office-kit/pptx-preview`](packages/preview) | Render a slide to SVG (browser and Node) or PNG (Node).                     |
-| [`@office-kit/pptx-dsl`](packages/dsl)         | Write a presentation as typed TSX.                                          |
-| [`@office-kit/pptx-editor`](packages/editor)   | Embed a PowerPoint-style editor in your web application with `mountEditor`. |
-| [`@office-kit/pptx-dev`](packages/dev)         | Preview, edit and export a TSX presentation locally.                        |
+| Package                                        | What it does                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| `@office-kit/pptx` (this directory)            | Read, edit and write `.pptx` files. Node and browser.                          |
+| [`@office-kit/pptx-preview`](packages/preview) | Render a slide to SVG (browser and Node) or PNG (Node).                        |
+| [`@office-kit/pptx-dsl`](packages/dsl)         | Write a presentation as typed TSX.                                             |
+| [`@office-kit/pptx-editor`](packages/editor)   | Embed a desktop-style slide editor in your web application with `mountEditor`. |
+| [`@office-kit/pptx-dev`](packages/dev)         | Preview, edit and export a TSX presentation locally.                           |
 
 ## One API
 
@@ -380,7 +380,7 @@ const out = await savePresentation(pres);
 ### Build a deck from scratch (no template file)
 
 `createPresentation()` returns an immediately-authorable deck — a slide
-master, the Office theme, and three layouts (`Blank`, `Title Slide`,
+master, a default theme, and three layouts (`Blank`, `Title Slide`,
 `Title and Content`) — with no slides yet. No `.pptx` template needed.
 
 ```ts
@@ -404,7 +404,7 @@ addContentSlide(pres, { title: 'Agenda', body: 'Highlights and risks' });
 
 // Or bind a layout explicitly. Prefer findSlideLayoutByType — it matches
 // the `type` token (`'title'`, `'obj'`, `'blank'`), which is stable
-// across PowerPoint UI languages. findSlideLayout(pres, 'Blank') matches
+// across the reference desktop app's UI languages. findSlideLayout(pres, 'Blank') matches
 // the user-visible name, which is case-sensitive and localized.
 const titleLayout = findSlideLayoutByType(pres, 'title')!;
 const slide = addSlide(pres, { layout: titleLayout });
@@ -563,7 +563,7 @@ addSlideChart(slide!, {
 await savePresentation(pres);
 ```
 
-The embedded xlsx that PowerPoint requires for "Edit data" is generated
+The embedded xlsx that the reference desktop app requires for "Edit data" is generated
 automatically. Inline `<c:strCache>` / `<c:numCache>` caches mean the
 chart renders without opening the workbook.
 
@@ -579,8 +579,8 @@ setShapeAnimation(shape, { effect: 'flyIn', direction: 'topLeft', start: 'afterP
 setShapeAnimation(shape, { effect: 'shapeOut', shape: 'diamond', inOut: 'out' });
 ```
 
-All 95 presets of PowerPoint's Entrance (35), Emphasis (24) and Exit (36)
-galleries are written exactly as PowerPoint writes them: the same preset
+All 95 presets of the reference desktop app's Entrance (35), Emphasis (24) and Exit (36)
+galleries are written exactly as the reference desktop app writes them: the same preset
 numbers, behaviours, default duration and build entry. Entrances end in `In`
 and exits in `Out` (`flyIn` / `flyOut`, `basicZoomIn`, `growTurnIn` /
 `shrinkTurnOut`, `creditsIn`, …), except `appear` / `disappear`; emphasis
@@ -588,7 +588,7 @@ effects have plain names (`spin`, `pulse`, `darken`, `fillColor`, `wave`, …).
 `zoomIn` / `zoomOut` are the Subtle gallery's Zoom (preset 53), and
 `basicZoomIn` / `basicZoomOut` are Basic Zoom (preset 23).
 
-Options are the ones PowerPoint's Effect Options offer: `direction` for `fly…`
+Options are the ones the reference desktop app's Effect Options offer: `direction` for `fly…`
 (eight), `wipe…` / `peek…` (four edges) and `strips…` (four corners);
 `orientation` for `blinds…`, `checkerboard…`, `randomBars…`; `orientation` and
 `inOut` for `split…`; `shape` and `inOut` for `shape…`; `spokes` for `wheel…`;
@@ -597,7 +597,7 @@ Options are the ones PowerPoint's Effect Options offer: `direction` for `fly…`
 `color` (a theme slot or `#RRGGBB`, optionally with colour transforms) for the
 colour emphasis effects. `getSlideAnimations` reads every option back.
 `durationMs` rescales every behaviour of the effect together, the way
-PowerPoint's Duration box does; `updateSlideAnimation` with a new `effect`
+the reference desktop app's Duration box does; `updateSlideAnimation` with a new `effect`
 gives it that preset's default duration unless the patch states one. `build` is the Sequence option for text:
 `'asOneObject'` (the default), `'allAtOnce'` or `'byParagraph'`.
 
@@ -608,16 +608,16 @@ import { getSlides, setSlideTransition } from '@office-kit/pptx';
 
 const slide = getSlides(pres)[0]!;
 setSlideTransition(slide, { effect: 'push', direction: 'u', durationMs: 1000 });
-setSlideTransition(slide, { effect: 'vortex', direction: 'r' }); // PowerPoint 2010+
+setSlideTransition(slide, { effect: 'vortex', direction: 'r' }); // a 2010+ extension effect
 setSlideTransition(slide, { effect: 'prstTrans', preset: 'curtains' });
 setSlideTransition(slide, { effect: 'morph', morphOption: 'byWord' });
 ```
 
-The ECMA-376 effects are written as `<p:…>` elements. PowerPoint 2010+
+The ECMA-376 effects are written as `<p:…>` elements. The 2010+ extension
 effects (`vortex`, `ripple`, `honeycomb`, `prism`, `doors`, `window`, `ferris`,
 `gallery`, `conveyor`, `pan`, `glitter`, `warp`, `flythrough`, `flash`,
 `shred`, `reveal`, `switch`, `flip`, `wheelReverse`), the `prstTrans` presets
-and `morph` are written the way PowerPoint writes them: inside
+and `morph` are written the way the reference desktop app writes them: inside
 `mc:AlternateContent`, with a `<p:fade/>` fallback for readers that do not
 know them. Their options are `pattern`, `isContent`, `isInverted`,
 `hasBounce`, `preset`, `invertX`, `invertY` and `morphOption`.
@@ -712,7 +712,7 @@ shown together.
 | Slide CRUD                                                            | `getSlides`, `getSlideAt`, `getSlideIndex`, `addSlide`, `removeSlide`, `moveSlide`, `duplicateSlide`, `clearSlideShapes`                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Slide layout                                                          | `getSlideLayouts`, `findSlideLayout` (by name — case-sensitive, exact; pass a `RegExp` for case-insensitive), `findSlideLayoutByType` (by locale-stable `type` token — preferred), `getSlideLayout(slide)`, `setSlideLayout(slide, layout)`, `getSlideLayoutName`, `getSlideLayoutType`                                                                                                                                                                                                                                             |
 | Slide masters                                                         | `getSlideMasterPartNames`, `getSlideMasterLayouts`, `getSlideMasterPlaceholders`, `getSlideMasterName` / `setSlideMasterName`, `isSlideMasterPreserved` / `setSlideMasterPreserved`, `addSlideMaster` / `removeSlideMaster`, `addSlideLayout` / `removeSlideLayout`, `setSlideMasterPlaceholderIncluded`, `getSlideLayoutPlaceholders`, `addSlideLayoutPlaceholder`, `setSlideLayoutTitleIncluded`, `setSlideLayoutFootersIncluded`, `setSlideLayoutBackgroundGraphicsHidden` — removal refuses masters and layouts that slides use |
-| Notes and handout masters                                             | `getNotesMasterPlaceholders` / `setNotesMasterPlaceholderIncluded`, `getHandoutMasterPlaceholders` / `setHandoutMasterPlaceholderIncluded` (the first edit writes PowerPoint's default master), `getNotesPageSize` / `setNotesPageOrientation`, `getHandoutSlidesPerPage` / `setHandoutSlidesPerPage`                                                                                                                                                                                                                               |
+| Notes and handout masters                                             | `getNotesMasterPlaceholders` / `setNotesMasterPlaceholderIncluded`, `getHandoutMasterPlaceholders` / `setHandoutMasterPlaceholderIncluded` (the first edit writes the reference desktop app's default master), `getNotesPageSize` / `setNotesPageOrientation`, `getHandoutSlidesPerPage` / `setHandoutSlidesPerPage`                                                                                                                                                                                                                |
 | Slide metadata                                                        | `getSlideTitle` / `setSlideTitle`, `getSlideSize` / `setSlideSize`, `isSlideHidden` / `setSlideHidden`, `getSlideText`                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Slide sections                                                        | `getSlideSections`, `setSlideSections` (p14 sectionLst)                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Placeholders                                                          | `findSlidePlaceholder(slide, 'title' \| 'body' \| ...)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -733,12 +733,12 @@ shown together.
 | Stroke                                                                | `setShapeStroke` / `getShapeStroke` (solid color or gradient `fill`; `getShapeStrokeGradient`), `setShapeStrokeDash` / `getShapeStrokeDash`, `setShapeStrokeArrow` / `getShapeStrokeArrow`, `setShapeStrokeSketch` / `getShapeStrokeSketch` (sketched lines: `curved` / `freehand` / `scribble`), `…NoStroke`                                                                                                                                                                                                                       |
 | Effects                                                               | `setShapeShadow` / `setShapeGlow` / `getShapeEffect`, `clearShapeEffects`                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Geometry                                                              | `setShapePosition`, `setShapeSize`, `setShapeRotation`, `setShapeFlip`, `setShapeBounds` / `getShapeBounds`                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Pictures                                                              | `setShapeImage`, `setShapeImageCrop` / `getShapeImageCrop`, `setShapeImageOpacity` / `getShapeImageOpacity`, `setShapeImageBrightness`, `…Contrast`, `getShapeImageArtisticEffect`, `setShapePictureStyle` / `getShapePictureStyle` (PowerPoint's 28 built-in picture styles, `BUILTIN_PICTURE_STYLES`), `setShapeImageCompressionState` / `getShapeImageCompressionState`                                                                                                                                                          |
+| Pictures                                                              | `setShapeImage`, `setShapeImageCrop` / `getShapeImageCrop`, `setShapeImageOpacity` / `getShapeImageOpacity`, `setShapeImageBrightness`, `…Contrast`, `getShapeImageArtisticEffect`, `setShapePictureStyle` / `getShapePictureStyle` (the reference desktop app's 28 built-in picture styles, `BUILTIN_PICTURE_STYLES`), `setShapeImageCompressionState` / `getShapeImageCompressionState`                                                                                                                                           |
 | Z-order                                                               | `bringShapeToFront`, `sendShapeToBack`, `bringShapeForward`, `sendShapeBackward`, `getShapeZIndex`, `setShapeZIndex`                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Click actions                                                         | `setShapeClickAction` / `getShapeClickAction` (`url` / `slide` / `nextSlide` / `prevSlide` / `firstSlide` / `lastSlide`)                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Shape removal                                                         | `removeShape`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Tables                                                                | `getTableCell` / `getTableCells`, `setTableCellText` / `getTableCellText`, `setTableCellParagraphs` / `getTableCellParagraphs`, `setTableCellFill` / `clearTableCellFill`, `setTableCellAlignment`, `setTableCellTextFormat`, `insertTableRow` / `removeTableRow`, `insertTableColumn` / `removeTableColumn`, `mergeTableCells` / `getTableCellSpan`                                                                                                                                                                                |
-| Table styles                                                          | `setTableStyleId` (a GUID or a built-in name from `BUILTIN_TABLE_STYLES`; writes PowerPoint's definition to `tableStyles.xml`) / `getTableStyleId`, `setTableStyleFlags` / `getTableStyleFlags`, `getTableCellAppearanceEffective`, `getTableBackgroundEffective`                                                                                                                                                                                                                                                                   |
+| Table styles                                                          | `setTableStyleId` (a GUID or a built-in name from `BUILTIN_TABLE_STYLES`; writes the reference desktop app's definition to `tableStyles.xml`) / `getTableStyleId`, `setTableStyleFlags` / `getTableStyleFlags`, `getTableCellAppearanceEffective`, `getTableBackgroundEffective`                                                                                                                                                                                                                                                    |
 | Charts                                                                | `addSlideChart`, `getSlideCharts`, `setChartSpec` — kinds: `bar`, `column`, `line`, `pie`, `doughnut`, `area`; axis tick labels via `categoryAxisTickLabelPos` / `valueAxisTickLabelPos` / `secondaryValueAxis.tickLabelPos`; axis line / gridline widths via `valueAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` and their category / secondary-axis mirrors; series `lineColor` / `markerColor` / `markerLineColor`; `dataLabels.showLeaderLines`                                                                           |
 | Theme                                                                 | `getPresentationTheme` / `setPresentationTheme` — color scheme (`accent1`..`accent6`, `dark1`, `light1`, `hyperlink`, ...); `getPresentationFonts` / `setPresentationFonts` — major / minor Latin, East Asian, and complex-script faces                                                                                                                                                                                                                                                                                             |
 | Groups                                                                | `groupShapes`, `ungroupShapes`, `getGroupChildren`, `getGroupTransform`                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -765,7 +765,7 @@ continues to edit that single paragraph.
 ### Outline view state
 
 `getCollapsedOutlineSlides(presentation)` returns collapsed slides in deck order.
-Use `setSlideOutlineCollapsed(slide, true)` to hide a slide's body in PowerPoint's
+Use `setSlideOutlineCollapsed(slide, true)` to hide a slide's body in the reference desktop app's
 outline view, or `false` to expand it. The setting survives a save/load round trip
 without changing the slide's text. Pass an array of slides to update a selection
 or the whole deck in one operation:
@@ -786,13 +786,13 @@ unselected siblings are preserved.
 
 Text formats (`TextFormat`, including a paragraph's `endFormat`) cover the Latin, East Asian and complex-script typefaces (`font`, `fontEastAsian`, `fontComplexScript` — `<a:latin>`, `<a:ea>`, `<a:cs>`). Each is authored and read on its own; setting one leaves the others as they were. Chart labels carry the Latin / East Asian pair and the complex-script slot on `ChartTextStyle`: `font` fills `<a:latin>` and `<a:ea>`, `fontComplexScript` fills `<a:cs>`, and neither implies the other. Rebuilding a typeface writes the `typeface` attribute only, so any `pitchFamily` / `charset` the source file carried on that element is dropped.
 
-A run's colors take PowerPoint's theme tints the way gradient stops do: `colorTransforms` beside `color`, and inside `outline`, `shadow`, `innerShadow` and `glow`, writes `<a:lumMod>`, `<a:lumOff>`, `<a:tint>`, ... as children of that color, so `{ color: 'accent2', colorTransforms: [{ kind: 'lumMod', value: 0.4 }, { kind: 'lumOff', value: 0.6 }] }` stays linked to the theme. `getShapeRunFormat` reports them beside the unresolved color; the effective readers resolve them into `#RRGGBB` instead.
+A run's colors take the reference desktop app's theme tints the way gradient stops do: `colorTransforms` beside `color`, and inside `outline`, `shadow`, `innerShadow` and `glow`, writes `<a:lumMod>`, `<a:lumOff>`, `<a:tint>`, ... as children of that color, so `{ color: 'accent2', colorTransforms: [{ kind: 'lumMod', value: 0.4 }, { kind: 'lumOff', value: 0.6 }] }` stays linked to the theme. `getShapeRunFormat` reports them beside the unresolved color; the effective readers resolve them into `#RRGGBB` instead.
 
-Runs that name no face fall back to the theme's font scheme, which is also where a per-script list (`<a:font script="Thai" typeface="Cordia New"/>` and 46 siblings) lives. `createPresentation`'s blank deck carries Office's own list in both `majorFont` and `minorFont`.
+Runs that name no face fall back to the theme's font scheme, which is also where a per-script list (`<a:font script="Thai" typeface="Cordia New"/>` and 46 siblings) lives. `createPresentation`'s blank deck carries the reference desktop app's own default list in both `majorFont` and `minorFont`.
 
 Authored XML text and attribute values must contain only XML 1.0 characters. Illegal C0 controls (except tab, LF, and CR), U+FFFE, U+FFFF, and unpaired UTF-16 surrogates throw an error identifying the code point. Remove these characters before authoring; valid supplementary characters such as emoji are preserved.
 
-Object geometry can be locked like PowerPoint's Selection Pane:
+Object geometry can be locked like the reference desktop app's Selection Pane:
 
 ```ts
 import { isShapeLocked, setShapeLocked } from '@office-kit/pptx';
@@ -811,7 +811,7 @@ remain available.
 
 [`@office-kit/pptx-preview`](packages/preview) is a companion package that
 renders a slide to SVG (browser and Node) or to PNG (Node, via resvg, with no
-headless Office). `auditTextLayout` reports text that overflows its box or
+headless desktop app). `auditTextLayout` reports text that overflows its box or
 wraps unexpectedly, which is how an automated pipeline catches a broken slide
 before a person sees it.
 
@@ -828,11 +828,11 @@ const svg = renderSlideToSvg(pres, getSlides(pres)[0]!);
 ECMA-376 spec is the source of truth, output has to validate, and one ESM
 build has to run everywhere.
 
-| Package                                                  | Files              |
-| -------------------------------------------------------- | ------------------ |
-| [`@office-kit/pptx`](https://github.com/office-kit/pptx) | PowerPoint `.pptx` |
-| [`@office-kit/xlsx`](https://github.com/office-kit/xlsx) | Excel `.xlsx`      |
-| [`@office-kit/docx`](https://github.com/office-kit/docx) | Word `.docx`       |
+| Package                                                  | Files                 |
+| -------------------------------------------------------- | --------------------- |
+| [`@office-kit/pptx`](https://github.com/office-kit/pptx) | Presentations `.pptx` |
+| [`@office-kit/xlsx`](https://github.com/office-kit/xlsx) | Spreadsheets `.xlsx`  |
+| [`@office-kit/docx`](https://github.com/office-kit/docx) | Documents `.docx`     |
 
 ## Compatibility
 
@@ -841,8 +841,8 @@ build has to run everywhere.
 - **TypeScript**: >= 5.4 (for strict `satisfies` and `const` type parameters).
 - **Output**: validated with the Open XML SDK and the ECMA-376 schemas (see
   [How output is checked](#how-output-is-checked)), and smoke-tested against
-  PowerPoint (current), Keynote (current), Google Slides, and LibreOffice
-  Impress.
+  the reference desktop app (current), Keynote (current), Google Slides, and
+  LibreOffice Impress.
 
 ## Development
 
@@ -881,8 +881,9 @@ PRs are expected to:
 
 ## Trademarks
 
-Microsoft, PowerPoint, Excel, Word and Office are trademarks of the Microsoft
-group of companies. Keynote is a trademark of Apple Inc., and Google Slides is
-a trademark of Google LLC. Office Kit is an independent open-source project and
-is not affiliated with, sponsored by, or endorsed by any of them; these names
-are used only to describe file-format compatibility.
+Not affiliated with or endorsed by Microsoft. PowerPoint is a trademark of the Microsoft group of companies.
+
+Keynote is a trademark of Apple Inc., and Google Slides is a trademark of
+Google LLC. Office Kit is an independent open-source project and is not
+affiliated with, sponsored by, or endorsed by either; these names are used only
+to describe file-format compatibility.

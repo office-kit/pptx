@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // PowerPoint's Shapes gallery. Choosing a shape arms drawing: drag on the
+  // The reference desktop app's Shapes gallery. Choosing a shape arms drawing: drag on the
   // slide to place it, or click for a one-inch shape.
   import { getEditor } from '../core/context.ts';
   import { SHAPE_GALLERY, galleryShapeLabel, shapeSprite, type GalleryShape } from '../core/shape-gallery.ts';

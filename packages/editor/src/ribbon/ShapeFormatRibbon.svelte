@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Mac PowerPoint's Shape Format tab, in its order and sizes: Insert Shapes
+  // The reference desktop app's (Mac) Shape Format tab, in its order and sizes: Insert Shapes
   // (shape strip, Text Box ▾, Edit Shape ▾, Merge Shapes ▾), Shape Styles
   // (style strip, Shape Fill, Shape Outline ▾, Shape Effects ▾), WordArt Styles
   // (WordArt strip, Text Fill, Text Outline ▾, Text Effects ▾), Alt Text,
@@ -36,7 +36,7 @@
   let wordArtButton = $state<HTMLButtonElement>();
 
   // The in-ribbon shape strip: six columns by three rows per page, like
-  // PowerPoint's 120 × 60 pt gallery.
+  // the reference desktop app's 120 × 60 pt gallery.
   const STRIP_COLUMNS = 6;
   const STRIP_ROWS = 3;
   const STRIP_CELL = { w: 20, h: 18, icon: 16 };
@@ -60,13 +60,13 @@
     ['star5', '5-Point Star'],
     ['leftArrow', 'Left Arrow'],
   ];
-  // PowerPoint's outer shadow and glow presets for text ("Offset: Bottom Right",
+  // The reference desktop app's outer shadow and glow presets for text ("Offset: Bottom Right",
   // "Glow: 5 point; Accent color 1").
   const TEXT_SHADOW = { color: '#000000', blurEmu: 38100, offsetEmu: 38100, angleDeg: 45, opacity: 0.4 } as const;
   const TEXT_GLOW = { color: 'accent1', radiusEmu: 63500, opacity: 0.4 } as const;
   const TEXT_REFLECTION = { blurEmu: 6350, offsetEmu: 0, angleDeg: 90, startOpacity: 0.5, opacity: 0.003, endPosition: 0.55 } as const;
   const THIN_OUTLINE_EMU = 9525;
-  // Insert ▸ Vertical Text Box drops a tall box, as PowerPoint does on a click.
+  // Insert ▸ Vertical Text Box drops a tall box, as the reference desktop app does on a click.
   const VERTICAL_TEXT_BOX = { x: inches(2), y: inches(1.5), w: inches(1), h: inches(4) };
 
   function textFormat(format: TextFormat) {

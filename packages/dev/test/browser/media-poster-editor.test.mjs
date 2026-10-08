@@ -264,7 +264,7 @@ test(
       assert.notDeepEqual(currentFrame.poster, original.poster);
       assert.deepEqual(await waitForPlayback(), originalPlayback);
 
-      // PowerPoint's Reset command replaces the poster with the video's first
+      // The reference desktop app's Reset command replaces the poster with the video's first
       // decoded frame. Decode a separate video element so the expected bytes
       // do not depend on the editor's current playback position.
       const firstFrame = Buffer.from(await firstVideoFrameBytes(page, media));

@@ -1,4 +1,4 @@
-// Insert ▸ Shapes and Home ▸ Shapes: PowerPoint's shape gallery, by category,
+// Insert ▸ Shapes and Home ▸ Shapes: the reference desktop app's shape gallery, by category,
 // limited to the presets the library writes. Icons come from one render of
 // every preset on a scratch slide, used as a sprite.
 
@@ -185,7 +185,7 @@ export function galleryShapeLabel(preset: GalleryShape): string {
   );
 }
 
-// PowerPoint draws brackets and braces as outlines: their filled path is only
+// The reference desktop app draws brackets and braces as outlines: their filled path is only
 // the hit area, so it inserts them in the line style (no fill, dark text).
 const OPEN_SHAPES: ReadonlySet<GalleryShape> = new Set([
   'bracketPair',
@@ -203,11 +203,11 @@ const OPEN_SHAPE_STYLE: ShapeStyleOptions = {
 };
 
 /**
- * Adds a gallery shape the way PowerPoint draws one: in the theme's
+ * Adds a gallery shape the way the reference desktop app draws one: in the theme's
  * "Colored Fill - Accent 1" quick style (brackets and braces in its line
  * style), with its text centered both ways, named like "Oval 3".
  * `addSlideShape` alone writes bare geometry with neither fill nor outline,
- * which PowerPoint and the preview render as nothing.
+ * which the reference desktop app and the preview render as nothing.
  */
 export function addGalleryShape(
   slide: SlideData,
@@ -215,7 +215,7 @@ export function addGalleryShape(
   bounds: { x: Emu; y: Emu; w: Emu; h: Emu },
 ): SlideShapeData {
   const shape = addSlideShape(slide, { preset, ...bounds });
-  // PowerPoint numbers a new shape after its id, less the slide's own group.
+  // The reference desktop app numbers a new shape after its id, less the slide's own group.
   renameShape(shape, `${galleryShapeLabel(preset)} ${getShapeId(shape) - 1}`);
   setShapeStyle(
     shape,

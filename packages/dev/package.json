@@ -1,7 +1,7 @@
 {
   "name": "@office-kit/pptx-dev",
   "version": "0.11.0",
-  "description": "Build and preview PowerPoint TSX presentations locally",
+  "description": "Build and preview TSX presentations locally",
   "license": "MIT",
   "repository": {
     "type": "git",

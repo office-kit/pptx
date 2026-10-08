@@ -61,11 +61,11 @@ Every capability is reachable by at least one path, in increasing ergonomics:
 - **Properties panel** — auto-generated from the manifest: given the current
   selection it lists _every_ capability that can act on it, grouped by category.
   Exhaustive by construction.
-- **Menu bar** (`ui/MenuBar.svelte`) — Mac PowerPoint's File … Help menus in the
+- **Menu bar** (`ui/MenuBar.svelte`) — the reference desktop app's (Mac) File … Help menus in the
   title bar, generated from a native capture (`core/menubar-native.ts`); each item
-  runs an existing command (`ui/menubar-commands.ts`) and its PowerPoint keyboard
+  runs an existing command (`ui/menubar-commands.ts`) and its keyboard shortcut from the reference desktop app's
   shortcut runs the same command (`core/menubar-shortcuts.ts`).
-- **Ribbon** (`ribbon/config.ts`) — a PowerPoint-style tab/group layout over the
+- **Ribbon** (`ribbon/config.ts`) — a desktop-app-style tab/group layout over the
   common commands, with contextual tabs (Shape Format, Table) that appear with
   the matching selection. Ergonomics for the common path, not the coverage
   surface.
@@ -79,9 +79,9 @@ Every capability is reachable by at least one path, in increasing ergonomics:
   - handles to resize in the object’s rotated axes (Shift preserves aspect ratio),
     a top handle to rotate (Shift = 15° steps), double-click
     to edit text;
-  - **keyboard**: arrow-nudge (Shift = coarse), Delete, and PowerPoint's menu
+  - **keyboard**: arrow-nudge (Shift = coarse), Delete, and the reference desktop app's menu
     shortcuts (⌘D duplicate, ⌘C/X/V, ⌘A, ⌘+/⌘- zoom …; Ctrl works for ⌘ unless
-    PowerPoint gives the Control chord its own command);
+    the reference desktop app gives the Control chord its own command);
   - **zoom / fit** (auto-fit to the viewport, manual zoom in the status bar);
   - a **right-click context menu** (`ui/ContextMenu.svelte`).
 
@@ -143,7 +143,5 @@ and persistence checks are required for each supported workflow.
 
 ## Trademarks
 
-Microsoft and PowerPoint are trademarks of the Microsoft group of companies.
-This editor is an independent implementation, not affiliated with or endorsed
-by Microsoft. It ships no Microsoft icons, artwork, fonts or text; product
-names appear only to describe `.pptx` compatibility.
+Not affiliated with or endorsed by Microsoft. PowerPoint is a trademark of the Microsoft group of companies.
+The editor ships no third-party icons, artwork, fonts or text.

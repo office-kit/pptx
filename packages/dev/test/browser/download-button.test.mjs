@@ -75,7 +75,7 @@ test(
       assert.equal(await settle(redo), second);
       assert.equal(await settle(undo), first);
 
-      // Download sits under the Quick Access Toolbar's ⋯, as PowerPoint keeps
+      // Download sits under the Quick Access Toolbar's ⋯, as the reference desktop app keeps
       // extra commands there.
       await editor.getByRole('button', { name: 'More Commands', exact: true }).click();
       const [download] = await Promise.all([

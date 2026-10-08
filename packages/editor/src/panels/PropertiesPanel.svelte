@@ -68,7 +68,7 @@
       ['shape', 'connector', 'group'].includes(getShapeKind(shape)),
     ));
   });
-  // Like PowerPoint's Format pane, it follows the selection: an object shows
+  // Like the reference desktop app's Format pane, it follows the selection: an object shows
   // its format, the slide shows Format Background.
   const objectSelected = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
   let lastObjectSelected = untrack(() => objectSelected);
@@ -134,7 +134,7 @@
     const shape = sel.kind === 'shape' && sel.shapeIds.length === 1 ? doc.shapeById(sel.slideIndex, sel.shapeIds[0]!) : null;
     if (shape && getShapeChartSpec(shape)) return t('Format Chart Area');
     if (shape && getShapeKind(shape) === 'picture') return t('Format Picture');
-    // PowerPoint retitles Format Shape once the shape is filled with a picture or texture.
+    // The reference desktop app retitles Format Shape once the shape is filled with a picture or texture.
     const shapes = editor.selectedShapes();
     if (shapes.length > 0 && shapes.every(target => getShapeKind(target) === 'shape' && getShapeFillEffective(doc.pres, target).kind === 'image')) return t('Format Picture');
     return t('Format Shape');
@@ -204,7 +204,7 @@
   </div>
 
   {#if isShape && !selectedVideo}
-    <!-- PowerPoint's Shape Options / Text Options switch above the categories. -->
+    <!-- The reference desktop app's Shape Options / Text Options switch above the categories. -->
     <div class="options-switch" role="radiogroup" aria-label={t('Format Shape options')}>
       {#each [['shape', 'Shape Options'], ['text', 'Text Options']] as const as [value, label]}
         <button role="radio" aria-checked={(textOptions ? 'text' : 'shape') === value} disabled={value === 'text' && !textOptionsAvailable}
@@ -273,7 +273,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    /* Mac PowerPoint's pane title bar is 27 pt tall. */
+    /* The reference desktop app's (Mac) pane title bar is 27 pt tall. */
     min-height: 27px;
     box-sizing: border-box;
     padding: 3px 12px;
@@ -299,7 +299,7 @@
     line-height: 20px;
     cursor: pointer;
   }
-  /* Mac PowerPoint: a 278 × 26 pt segmented switch, 14 pt below the title. */
+  /* The reference desktop app (Mac): a 278 × 26 pt segmented switch, 14 pt below the title. */
   .options-switch {
     display: flex;
     gap: 1px;

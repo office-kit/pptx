@@ -127,7 +127,7 @@
   .trigger:disabled { opacity:.4; }
   .sample { display:flex; align-items:center; justify-content:center; width:34px; height:30px; border:1px solid currentColor; border-radius:3px; font-size:13px; }
   .compact { flex-direction:row; }
-  /* PowerPoint's in-ribbon strip: 18 × 58 pt arrows around three 58 pt
+  /* The reference desktop app's in-ribbon strip: 18 × 58 pt arrows around three 58 pt
      swatches in a 174 pt frame. */
   .inline-gallery { display:flex; align-items:flex-start; flex:0 1 auto; min-width:0; height:60px; }
   /* Narrows with its ribbon group (see contextual.css) down to two swatches. */

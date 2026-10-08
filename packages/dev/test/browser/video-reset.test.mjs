@@ -164,7 +164,7 @@ test(
       assert.equal(cleared.fillOpacity, before.fillOpacity);
       assert.equal(cleared.strokeOpacity, before.strokeOpacity);
 
-      // Reset is one PowerPoint history action: Undo restores both corrections.
+      // Reset is one history action in the reference desktop app: Undo restores both corrections.
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       const undone = await readVideo();

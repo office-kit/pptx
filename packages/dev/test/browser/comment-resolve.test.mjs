@@ -1,9 +1,9 @@
 // Resolving and reopening a comment thread in the editor.
 //
-// The threads here are the modern ones PowerPoint 2021 and Microsoft 365
-// write ([MS-PPTX] §2.16.1) — the only format that can record that a thread
+// The threads here are the modern ones the reference desktop app (2021 and later)
+// writes ([MS-PPTX] §2.16.1) — the only format that can record that a thread
 // has been dealt with. The deck is built part by part the way that
-// specification says PowerPoint writes it, because nothing in this repository
+// specification says the reference desktop app writes it, because nothing in this repository
 // ships a real file with them in.
 //
 // What is checked beyond the obvious: resolving and changing nothing else

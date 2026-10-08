@@ -7,9 +7,9 @@ import type {
   SlideAnimationStep,
 } from '@office-kit/pptx';
 
-// Mac PowerPoint 16's Entrance, Emphasis and Exit galleries and each effect's
+// The reference desktop app's (Mac, 16) Entrance, Emphasis and Exit galleries and each effect's
 // Effect Options menu, in its order and wording (English and Japanese). The
-// keys are PowerPoint's gallery item ids (`<group>_<index>`, groups Basic,
+// keys are the reference desktop app's gallery item ids (`<group>_<index>`, groups Basic,
 // Subtle, Moderate and Exciting); the names are its AX labels, with the "&"
 // the labels drop put back.
 
@@ -132,7 +132,7 @@ export const EXIT_TILES: readonly EffectTile[] = tiles('exit', [
 
 /**
  * The headings a gallery popover lists its tiles under — the `<group>` of each
- * tile's key, in PowerPoint's wording (its Japanese AX labels: 基本, 弱, 中,
+ * tile's key, in the reference desktop app's wording (its Japanese AX labels: 基本, 弱, 中,
  * はなやか).
  */
 export const GALLERY_GROUPS: ReadonlyArray<{
@@ -223,7 +223,7 @@ const EDGE_DIRECTIONS: readonly EffectOption[] = [
   direction('top', 'From Top', '上から', -90),
 ];
 
-// Strips are named after the corner they start from, the way PowerPoint's
+// Strips are named after the corner they start from, the way the reference desktop app's
 // menu lists them.
 const STRIP_DIRECTIONS: readonly EffectOption[] = [
   direction('bottomLeft', 'Left Down', '左下', 45),
@@ -267,10 +267,10 @@ const SPOKES: readonly EffectOption[] = [1, 2, 3, 4, 8].map((spokes) => ({
   patch: { spokes },
 }));
 
-// The emphasis effects' own sections. Mac PowerPoint was captured with each
+// The emphasis effects' own sections. The reference desktop app (Mac) was captured with each
 // effect's gallery default only, so these names (and their Japanese) follow
-// PowerPoint for Windows' Effect Options and are not verified against the Mac
-// menu; see POWERPOINT_PARITY.md.
+// the Windows build of the reference desktop app's Effect Options and are not verified against the Mac
+// menu; see NATIVE_PARITY.md.
 const SPIN_DIRECTIONS: readonly EffectOption[] = [
   { en: 'Clockwise', ja: '時計回り', patch: { spinDirection: 'clockwise' } },
   { en: 'Counterclockwise', ja: '反時計回り', patch: { spinDirection: 'counterclockwise' } },
@@ -307,7 +307,7 @@ const section = (heading: string, items: readonly EffectOption[]): EffectOptionS
   items,
 });
 
-/** The Effect Options sections above Sequence for an effect, in PowerPoint's order. */
+/** The Effect Options sections above Sequence for an effect, in the reference desktop app's order. */
 export const effectOptionSections = (effect: AnimationEffect | null): EffectOptionSection[] => {
   switch (effect?.replace(/(In|Out)$/, '')) {
     case 'fly':
@@ -381,7 +381,7 @@ export const stepOptions = (step: SlideAnimationStep): Partial<AnimationOptions>
   return out as Partial<AnimationOptions>;
 };
 
-/** Effect Options ▸ Sequence, in PowerPoint's order. */
+/** Effect Options ▸ Sequence, in the reference desktop app's order. */
 export const SEQUENCE: ReadonlyArray<{ readonly build: AnimationTextBuild; readonly en: string }> =
   [
     { build: 'asOneObject', en: 'As One Object' },
@@ -389,7 +389,7 @@ export const SEQUENCE: ReadonlyArray<{ readonly build: AnimationTextBuild; reado
     { build: 'byParagraph', en: 'By Paragraph' },
   ];
 
-// PowerPoint writes no build entry for Fill Color and Line Color: they colour
+// The reference desktop app writes no build entry for Fill Color and Line Color: they colour
 // the shape itself, so they have no Sequence to offer.
 const UNBUILT: ReadonlySet<AnimationEffect> = new Set(['fillColor', 'lineColor']);
 

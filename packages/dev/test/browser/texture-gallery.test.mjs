@@ -69,7 +69,7 @@ const JA_NAMES = [
   'オーク',
   '木目',
 ];
-// PowerPoint's texture tiling: no offset, 100%, top left, no mirror, rotate with shape.
+// The reference desktop app's texture tiling: no offset, 100%, top left, no mirror, rotate with shape.
 const TILE = {
   mode: 'tile',
   offsetX: 0,
@@ -150,13 +150,13 @@ test(
       const tiled = editor.getByRole('checkbox', { name: 'Tile picture as texture', exact: true });
       const picture = editor.getByRole('radio', { name: 'Picture or texture fill', exact: true });
       const texture = editor.getByRole('button', { name: 'Texture', exact: true });
-      // Like PowerPoint's, the gallery never marks the current texture.
+      // Like the reference desktop app's, the gallery never marks the current texture.
       const assertNothingMarked = async () => {
         await texture.click();
         assert.equal(await gallery.locator('[aria-checked], [aria-selected]').count(), 0);
         await page.keyboard.press('Escape');
       };
-      // PowerPoint never opens a file chooser here: a fill with no picture to
+      // The reference desktop app never opens a file chooser here: a fill with no picture to
       // restore gets the default texture, Papyrus, tiled.
       page.on('filechooser', () => assert.fail('Picture or texture fill opened a file chooser'));
       await saved();
@@ -196,7 +196,7 @@ test(
       assert.deepEqual(await shapes(), before);
       await texture.click();
       assert.deepEqual(await swatchNames(gallery), NAMES);
-      // As in PowerPoint, the swatch button sits at the right of the Texture row,
+      // As in the reference desktop app, the swatch button sits at the right of the Texture row,
       // flush with the other value controls, and the gallery hangs from its right edge.
       const box = async (locator) => (await locator.boundingBox()) ?? assert.fail('not visible');
       const [button, alignment, menu] = await Promise.all([

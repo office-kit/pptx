@@ -28,7 +28,7 @@ import {
   type SlideShapeData,
 } from '@office-kit/pptx';
 
-/** Type size of a generated slide number, matching PowerPoint's own default. */
+/** Type size of a generated slide number, matching the reference desktop app's own default. */
 const SLIDE_NUMBER_PT = 12;
 
 /**

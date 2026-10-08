@@ -13,7 +13,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import { getMediaPreview } from '../core/media-preview.svelte.ts';
 
-  // Mac PowerPoint writes numSld=999 when Play Across Slides is enabled.
+  // The reference desktop app (Mac) writes numSld=999 when Play Across Slides is enabled.
   const acrossSlidesCount = 999;
   const volumeOptions = [
     { label: 'Low', value: 0.2 },

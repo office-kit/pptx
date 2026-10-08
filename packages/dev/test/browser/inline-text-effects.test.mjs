@@ -294,7 +294,7 @@ for (const grouped of [false, true])
         });
         // The grouped case stretches the cell 1.6× vertically, which magnifies
         // the editor's small (under 3 local px) offset between the editable
-        // text and the effect glyphs; at Mac PowerPoint's fit zoom that is
+        // text and the effect glyphs; at the reference desktop app's (Mac) fit zoom that is
         // just over 4 screen px.
         const tolerance = grouped ? 6 : 4;
         for (const key of ['x', 'y']) {

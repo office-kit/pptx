@@ -1,6 +1,6 @@
 // The format painter: pick up an object's formatting and put it on another,
 // or repaint one text selection with the formatting of another — the gesture
-// PowerPoint and Google Slides both put on a paintbrush.
+// the reference desktop app and Google Slides both put on a paintbrush.
 //
 // Checked through the saved deck rather than the canvas, so a green run means
 // the .pptx really carries the formatting.
@@ -105,7 +105,7 @@ for (const language of ['en', 'ja']) {
           .locator('.hit')
           .first()
           .click({ position: { x: 2, y: 2 } });
-        // Format ▸ Pick Up Object Style: ⇧⌘C in English PowerPoint, ⌥⌘C in Japanese.
+        // Format ▸ Pick Up Object Style: ⇧⌘C in the English build, ⌥⌘C in the Japanese one.
         await page.keyboard.press(language === 'ja' ? 'Control+Alt+KeyC' : 'Control+Shift+KeyC');
         await editor
           .locator('.hit')
@@ -229,7 +229,7 @@ test(
             new KeyboardEvent('keydown', {
               bubbles: true,
               cancelable: true,
-              // ⇧⌘C / ⇧⌘V: Pick Up and Apply Object Style in English PowerPoint.
+              // ⇧⌘C / ⇧⌘V: Pick Up and Apply Object Style in the reference desktop app's English build.
               ctrlKey: true,
               shiftKey: true,
               key: keyCode.slice(-1),

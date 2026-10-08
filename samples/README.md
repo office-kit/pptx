@@ -1,8 +1,8 @@
 # Manual-inspection samples
 
 This directory holds a generator script that produces one `.pptx` per major
-feature area under `samples/out/`. Open the files in PowerPoint, Keynote,
-Google Slides, or LibreOffice Impress to verify the output renders as
+feature area under `samples/out/`. Open the files in Keynote, Google Slides,
+LibreOffice Impress or another presentation app to verify the output renders as
 intended.
 
 ## Regenerate
@@ -59,8 +59,8 @@ autofit, pattern fills, ...) and aren't listed here individually — see
 
 ## How to inspect
 
-1. Open each file in PowerPoint (Mac or Windows).
-2. Watch for the "PowerPoint found a problem with content" dialog — that
+1. Open each file in the reference desktop app (Mac or Windows).
+2. Watch for its repair dialog ("found a problem with content") — that
    indicates the file is malformed.
 3. For samples 16 and 17, run the slideshow (`F5`) to see transitions and
    animations.

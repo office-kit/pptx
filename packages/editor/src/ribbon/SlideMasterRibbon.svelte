@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint 16's Slide Master tab, measured in a 1512 × 900 pt window:
+  // The reference desktop app's (Mac, 16) Slide Master tab, measured in a 1512 × 900 pt window:
   // Insert Slide Master, Insert Layout and a Delete / Rename / Preserve column
   // | Master Layout, Insert Placeholder and the Title / Footers checkboxes
   // | Themes | Colors, Fonts, Background Styles, Hide Background Graphics
@@ -67,13 +67,13 @@
     return null;
   });
 
-  // Japanese PowerPoint words these differently here than on the Design and Insert tabs.
+  // The reference desktop app's Japanese UI words these differently here than on the Design and Insert tabs.
   const MASTER_TAB_JA: Record<string, string> = { Colors: '色', 'Background Styles': '背景スタイル', 'Hide Background Graphics': '背景グラフィックを表示しない', Picture: '図' };
   const label = (key: string) => (getLocale() === 'ja' ? MASTER_TAB_JA[key] ?? t(key) : key);
   const ON_LAYOUT = 'Select a layout to change it.';
   const ON_MASTER = 'Select the slide master to change it.';
 
-  // Insert Placeholder's menu, in PowerPoint's order.
+  // Insert Placeholder's menu, in the reference desktop app's order.
   const PLACEHOLDER_KINDS: ReadonlyArray<readonly [LayoutPlaceholderKind, string]> = [
     ['content', 'Content'],
     ['verticalContent', 'Content (Vertical)'],
@@ -86,7 +86,7 @@
     ['media', 'Media'],
     ['onlineImage', 'Online Image'],
   ];
-  // The Master Layout dialog's checkboxes, in PowerPoint's order.
+  // The Master Layout dialog's checkboxes, in the reference desktop app's order.
   const MASTER_PLACEHOLDERS: ReadonlyArray<readonly [MasterPlaceholderType, string]> = [
     ['title', 'Title'],
     ['body', 'Text'],
@@ -126,7 +126,7 @@
   }
   function insertLayout() {
     if (!master) return;
-    // PowerPoint adds the layout after the selected one, or last with the master selected.
+    // The reference desktop app adds the layout after the selected one, or last with the master selected.
     const at = layout ? masterLayouts.findIndex((item) => getSlideLayoutPartName(item) === getSlideLayoutPartName(layout)) + 1 : masterLayouts.length;
     const added = editor.invoke('addSlideLayout', { options: { index: at } }) as SlideLayoutData | undefined;
     if (added) editor.selectMasterCell(master, getSlideLayoutPartName(added));
@@ -136,7 +136,7 @@
     if (layout) {
       const index = masterLayouts.findIndex((item) => getSlideLayoutPartName(item) === getSlideLayoutPartName(layout));
       editor.invoke('removeSlideLayout');
-      // The selection moves up to the layout above, as in PowerPoint's pane.
+      // The selection moves up to the layout above, as in the reference desktop app's pane.
       const remaining = getSlideMasterLayouts(doc.pres, master);
       const next = index > 0 ? remaining[index - 1] : null;
       editor.selectMasterCell(master, next ? getSlideLayoutPartName(next) : null);
@@ -154,7 +154,7 @@
   function insertPlaceholder(kind: LayoutPlaceholderKind) {
     open = null;
     const size = getSlideSize(doc.pres) ?? { width: 12192000, height: 6858000 };
-    // PowerPoint draws the placeholder with the pointer; without a drag the
+    // The reference desktop app draws the placeholder with the pointer; without a drag the
     // editor places a box of 40% of the slide in the middle, to move after.
     const w = Math.round(size.width * 0.4);
     const h = Math.round(size.height * 0.4);
@@ -166,7 +166,7 @@
     const changes = MASTER_PLACEHOLDERS.filter(([type]) => masterChoice[type] !== (current.has(type) || (type === 'title' && current.has('ctrTitle'))));
     open = null;
     if (changes.length === 0) return;
-    // One undo step for the dialog, as in PowerPoint.
+    // One undo step for the dialog, as in the reference desktop app.
     doc.transact(t('Master Layout'), () => {
       for (const [type] of changes) setSlideMasterPlaceholderIncluded(doc.pres, master, type, masterChoice[type] === true);
     });

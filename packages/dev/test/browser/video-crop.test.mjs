@@ -72,7 +72,7 @@ const pictureRect = (state) => {
 };
 
 test(
-  'Video Crop details match PowerPoint position fields and preserve media history',
+  'Video Crop details match the reference desktop app’s position fields and preserve media history',
   { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-video-crop-'));
@@ -170,7 +170,7 @@ test(
       closeTo(state.crop.right, 0.07667, 0.00002);
       assert.deepEqual(state.media, originalMedia);
 
-      // Exercise the remaining PowerPoint position fields, including a negative offset.
+      // Exercise the reference desktop app's remaining position fields, including a negative offset.
       await update('Picture height', 6);
       await update('Offset Y', -0.5);
       state = await readVideo();

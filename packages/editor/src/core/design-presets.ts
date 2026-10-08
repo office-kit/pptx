@@ -1,4 +1,4 @@
-// Office's built-in color sets and font pairs, as listed in PowerPoint's
+// The built-in color sets and font pairs, as listed in the reference desktop app's
 // Design ▸ Colors and Design ▸ Fonts menus. A theme in the gallery is a color
 // set with a font pair; the library rewrites the deck theme's `a:clrScheme`
 // and `a:fontScheme` in place, keeping its masters and layouts.
@@ -38,8 +38,8 @@ const set = (
   };
 };
 
-// In PowerPoint's Colors ▸ All Colors order; values from Office's own
-// `Theme Colors/*.xml` (the Office set from `Office Theme.thmx`).
+// In the reference desktop app's Colors ▸ All Colors order; values from the reference desktop app's
+// own `Theme Colors/*.xml` (the 'Office' set from `Office Theme.thmx`).
 export const COLOR_SETS: readonly ColorSet[] = [
   set(
     'Office',
@@ -241,8 +241,8 @@ export interface FontPair extends PresentationFontsInput {
   readonly minorLatin: string;
 }
 
-// In PowerPoint's Fonts ▸ All Fonts order, from Office's `Theme Fonts/*.xml`.
-// Mac PowerPoint lists Office 2007 - 2010 as Calibri / Calibri.
+// In the reference desktop app's Fonts ▸ All Fonts order, from its `Theme Fonts/*.xml`.
+// The reference desktop app (Mac) lists 'Office 2007 - 2010' as Calibri / Calibri.
 export const FONT_PAIRS: readonly FontPair[] = [
   { name: 'Office', majorLatin: 'Aptos Display', minorLatin: 'Aptos' },
   { name: 'Office 2013 - 2022', majorLatin: 'Calibri Light', minorLatin: 'Calibri' },

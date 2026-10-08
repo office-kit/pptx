@@ -1,6 +1,6 @@
-// The Bullets ▸ and Numbering ▸ galleries of Mac PowerPoint's text menus, in
+// The Bullets ▸ and Numbering ▸ galleries of the reference desktop app's (Mac) text menus, in
 // their native order (captured 2026-10-07): None, then the built-in styles,
-// five tiles per row. PowerPoint draws the bullet glyphs from Wingdings; the
+// five tiles per row. The reference desktop app draws the bullet glyphs from Wingdings; the
 // editor writes the Unicode characters they show.
 import type { BulletStyle } from '@office-kit/pptx';
 
@@ -53,7 +53,7 @@ function normalize(style: BulletStyle | null): string {
   return 'char' in style ? `char:${style.char}` : `autoNum:${style.autoNum}`;
 }
 
-/** Whether every paragraph uses `entry`'s style (the tile PowerPoint highlights). */
+/** Whether every paragraph uses `entry`'s style (the tile the reference desktop app highlights). */
 export function listStyleApplied(
   entry: ListGalleryEntry,
   bullets: readonly (BulletStyle | null)[],

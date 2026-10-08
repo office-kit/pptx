@@ -115,7 +115,7 @@ export function insertTableLines(editor: EditorController, axis: TableAxis, afte
   });
 }
 
-/** Deletes the selected rows or columns; deleting all of them deletes the table, as PowerPoint does. */
+/** Deletes the selected rows or columns; deleting all of them deletes the table, as the reference desktop app does. */
 export function deleteTableLines(editor: EditorController, axis: TableAxis): void {
   const target = selectedCellTarget(editor);
   if (!target || tableHasMergedCells(target.table)) return;

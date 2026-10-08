@@ -65,7 +65,7 @@
 <style>
   .font-field { display: flex; }
   input { width: 110px; border-radius: 3px 0 0 3px; }
-  /* Mac PowerPoint: a 174 pt font box (15 pt arrow) and a 56 pt size box. */
+  /* The reference desktop app (Mac): a 174 pt font box (15 pt arrow) and a 56 pt size box. */
   .font-field.ribbon input { width: 159px; height: 26px; box-sizing: border-box; }
   .font-field.ribbon button { width: 15px; height: 26px; }
   .font-field button { width: 16px; padding: 0; border-left: 0; border-radius: 0 3px 3px 0; }

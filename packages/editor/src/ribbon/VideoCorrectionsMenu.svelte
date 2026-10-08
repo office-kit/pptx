@@ -23,7 +23,7 @@
   const editor = getEditor();
   const doc = editor.doc;
   const values = [-40, -20, 0, 20, 40] as const;
-  // PowerPoint lays out contrast by row and brightness by column.
+  // The reference desktop app lays out contrast by row and brightness by column.
   const presets = values.flatMap((contrast) => values.map((brightness) => ({ brightness, contrast })));
   let open = $state(false);
   let trigger = $state<HTMLButtonElement>();

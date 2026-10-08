@@ -1,4 +1,4 @@
-// PowerPoint's Table Styles gallery: the built-in styles grouped as PowerPoint
+// The reference desktop app's Table Styles gallery: the built-in styles grouped as the reference desktop app
 // groups them, their names in each UI language, and swatches drawn by the
 // preview renderer with the slide's theme and the table's style options.
 import {
@@ -25,7 +25,7 @@ import type { Locale } from '../i18n/i18n.svelte.ts';
 
 export type TableStyleFlags = ReturnType<typeof getTableStyleFlags>;
 
-// Headings as Mac PowerPoint words them (its mso strings 5a–5d).
+// Headings as the reference desktop app (Mac) words them (its mso strings 5a–5d).
 export const TABLE_STYLE_GROUPS: readonly {
   readonly category: BuiltinTableStyle['category'];
   readonly en: string;
@@ -37,13 +37,13 @@ export const TABLE_STYLE_GROUPS: readonly {
   { category: 'dark', en: 'Dark', ja: '濃色' },
 ];
 
-/** Styles per gallery row, as in PowerPoint: a family and its accents. */
+/** Styles per gallery row, as in the reference desktop app: a family and its accents. */
 export const TABLE_STYLES_PER_ROW = 7;
 
-/** PowerPoint's "No Style, No Grid", which Clear Table applies. */
+/** The reference desktop app's "No Style, No Grid", which Clear Table applies. */
 export const NO_STYLE_NO_GRID = BUILTIN_TABLE_STYLES[0].id;
 
-// PowerPoint composes the localized names from patterns (its mso strings
+// The reference desktop app composes the localized names from patterns (its mso strings
 // 4e–57); the English names are the `styleName` it writes.
 const JA_FAMILY: Record<string, readonly [plain: string, accented: string]> = {
   Themed: ['テーマ スタイル', 'テーマ スタイル'],
@@ -57,7 +57,7 @@ const JA_FIXED: Record<string, string> = {
 };
 const NAME = /^(Themed|Light|Medium|Dark) Style (\d)(?: - Accent (\d)(?:\/Accent (\d))?)?$/;
 
-/** A built-in style's name as PowerPoint shows it in `locale`. */
+/** A built-in style's name as the reference desktop app shows it in `locale`. */
 export function tableStyleName(name: string, locale: Locale): string {
   if (locale === 'en') return name;
   const fixed = JA_FIXED[name];
@@ -93,7 +93,7 @@ function swatchDeck(source: SlideData, version: number, flags: TableStyleFlags):
   const pres = createPresentation();
   const slide = importSlide(pres, source);
   setShapeHidden(getSlideShapes(slide), true);
-  // PowerPoint's minimum slide size is 1 inch; the swatch keeps its 76 × 56 shape.
+  // The reference desktop app's minimum slide size is 1 inch; the swatch keeps its 76 × 56 shape.
   setSlideSize(pres, { width: inches(1.4), height: inches(1.04) });
   setSlideBackground(slide, '#FFFFFF');
   setSlideBackgroundGraphicsHidden(slide, true);

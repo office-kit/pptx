@@ -1,6 +1,6 @@
-/* Mac PowerPoint's contextual tabs (Shape Format, Picture Format, Table
+/* The reference desktop app's (Mac) contextual tabs (Shape Format, Picture Format, Table
    Design, Table Layout), measured through the accessibility API at 1512 and
-   1200 pt (packages/dev/POWERPOINT_PARITY.md). Like the Home tab: a 72 pt row
+   1200 pt (packages/dev/NATIVE_PARITY.md). Like the Home tab: a 72 pt row
    of groups separated by a rule with 10 pt on either side, large buttons that
    fill the row, 26 pt small buttons, and 22 pt rows with an icon and a label.
    Global because the shared controls (menus, galleries, spin boxes) are used
@@ -28,7 +28,7 @@
   padding-right: 0;
   border-right: none;
 }
-/* PowerPoint's buttons at a group's edges reach 1 pt into the group margin. */
+/* The reference desktop app's buttons at a group's edges reach 1 pt into the group margin. */
 .ctx-ribbon .ctx-group > .ctx-big:first-child {
   margin-left: -1px;
 }
@@ -225,7 +225,7 @@
 .ctx-ribbon .ctx-gallery-arrow.hidden {
   visibility: hidden;
 }
-/* As in PowerPoint, galleries narrow before a tab switches to its compact
+/* As in the reference desktop app, galleries narrow before a tab switches to its compact
    layout. Label widths depend on the font (the system fallback on Linux is
    wider than San Francisco; Japanese captions are longer), so a ribbon that
    misses by a few points gives them up from its galleries; only an overflow

@@ -406,7 +406,7 @@ test(
       ja = true;
       await thumbs.nth(2).click();
       await editor.getByRole('tab', { name: 'ホーム', exact: true }).click();
-      // Home ▸ Reset is PowerPoint's one-click layout reset.
+      // Home ▸ Reset is the reference desktop app's one-click layout reset.
       await editor.getByRole('button', { name: 'リセット', exact: true }).click();
       await saved();
       assert.deepEqual((await state()).bounds, expected);

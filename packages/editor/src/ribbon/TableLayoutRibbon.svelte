@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Mac PowerPoint's Table Layout tab: Table (Select ▾, View Gridlines), Rows
+  // The reference desktop app's (Mac) Table Layout tab: Table (Select ▾, View Gridlines), Rows
   // & Columns (Delete ▾, Insert Row Above/Below, Insert Column Left/Right),
   // Merge (Merge Cells, Split Cells), Cell Size (Row, Column, Distribute Rows,
   // Distribute Columns), Alignment (six toggles, Text Direction ▾, Cell
@@ -46,7 +46,7 @@
   const rowHeight = $derived(target ? common(target.heights.slice(target.block.row, target.block.row + target.block.rowSpan)) : null);
   const columnWidth = $derived(target ? common(target.widths.slice(target.block.col, target.block.col + target.block.colSpan)) : null);
   const MERGED_REASON = 'Split merged cells before changing rows or columns';
-  // PowerPoint's Cell Margins presets, in EMU (Normal is the default inset).
+  // The reference desktop app's Cell Margins presets, in EMU (Normal is the default inset).
   const MARGINS = [
     ['Normal', null],
     ['None', { left: 0, right: 0, top: 0, bottom: 0 }],
@@ -162,7 +162,7 @@
       fitTableFrame(doc.pres, table);
     });
   }
-  // Table Size scales the rows and columns with the frame, as PowerPoint does.
+  // Table Size scales the rows and columns with the frame, as the reference desktop app does.
   function resizeTable(table: SlideShapeData, size: ShapeBounds) {
     const current = target;
     if (!current || current.table !== table) { setShapeBounds(table, size); return; }

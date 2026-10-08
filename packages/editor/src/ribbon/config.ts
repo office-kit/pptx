@@ -1,4 +1,4 @@
-// Ribbon layout — a PowerPoint-style tab/group/command arrangement over the
+// Ribbon layout — a desktop-app-style tab/group/command arrangement over the
 // capability manifest. Each command id here must exist in the manifest (guarded
 // at load below), but the ribbon is deliberately NOT the coverage surface: any
 // capability the ribbon does not list is still reachable through the properties
@@ -9,7 +9,7 @@ import { inches } from '@office-kit/pptx';
 import { capabilityById } from '../manifest/index.ts';
 import type { EditorController } from '../core/controller.svelte.ts';
 
-// Default drop placement for inserted objects — like PowerPoint dropping a
+// Default drop placement for inserted objects — like the reference desktop app dropping a
 // default-sized shape you then move/resize. EMU via the public unit helpers.
 const IN = (n: number) => inches(n) as unknown as number;
 const DROP = { x: IN(2), y: IN(1.5), w: IN(4), h: IN(2) };
@@ -71,13 +71,13 @@ export const RIBBON: readonly RibbonTab[] = [
   {
     id: 'home',
     title: 'Home',
-    // Laid out by HomeRibbon.svelte, which mirrors Mac PowerPoint's clusters.
+    // Laid out by HomeRibbon.svelte, which mirrors the reference desktop app's (Mac) clusters.
     groups: [],
   },
   {
     id: 'insert',
     title: 'Insert',
-    // Laid out by InsertRibbon.svelte, with Mac PowerPoint's ▾ menus.
+    // Laid out by InsertRibbon.svelte, with the reference desktop app's (Mac) ▾ menus.
     groups: [],
   },
   { id: 'draw', title: 'Draw', groups: [] },
@@ -93,7 +93,7 @@ export const RIBBON: readonly RibbonTab[] = [
   { id: 'review', title: 'Review', groups: [] },
   { id: 'view', title: 'View', groups: [] },
   {
-    // PowerPoint's Chart Design tab. The chart dialog edits the data, type and
+    // The reference desktop app's Chart Design tab. The chart dialog edits the data, type and
     // elements in one place, so those commands open it.
     id: 'chartDesign',
     title: 'Chart Design',

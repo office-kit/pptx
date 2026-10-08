@@ -101,7 +101,7 @@ test('empty text retains its authored size when stepped repeatedly', () => {
   assert.equal(getParagraphEndFormat(shape, 0).size, 54);
 });
 
-test('font size steps follow Mac PowerPoint including custom values and limits', () => {
+test('font size steps follow the reference desktop app (Mac) including custom values and limits', () => {
   for (const [size, direction, expected] of [
     [10, 1, 10.5],
     [13, 1, 14],

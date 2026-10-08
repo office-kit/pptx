@@ -6,7 +6,7 @@
 
 Install the Office Kit plugin, then tell Claude Code what presentation you want.
 Claude creates the project, writes the slides, starts a live preview, and exports
-an editable PowerPoint file. You review the slides and ask for changes.
+an editable `.pptx` file. You review the slides and ask for changes.
 
 You need an **up-to-date Claude Code**, **Node.js 22.18 or later** (with npm), and **Git** for
 plugin installation. The authoring packages are available on npm.
@@ -98,8 +98,8 @@ PPTX, it checks types, exports and reviews the whole deck.
 preview and download still represent the older successful build; ask Claude to
 fix the error before using them.
 
-Text, shapes, charts and tables are native PowerPoint objects. Preview rendering
-may differ from PowerPoint, and it does not play animations or media. Check the
+Text, shapes, charts and tables are native, editable presentation objects. Preview rendering
+may differ from desktop presentation apps, and it does not play animations or media. Check the
 exported file in your target application before final delivery.
 
 ## Start from an existing presentation

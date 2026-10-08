@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Mac PowerPoint's Table Design tab: Table Style Options (six check boxes),
+  // The reference desktop app's (Mac) Table Design tab: Table Style Options (six check boxes),
   // Table Styles (style strip, Shading ▾, Borders ▾, Effects ▾), WordArt
   // Styles (Quick Styles, Text Fill, Text Outline, Text Effects) and Draw
   // Borders (Pen Style, Pen Weight, Pen Color, Draw Table, Eraser). Below
@@ -49,7 +49,7 @@
   let galleryOpen = $state(false);
   let strip = $state<HTMLDivElement>();
   // Swatches are drawn by the preview renderer, in the slide's theme and with
-  // the table's style options, as PowerPoint's are.
+  // the table's style options, as the reference desktop app's are.
   const swatches = $derived.by(() => {
     const slide = doc.currentSlide;
     if (!slide || !flags) return new Map<string, string>();
@@ -108,7 +108,7 @@
       }
     });
   }
-  // PowerPoint's Borders ▾ applies the current pen to the chosen edges of the
+  // The reference desktop app's Borders ▾ applies the current pen to the chosen edges of the
   // selection; inside edges are the shared sides between selected cells.
   function borders(edges: readonly Edge[] | null) {
     const current = target;
@@ -140,7 +140,7 @@
     quickStylesOpen = false;
     edit('WordArt Styles', (cell) => applyTableCellWordArtPreset(cell, preset));
   }
-  // PowerPoint's outer shadow, reflection and glow presets for text.
+  // The reference desktop app's outer shadow, reflection and glow presets for text.
   const TEXT_SHADOW = { color: '#000000', blurEmu: 38100, offsetEmu: 38100, angleDeg: 45, opacity: 0.4 } as const;
   const TEXT_GLOW = { color: 'accent1', radiusEmu: 63500, opacity: 0.4 } as const;
   const TEXT_REFLECTION = { blurEmu: 6350, offsetEmu: 0, angleDeg: 90, startOpacity: 0.5, opacity: 0.003, endPosition: 0.55 } as const;

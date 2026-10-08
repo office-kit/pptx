@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // Mac PowerPoint 16's Slide Show tab: Play from Start, Play from Current
+  // The reference desktop app's (Mac, 16) Slide Show tab: Play from Start, Play from Current
   // Slide, Presenter View, Custom Show ▾ | Rehearse with Coach | Set Up Slide
   // Show, Hide Slide, Rehearse Timings, Record ▾ and four options | Always Use
   // Subtitles, Subtitle Settings ▾. It keeps this layout from 1512 down to
@@ -114,7 +114,7 @@
 </div>
 
 <style>
-  /* Geometry measured from Mac PowerPoint 16 (POWERPOINT_PARITY.md, "Native
+  /* Geometry measured from the reference desktop app (Mac, 16) (NATIVE_PARITY.md, "Native
      geometry audit"). */
   .slide-show { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
   .cluster { display: flex; flex: none; align-items: stretch; padding: 0 10px; border-right: 1px solid var(--ok-border); }
@@ -127,7 +127,7 @@
   .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: var(--w); padding: 4px 1px; font-size: 11px; line-height: 1.15; text-align: center; }
   .big > span:last-child { max-width: var(--w); margin: 0 -2px; }
   /* Japanese labels wrap per character, so they get at least six characters
-     a line and a smaller size that fits three lines (PowerPoint widens them). */
+     a line and a smaller size that fits three lines (the reference desktop app widens them). */
   .big > span:last-child:lang(ja) { max-width: max(calc(var(--w) - 4px), 6em); font-size: 10px; line-height: 1.1; }
   .icon-row { display: flex; align-items: center; gap: 1px; }
   .arrow { font-size: 11px; }

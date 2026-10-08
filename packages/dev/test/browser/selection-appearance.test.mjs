@@ -40,7 +40,7 @@ import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
 /**
- * The Format pane starts closed, as in PowerPoint; once opened from the slide it
+ * The Format pane starts closed, as in the reference desktop app; once opened from the slide it
  * follows the selection to the shapes the test picks.
  */
 const openFormatPane = async (editor, item) => {
@@ -401,7 +401,7 @@ test(
         'none',
         originalStrokeKinds[2],
       ]);
-      // As in PowerPoint, No line leaves only the line type options.
+      // As in the reference desktop app, No line leaves only the line type options.
       assert.equal(
         await editor
           .locator('.bespoke')

@@ -14,7 +14,7 @@
   } = $props();
   const editor = getEditor();
   const doc = editor.doc;
-  // PowerPoint's largest shape dimension, in centimetres.
+  // The reference desktop app's largest shape dimension, in centimetres.
   const MAX_CM = 5963.92;
 
   const geometry = $derived.by(() => {

@@ -45,7 +45,7 @@ export interface MenuCommand {
   readonly radio?: boolean;
   /** Replaces the native label, already localized (Edit ▸ Undo <edit> …). */
   readonly label?: string;
-  /** PowerPoint's window-list bullet rather than a check mark. */
+  /** The reference desktop app's window-list bullet rather than a check mark. */
   readonly bullet?: boolean;
 }
 

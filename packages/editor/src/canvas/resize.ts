@@ -25,7 +25,7 @@ const vectorHandles: Record<string, ResizeHandle> = {
 
 /**
  * Map a source local handle into a target whose rotation differs by quarters.
- * PowerPoint snaps the relative rotation to the nearest quarter turn while
+ * The reference desktop app snaps the relative rotation to the nearest quarter turn while
  * resizing a multi-selection, rather than continuously changing the handle.
  */
 function relativeResizeHandle(handle: ResizeHandle, quarterTurns: number): ResizeHandle {
@@ -87,7 +87,7 @@ export function resizeRect(
   };
 }
 
-/** PowerPoint resizes each selected object about its own opposite handle. */
+/** The reference desktop app resizes each selected object about its own opposite handle. */
 export function resizeSelectionRects(
   rects: readonly (Rect & { rotation?: number })[],
   grabbed: Rect & { rotation?: number },

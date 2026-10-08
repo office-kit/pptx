@@ -1,4 +1,4 @@
-// Collapse steps for the contextual tabs. Mac PowerPoint switches a tab to its
+// Collapse steps for the contextual tabs. The reference desktop app (Mac) switches a tab to its
 // compact layout by window width (the 1200 pt captures already show it while
 // the 1512 pt ones do not), the same width at which the Home tab shrinks its
 // Slides/Insert groups. Longer labels (Japanese, or a wider system font) are

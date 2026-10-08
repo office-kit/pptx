@@ -15,7 +15,7 @@ import {
 import { expandFormatSections } from '../helpers/format-pane.mjs';
 import { startPreview } from '../helpers/server.mjs';
 
-// Mac PowerPoint's Format Shape pane, as captured on 2026-10-07: a Shape
+// The reference desktop app's (Mac) Format Shape pane, as captured on 2026-10-07: a Shape
 // Options / Text Options switch, every section collapsed on first open, and
 // the Effects category's Shadow, Reflection, Glow, Soft Edges, 3-D Format and
 // 3-D Rotation sections.
@@ -128,7 +128,7 @@ test(
         })),
         [{ kind: 'outerShdw', blurEmu: 50800, distEmu: 38100, angleDeg: 45, opacity: 0.4 }],
       );
-      // Mac PowerPoint shows this preset as 60%, 100%, 4 pt, 45°, 3 pt.
+      // The reference desktop app (Mac) shows this preset as 60%, 100%, 4 pt, 45°, 3 pt.
       for (const [name, value] of [
         ['Shadow transparency', '60'],
         ['Shadow size', '100'],
@@ -271,7 +271,7 @@ test(
       await editor.getByRole('tab', { name: 'Textbox', exact: true }).click();
       assert.deepEqual(await sectionState(editor), [['Text Box', false]]);
 
-      // Japanese uses PowerPoint's wording; the switch keeps its state.
+      // Japanese uses the reference desktop app's wording; the switch keeps its state.
       await editor.locator('.lang select').selectOption('ja');
       assert.equal(
         await editor.getByRole('radio', { name: '文字のオプション' }).getAttribute('aria-checked'),

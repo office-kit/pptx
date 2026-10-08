@@ -15,7 +15,7 @@
   import type { Snippet } from 'svelte';
 
   // The editor's slide options, scrolled with the settings above the pinned
-  // Apply to All / Reset row (PowerPoint's Format Background has none).
+  // Apply to All / Reset row (the reference desktop app's Format Background has none).
   let { extra }: { extra?: Snippet } = $props();
   const editor = getEditor();
   const doc = editor.doc;
@@ -61,7 +61,7 @@
       else setSlideBackgroundPatternFill(target, remembered.pattern ?? {});
     });
   }
-  // Like PowerPoint, a slide with no picture to restore gets the default texture.
+  // Like the reference desktop app, a slide with no picture to restore gets the default texture.
   async function restorePicture() {
     if (imageBackground || loading) return;
     const targets = slides, selection = doc.selection, presentation = doc.pres, version = doc.version;

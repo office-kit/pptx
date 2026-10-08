@@ -8,7 +8,7 @@
   const editor = getEditor();
   const doc = editor.doc;
   const zoomPercent = $derived(Math.round(editor.viewZoom * 100));
-  // Mac PowerPoint names the master being edited instead of a slide position,
+  // The reference desktop app (Mac) names the master being edited instead of a slide position,
   // and counts notes pages in Notes Page view.
   const MASTER_STATUS = { slideMaster: 'Slide Master', handoutMaster: 'Handout Master', notesMaster: 'Notes Master' } as const;
   const position = $derived.by(() => {
@@ -20,7 +20,7 @@
   });
   const editing = $derived(isSlideEditingView(editor.viewMode));
   const sliderPosition = $derived(zoomPercent <= 100 ? (zoomPercent - editor.minZoomPercent) / (100 - editor.minZoomPercent) * 1000 : 1000 + (zoomPercent - 100) / (editor.maxZoomPercent - 100) * 1000);
-  // Mac PowerPoint shows the proofing language, which follows the system's
+  // The reference desktop app (Mac) shows the proofing language, which follows the system's
   // language and region (e.g. "English (Japan)").
   const language = $derived.by(() => {
     if (typeof navigator === 'undefined') return '';
@@ -77,7 +77,7 @@
     <button class="labelled" aria-label={t('Notes')} aria-pressed={editor.notesVisible} onclick={() => { if (editor.notesVisible) editor.notesVisible = false; else editor.showNotes(); }}><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1.5 1.5h11v7l-4 4h-7z M8.5 12.5v-4h4"/></svg>{t('Notes')}</button>
     <button class="labelled" aria-label={t('Comments')} aria-pressed={editor.activeDialog === 'addSlideComment'} disabled={!doc.currentSlide} onclick={() => { if (editor.activeDialog === 'addSlideComment') editor.activeDialog = null; else editor.runOrPrompt('addSlideComment'); }}><svg width="15" height="14" viewBox="0 0 15 14" aria-hidden="true"><path d="M1.5 1.5h12v8h-7l-3 3v-3h-2z"/></svg>{t('Comments')}</button>
   {/if}
-  <!-- Mac PowerPoint's 147 pt segmented switcher has exactly these four
+  <!-- The reference desktop app's (Mac) 147 pt segmented switcher has exactly these four
        segments; Outline counts as Normal, and Notes Page and the master views
        select none. -->
   <div class="views" role="group" aria-label={t('Presentation views')}>
@@ -96,7 +96,7 @@
 </div>
 
 <style>
-  /* Mac PowerPoint's status bar sits on the window chrome color, not the
+  /* The reference desktop app's (Mac) status bar sits on the window chrome color, not the
      accent: 28 pt tall, 12 pt text, 36 pt view buttons, a 102 pt zoom slider
      between 14 pt − / + buttons, a 54 pt percentage and a 38 pt Fit button. */
   .statusbar {

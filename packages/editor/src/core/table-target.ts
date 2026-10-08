@@ -1,5 +1,5 @@
 // The cells the Table Design and Table Layout tabs act on: the selected cell
-// range, or every cell when the table itself is selected (as in PowerPoint).
+// range, or every cell when the table itself is selected (as in the reference desktop app).
 import {
   getShapeBoundsResolved,
   getTableCells,
@@ -71,7 +71,7 @@ export function tableTarget(editor: EditorController): TableTarget | null {
 
 /**
  * Grows or shrinks the graphic frame to the sum of its rows and columns, as
- * PowerPoint keeps them equal; the library leaves `<a:xfrm>` to the caller.
+ * the reference desktop app keeps them equal; the library leaves `<a:xfrm>` to the caller.
  */
 export function fitTableFrame(pres: PresentationData, table: SlideShapeData): void {
   const bounds = getShapeBoundsResolved(pres, table);

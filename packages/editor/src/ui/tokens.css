@@ -26,8 +26,8 @@
   --ok-shadow-lg: 0 12px 32px -8px rgba(16, 18, 23, 0.22), 0 2px 6px rgba(16, 18, 23, 0.08);
   --ok-font: system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --ok-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
-  --ok-ribbon-h: 102px; /* 30 px tab row + Mac PowerPoint's 72 pt command row */
-  --ok-nav-w: 249px; /* Mac PowerPoint's thumbnail pane in a 1512 pt window */
+  --ok-ribbon-h: 102px; /* 30 px tab row + the reference desktop app's (Mac) 72 pt command row */
+  --ok-nav-w: 249px; /* the reference desktop app's (Mac) thumbnail pane in a 1512 pt window */
   --ok-panel-w: 300px;
 
   font-family: var(--ok-font);
@@ -36,7 +36,7 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Mac PowerPoint follows the system appearance; so does the editor. The
+/* The reference desktop app (Mac) follows the system appearance; so does the editor. The
    slide itself keeps its own colors. */
 @media (prefers-color-scheme: dark) {
   .ok-editor {

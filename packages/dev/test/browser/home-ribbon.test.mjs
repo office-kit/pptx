@@ -15,7 +15,7 @@ import {
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
-// Mac PowerPoint 16 collapses Home groups as its window narrows: Drawing
+// The reference desktop app (Mac, 16) collapses Home groups as its window narrows: Drawing
 // first (ribbon < 1300px), then Slides, Paragraph and Insert (< 1080px), then
 // Font (< 840px). Clipboard always stays expanded.
 const collapsedAt = (width) => [
@@ -50,7 +50,7 @@ async function withDeck(source, run) {
 }
 
 test(
-  'home ribbon collapses groups in PowerPoint order without horizontal scrolling',
+  'home ribbon collapses groups in the reference desktop app’s order without horizontal scrolling',
   { timeout: 120000 },
   () =>
     withDeck(
@@ -76,7 +76,7 @@ test(
                 .evaluateAll((nodes) =>
                   nodes.map((node) => node.closest('section').getAttribute('aria-label')),
                 );
-              // English follows the native thresholds exactly at PowerPoint's
+              // English follows the native thresholds exactly at the reference desktop app's
               // measured widths. Japanese labels, and any locale at 1100 px (just
               // above a threshold, where platform fonts decide), may take a later
               // step instead of scrolling.

@@ -10,7 +10,7 @@ import { readSlideBackground } from './slide-background.ts';
 import { patterns } from '../panels/patterns.ts';
 import type { RememberedFill } from './remembered-fill.ts';
 
-/** Mac PowerPoint retains background settings when switching between fill types. */
+/** The reference desktop app (Mac) retains background settings when switching between fill types. */
 export function rememberBackgroundFill(
   pres: PresentationData,
   slide: SlideData,

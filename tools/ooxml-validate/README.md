@@ -1,6 +1,6 @@
 # ooxml-validate
 
-A tiny .NET console app that runs Microsoft's **OpenXmlValidator** (the engine
+A tiny .NET console app that runs the Open XML SDK's **OpenXmlValidator** (the engine
 behind the [Open XML SDK Productivity Tool](https://github.com/dotnet/Open-XML-SDK))
 over generated `.pptx` files.
 
@@ -9,8 +9,8 @@ over generated `.pptx` files.
 The test suite already validates every emitted XML part against the ECMA-376
 XSDs with `xmllint`. That catches **structural** schema violations, but XSDs
 can't express the **semantic** OOXML rules — attribute co-constraints,
-relationship targeting, value ranges, part-level invariants — that PowerPoint
-enforces when it decides a file is corrupt. `OpenXmlValidator` is a second,
+relationship targeting, value ranges, part-level invariants — that the reference desktop
+app enforces when it decides a file is corrupt. `OpenXmlValidator` is a second,
 independent oracle that checks those rules.
 
 It is intentionally a separate toolchain (.NET, not the JS hot path), so it

@@ -4,12 +4,12 @@
 
 ### Minor Changes
 
-- e860ae8: Preset shapes are now drawn from ECMA-376's own preset definitions instead of hand-written approximations. The preview, the editor canvas and its Shapes gallery icons showed many presets wrongly — hearts, lightning bolts, suns, moons, clouds, brackets and braces, bent and curved arrows, the equation shapes, stars with 7 to 32 points — and now match PowerPoint, including the lit and shaded faces of cubes, cans and curved arrows, adjust handles on every preset, and elliptical arcs in custom geometry (whose `arcTo` angles were read as parametric instead of visual angles). Text in a preset now wraps inside the rectangle the definition gives it, such as an ellipse's inscribed rectangle, as PowerPoint does.
+- e860ae8: Preset shapes are now drawn from ECMA-376's own preset definitions instead of hand-written approximations. The preview, the editor canvas and its Shapes gallery icons showed many presets wrongly — hearts, lightning bolts, suns, moons, clouds, brackets and braces, bent and curved arrows, the equation shapes, stars with 7 to 32 points — and now match the reference desktop app, including the lit and shaded faces of cubes, cans and curved arrows, adjust handles on every preset, and elliptical arcs in custom geometry (whose `arcTo` angles were read as parametric instead of visual angles). Text in a preset now wraps inside the rectangle the definition gives it, such as an ellipse's inscribed rectangle, as the reference desktop app does.
 
   - `@office-kit/pptx`: new `getPresetGeometry(preset, size, adjustValues?)` evaluates any preset's paths and text rectangle in the same form as `getShapeCustomGeometry`.
   - `@office-kit/pptx-preview` (breaking): `shapeCustomTextRect(custom, extent)` is replaced by `shapeTextRect(shape)`, which reads custom and preset geometry alike, and `resolveTextBodyRect` now takes `(bounds, margins, region)` with the region from `shapeTextRect`.
 
-- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as PowerPoint's Soft Bevel and Sharp Bevel WordArt write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
+- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as the reference desktop app's Soft Bevel and Sharp Bevel WordArt write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
 
 ### Patch Changes
 
@@ -22,7 +22,7 @@
 
 ### Minor Changes
 
-- e18d19d: Support PowerPoint's Top, Middle and Bottom Centered text anchors through the existing `setShapeTextAnchor` API's `centered` option. Resolve inherited centering through `getShapeBodyPrEffective`, preserve paragraph alignment, and expose all six anchor choices in the editor with preview and text-editing support.
+- e18d19d: Support the reference desktop app's Top, Middle and Bottom Centered text anchors through the existing `setShapeTextAnchor` API's `centered` option. Resolve inherited centering through `getShapeBodyPrEffective`, preserve paragraph alignment, and expose all six anchor choices in the editor with preview and text-editing support.
 
   Preview integrations can use `shapeTextAnchorOffset` to position editable text consistently with the rendered text block.
 
@@ -74,7 +74,7 @@
 - e18d19d: Slide numbers, as live fields rather than typed text.
 
   `setShapeTextField(shape, type, { text })` writes an `<a:fld>` — the slide's
-  number, a date, a footer — replacing the shape's text body the way PowerPoint
+  number, a date, a footer — replacing the shape's text body the way the reference desktop app
   writes one, and carrying the replaced text's formatting onto the field.
   `addSlidePlaceholder(slide, type)` restores a single slot the layout reserves
   (`sldNum`, `dt`, `ftr`, …), where `addMissingSlidePlaceholders` restores them
@@ -88,7 +88,7 @@ firstSlideNum>`.
   Japanese.
 
 - e18d19d: Extend the existing paragraph formatting API to table cells, render their bullets and paragraph spacing, and add bilingual editor controls for individual cell paragraphs and selected cell ranges. Preserve rich text and support undo, redo, and save/reload.
-- e18d19d: Paint text runs with a gradient fill (`<a:gradFill>`) or pattern fill (`<a:pattFill>`), such as PowerPoint's gradient and pattern WordArt presets. These runs were previously drawn in the default text color. A gradient spans the whole text block, including every line, as in PowerPoint. Theme colors and their tints are resolved. Pattern fills use the same tiles as shape pattern fills. This works in both the SVG and the browser (`foreignObject`) text layouts. The editor canvas now shows these fills, also while the text is being edited.
+- e18d19d: Paint text runs with a gradient fill (`<a:gradFill>`) or pattern fill (`<a:pattFill>`), such as the reference desktop app's gradient and pattern WordArt presets. These runs were previously drawn in the default text color. A gradient spans the whole text block, including every line, as in the reference desktop app. Theme colors and their tints are resolved. Pattern fills use the same tiles as shape pattern fills. This works in both the SVG and the browser (`foreignObject`) text layouts. The editor canvas now shows these fills, also while the text is being edited.
 - e18d19d: Keep heavy, long-dash, dash-dot, double-wave, and words-only underlines visible when entering text editing, without moving the text or changing solid strikethroughs. Expose `textUnderlineStyle` so custom HTML editors can share the preview's DrawingML underline rendering.
 
 ### Patch Changes
@@ -109,7 +109,7 @@ firstSlideNum>`.
 
   Preserve bullet formatting inherited from layouts and masters in previews and while editing text, including explicit follow-text overrides.
 
-- e18d19d: Hide bullet markers on empty paragraphs in the browser preview, matching PowerPoint while preserving their list formatting.
+- e18d19d: Hide bullet markers on empty paragraphs in the browser preview, matching the reference desktop app while preserving their list formatting.
 - e18d19d: Add bilingual image upload and replacement dialogs, crop and appearance controls,
   and alternative text editing to the development preview. Preserve picture geometry
   and crop during replacement and support undo and persisted reloads.
@@ -118,7 +118,7 @@ firstSlideNum>`.
   reduces color separation without inverting the picture.
 
 - e18d19d: Keep linear gradients fixed to the slide when Rotate with shape is disabled, including on wide or tall rotated shapes.
-- e18d19d: Preserve gradient stop transparency when reading shapes and expose theme-resolved stop colors. Shape previews now render the brightness and transparency saved by PowerPoint for linear and radial gradient stops.
+- e18d19d: Preserve gradient stop transparency when reading shapes and expose theme-resolved stop colors. Shape previews now render the brightness and transparency saved by the reference desktop app for linear and radial gradient stops.
 - e18d19d: Add image-fill placement readers and setters for tile alignment, scale, offsets, mirroring, stretch offsets and rotation with the shape. Placement changes preserve the embedded image, crop and effects. Preview now renders stretch offsets and clips the image to the shape.
 - e18d19d: Keep shape text readable inside flipped groups, including nested rotated groups, while preserving the transformed text position and baseline direction.
 - e18d19d: Add `isSlideBackgroundGraphicsHidden`, `setSlideBackgroundGraphicsHidden`, and `isSlideLayoutBackgroundGraphicsHidden` to inspect and control inherited decoration without deleting template content. Apply to All also copies the graphics visibility setting to slides and layouts. The preview honors both levels, and the editor's Format Background pane supports changing selected slides with undo and save/reload.
@@ -129,26 +129,26 @@ firstSlideNum>`.
 - e18d19d: Resolve internal slide link targets by package and part name so preview links retain the correct destination after reading, reordering, and saving a presentation.
 - e18d19d: Apply OOXML kerning thresholds consistently in SVG and HTML preview layout, fontkit and browser measurement, and inline text editing.
 - e18d19d: Preserve the font size of leading empty lines in shapes and table cells, preventing text from jumping when editing begins.
-- e18d19d: Apply last-column formatting to horizontally merged table cells that reach the right edge, matching PowerPoint even when the cell starts in an earlier column.
-- e18d19d: Apply total-row formatting to vertically merged table cells that reach the last row, matching PowerPoint even when the cell starts in an earlier row.
+- e18d19d: Apply last-column formatting to horizontally merged table cells that reach the right edge, matching the reference desktop app even when the cell starts in an earlier column.
+- e18d19d: Apply total-row formatting to vertically merged table cells that reach the last row, matching the reference desktop app even when the cell starts in an earlier row.
 - e18d19d: Fix existing text in shapes and table cells incorrectly adopting the font, size, or emphasis saved for newly inserted text at the end of a paragraph.
-- e18d19d: Keep ordinary Latin words intact in SVG previews unless the paragraph explicitly allows mid-word wrapping, while still emergency-splitting words that cannot fit on an empty line as PowerPoint does. This matches the DrawingML `latinLnBrk` setting and PowerPoint's handling of narrow preset shapes.
+- e18d19d: Keep ordinary Latin words intact in SVG previews unless the paragraph explicitly allows mid-word wrapping, while still emergency-splitting words that cannot fit on an empty line as the reference desktop app does. This matches the DrawingML `latinLnBrk` setting and the reference desktop app's handling of narrow preset shapes.
 
   When mid-word wrapping is enabled, use the remaining line width while keeping East Asian closing punctuation attached to its preceding character.
 
 - e18d19d: Render picture outlines along the image shape, including cropped masks and rotation. Add bilingual image-border color, width, and line-style controls with undo, redo, and saved persistence.
-- e18d19d: Preserve image detail when applying Washout and match PowerPoint's brightness and contrast calculation in slide previews, live video, and correction thumbnails.
+- e18d19d: Preserve image detail when applying Washout and match the reference desktop app's brightness and contrast calculation in slide previews, live video, and correction thumbnails.
 - e18d19d: Preserve different outline colors and widths on adjacent text runs in SVG previews instead of applying the first run's outline to the entire word.
 - e18d19d: Preserve double strikethrough in browser and SVG previews instead of displaying it as a single line, including text with underlines.
 - e18d19d: Render picture duotone recolor colors without unintentionally brightening their RGB values.
-- e18d19d: Render radial gradient focus positions using PowerPoint's edge insets, so corner directions no longer appear centered.
+- e18d19d: Render radial gradient focus positions using the reference desktop app's edge insets, so corner directions no longer appear centered.
 - e18d19d: Preserve custom superscript and subscript offsets in previews instead of drawing all offsets at the same height. Keep the run's own font size when shrinking script text in HTML previews.
 - e18d19d: Align browser-preview custom tabs with the painted width of text that uses expanded or condensed character spacing, including combining characters.
 - e18d19d: Render character-level inner shadows in both SVG and editable foreignObject preview text paths.
 - e18d19d: Render PNG and JPEG image fills as repeating tiles with alignment, offsets, independent scaling and alternating horizontal/vertical reflections. Use embedded PNG/JFIF resolution or an explicit fill DPI to size the tiles. Add `getShapeImageIntrinsicSize` to read the image's unscaled physical size.
-- e18d19d: Preserve fonts, text colors, bold and italic formatting inherited from embedded table styles when displaying, editing and copying table text. Apply header, footer, banded row and column, and corner formatting in PowerPoint's precedence order while keeping explicitly formatted cell text unchanged.
+- e18d19d: Preserve fonts, text colors, bold and italic formatting inherited from embedded table styles when displaying, editing and copying table text. Apply header, footer, banded row and column, and corner formatting in the reference desktop app's precedence order while keeping explicitly formatted cell text unchanged.
 - e18d19d: Render character-level DrawingML reflections in the SVG preview using the laid-out glyph positions, including per-run opacity, fade, blur, and vertical scale.
-- e18d19d: Render rectangular gradient fills with rectangular contours and the correct center or corner direction. Correct radial gradient color order so the first stop appears at the focus, matching PowerPoint.
+- e18d19d: Render rectangular gradient fills with rectangular contours and the correct center or corner direction. Correct radial gradient color order so the first stop appears at the focus, matching the reference desktop app.
 - e18d19d: Apply gradient stop brightness and theme colors when previewing slide, layout and master backgrounds. Background gradient readers now include resolved stop colors while preserving their original color tokens for editing.
 - e18d19d: Preserve the axis-swapped text rectangle used by pure SVG vertical layout, including asymmetric text margins.
 - e18d19d: Open the editor's Selection Pane to select nested objects, rename them, and show or hide individual objects or the whole slide's objects with undo and autosave.
@@ -159,7 +159,7 @@ firstSlideNum>`.
 - e18d19d: Allow getShapeRunFormatEffective to resolve fields with a fieldIndex selector. Preserve inherited fonts, sizes, colors, and emphasis for shape fields when displaying, editing, inspecting, and copying their text.
 - e18d19d: Read and preview theme-referenced shape fills, including solid colors, transparency, and gradient stops, using each shape's slide master theme. Direct shape fills continue to override theme references. The fill opacity reader accepts an optional presentation argument to resolve theme transparency.
 
-  Use a shape style's text color and theme font defaults when its existing text formatting does not supply them, so text in PowerPoint's colored shape styles keeps its intended color.
+  Use a shape style's text color and theme font defaults when its existing text formatting does not supply them, so text in the reference desktop app's colored shape styles keeps its intended color.
 
 - e18d19d: Resolve text fonts from each slide's own master theme, and honor shape-style font and color defaults ahead of inherited placeholder formatting. Shapes using their group's fill now inherit solid colors, transparency, and gradient details instead of falling back to their own theme style.
 - e18d19d: Preserve and play links that return to the last viewed slide or end the slide show. Offer both destinations in the link editor for shapes, selected text, and table cells.
@@ -178,9 +178,9 @@ firstSlideNum>`.
 - e18d19d: Add effective table cell appearance resolution for embedded table styles and the built-in Medium Style 2 – Accent 1 style. Resolve theme fill and line references, preview solid cell fills and styled borders, preserve explicitly transparent cells, and stop adding white table backgrounds or gray borders that are absent from the presentation.
 - e18d19d: Keep table cell text readable when a table or its containing group is flipped, in both browser preview and SVG output.
 - e18d19d: Honor table-cell text direction in previews and inline editing. Keep vertical text in place when editing cells with asymmetric margins, including bottom-to-top and upright right-to-left text.
-- e18d19d: Display theme-referenced background gradients instead of a solid color, including radial backgrounds selected with PowerPoint's Background Styles gallery. Resolve gradient colors through the owning slide master's theme and color map while preserving the original theme and background XML on save.
+- e18d19d: Display theme-referenced background gradients instead of a solid color, including radial backgrounds selected with the reference desktop app's Background Styles gallery. Resolve gradient colors through the owning slide master's theme and color map while preserving the original theme and background XML on save.
 - e18d19d: Resolve shape style effect references against the owning slide master's theme, including placeholder colors and explicit empty effect lists in the layout-to-master cascade.
-- e18d19d: Preserve theme-based shape outlines in previews, including line colors and widths from PowerPoint Quick Styles. Direct line formatting now retains theme properties that it does not override.
+- e18d19d: Preserve theme-based shape outlines in previews, including line colors and widths from the reference desktop app's Quick Styles. Direct line formatting now retains theme properties that it does not override.
 - e18d19d: Add slide-background shape fills through `setShapeSlideBackgroundFill` and the editor's Fill pane, including multiple selection, undo and saved reloads. Fill readers expose the new `background` kind. Preview paints the slide background through these shapes while keeping it aligned through shape and group transforms.
 - e18d19d: Keep Japanese punctuation attached to neighboring text when a font or formatting change splits the text into separate runs in SVG previews.
 - e18d19d: Support reading and editing source crops on image-filled shapes with the existing image crop functions. Preview cropped image tiles at their cropped size, including mirrored tiles.
@@ -194,7 +194,7 @@ firstSlideNum>`.
   Enable Home font controls for selected table cells, including the Font dialog, while preserving mixed formatting and single-step undo.
 
 - e18d19d: Show imported inner shadows over opaque shapes instead of hiding them behind the shape fill.
-- e18d19d: Use zero spacing between text columns when the presentation omits a column gap, matching Mac PowerPoint in previews and inline editing.
+- e18d19d: Use zero spacing between text columns when the presentation omits a column gap, matching the reference desktop app (Mac) in previews and inline editing.
 - Updated dependencies [e18d19d]
 - Updated dependencies [e18d19d]
 - Updated dependencies [e18d19d]
@@ -426,8 +426,8 @@ firstSlideNum>`.
 
 ### Patch Changes
 
-- 8a8ac43: Paint an unstyled bullet in its paragraph's first-run colour. Without `<a:buClr>` anywhere in the cascade the renderer fell back to the deck's body-text colour, so a numbered agenda whose runs carry their own light colour drew its `1.` / `a.` markers in the default black and they sank into a dark background. PowerPoint and LibreOffice take the first run's colour, which is the same rule an un-sized bullet already followed for its size.
-- 8a8ac43: Keep a resized group's text at its authored size in the preview. A group whose `<a:ext>` differs from its `<a:chExt>` scales its children, and the renderer was applying that scale to their glyphs as well, so a group squashed vertically (what Google Slides writes for a hand-resized group) drew stretched, half-height letters. PowerPoint and LibreOffice resize only the geometry, so the text now lays out inside the group-scaled rect at its authored point size and aspect.
+- 8a8ac43: Paint an unstyled bullet in its paragraph's first-run colour. Without `<a:buClr>` anywhere in the cascade the renderer fell back to the deck's body-text colour, so a numbered agenda whose runs carry their own light colour drew its `1.` / `a.` markers in the default black and they sank into a dark background. The reference desktop app and LibreOffice take the first run's colour, which is the same rule an un-sized bullet already followed for its size.
+- 8a8ac43: Keep a resized group's text at its authored size in the preview. A group whose `<a:ext>` differs from its `<a:chExt>` scales its children, and the renderer was applying that scale to their glyphs as well, so a group squashed vertically (what Google Slides writes for a hand-resized group) drew stretched, half-height letters. The reference desktop app and LibreOffice resize only the geometry, so the text now lays out inside the group-scaled rect at its authored point size and aspect.
 
 ## 0.9.7
 
@@ -435,7 +435,7 @@ firstSlideNum>`.
 
 - 978c317: fix: auto-numbered lists restarted at 1 after a nested list
 
-  The preview kept a single numbering counter and reset it on every indent-level change, so a top-level list with nested items between its entries rendered as `1. / a. / b. / 1. / 1.`. PowerPoint keeps one counter per level: the outer list continues (`2.`, `3.`) and only deeper levels reset when a shallower paragraph starts. A non-numbered paragraph still restarts its own level, and a different numbering scheme at the same level starts over.
+  The preview kept a single numbering counter and reset it on every indent-level change, so a top-level list with nested items between its entries rendered as `1. / a. / b. / 1. / 1.`. The reference desktop app keeps one counter per level: the outer list continues (`2.`, `3.`) and only deeper levels reset when a shallower paragraph starts. A non-numbered paragraph still restarts its own level, and a different numbering scheme at the same level starts over.
 
 ## 0.9.6
 
@@ -452,7 +452,7 @@ firstSlideNum>`.
   - Per series: `errorBars` / `xErrorBars` (fixed, percentage, standard deviation, standard error, custom), `fillOpacity`.
   - Per chart: `dataTable`, `upDownBars`, `categoryAxisDate` (date axis with time units), `categoryGroupLevels` (multi-level category labels), `categoryAxisScaling` (the x axis of scatter / bubble charts, or a date axis' range), `plotAreaLayout` / `titleLayout` / `legend.layout` (manual placement), `valueAxisLineHidden` / `categoryAxisLineHidden`, `valueAxis.displayUnitsLabel`.
   - Data labels gain `showBubbleSize`, `showLegendKey`, `fillColor`, and per-point `text` (a literal label, e.g. naming one scatter point).
-  - A spec whose fields contradict each other (`view3D` on a scatter chart, error bars on a pie, a date axis with non-numeric categories, …) throws with a message naming the field, instead of writing a chart PowerPoint would repair.
+  - A spec whose fields contradict each other (`view3D` on a scatter chart, error bars on a pie, a date axis with non-numeric categories, …) throws with a message naming the field, instead of writing a chart the reference desktop app would repair.
 
   Behavior changes when reading existing decks:
 
@@ -467,7 +467,7 @@ firstSlideNum>`.
 
 ### Patch Changes
 
-- a13afc2: fix: bar and column charts ignored per-point colors (`pointColors` / `<c:dPt>`), so a "one bar highlighted, the rest grey" chart rendered in a single color. The preview now paints them, as PowerPoint does.
+- a13afc2: fix: bar and column charts ignored per-point colors (`pointColors` / `<c:dPt>`), so a "one bar highlighted, the rest grey" chart rendered in a single color. The preview now paints them, as the reference desktop app does.
 
 ## 0.9.4
 
@@ -480,13 +480,13 @@ firstSlideNum>`.
   - `setShapeParagraphs(shape, paragraphs)` and `setTableCellParagraphs(cell, paragraphs)` replace a shape's or cell's text with paragraphs that each carry their own alignment and several differently formatted runs; run text is written verbatim. An empty paragraph list is rejected (use `[{ runs: [] }]` for an empty body).
   - `ChartSpec.valueAxisTickLabelPos` positions the primary value-axis tick labels (`none` / `low` / `high` / `nextTo`), mirroring `categoryAxisTickLabelPos`.
   - `ChartSeries.lineColor` sets the series outline / line color separately from its fill (a doughnut's slice borders, for example), and the reader returns the `<a:ln>` color of every series.
-  - `ChartSeries.markerColor` / `markerLineColor` set the marker fill and outline colors of a line / scatter / radar series, and the reader returns both. The builder now always writes them (the fill defaults to the series color, the outline to the fill), because PowerPoint paints a marker without `<c:spPr>` in the theme's automatic color rather than the series color.
+  - `ChartSeries.markerColor` / `markerLineColor` set the marker fill and outline colors of a line / scatter / radar series, and the reader returns both. The builder now always writes them (the fill defaults to the series color, the outline to the fill), because the reference desktop app paints a marker without `<c:spPr>` in the theme's automatic color rather than the series color.
   - `@office-kit/pptx-preview` paints chart markers (data points and legend swatches) in `markerColor` / `markerLineColor` and strokes line / scatter / radar series in `lineColor`, instead of always using the series color.
-  - Axis lines and gridlines carry a width next to their color: `valueAxisLineWidthEmu` / `categoryAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` / `valueAxisMinorGridlineWidthEmu`, `categoryAxisMajorGridlineWidthEmu` / `categoryAxisMinorGridlineWidthEmu`, and `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu` (EMU, 12700 = 1 pt). The reader returns them, and a width of 0 — valid in the schema — now reads back on these and on a series' `lineWidthEmu` instead of turning into `undefined`. Without a width PowerPoint draws these lines at 0.75 pt, so a 1 pt line from another writer used to come back thinner.
+  - Axis lines and gridlines carry a width next to their color: `valueAxisLineWidthEmu` / `categoryAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` / `valueAxisMinorGridlineWidthEmu`, `categoryAxisMajorGridlineWidthEmu` / `categoryAxisMinorGridlineWidthEmu`, and `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu` (EMU, 12700 = 1 pt). The reader returns them, and a width of 0 — valid in the schema — now reads back on these and on a series' `lineWidthEmu` instead of turning into `undefined`. Without a width the reference desktop app draws these lines at 0.75 pt, so a 1 pt line from another writer used to come back thinner.
   - `ChartDataLabels.showLeaderLines` writes and reads `<c:showLeaderLines>` on series- and chart-level labels (per-point overrides have no such setting).
-  - Chart, axis and secondary-axis titles no longer force a 14 pt default size or a horizontal layout: without `sizePt` the application default applies, and a title without a rotation writes neither `rot` nor `vert="horz"` (PowerPoint reads a lone `vert="horz"` as "not rotated"), so a value-axis title takes PowerPoint's default (vertical) — pass `0` to keep it horizontal. The reader merges a title's paragraph defaults under its run style.
+  - Chart, axis and secondary-axis titles no longer force a 14 pt default size or a horizontal layout: without `sizePt` the application default applies, and a title without a rotation writes neither `rot` nor `vert="horz"` (the reference desktop app reads a lone `vert="horz"` as "not rotated"), so a value-axis title takes the reference desktop app's default (vertical) — pass `0` to keep it horizontal. The reader merges a title's paragraph defaults under its run style.
   - Combo series are shaped by their own `chartKind`: a line series in a column chart keeps its markers and `smooth`, and line / area plot groups write a schema-valid `<c:grouping>` (`standard` instead of the bar-only `clustered`).
-  - Horizontal bar charts (`kind: 'bar'`) now put the category axis on the left and the value axis at the bottom, matching PowerPoint; the hidden companion category axis of a secondary axis follows the primary one.
+  - Horizontal bar charts (`kind: 'bar'`) now put the category axis on the left and the value axis at the bottom, matching the reference desktop app; the hidden companion category axis of a secondary axis follows the primary one.
   - The chart reader honors `<c:ptCount>` (including on multi-level category caches), so series with empty trailing points keep their full length on read-back; cache points past the authored count are dropped.
   - The chart reader identifies the secondary value axis by which plot groups reference it, not by its position, so a scatter chart's X axis at the top no longer reads as secondary and decks that list the secondary axis pair first read back correctly.
   - The XML parser applies XML 1.0 end-of-line handling: a raw CR LF or CR in a part reads as LF, while a `&#13;` character reference still yields a CR.
@@ -531,7 +531,7 @@ firstSlideNum>`.
   wrapper pushed the whole clause to the next line, leaving artifacts like a
   lone bullet glyph on its own line. CJK runs now break between any two
   characters with simple kinsoku (closing punctuation glued to its
-  predecessor, opening brackets to their successor), matching PowerPoint's
+  predecessor, opening brackets to their successor), matching the reference desktop app's
   East Asian line breaking.
 
   Chart legends previously packed items into fixed-width slots
@@ -550,7 +550,7 @@ firstSlideNum>`.
   `ChartSeries` gains `chartKind` (`'bar' | 'column' | 'line' | 'area'`) to
   overlay e.g. a line series on a column chart, and `secondaryAxis: true` to
   plot a series against a right-hand secondary value axis — the standard
-  PowerPoint combo layout for series with mixed units (counts vs. rates).
+  the reference desktop app's combo layout for series with mixed units (counts vs. rates).
   The builder splits series into plot groups (`<c:barChart>` + `<c:lineChart>`
   …) and emits the secondary `<c:valAx>`/`<c:catAx>` pair on demand;
   `getShapeChartSpec` round-trips both fields. The preview renderer paints
@@ -563,15 +563,15 @@ firstSlideNum>`.
 
 - 553e3d9: fix(preview): stop shrinking text in shapes without `<a:normAutofit>`
 
-  PowerPoint never shrinks text in shapes that lack `<a:normAutofit>`:
+  The reference desktop app never shrinks text in shapes that lack `<a:normAutofit>`:
   `<a:noAutofit>` (or no autofit element) simply overflows the box, and
   `<a:spAutoFit>` grows the box to fit the text. The preview applied a
   heuristic shrink-to-fit to such shapes, which rendered template
   placeholders (font size inherited from the layout/master, box authored
-  tightly around the sample text) at down to 0.4× of their PowerPoint
-  size. The heuristic estimator is removed; only an authored
+  tightly around the sample text) at down to 0.4× of their size in the
+  reference desktop app. The heuristic estimator is removed; only an authored
   `<a:normAutofit>` (with or without a baked `fontScale`) shrinks text,
-  matching PowerPoint.
+  matching the reference desktop app.
 
 ## 0.8.0
 
@@ -645,9 +645,9 @@ firstSlideNum>`.
     superscript/subscript run) and as real CSS in the browser path (without
     also waving a strikethrough on the same run — CSS's `text-decoration-style`
     is a single value for the whole underline + line-through shorthand, and
-    PowerPoint always draws strikethrough solid regardless of underline style).
+    the reference desktop app always draws strikethrough solid regardless of underline style).
   - **Rotated + vertically-flipped shape text** no longer renders upside-down;
-    PowerPoint adds a compensating 180° turn to the text specifically for
+    the reference desktop app adds a compensating 180° turn to the text specifically for
     `flip.vertical`, independent of `flip.horizontal`. (A shape nested inside a
     vertically-flipped group is not yet covered by this — see the `KNOWN GAP`
     comment on the group-rendering path in `render-slide.ts`.)
@@ -657,11 +657,11 @@ firstSlideNum>`.
     transform, cancelling itself out and pointing any arrowhead away from its
     target.
   - **Pie/doughnut data labels** now join as `<category> — <value/percent>`
-    (e.g. "Web — 48%"), matching PowerPoint/LibreOffice's order instead of the
+    (e.g. "Web — 48%"), matching the order of the reference desktop app and LibreOffice instead of the
     reverse.
   - **Overlapping (non-stacked) area charts** now paint each series' fill AND
     outline back-to-front as one unit, so the first-authored series stays fully
-    on top, matching PowerPoint; the category-axis title no longer collides
+    on top, matching the reference desktop app; the category-axis title no longer collides
     with the tick-label row.
   - **Table row/column banding** now uses a pale tint (not a near-solid accent
     color), alternates between two tints across every body row (previously every
@@ -679,7 +679,7 @@ firstSlideNum>`.
   the rotated text-box insets, glow effects render as a saturated ring instead of
   a pale haze, hyperlink runs take the theme `hlink` colour, bullets size to the
   paragraph's first run and follow centred/right-aligned text, line breaking is
-  space-inclusive (matching LibreOffice/PowerPoint), the first text baseline gets
+  space-inclusive (matching LibreOffice and the reference desktop app), the first text baseline gets
   the same leading drop for every anchor, and category line charts plot at band
   centres with title/axis text sized in pixels. Overall mean fg-SSIM rises from
   ≈0.82 to ≈0.87.
@@ -693,10 +693,10 @@ firstSlideNum>`.
     through to a 50%-coverage checker — the old matcher keyed on GDI HatchStyle
     names no valid OOXML emits.
   - **`wordArtVert` / `wordArtVertRtl`** stack glyphs upright (one per line) per
-    `ST_TextVerticalType`, instead of rotating the run 90°, matching PowerPoint
+    `ST_TextVerticalType`, instead of rotating the run 90°, matching the reference desktop app
     and the browser (`text-orientation:upright`) path.
   - **`<a:normAutofit/>` without a baked `fontScale`** now shrinks text to fit the
-    box, so overflowing bodies render at the reduced size PowerPoint/LibreOffice
+    box, so overflowing bodies render at the reduced size the reference desktop app and LibreOffice
     compute at display time rather than spilling past the box. The shrink factor is
     computed once and shared, so the server (SVG) and browser (`foreignObject`)
     previews agree.
@@ -724,7 +724,7 @@ firstSlideNum>`.
 
 ### Patch Changes
 
-- 333b19f: fix: chart rendering now matches PowerPoint. The renderer drew an invented
+- 333b19f: fix: chart rendering now matches the reference desktop app. The renderer drew an invented
   light-gray chart-area frame, omitted axis spines, used faint inward tick stubs,
   defaulted value-axis gridlines on, rendered every line/scatter marker as a
   circle, and drew bar charts with the category axis upside-down. Now:
@@ -732,14 +732,14 @@ firstSlideNum>`.
   - The chart-area border is drawn only when the chart authors one.
   - Value and category axes draw their spine and outward major tick marks.
   - Major gridlines render only when authored (`<c:majorGridlines>`).
-  - Line / scatter / radar markers follow PowerPoint's automatic symbol
+  - Line / scatter / radar markers follow the reference desktop app's automatic symbol
     rotation (diamond, square, triangle, x, …) when no symbol is authored.
-  - Bar charts order categories bottom-to-top, matching PowerPoint.
+  - Bar charts order categories bottom-to-top, matching the reference desktop app.
 
 - 333b19f: fix: percentage pattern fills (`pct5`…`pct90`) now render at the requested
   coverage. They were drawn as a sparse 1–4 dot grid that read far too light —
   `pct50` looked like ~5% ink instead of a 50% screen. They now use an ordered
-  (Bayer) dither so the tone matches PowerPoint.
+  (Bayer) dither so the tone matches the reference desktop app.
 
 ## 0.3.1
 
@@ -747,7 +747,7 @@ firstSlideNum>`.
 
 - 0f7c538: Preview: take the default text color from the deck's body style, not the `tx1` token
 
-  The preview used `scheme:tx1` as the fallback color for runs without an authored color. On a template with an inverted color map (`tx1 → lt1`) that resolves to the light slot, so body text was painted white on the white background — the whole slide looked blank. PowerPoint instead takes the fallback from the master `bodyStyle` (e.g. `schemeClr bg1`). The preview now does the same via the newly exported `resolveDeckBodyTextColor(slide)`, so default-colored text and table-cell text resolve to the color PowerPoint actually paints.
+  The preview used `scheme:tx1` as the fallback color for runs without an authored color. On a template with an inverted color map (`tx1 → lt1`) that resolves to the light slot, so body text was painted white on the white background — the whole slide looked blank. The reference desktop app instead takes the fallback from the master `bodyStyle` (e.g. `schemeClr bg1`). The preview now does the same via the newly exported `resolveDeckBodyTextColor(slide)`, so default-colored text and table-cell text resolve to the color the reference desktop app actually paints.
 
   - New export **`resolveDeckBodyTextColor(slide)`** — the deck's resolved body-text color (master `bodyStyle`, run through the effective color map + theme). This is the color `addSlideTable` / `addSlideChart` bake in, now reusable by renderers.
 
@@ -757,12 +757,12 @@ firstSlideNum>`.
 
 - 4a2ede1: Resolve scheme colors through the slide's color map so inverted-map templates render correctly
 
-  Templates whose slide master inverts the color map (`<p:clrMap bg1="dk1" tx1="lt1">`, common in Google Slides / Canva exports) previously rendered with swapped light/dark colors: slide backgrounds came out black in the preview while PowerPoint paints them white, and generated tables and charts came out with invisible text (the default `tx1` token resolved to the same color as the background).
+  Templates whose slide master inverts the color map (`<p:clrMap bg1="dk1" tx1="lt1">`, common in Google Slides / Canva exports) previously rendered with swapped light/dark colors: slide backgrounds came out black in the preview while the reference desktop app paints them white, and generated tables and charts came out with invisible text (the default `tx1` token resolved to the same color as the background).
 
   - **`getEffectiveColorMap(slide)`** — new export returning the slide's effective color map (the master's `<p:clrMap>` overlaid by a per-slide `<p:clrMapOvr>`). Color resolution and renderers apply it to `schemeClr` tokens before indexing the theme.
   - **`resolveDrawingColor(colorEl, theme, clrMap?)`** — accepts an optional color map; scheme tokens are remapped through it before the theme lookup. Omitting it preserves the previous behavior (correct for the standard map).
   - **`addSlideTable` / `addSlideChart`** now bake the deck's resolved body-text color onto table cells and chart text (axis labels, legend, data labels) so generated tables and charts stay readable regardless of the template's color map. Authored colors still win; override table cells afterwards with `setTableCellTextFormat`.
-  - **`pptx-kit-preview`** resolves `schemeClr` tokens through the effective color map, so previews of inverted-map decks match what PowerPoint paints.
+  - **`pptx-kit-preview`** resolves `schemeClr` tokens through the effective color map, so previews of inverted-map decks match what the reference desktop app paints.
 
 ## 0.2.0
 
@@ -806,7 +806,7 @@ firstSlideNum>`.
   pure-SVG text mode (`textLayout: 'svg'`) used by server-side rasterization.
   Previously they fell back to horizontal single-column layout; now the server
   output matches the browser (`foreignObject`) path: rotated line stacking for
-  vertical text and PowerPoint-style sequential column fill for multi-column
+  vertical text and desktop-app-style sequential column fill for multi-column
   bodies. Browser rendering is unchanged.
 - 2207ed1: feat: scatter, radar, and bubble charts are now modeled as their own
   `ChartKind`s instead of being folded into `line`. `ChartSeries` gains
@@ -824,5 +824,5 @@ firstSlideNum>`.
   font size, bold, italic, color, typeface, and paragraph alignment — and wraps
   within the cell width, in both the browser (`foreignObject`) and server
   (`svg`) text modes. Previously every cell was drawn at a flat 18 pt with no
-  styling. Cells with no explicit run size still fall back to PowerPoint's 18 pt
+  styling. Cells with no explicit run size still fall back to the reference desktop app's 18 pt
   default in the theme's body font.

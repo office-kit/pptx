@@ -21,7 +21,7 @@
   const editor = getEditor();
   const doc = editor.doc;
   const COMMENTS = 'addSlideComment';
-  // Proofing languages offered first by Mac PowerPoint's Language dialog.
+  // Proofing languages offered first by the reference desktop app's (Mac) Language dialog.
   const LANGUAGES = ['en-US', 'en-GB', 'ja-JP', 'zh-CN', 'zh-TW', 'ko-KR', 'fr-FR', 'de-DE', 'es-ES', 'it-IT', 'pt-BR'];
   const languageName = (tag: string) => new Intl.DisplayNames([navigator.language], { type: 'language' }).of(tag) ?? tag;
 
@@ -64,7 +64,7 @@
 
 <svelte:window onpointerdown={(event) => { if (menu && !(eventTarget(event) as Element).closest?.('.menu-anchor')) menu = null; }} onkeydown={(event) => { if (event.key === 'Escape') menu = null; }} />
 
-<!-- Mac PowerPoint 16's Review tab: Spelling, Thesaurus | Check Accessibility |
+<!-- The reference desktop app's (Mac, 16) Review tab: Spelling, Thesaurus | Check Accessibility |
      Translate, Language | Mark All as Read, Show Changes | New Comment,
      Delete ▾, Previous, Next, a rule, Show Comments | Always Open Read-Only,
      Restrict Permission ▾ | Hide Ink. Unchanged from 1512 to 1200 pt. -->
@@ -164,7 +164,7 @@
 </div>
 
 <style>
-  /* Geometry measured from Mac PowerPoint 16 (POWERPOINT_PARITY.md, "Native
+  /* Geometry measured from the reference desktop app (Mac, 16) (NATIVE_PARITY.md, "Native
      geometry audit"). */
   .review { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
   .cluster { display: flex; flex: none; align-items: stretch; padding: 0 10px; border-right: 1px solid var(--ok-border); }
@@ -177,7 +177,7 @@
   .big { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; min-width: var(--w); padding: 4px 1px; font-size: 11px; line-height: 1.15; text-align: center; }
   .big > span:last-child { max-width: var(--w); margin: 0 -2px; }
   /* Japanese labels wrap per character, so they get at least six characters
-     a line and a smaller size that fits three lines (PowerPoint widens them). */
+     a line and a smaller size that fits three lines (the reference desktop app widens them). */
   .big > span:last-child:lang(ja) { max-width: max(calc(var(--w) - 4px), 6em); font-size: 10px; line-height: 1.1; }
   .icon-row { display: flex; align-items: center; gap: 1px; }
   .arrow { font-size: 11px; }

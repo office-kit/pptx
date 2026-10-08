@@ -12,7 +12,7 @@
   import { defaultTexture, texturePng } from '../core/textures.ts';
 
   // Text Options ▸ Text Fill & Outline: the fill and outline of every run in
-  // the selected shapes, as PowerPoint applies them with no text selected.
+  // the selected shapes, as the reference desktop app applies them with no text selected.
   const editor = getEditor();
   const doc = editor.doc;
   const shapes = $derived.by(() => { doc.version; return editor.selectedShapes().filter((shape) => getShapeKind(shape) === 'shape'); });
@@ -40,7 +40,7 @@
       error = '';
     } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
   }
-  // Like PowerPoint, choosing Picture or texture fill starts from the default
+  // Like the reference desktop app, choosing Picture or texture fill starts from the default
   // texture; Insert, Clipboard and Texture then replace the picture.
   let input = $state<HTMLInputElement>();
   let loading = $state(false);
@@ -86,16 +86,16 @@
       const base = (format.color && asColor(String(format.color))) || 'tx1';
       if (kind === 'solid') return { color: base };
       if (kind === 'pattern') return { textFill: { kind: 'pattern', preset: 'pct5', foreground: 'accent1', background: 'bg1' } };
-      // PowerPoint's default gradient from the run's color: light to dark.
+      // The reference desktop app's default gradient from the run's color: light to dark.
       return { textFill: { kind: 'gradient', path: 'linear', angleDeg: 90, scaled: true, stops: [
         { offset: 0, color: base, brightness: 0.95 }, { offset: 1, color: base, brightness: 0.55 },
       ] } };
     });
   }
-  // English PowerPoint calls both the line type and the solid dash "Solid line";
+  // The reference desktop app's English UI calls both the line type and the solid dash "Solid line";
   // Japanese has 線 (単色) for the type.
   const solidLineLabel = $derived(getLocale() === 'ja' ? '線 (単色)' : 'Solid line');
-  // PowerPoint starts a gradient text outline from the accent 1 ramp it uses
+  // The reference desktop app starts a gradient text outline from the accent 1 ramp it uses
   // for gradient fills.
   const DEFAULT_OUTLINE_GRADIENT = {
     kind: 'gradient', path: 'linear', angleDeg: 90, scaled: true,

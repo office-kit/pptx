@@ -4,7 +4,7 @@
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import type { Preset } from './effects-model.ts';
 
-  // PowerPoint's gallery buttons — 39 × 26 pt (Presets, Depth ...) or
+  // The reference desktop app's gallery buttons — 39 × 26 pt (Presets, Depth ...) or
   // 59 × 60 pt (Top bevel, Material, Lighting, 3-D Rotation presets) — open a
   // popover of square tiles under headings. A gallery with an "off" choice
   // starts with its own heading ("No Shadow") over a single "None" tile.

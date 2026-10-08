@@ -1,6 +1,6 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // PowerPoint's expanded Table Styles gallery: every built-in style under
+  // The reference desktop app's expanded Table Styles gallery: every built-in style under
   // Best Match for Document, Light, Medium and Dark, seven to a row, then
   // Clear Table.
   import { onMount } from 'svelte';
@@ -40,7 +40,7 @@
   }
 
   // Fixed, so the ribbon panel's overflow does not clip it; it opens under
-  // the in-ribbon strip like PowerPoint's.
+  // the in-ribbon strip like the reference desktop app's.
   function place(node: HTMLElement) {
     const bounds = anchor.getBoundingClientRect();
     node.style.left = `${Math.max(8, Math.min(bounds.left, innerWidth - node.offsetWidth - 8))}px`;

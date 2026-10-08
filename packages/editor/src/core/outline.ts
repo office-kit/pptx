@@ -25,7 +25,7 @@ import {
   getSlidePartName,
 } from '@office-kit/pptx';
 
-/** PowerPoint's outline excludes ordinary text boxes and footer placeholders. */
+/** The reference desktop app's outline excludes ordinary text boxes and footer placeholders. */
 export function outlineShapes(slide: SlideData) {
   return getSlideShapes(slide).flatMap((shape) => {
     if (!isShapePlaceholder(shape) || getShapeKind(shape) !== 'shape') return [];
@@ -35,7 +35,7 @@ export function outlineShapes(slide: SlideData) {
   });
 }
 
-/** Mac PowerPoint joins the final body paragraph suffix onto the surviving title. */
+/** The reference desktop app (Mac) joins the final body paragraph suffix onto the surviving title. */
 export function deleteOutlineTitleBodyRange(
   slide: SlideData,
   start: { id: number; offset: number },
@@ -51,7 +51,7 @@ export function deleteOutlineTitleBodyRange(
   setShapeParagraphs(title, { sources: [title, body] });
   setShapeText(title, '', { range: { start: start.offset, end: titleLength + 1 + end.offset } });
   const text = getShapeText(title);
-  // PowerPoint keeps all title paragraphs through the paragraph where deletion starts.
+  // The reference desktop app keeps all title paragraphs through the paragraph where deletion starts.
   let boundary = 0;
   for (const paragraph of getShapeParagraphElements(title)) {
     boundary += paragraph.reduce(
@@ -107,7 +107,7 @@ function paragraphSpans(shape: SlideShapeData): Array<{ start: number; end: numb
  * joins the start paragraph (which keeps its title or body level), and the
  * end slide's remaining body moves onto the start slide. Native comparison
  * covers title-to-title; the body-start and body-end cases follow the same
- * text model (see POWERPOINT_PARITY.md).
+ * text model (see NATIVE_PARITY.md).
  */
 export function deleteOutlineSlideRange(
   pres: PresentationData,
@@ -190,7 +190,7 @@ export function deleteOutlineRange(
 
 /**
  * Enter in an outline title starts a new slide after it with the same layout.
- * Mac PowerPoint moves the title suffix and the whole following body there.
+ * The reference desktop app (Mac) moves the title suffix and the whole following body there.
  */
 export function splitOutlineTitle(
   pres: PresentationData,
@@ -305,7 +305,7 @@ export function moveOutlineParagraphs(
   return { shape: destination, first, last };
 }
 
-/** Preserve PowerPoint's slide boundary when replacing an outline title range. */
+/** Preserve the reference desktop app's slide boundary when replacing an outline title range. */
 export function splitOutlineTitleRange(
   pres: PresentationData,
   slide: SlideData,
@@ -339,7 +339,7 @@ export function splitOutlineTitleRange(
   if (from < 0 || to <= from) return null;
   const source = findShapeById(slide, end.id)!;
   const text = getShapeText(source);
-  // PowerPoint promotes the unselected end paragraph into the new title.
+  // The reference desktop app promotes the unselected end paragraph into the new title.
   // Subsequent body paragraphs stay body paragraphs on the new slide.
   const paragraphs = getShapeParagraphElements(source);
   let boundary = 0;
@@ -430,7 +430,7 @@ export function moveOutlineTitle(pres: PresentationData, slide: SlideData, direc
   return true;
 }
 
-/** Extra objects are discarded by title demotion after PowerPoint's confirmation. */
+/** Extra objects are discarded by title demotion after the reference desktop app's confirmation. */
 export function outlineDemotionNeedsConfirmation(slide: SlideData): boolean {
   const ids = new Set(outlineShapes(slide).map((item) => item.id));
   return getSlideShapes(slide).some(
@@ -464,7 +464,7 @@ function outlineBodyTarget(slide: SlideData): SlideShapeData {
   return target;
 }
 
-/** Mac PowerPoint demotes a slide title into the preceding slide's body. */
+/** The reference desktop app (Mac) demotes a slide title into the preceding slide's body. */
 export function demoteOutlineTitle(
   pres: PresentationData,
   slide: SlideData,
@@ -489,7 +489,7 @@ export function demoteOutlineTitle(
   return target;
 }
 
-/** Mac PowerPoint promotes root body paragraphs into separate slide titles. */
+/** The reference desktop app (Mac) promotes root body paragraphs into separate slide titles. */
 export function promoteOutlineBody(
   pres: PresentationData,
   slide: SlideData,

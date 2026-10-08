@@ -108,11 +108,11 @@
     h: (metrics.heightEmu / 914400) * 96,
   }));
 
-  // Mac PowerPoint's 100% zoom shows one slide point per screen point (72 per
+  // The reference desktop app's (Mac) 100% zoom shows one slide point per screen point (72 per
   // inch). The canvas lays slides out at 96 CSS px per inch, so it draws them at
   // 72/96 of the zoom percentage.
   const MAC_ZOOM_SCALE = 72 / 96;
-  // Fit to Window leaves 22 pt around the slide, as Mac PowerPoint does.
+  // Fit to Window leaves 22 pt around the slide, as the reference desktop app (Mac) does.
   const FIT_MARGIN = 22;
   const canvasScale = $derived(editor.zoom * MAC_ZOOM_SCALE);
   const stageW = $derived(slidePx.w * canvasScale);
@@ -427,7 +427,7 @@
       const entries = [...drag.startRects];
       const delta = { x: dxEmu, y: dyEmu };
       const minimum = { w: metrics.widthEmu * 0.01, h: metrics.heightEmu * 0.01 };
-      // PowerPoint applies the saved ratio to corner handles; edge handles still stretch one axis.
+      // The reference desktop app applies the saved ratio to corner handles; edge handles still stretch one axis.
       const keepAspect = drag.shift || (drag.aspectLocked && drag.handle!.length === 2);
       const resized = drag.ids.length > 1
         ? resizeSelectionRects(entries.map(([id, rect]) => ({ ...rect, rotation: drag!.startRotations.get(id)! })), { ...drag.grabbedRect, rotation: drag.startRot }, drag.handle!, delta, minimum, keepAspect)
@@ -700,7 +700,7 @@
   // Focus can leave the text for the ribbon (which keeps editing alive) and
   // then go elsewhere without another focusout from the canvas, so a selection
   // that no longer holds the edited box — a thumbnail click, say — ends the
-  // edit, as it does in PowerPoint.
+  // edit, as it does in the reference desktop app.
   $effect(() => {
     const id = selectedShapeId(doc.selection);
     untrack(() => {
@@ -1098,7 +1098,7 @@
     };
     return renderTextEffectsSvg(doc.pres, slide, shape, bounds, editing?.cell ? { cell: editing.cell } : {});
   });
-  // Keep body rotation nested inside the shape transform. PowerPoint rotates
+  // Keep body rotation nested inside the shape transform. The reference desktop app rotates
   // the text body around the inner text rectangle, whose centre moves when
   // margins or custom geometry are asymmetric; rotating the outer edit box
   // would visibly move the caret away from the painted glyphs.
@@ -1206,7 +1206,7 @@
       ? getTableCellTextDirection(getTableCells(shape)[editing.cell.row]![editing.cell.col]!)
       : getShapeBodyPrEffective(doc.pres, shape).vert ?? getShapeTextDirection(shape);
     const flow: TextFlow = !verticalTextStyle(direction).declarations ? 'horizontal' : textBodyTurn ? 'vertical-reversed' : 'vertical';
-    // Mac PowerPoint shows the last selected paragraph's markers for a
+    // The reference desktop app (Mac) shows the last selected paragraph's markers for a
     // multi-paragraph selection (native capture 2026-10-07, with the levels in
     // either order). AppleScript cannot select backwards, so "the paragraph
     // holding the selection end" would fit the capture equally well; the last
@@ -1589,7 +1589,7 @@
               onnewline={(kind) => {
                 const source = boxes.find(b => b.id === editing?.id)?.shape;
                 const placeholder = source && !editing?.cell ? getShapePlaceholderType(source) : null;
-                // Mac PowerPoint uses inline breaks for Enter inside title placeholders.
+                // The reference desktop app (Mac) uses inline breaks for Enter inside title placeholders.
                 replaceSelectedText('\n', undefined, placeholder === 'title' || placeholder === 'ctrTitle' ? 'break' : kind);
               }}
               oncopy={(event) => copyEditingText(event)}

@@ -1,6 +1,6 @@
 ---
 name: office-kit-pptx
-description: Create and revise editable PowerPoint presentations with typed TSX and a live slide preview. Use for a new slide deck, changes to an existing PPTX or template, or iterative presentation design with office-kit. Handles project setup, preview, checking and PPTX export.
+description: Create and revise editable presentations with typed TSX and a live slide preview. Use for a new slide deck, changes to an existing PPTX or template, or iterative presentation design with office-kit. Handles project setup, preview, checking and PPTX export.
 ---
 
 # Create slides with office-kit
@@ -139,7 +139,7 @@ including template slides retained in edit mode. Then review the words and the s
 with [the review steps](references/review.md): run `scripts/deck-text.mjs` from this
 skill's directory on `deck.pptx`, judge each flag, read the headline track, and for a
 new deck or a substantial rewrite run one fresh-eye review by a separate agent. The SVG preview is a rendering
-aid, not a guarantee of PowerPoint fidelity or animation/media playback.
+aid, not a guarantee of fidelity in desktop presentation apps or animation/media playback.
 
 Deliver the preview URL, the generated `deck.pptx` path and the editable project
 path. State any unverified rendering or unsupported requested feature. On the

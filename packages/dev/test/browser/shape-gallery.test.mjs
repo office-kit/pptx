@@ -22,7 +22,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide /></Presentation>`;
 
 test(
-  'Shapes opens PowerPoint’s gallery and the chosen shape is drawn by dragging or clicking',
+  'Shapes opens the reference desktop app’s gallery and the chosen shape is drawn by dragging or clicking',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-shape-gallery-'));
@@ -80,7 +80,7 @@ test(
       assert.ok(Math.abs(bounds.x / size.width - 0.25) < 0.02);
       assert.ok(Math.abs(bounds.w / size.width - 0.25) < 0.02);
       assert.equal(await layer.count(), 0);
-      // PowerPoint's new shape: theme accent fill and outline, light centered
+      // The reference desktop app's new shape: theme accent fill and outline, light centered
       // text, named after the shape. Bare geometry would draw nothing.
       assert.equal(getShapeName(oval), 'Oval 1');
       assert.equal(getShapeFillEffective(pres, oval).kind, 'solid');
@@ -98,7 +98,7 @@ test(
       assert.equal(getShapeText(typed), 'Hello');
       assert.match(getShapeXmlString(typed), /<a:r>(?:<a:rPr[^>]*\/>)?<a:t>Hello<\/a:t><\/a:r>/);
 
-      // Brackets and braces are outlines in PowerPoint's line style.
+      // Brackets and braces are outlines in the reference desktop app's line style.
       await panel.getByRole('button', { name: 'Shapes', exact: true }).click();
       await gallery.getByRole('menuitem', { name: 'Left Bracket', exact: true }).click();
       await changed(() => page.mouse.click(box.x + box.width * 0.1, box.y + box.height * 0.7));

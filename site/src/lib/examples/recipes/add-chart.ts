@@ -1,5 +1,5 @@
 // Column chart with two series. addSlideChart writes the chart XML, the
-// drawing rels, and an embedded xlsx so PowerPoint's "Edit data" works.
+// drawing rels, and an embedded xlsx so a desktop presentation app's "Edit data" works.
 
 import { addSlideChart, inches, type SlideData } from '@office-kit/pptx';
 

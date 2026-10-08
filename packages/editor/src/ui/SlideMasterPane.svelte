@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Slide Master view's left pane, measured from Mac PowerPoint 16: a 232 pt
+  // Slide Master view's left pane, measured from the reference desktop app (Mac, 16): a 232 pt
   // list; each master is a 119 pt cell numbered at the left with a 193 × 109 pt
   // image, and its layouts follow as 75 pt cells on an 87 pt pitch, their
   // 124 × 71 pt images indented to x = 90.
@@ -67,12 +67,12 @@
   /* Cells grow with the slide's aspect ratio; at 16:9 they are 119 and 75 pt. */
   .cell { position: relative; display: block; box-sizing: border-box; width: 232px; border: 0; background: transparent; color: var(--ok-text-2); font: inherit; cursor: pointer; }
   .cell.master { padding: 7px 0 3px 20px; margin-bottom: 6px; }
-  /* Mac PowerPoint keeps 75 pt layout cells at 16:9 although the image is 70 pt tall. */
+  /* The reference desktop app (Mac) keeps 75 pt layout cells at 16:9 although the image is 70 pt tall. */
   .cell.layout { min-height: 75px; padding: 2px 0 2px 90px; margin-bottom: 12px; }
   .num { position: absolute; left: 6px; top: 6px; font-size: 13px; }
   .image { display: block; box-sizing: border-box; border: 1px solid var(--ok-border-strong); background: #fff; overflow: hidden; }
   .cell:hover .image { outline: 3px solid var(--ok-border-strong); outline-offset: 1px; }
-  /* Mac PowerPoint rings the selected master or layout as it rings a selected thumbnail. */
+  /* The reference desktop app (Mac) rings the selected master or layout as it rings a selected thumbnail. */
   .cell[aria-current='true'] .image { outline: 3px solid var(--ok-accent); outline-offset: 1px; }
   .cell:focus-visible { outline: none; }
   .cell:focus-visible .image { outline: 3px solid var(--ok-selected-border); outline-offset: 1px; }

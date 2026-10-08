@@ -83,7 +83,7 @@ The goal is met when **all** of the following hold:
 3. **Fidelity, measured**: mean fg-SSIM across the sample corpus improves
    from ≈ 0.66 to **≥ 0.80**, with no individual sample regressing below its
    committed baseline. (Table sample `10-tables` is scored against its
-   documented LibreOffice divergence, not against PowerPoint behavior.)
+   documented LibreOffice divergence, not against the reference desktop app's behavior.)
 4. **Gated**: CI runs the fidelity harness (LibreOffice headless on
    ubuntu-latest) against a committed per-sample baseline and fails on
    regression beyond tolerance.
@@ -149,7 +149,7 @@ documented and excluded from the gate threshold for that sample.
 - Preview: dedicated plotters — scatter (point markers on two value axes),
   radar (polar polyline), bubble (scatter with area-scaled radii).
 
-Tests: reader fixtures from real PowerPoint files, plot-geometry unit tests,
+Tests: reader fixtures from real presentation files, plot-geometry unit tests,
 fidelity samples per kind.
 
 ### W5 — Effects & fills polish

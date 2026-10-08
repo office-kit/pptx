@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte';
   import { getEditor } from '../core/context.ts';
 
-  // A Format pane section: PowerPoint's chevron header band over label-left /
+  // A Format pane section: the reference desktop app's chevron header band over label-left /
   // control-right rows. Every section starts collapsed, as natively, and the
   // editor remembers which ones the user opened for the rest of the session.
   let { id, label, children }: { id: string; label: string; children: Snippet } = $props();
@@ -29,7 +29,7 @@
 
 <style>
   .pane-section { margin: 0 -10px; font-size: 12px; }
-  /* Mac PowerPoint: 25 pt header pitch, a chevron (› closed, ⌄ open) on a band. */
+  /* The reference desktop app (Mac): 25 pt header pitch, a chevron (› closed, ⌄ open) on a band. */
   summary {
     display: flex;
     align-items: center;

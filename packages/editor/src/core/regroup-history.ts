@@ -12,7 +12,7 @@ interface FormerGroup {
   readonly ids: readonly number[];
 }
 
-/** Mac PowerPoint remembers dissolved groups only within the editing session. */
+/** The reference desktop app (Mac) remembers dissolved groups only within the editing session. */
 export class RegroupHistory {
   records: readonly FormerGroup[] = [];
 

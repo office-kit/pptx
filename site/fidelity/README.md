@@ -6,7 +6,7 @@ measurement spine from the preview-fidelity roadmap. Without it, "make the
 preview perfect" is unfalsifiable eyeballing.
 
 ```
-ground truth (LibreOffice / PowerPoint)           →  PDF  →  PPM  ┐
+ground truth (LibreOffice / native app)           →  PDF  →  PPM  ┐
                                                                   ├─→  SSIM + diff  →  report
 @office-kit/pptx-preview/node · renderSlideToRgba(width)  →  SVG → resvg → RGBA  ┘
 ```
@@ -23,14 +23,14 @@ LibreOffice all use the same bundled substitute fonts (in the package's
 pnpm --filter @office-kit/pptx-site fidelity                 # all samples, LibreOffice
 pnpm --filter @office-kit/pptx-site fidelity -- --ours-only  # render only, no ground truth
 pnpm --filter @office-kit/pptx-site fidelity -- ../samples/out/10-tables.pptx   # one file
-GROUND_TRUTH=powerpoint pnpm --filter @office-kit/pptx-site fidelity            # local PP check (macOS)
+GROUND_TRUTH=native pnpm --filter @office-kit/pptx-site fidelity            # local native check (macOS)
 ```
 
 Output lands in `site/fidelity/out/` (git-ignored): `index.html` (side-by-side
 ground truth · @office-kit/pptx · diff, colored by fg-SSIM), `results.json`, and the
 per-slide PNGs.
 
-Flags: `--width <px>` (default 1280), `--engine libreoffice|powerpoint`,
+Flags: `--width <px>` (default 1280), `--engine libreoffice|native`,
 `--out <dir>`, `--samples <dir>`, `--ours-only`.
 
 ## Prerequisites
@@ -40,7 +40,7 @@ libreoffice`; Debian/CI `apt-get install libreoffice`. Override the binary
   with `PPTX_KIT_SOFFICE`.
 - **poppler / `pdftoppm`** (PDF → raster): macOS `brew install poppler`;
   Debian/CI `apt-get install poppler-utils`. Override with `PPTX_KIT_PDFTOPPM`.
-- **PowerPoint** (optional, local, macOS only): the high-fidelity local check.
+- **The reference desktop app** (`native`; optional, local, macOS only): the high-fidelity local check.
   CI never needs it.
 
 `--ours-only` needs none of the above — useful for a quick render smoke test.
@@ -73,7 +73,7 @@ OS/2 `USE_TYPO_METRICS` bit, in which case the `sTypo*` metrics + `typoLineGap`
 apply. The measurer (`@office-kit/pptx-preview`'s `measure.ts`) mirrors this; using
 fontkit's hhea `.ascent` instead misplaces the baseline by ~12px at 44pt.
 
-**Center / bottom anchoring** carries one extra wrinkle: LibreOffice/PowerPoint
+**Center / bottom anchoring** carries one extra wrinkle: LibreOffice and the reference desktop app
 sit a vertically-centered (or bottom-anchored) line slightly _lower_ than the
 win-metric line box predicts — measured against ground truth (an IoU offset
 search) as ≈0.036 of the line's (ascent+descent), independent of font size and
@@ -147,10 +147,10 @@ Excel-style headroom above the data max. Text-heavy slides now score
 
 Documented divergences (scored against their committed baseline, not fixed):
 
-- `10-tables` ≈0.15 and `21-showcase` slide 4 ≈0.18 — we paint PowerPoint's
+- `10-tables` ≈0.15 and `21-showcase` slide 4 ≈0.18 — we paint the reference desktop app's
   built-in table-style header/banding fills for a `tableStyleId` whose
   definition isn't in the package; LibreOffice ships no built-in styles and
-  renders plain. PowerPoint behavior wins per the project rules.
+  renders plain. The reference desktop app's behaviour wins per the project rules.
 - `22-vertical-text` ≈0.33 / `23-columns` ≈0.32 — the layouts are correct in
   shape (rotation, stacking direction, sequential column fill) but LibreOffice
   auto-grows these text boxes and re-wraps to the grown extent, which shifts

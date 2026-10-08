@@ -1,5 +1,5 @@
 <script lang="ts" generics="Item extends { key: string; unavailable?: string }">
-  // Mac PowerPoint's in-ribbon gallery: one row of tiles in a framed box, with
+  // The reference desktop app's (Mac) in-ribbon gallery: one row of tiles in a framed box, with
   // an 18 pt column at each end for the previous / next page arrows (the
   // previous column stays empty on the first page). The ribbon decides how
   // many tiles fit; the arrows page through the rest.
@@ -12,7 +12,7 @@
     checked: string | null;
     /** Tiles shown at once. */
     visible: number;
-    /** Tile pitch in CSS px (PowerPoint: 92 for transitions, 64 for effects). */
+    /** Tile pitch in CSS px (the reference desktop app: 92 for transitions, 64 for effects). */
     tileWidth: number;
     disabled?: boolean;
     /** The tile's caption in the active locale. */
@@ -24,7 +24,7 @@
 
   let first = $state(0);
   const count = $derived(Math.max(1, visible));
-  // Show the page holding the applied item when it changes, as PowerPoint does
+  // Show the page holding the applied item when it changes, as the reference desktop app does
   // when a slide with a later effect is selected.
   $effect.pre(() => {
     const index = items.findIndex((item) => item.key === checked);

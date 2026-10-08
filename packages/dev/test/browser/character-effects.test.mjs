@@ -99,7 +99,7 @@ for (const language of ['en', 'ja']) {
           .locator('.hit')
           .first()
           .click({ position: { x: 2, y: 2 } });
-        // Format ▸ Pick Up Object Style: ⇧⌘C in English PowerPoint, ⌥⌘C in Japanese.
+        // Format ▸ Pick Up Object Style: ⇧⌘C in the English build, ⌥⌘C in the Japanese one.
         await page.keyboard.press(language === 'ja' ? 'Control+Alt+KeyC' : 'Control+Shift+KeyC');
         await editor
           .locator('.hit')

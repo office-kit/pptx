@@ -24,11 +24,11 @@ export default (
 );
 `;
 
-// Table Design ▸ Table Styles offers PowerPoint's 74 built-in styles: a strip
+// Table Design ▸ Table Styles offers the reference desktop app's 74 built-in styles: a strip
 // showing the current style's row, and › opening the whole gallery under the
-// four headings PowerPoint uses, then Clear Table.
+// four headings the reference desktop app uses, then Clear Table.
 test(
-  'Table Design offers every built-in table style, named as PowerPoint names them',
+  'Table Design offers every built-in table style, named as the reference desktop app names them',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-table-styles-'));
@@ -97,7 +97,7 @@ test(
         'the swatches show the first column',
       );
 
-      // › opens the whole gallery under PowerPoint's headings.
+      // › opens the whole gallery under the reference desktop app's headings.
       const more = panel.getByRole('button', { name: 'Next Table Styles gallery', exact: true });
       await more.click();
       const gallery = page.getByRole('menu', { name: 'Table Styles', exact: true });
@@ -117,9 +117,9 @@ test(
         11,
       );
       assert.equal(await items.locator('img').count(), 74);
-      // Themed Style 1's swatch carries the theme gradient with PowerPoint's
+      // Themed Style 1's swatch carries the theme gradient with the reference desktop app's
       // over-saturated stop: accent 6 (#F79646) with tint 50% + satMod 300%
-      // is #FFBE87 in PowerPoint's own export (2 levels of sampling slack).
+      // is #FFBE87 in the reference desktop app's own export (2 levels of sampling slack).
       const themed = decodeURIComponent(
         await gallery
           .getByRole('menuitemradio', { name: 'Themed Style 1 - Accent 6', exact: true })
@@ -132,9 +132,9 @@ test(
       for (const [i, level] of reference.entries())
         assert.ok(
           Math.abs(Number.parseInt(firstStop.slice(i * 2, i * 2 + 2), 16) - level) <= 2,
-          `gradient stop #${firstStop} is PowerPoint's #FFBE87`,
+          `gradient stop #${firstStop} is the reference desktop app's #FFBE87`,
         );
-      // Picking one applies it and writes PowerPoint's definition.
+      // Picking one applies it and writes the reference desktop app's definition.
       await changed(() =>
         gallery
           .getByRole('menuitemradio', { name: 'Dark Style 2 - Accent 3/Accent 4', exact: true })
@@ -157,7 +157,7 @@ test(
       assert.equal(getTableStyleId(cleared), '{2D5ABB26-0587-4C30-8999-92F81FD0307C}');
       assert.equal(getTableCellFill(getTableCells(cleared)[1][1]), null);
 
-      // Japanese names follow PowerPoint's.
+      // Japanese names follow the reference desktop app's.
       await page.locator('.lang select').selectOption('ja');
       await page.locator('.hit').nth(0).click();
       await page.getByRole('tab', { name: 'テーブル デザイン', exact: true }).click();

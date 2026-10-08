@@ -1,5 +1,5 @@
-// The editor's views, named after Mac PowerPoint's View menu. Reading View and
-// Slide Show are not modes of the editing window: PowerPoint opens them in a
+// The editor's views, named after the reference desktop app's (Mac) View menu. Reading View and
+// Slide Show are not modes of the editing window: the reference desktop app opens them in a
 // window of their own.
 export type ViewMode =
   | 'normal'

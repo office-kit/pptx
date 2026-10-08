@@ -1,13 +1,13 @@
-// PowerPoint's Texture gallery: the twenty-four textures in gallery order.
-// Microsoft's bitmaps are not redistributable, so each tile here is drawn
+// The reference desktop app's Texture gallery: the twenty-four textures in gallery order.
+// The reference desktop app's bitmaps are not redistributable, so each tile here is drawn
 // procedurally to evoke the named material. Every generator is a function of
 // the pixel position that repeats every TEXTURE_SIZE pixels (periodic noise
 // lattices, sine terms with a whole number of cycles per tile, wrapped
 // distances), so the tiles wrap seamlessly.
 
-/** PowerPoint's default texture tile: 128 × 128 pixels. */
+/** The reference desktop app's default texture tile: 128 × 128 pixels. */
 export const TEXTURE_SIZE = 128;
-// PowerPoint's texture media is ~144 DPI, so a tile spans 64 pt (pHYs is per metre).
+// The reference desktop app's texture media is ~144 DPI, so a tile spans 64 pt (pHYs is per metre).
 const TEXTURE_DPI = 144;
 const INCHES_PER_METRE = 39.3701;
 
@@ -40,13 +40,13 @@ export const TEXTURES = [
 
 export type TextureId = (typeof TEXTURES)[number]['id'];
 
-// Mac PowerPoint keeps one "last texture" per application session (native
+// The reference desktop app (Mac) keeps one "last texture" per application session (native
 // capture 2026-10-07): it starts as Papyrus, the gallery's first texture,
 // changes only when a texture is picked for a shape (Format Shape / Format
 // Picture; picking one in Format Background does not change it), is what
 // Picture or texture fill inserts for both shapes and slide backgrounds with no
 // picture to restore, is shared by every open document and resets when
-// PowerPoint relaunches. It is never written to the document. The editor maps
+// the reference desktop app relaunches. It is never written to the document. The editor maps
 // "relaunch" to a page load: this module state is deliberately not persisted.
 let sessionTexture: TextureId = 'papyrus';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   // View ▸ Handout Master and Notes Master: the deck's master (or, until the
-  // first edit writes one, the default Office master) as Mac PowerPoint draws
+  // first edit writes one, the default master) as the reference desktop app (Mac) draws
   // it — header, date, footer and page number in the corners; the slide
   // frames for the chosen slides per page on the handout, the slide image and
   // five body levels on the notes page. The ribbon edits them.

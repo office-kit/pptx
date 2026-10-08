@@ -40,7 +40,7 @@ const plainDeck = () => {
   return { pres, slide: addBlankSlide(pres) };
 };
 
-// A PowerPoint template, whose layouts reserve a `sldNum` slot.
+// A template saved by the reference desktop app, whose layouts reserve a `sldNum` slot.
 const templateDeck = async () => {
   const pres = await loadPresentation(await readFile(fixturePath));
   const layout = getSlideLayouts(pres).find((l) => getSlideLayoutName(l) === 'Title and Content');

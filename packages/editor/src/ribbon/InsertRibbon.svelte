@@ -1,8 +1,8 @@
 <script lang="ts">
-  // Mac PowerPoint 16's Insert tab: its groups, order, names and ▾ menus. At
+  // The reference desktop app's (Mac, 16) Insert tab: its groups, order, names and ▾ menus. At
   // 1512 pt every command is a large button; at 1200 pt 3D Models, SmartArt
   // and Chart become small rows and Date & Time, Slide Number and Object
-  // icon-only buttons, which is where PowerPoint stops shrinking this tab.
+  // icon-only buttons, which is where the reference desktop app stops shrinking this tab.
   import { tick } from 'svelte';
   import { eventTarget } from '../core/dom-root.ts';
   import {
@@ -24,7 +24,7 @@
   const editor = getEditor();
   const doc = editor.doc;
 
-  // Below this ribbon width (CSS px = pt) the tab takes PowerPoint's 1200 pt
+  // Below this ribbon width (CSS px = pt) the tab takes the reference desktop app's 1200 pt
   // layout. Longer labels (Japanese) also take it while the row overflows.
   const SMALL_BELOW = 1350;
   let width = $state(typeof window === 'undefined' ? Number.POSITIVE_INFINITY : window.innerWidth);
@@ -47,12 +47,12 @@
   const hasSlide = $derived(doc.currentSlide !== null);
   const layouts = $derived.by(() => { doc.version; return getSlideLayouts(doc.pres); });
 
-  // PowerPoint's Insert Table grid.
+  // The reference desktop app's Insert Table grid.
   const GRID_COLUMNS = 10;
   const GRID_ROWS = 8;
   let hover = $state<{ rows: number; columns: number } | null>(null);
 
-  // Mac PowerPoint's Chart ▾ categories. The dialog writes the first ones;
+  // The reference desktop app's (Mac) Chart ▾ categories. The dialog writes the first ones;
   // the library has no writer for the others yet.
   const CHARTS: readonly { readonly label: string; readonly kind?: string }[] = [
     { label: 'Column', kind: 'column' },
@@ -133,7 +133,7 @@
   </button>
 {/snippet}
 
-<!-- PowerPoint's 1200 pt rows: an 18 pt icon, the caption and ▾. -->
+<!-- The reference desktop app's 1200 pt rows: an 18 pt icon, the caption and ▾. -->
 {#snippet row(label: string, icon: string, options: { menu?: Menu; disabled?: boolean; tip?: string })}
   <button class="row" data-menu={options.menu} aria-label={t(label)} title={options.tip ? t(options.tip) : undefined} disabled={options.disabled} aria-haspopup={options.menu ? 'menu' : undefined} aria-expanded={options.menu ? open === options.menu : undefined} onclick={() => { if (options.menu) void toggle(options.menu); }}><Icon name={icon} size={18} /><span>{t(label)}</span><span class="arrow" aria-hidden="true">⌄</span></button>
 {/snippet}
@@ -273,7 +273,7 @@
         <button class="tool" aria-label={t('Object')} title={t('Embedded OLE objects are not supported by the library yet.')} disabled><Icon name="object" size={18} /></button>
       </div>
     {:else}
-      <!-- Both insert a field PowerPoint keeps up to date into the selected
+      <!-- Both insert a field the reference desktop app keeps up to date into the selected
            box; Date & Time asks for the format first, as the native dialog does. -->
       {@render big('Date & Time', 'calendar', { cap: 'setShapeTextField', disabled: !editor.canRun('setShapeTextField'), onclick: () => editor.runOrPrompt('setShapeTextField') })}
       {@render big('Slide Number', 'slide-number', { disabled: !editor.canRun('setShapeTextField'), onclick: () => editor.runOrPrompt('setShapeTextField', { type: 'slidenum' }) })}
@@ -283,7 +283,7 @@
 
   <section class="cluster" aria-label={t('Symbols')}>
     {@render big('Equation', 'equation', { arrow: true, disabled: true, tip: 'Equations are not supported by the library yet.' })}
-    <!-- Like PowerPoint, Symbol needs a text cursor to insert at. -->
+    <!-- Like the reference desktop app, Symbol needs a text cursor to insert at. -->
     {@render big('Symbol', 'symbol', { disabled: !editor.inlineTextFormat?.insertText, onclick: (button) => editor.openSymbolPicker(button) })}
   </section>
 
@@ -340,7 +340,7 @@
   .side { padding: 0; font-size: 12px; }
   .arrow-space { width: 9px; }
   /* A split button: the ▾ sits over the space beside the icon, as in
-     PowerPoint's 50 pt menu buttons. */
+     the reference desktop app's 50 pt menu buttons. */
   .overlay > .side { position: absolute; top: 12px; right: 2px; width: 12px; height: 22px; }
   .stack { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; align-self: stretch; }
   .stack .anchor { align-self: auto; }
