@@ -1,6 +1,6 @@
 import type { TextEdit } from './text-edit-preview.ts';
 import type { ParagraphProperties, SlideShapeData, TextCase, TextFormat } from '@office-kit/pptx';
-import { selectionPoints } from './dom-root.ts';
+import { rootOf, selectionPoints } from './dom-root.ts';
 import { richTextPoint, richTextValue } from './rich-text-dom.ts';
 import { textCaseRange } from './text-case.ts';
 
@@ -31,7 +31,29 @@ export type OutlineSelectionField = {
   transact: (label: string, fn: () => void) => void;
   focus: (offset: number) => void;
   setRange: (offset: number) => void;
+  /** Focus the field with a local selection, as a bullet click does. */
+  select: (start: number, end: number) => void;
+  title: boolean;
+  /** Promote or demote the field's selection through the outline's confirmation flow. */
+  changeLevel: (promote: boolean) => Promise<void>;
 };
+
+/** The caret position under a viewport point, in either engine's API. */
+function caretAt(root: HTMLElement, x: number, y: number): { node: Node; offset: number } | null {
+  const owner = root.ownerDocument;
+  const tree = rootOf(root);
+  if (typeof owner.caretPositionFromPoint === 'function') {
+    // Without shadowRoots the position stops at the host of the editor's shadow root.
+    const position = owner.caretPositionFromPoint(
+      x,
+      y,
+      'host' in tree ? { shadowRoots: [tree] } : undefined,
+    );
+    return position ? { node: position.offsetNode, offset: position.offset } : null;
+  }
+  const range = owner.caretRangeFromPoint(x, y);
+  return range ? { node: range.startContainer, offset: range.startOffset } : null;
+}
 
 function before(a: OutlinePoint, b: OutlinePoint, fields: OutlineSelectionField[]): boolean {
   const ai = fields.findIndex((field) => field.key === a.key);
@@ -49,6 +71,7 @@ export class OutlineSelectionModel {
   #transitioning = false;
   #caretGeneration = 0;
   #listeners = new Set<() => void>();
+  #textDrag: { range: OutlineRange; clipboard: OutlineClipboard } | null = null;
 
   subscribe(listener: () => void): () => void {
     this.#listeners.add(listener);
@@ -146,6 +169,78 @@ export class OutlineSelectionModel {
 
   transitioning(): boolean {
     return this.#transitioning;
+  }
+
+  /**
+   * The text position under a viewport point. A point between fields (the
+   * gap between slides, or the slide-icon column) resolves to the nearest field.
+   */
+  pointAt(x: number, y: number): OutlinePoint | null {
+    let nearest: { field: OutlineSelectionField; rect: DOMRect; distance: number } | null = null;
+    for (const field of this.fields()) {
+      const rect = field.root.getBoundingClientRect();
+      const distance = y < rect.top ? rect.top - y : y >= rect.bottom ? y - rect.bottom + 1 : 0;
+      if (!nearest || distance < nearest.distance) nearest = { field, rect, distance };
+      if (!distance) break;
+    }
+    if (!nearest) return null;
+    const { field, rect } = nearest;
+    if (y < rect.top) return { key: field.key, offset: 0 };
+    if (y >= rect.bottom) return { key: field.key, offset: field.text().length };
+    const caret = caretAt(field.root, Math.min(Math.max(x, rect.left + 1), rect.right - 1), y);
+    if (!caret || !field.root.contains(caret.node))
+      return { key: field.key, offset: x < rect.left ? 0 : field.text().length };
+    return { key: field.key, offset: richTextValue(field.root, caret).length };
+  }
+
+  /** Whether a point lies inside the current non-empty range. */
+  contains(point: OutlinePoint): boolean {
+    const range = this.current();
+    if (!range || (range.start.key === range.end.key && range.start.offset === range.end.offset))
+      return false;
+    const fields = this.fields();
+    return (
+      before(range.start, point, fields) &&
+      before(point, range.end, fields) &&
+      !(point.key === range.end.key && point.offset === range.end.offset)
+    );
+  }
+
+  /** Whether `a` precedes or equals `b` in outline order. */
+  precedes(a: OutlinePoint, b: OutlinePoint): boolean {
+    return before(a, b, this.fields());
+  }
+
+  anchor(): OutlinePoint | null {
+    return this.#anchor && this.#fields.has(this.#anchor.key) ? { ...this.#anchor } : null;
+  }
+
+  /** Snapshot the range being dragged so a drop target can move or copy it. */
+  beginTextDrag(): OutlineClipboard | null {
+    const range = this.current();
+    const clipboard = this.copy();
+    this.#textDrag = range && clipboard?.text ? { range, clipboard } : null;
+    return this.#textDrag?.clipboard ?? null;
+  }
+
+  textDrag(): { range: OutlineRange; clipboard: OutlineClipboard } | null {
+    return this.#textDrag;
+  }
+
+  endTextDrag(): void {
+    this.#textDrag = null;
+  }
+
+  /** Select from `anchor` (or the current anchor) to `focus`, across fields. */
+  extendTo(focus: OutlinePoint, anchor: OutlinePoint | null = this.#anchor): boolean {
+    if (!anchor || !this.#fields.has(focus.key) || !this.#fields.has(anchor.key)) return false;
+    this.#caretGeneration++;
+    this.#anchor = { ...anchor };
+    this.#focus = { ...focus };
+    this.#preserveAnchor = false;
+    this.#changed();
+    this.#selectNative();
+    return true;
   }
 
   /** Collapse a cross-field range to its logical start or end. */

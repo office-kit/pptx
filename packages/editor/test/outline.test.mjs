@@ -635,7 +635,7 @@ for (const bodyText of ['Body', 'Body\nFollowing']) {
 
 for (const withBody of [false, true]) {
   test(`outline cross-slide title deletion joins titles and transfers body (${withBody})`, async () => {
-    const { deleteOutlineTitleRange } = await import('../src/core/outline.ts');
+    const { deleteOutlineSlideRange } = await import('../src/core/outline.ts');
     const pres = createPresentation();
     const layout = getSlideLayouts(pres).find(
       (item) => getSlideLayoutName(item) === 'Title and Content',
@@ -654,10 +654,9 @@ for (const withBody of [false, true]) {
     setParagraphLevel(following, 0, 2);
     addSlideTextBox(first, { text: 'Keep graphic', x: 0, y: 0, w: 914400, h: 914400 });
     assert.equal(
-      deleteOutlineTitleRange(
+      deleteOutlineSlideRange(
         pres,
-        first,
-        { id: getShapeId(title), offset: 2 },
+        { slide: first, id: getShapeId(title), offset: 2 },
         { slide: last, id: getShapeId(next), offset: 2 },
       ),
       true,
@@ -679,3 +678,194 @@ for (const withBody of [false, true]) {
     assert.ok(shapes.some((shape) => getShapeText(shape) === 'Keep graphic'));
   });
 }
+
+function contentDeck(slides) {
+  const pres = createPresentation();
+  const layout = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  const created = slides.map(([title, body, levels = []]) => {
+    const slide = addSlide(pres, { layout });
+    const [titleShape, bodyShape] = getSlideShapes(slide);
+    setShapeText(titleShape, title);
+    setShapeText(bodyShape, body);
+    levels.forEach((level, index) => setParagraphLevel(bodyShape, index, level));
+    return slide;
+  });
+  return { pres, slides: created };
+}
+
+function outlineTexts(pres) {
+  return getSlides(pres).map((slide) =>
+    outlineShapes(slide).map(({ id }) =>
+      getShapeText(getSlideShapes(slide).find((shape) => getShapeId(shape) === id)),
+    ),
+  );
+}
+
+function shapesOf(slide) {
+  const [title, body] = getSlideShapes(slide);
+  return { title, body, titleId: getShapeId(title), bodyId: getShapeId(body) };
+}
+
+function levelsOf(shape) {
+  return getParagraphLevel(shape, { start: 0, end: getShapeText(shape).length });
+}
+
+test('deleting from a body into a later title joins the title suffix and moves its body', async () => {
+  const { deleteOutlineSlideRange } = await import('../src/core/outline.ts');
+  const { pres, slides } = contentDeck([
+    ['One', 'Alpha\nBeta'],
+    ['Two', 'Middle'],
+    ['Three', 'Gamma\nDelta', [1, 2]],
+  ]);
+  const first = shapesOf(slides[0]);
+  const last = shapesOf(slides[2]);
+  setShapeRunHyperlink(last.body, 1, 0, 'https://example.com/delta');
+  assert.equal(
+    deleteOutlineSlideRange(
+      pres,
+      { slide: slides[0], id: first.bodyId, offset: 8 },
+      { slide: slides[2], id: last.titleId, offset: 2 },
+    ),
+    true,
+  );
+  const saved = await loadPresentation(await savePresentation(pres));
+  assert.deepEqual(outlineTexts(saved), [['One', 'Alpha\nBeree\nGamma\nDelta']]);
+  const body = getSlideShapes(getSlides(saved)[0])[1];
+  assert.deepEqual(levelsOf(body), [0, 0, 1, 2]);
+  assert.equal(getShapeRunHyperlink(body, 3, 0), 'https://example.com/delta');
+});
+
+test('deleting from a title into a later body keeps the join in the title', async () => {
+  const { deleteOutlineSlideRange } = await import('../src/core/outline.ts');
+  const { pres, slides } = contentDeck([
+    ['One', 'Alpha'],
+    ['Two', 'Gamma\nDelta', [0, 1]],
+  ]);
+  deleteOutlineSlideRange(
+    pres,
+    { slide: slides[0], id: shapesOf(slides[0]).titleId, offset: 1 },
+    { slide: slides[1], id: shapesOf(slides[1]).bodyId, offset: 2 },
+  );
+  assert.deepEqual(outlineTexts(pres), [['Omma', 'Delta']]);
+  assert.equal(getParagraphLevel(getSlideShapes(getSlides(pres)[0])[1], 0), 1);
+});
+
+test('deleting between bodies of different slides keeps the start paragraph level', async () => {
+  const { deleteOutlineSlideRange } = await import('../src/core/outline.ts');
+  const { pres, slides } = contentDeck([
+    ['One', 'Alpha', [2]],
+    ['Two', 'Gamma\nDelta'],
+  ]);
+  deleteOutlineSlideRange(
+    pres,
+    { slide: slides[0], id: shapesOf(slides[0]).bodyId, offset: 5 },
+    { slide: slides[1], id: shapesOf(slides[1]).bodyId, offset: 0 },
+  );
+  assert.deepEqual(outlineTexts(pres), [['One', 'AlphaGamma\nDelta']]);
+  assert.deepEqual(levelsOf(getSlideShapes(getSlides(pres)[0])[1]), [2, 0]);
+});
+
+test('deleteOutlineRange deletes within a field and joins a title to its body', async () => {
+  const { deleteOutlineRange } = await import('../src/core/outline.ts');
+  const { pres, slides } = contentDeck([['Heading', 'Alpha\nBeta']]);
+  const { titleId, bodyId } = shapesOf(slides[0]);
+  deleteOutlineRange(
+    pres,
+    { slide: slides[0], id: bodyId, offset: 1 },
+    { slide: slides[0], id: bodyId, offset: 7 },
+  );
+  assert.deepEqual(outlineTexts(pres), [['Heading', 'Aeta']]);
+  deleteOutlineRange(
+    pres,
+    { slide: slides[0], id: titleId, offset: 4 },
+    { slide: slides[0], id: bodyId, offset: 1 },
+  );
+  assert.deepEqual(outlineTexts(pres), [['Headeta', '']]);
+});
+
+test('splitOutlineTitle moves the title suffix and the body to a new slide', async () => {
+  const { splitOutlineTitle } = await import('../src/core/outline.ts');
+  const { pres, slides } = contentDeck([['Heading', 'Alpha']]);
+  assert.equal(
+    splitOutlineTitle(pres, slides[0], shapesOf(slides[0]).title, { start: 4, end: 4 }),
+    1,
+  );
+  assert.deepEqual(outlineTexts(pres), [
+    ['Head', ''],
+    ['ing', 'Alpha'],
+  ]);
+});
+
+test('a bullet block spans the following deeper paragraphs', async () => {
+  const { outlineParagraphBlock, outlineParagraphRange } = await import('../src/core/outline.ts');
+  const { slides } = contentDeck([['One', 'A\nB\nC\nD', [0, 1, 2, 0]]]);
+  const { body } = shapesOf(slides[0]);
+  assert.deepEqual(outlineParagraphBlock(body, 0), { first: 0, last: 2 });
+  assert.deepEqual(outlineParagraphBlock(body, 1), { first: 1, last: 2 });
+  assert.deepEqual(outlineParagraphBlock(body, 3), { first: 3, last: 3 });
+  assert.deepEqual(outlineParagraphRange(body, 1, 2), { start: 2, end: 5 });
+});
+
+test('moving paragraphs across slides keeps their XML and shifts levels', async () => {
+  const { moveOutlineParagraphs } = await import('../src/core/outline.ts');
+  const { pres, slides } = contentDeck([
+    ['One', 'A\nB\nC', [0, 1, 0]],
+    ['Two', 'X\nY'],
+  ]);
+  const first = shapesOf(slides[0]);
+  const second = shapesOf(slides[1]);
+  setShapeRunHyperlink(first.body, 1, 0, 'https://example.com/b');
+  const moved = moveOutlineParagraphs(
+    { slide: slides[0], id: first.bodyId, first: 0, last: 1 },
+    { slide: slides[1], id: second.bodyId, index: 1 },
+    1,
+  );
+  assert.equal(getShapeId(moved.shape), second.bodyId);
+  assert.deepEqual([moved.first, moved.last], [1, 2]);
+  const saved = await loadPresentation(await savePresentation(pres));
+  assert.deepEqual(outlineTexts(saved), [
+    ['One', 'C'],
+    ['Two', 'X\nA\nB\nY'],
+  ]);
+  const body = getSlideShapes(getSlides(saved)[1])[1];
+  assert.deepEqual(levelsOf(body), [0, 1, 2, 0]);
+  assert.equal(getShapeRunHyperlink(body, 2, 0), 'https://example.com/b');
+});
+
+test('moving paragraphs within a body, into an empty body and to a slide without one', async () => {
+  const { moveOutlineParagraphs } = await import('../src/core/outline.ts');
+  const { pres, slides } = contentDeck([
+    ['One', 'A\nB\nC'],
+    ['Two', ''],
+    ['Three', ''],
+  ]);
+  const first = shapesOf(slides[0]);
+  moveOutlineParagraphs(
+    { slide: slides[0], id: first.bodyId, first: 0, last: 0 },
+    { slide: slides[0], id: first.bodyId, index: 3 },
+  );
+  assert.deepEqual(outlineTexts(pres)[0], ['One', 'B\nC\nA']);
+  assert.equal(
+    moveOutlineParagraphs(
+      { slide: slides[0], id: first.bodyId, first: 1, last: 1 },
+      { slide: slides[0], id: first.bodyId, index: 2 },
+    ),
+    null,
+  );
+  moveOutlineParagraphs(
+    { slide: slides[0], id: first.bodyId, first: 2, last: 2 },
+    { slide: slides[1], id: shapesOf(slides[1]).bodyId, index: 0 },
+  );
+  removeShape(shapesOf(slides[2]).body);
+  moveOutlineParagraphs(
+    { slide: slides[0], id: first.bodyId, first: 0, last: 1 },
+    { slide: slides[2], id: null, index: 0 },
+  );
+  assert.deepEqual(outlineTexts(pres), [
+    ['One', ''],
+    ['Two', 'A'],
+    ['Three', 'B\nC'],
+  ]);
+});
