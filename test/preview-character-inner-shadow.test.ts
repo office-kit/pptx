@@ -64,7 +64,7 @@ describe('character inner shadow in preview text', () => {
           color: '#000000',
           blurEmu: 63500,
           offsetEmu: 50800,
-          // Matches test/fixtures/native/wordart-background2-inner-shadow-shape.xml
+          // Matches test/fixtures/native/text-art-background2-inner-shadow-shape.xml
           // (dir="13500000", in DrawingML's 1/60000-degree units = 225°).
           angleDeg: 225,
           opacity: 0.7,

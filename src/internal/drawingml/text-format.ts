@@ -498,7 +498,7 @@ const setSolidFill = (
   }
   const parsed = parseColor(value);
   if (parsed === null) throw new Error(`unrecognized color: ${value}`);
-  // Character fills are a choice, just like shape fills. Keeping a WordArt
+  // Character fills are a choice, just like shape fills. Keeping a
   // gradient or pattern beside the new solid fill would produce invalid OOXML.
   removeAnyFill(rPr);
   const inner =

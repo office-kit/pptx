@@ -192,7 +192,7 @@
     <path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z" />
   {:else if name === 'header-footer'}
     <path d="M6 3h9l4 4v14H6z" /><path d="M8 6h6M8 18h8" /><path d="M8 10h8M8 13h8" stroke-opacity="0.4" />
-  {:else if name === 'wordart'}
+  {:else if name === 'text-art'}
     <path d="M5 20 11 4h2l6 16M8 14h8" /><path d="M3 21c6-2 12-2 18 0" />
   {:else if name === 'object'}
     <rect x="4" y="3" width="16" height="18" rx="1" /><rect x="7" y="7" width="10" height="7" /><path d="M7 17h6" />

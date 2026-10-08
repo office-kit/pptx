@@ -1,4 +1,4 @@
-// The reference desktop app's twenty WordArt presets (test/fixtures/native/wordart-*-shape.xml)
+// The reference desktop app's twenty text-art presets (test/fixtures/native/text-art-*-shape.xml)
 // read through the run and text-body readers and written back through the
 // public setters: every color — theme tints included — and the bevel 3-D come
 // out as the reference desktop app wrote them.
@@ -30,7 +30,7 @@ import {
 } from '../src/internal/xml/index.ts';
 
 const NATIVE = new URL('./fixtures/native/', import.meta.url);
-const FIXTURES = readdirSync(NATIVE).filter((name) => /^wordart-.*-shape\.xml$/.test(name));
+const FIXTURES = readdirSync(NATIVE).filter((name) => /^text-art-.*-shape\.xml$/.test(name));
 
 const compact = (xml: string) =>
   xml
@@ -65,7 +65,7 @@ const writable = (read: ReadText3D): Text3D => {
   };
 };
 
-describe('native WordArt payloads round trip', () => {
+describe('native text-art payloads round trip', () => {
   it('covers all twenty gallery captures', () => {
     expect(FIXTURES).toHaveLength(20);
   });

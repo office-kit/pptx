@@ -39,10 +39,10 @@ const bevelsOf = (root, text) =>
   }, text);
 
 test(
-  'WordArt Soft Bevel shades the canvas text and survives editing',
+  'Text Art Soft Bevel shades the canvas text and survives editing',
   { timeout: 180000 },
   async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'office-wordart-bevel-'));
+    const dir = await mkdtemp(join(tmpdir(), 'office-text-art-bevel-'));
     const file = join(dir, 'deck.tsx');
     await writeFile(file, DECK);
     let preview;
@@ -67,8 +67,8 @@ test(
       await page.locator('.hit').first().click();
       await page.getByRole('tab', { name: 'Shape Format', exact: true }).click();
       const panel = page.locator('#ribbon-panel');
-      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
-      const menu = panel.getByRole('menu', { name: 'WordArt Quick Styles', exact: true });
+      await panel.getByRole('button', { name: 'Text Art Quick Styles', exact: true }).click();
+      const menu = panel.getByRole('menu', { name: 'Text Art Quick Styles', exact: true });
       const before = await (await fetch(preview.url + '/editor/state')).json();
       await menu
         .getByRole('menuitem', { name: 'Fill: Purple, Accent color 4; Soft Bevel', exact: true })

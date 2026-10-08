@@ -1,7 +1,7 @@
 // 3-D: `<a:scene3d>` and `<a:sp3d>` inside `<a:bodyPr>` (text) or `<p:spPr>`
 // (shape).
 //
-// The reference desktop app's WordArt bevels (Soft Bevel, Sharp Bevel) live on the text body,
+// The reference desktop app's text-art bevels (Soft Bevel, Sharp Bevel) live on the text body,
 // not on the shape's `<p:spPr>`: a shape-level bevel would bevel the box. The
 // schema types are shared (CT_Scene3D, CT_Shape3D, ECMA-376 §20.1.4.1.26 /
 // §20.1.5.12), so one vocabulary serves both hosts.
@@ -32,7 +32,7 @@ import {
   qname,
 } from '../xml/index.ts';
 
-/** ECMA-376 `ST_PresetCameraType`; the reference desktop app's flat WordArt uses `'orthographicFront'`. */
+/** ECMA-376 `ST_PresetCameraType`; the reference desktop app's flat text-art presets use `'orthographicFront'`. */
 export type CameraPreset = (typeof CAMERA_PRESETS)[number];
 /** ECMA-376 `ST_LightRigType` (`'threePt'`, `'soft'`, `'harsh'`, ...). */
 export type LightRigType = (typeof LIGHT_RIG_TYPES)[number];
@@ -79,7 +79,7 @@ export interface Bevel {
 }
 
 /**
- * 3-D on a text body — what the reference desktop app writes for WordArt bevels. `scene`
+ * 3-D on a text body — what the reference desktop app writes for text-art bevels. `scene`
  * becomes `<a:scene3d>`; the other fields become `<a:sp3d>`, written when any
  * of them is set.
  */

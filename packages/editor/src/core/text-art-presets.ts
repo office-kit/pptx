@@ -1,6 +1,6 @@
-// The reference desktop app's (Mac) WordArt gallery: its twenty presets in gallery order, each
+// The reference desktop app's (Mac) Text Art gallery: its twenty presets in gallery order, each
 // the character payload the reference desktop app wrote when the preset was applied
-// (test/fixtures/native/wordart-*-shape.xml, catalogued in wordart-capture.md).
+// (test/fixtures/native/text-art-*-shape.xml, catalogued in text-art-capture.md).
 
 import {
   setShapeText3D,
@@ -13,7 +13,7 @@ import {
   type TextFormat,
 } from '@office-kit/pptx';
 
-export interface WordArtPreset {
+export interface TextArtPreset {
   /** The reference desktop app's gallery label, also the swatch's tooltip and accessible name. */
   readonly label: string;
   /** The run properties, written to every run and paragraph end. */
@@ -50,7 +50,7 @@ const SOFT = {
 // Both bevels extrude the glyphs 4.5pt.
 const BEVEL_EXTRUSION_EMU = 57150;
 
-export const WORDART_PRESETS: readonly WordArtPreset[] = [
+export const TEXT_ART_PRESETS: readonly TextArtPreset[] = [
   {
     // No fill: the text keeps the color it inherits.
     label: 'Fill: Black, Text color 1; Shadow',
@@ -351,7 +351,7 @@ const CLEARED: TextFormat = {
 };
 
 /** Applies a gallery preset to every run of `shape` and its paragraph ends. */
-export function applyWordArtPreset(shape: SlideShapeData, preset: WordArtPreset): void {
+export function applyTextArtPreset(shape: SlideShapeData, preset: TextArtPreset): void {
   setShapeTextFormat(shape, CLEARED);
   setShapeTextFormat(shape, preset.format);
   // The bevel belongs to the preset like the run effects do, so a preset
@@ -361,11 +361,11 @@ export function applyWordArtPreset(shape: SlideShapeData, preset: WordArtPreset)
 }
 
 /**
- * Table Design ▸ WordArt Styles ▸ Quick Styles over table cells: the same run
+ * Table Design ▸ Text Art Styles ▸ Quick Styles over table cells: the same run
  * properties as on a shape. Cells have no text bevel, so a preset's bevel is
  * left out.
  */
-export function applyTableCellWordArtPreset(cell: TableCellData, preset: WordArtPreset): void {
+export function applyTableCellTextArtPreset(cell: TableCellData, preset: TextArtPreset): void {
   setTableCellTextFormat(cell, CLEARED);
   setTableCellTextFormat(cell, preset.format);
 }

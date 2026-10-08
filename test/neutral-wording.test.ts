@@ -1,8 +1,9 @@
-// "PowerPoint", "Microsoft", "Office", "Excel" and "Word" are Microsoft
-// trademarks, and this project is not affiliated with Microsoft. Source, tests
-// and scripts describe compatibility neutrally: "presentation apps" in general,
-// or "the reference desktop app" for a verified behaviour that deviates from
-// ECMA-376; "spreadsheet app" / "word processor" for the other products. This
+// "PowerPoint", "Microsoft", "Office", "Excel", "Word" and "WordArt" are
+// Microsoft trademarks, and this project is not affiliated with Microsoft.
+// Source, tests and scripts describe compatibility neutrally: "presentation
+// apps" in general, or "the reference desktop app" for a verified behaviour
+// that deviates from ECMA-376; "spreadsheet app" / "word processor" for the
+// other products and "text art" for styled text. This
 // guard fails on any new use outside the allowlist below.
 //
 // Markdown files are documentation and are maintained separately.
@@ -24,10 +25,13 @@ const BANNED = [
   // stay out; `\b` already skips `Microsoft_Excel_Worksheet` and `QtExcel`.
   /\bExcel\b|\bEXCEL\b|エクセル/g,
   // The word processor. Case-sensitive so the English word ("word wrap") is
-  // not it, and `\b` skips `WordArt` and `WordprocessingML`. In Japanese,
-  // ワード alone is too common (パスワード, キーワード), so only the
-  // product-shaped uses are banned.
+  // not it, and `\b` skips `WordprocessingML` (and `WordArt`, banned below).
+  // In Japanese, ワード alone is too common (パスワード, キーワード), so only
+  // the product-shaped uses are banned.
   /\bWord\b|(?:Microsoft|MS|マイクロソフト) ?ワード|ワード(?:文書|ファイル|形式)/g,
+  // "WordArt" is that app's name for styled text; ours is "text art". The
+  // case-insensitive match also catches `wordart` in identifiers and paths.
+  /word[ -]?art|ワードアート/gi,
 ];
 
 // Spans that may contain a banned word, removed before the scan. Each one is a
@@ -55,6 +59,9 @@ const ALLOWED: readonly RegExp[] = [
   /\b(?:Each|Whole) Words?\b/g,
   // "Word" at the start of a sentence, as the English word.
   /\bWord (?=wrap|spacing|break|count|boundar)/g,
+  // ECMA-376 values: `ST_TextVerticalType` `wordArtVert` / `wordArtVertRtl`
+  // and the `<a:bodyPr fromWordArt>` attribute.
+  /\bwordArtVert(?:Rtl)?\b|\bfromWordArt\b/g,
 ];
 
 // Trademark disclaimers: a sentence saying the project is not affiliated with
@@ -97,9 +104,14 @@ describe('neutral wording', () => {
     expect(findings('a.ts', '// ワード文書として保存')).toHaveLength(1);
     expect(findings('a.ts', "'/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx'")).toEqual([]);
     expect(findings('a.ts', "'application/vnd.ms-excel'")).toEqual([]);
-    expect(findings('a.ts', '// WordArt and WordprocessingML; word wrap')).toEqual([]);
+    expect(findings('a.ts', '// WordprocessingML; word wrap')).toEqual([]);
     expect(findings('a.ts', "'Capitalize Each Word'; // Word wrap mode")).toEqual([]);
-    expect(findings('a.ts', "'パスワード', 'ワードアート', 'キーワード'")).toEqual([]);
+    expect(findings('a.ts', "'パスワード', 'キーワード'")).toEqual([]);
+    expect(findings('a.ts', "// the app's WordArt gallery")).toHaveLength(1);
+    expect(findings('a.ts', "import './wordart-presets.ts';")).toHaveLength(1);
+    expect(findings('a.ts', '// ワードアートのスタイル')).toHaveLength(1);
+    expect(findings('a.ts', "setShapeTextDirection(box, 'wordArtVertRtl');")).toEqual([]);
+    expect(findings('a.ts', "'wordArtVert' | 'eaVert'; // fromWordArt")).toEqual([]);
   });
 
   it('keeps Microsoft product names out of source, tests and scripts', () => {
@@ -108,5 +120,12 @@ describe('neutral wording', () => {
       return hasBanned(text) ? findings(f, text) : [];
     });
     expect(hits).toEqual([]);
+  });
+
+  // File names are not scanned as text, and fixtures, tests and components
+  // were named after the feature.
+  it('names no tracked file after WordArt', () => {
+    const paths = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n');
+    expect(paths.filter((p) => /word[ -]?art/i.test(p))).toEqual([]);
   });
 });

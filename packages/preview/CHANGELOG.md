@@ -9,7 +9,7 @@
   - `@office-kit/pptx`: new `getPresetGeometry(preset, size, adjustValues?)` evaluates any preset's paths and text rectangle in the same form as `getShapeCustomGeometry`.
   - `@office-kit/pptx-preview` (breaking): `shapeCustomTextRect(custom, extent)` is replaced by `shapeTextRect(shape)`, which reads custom and preset geometry alike, and `resolveTextBodyRect` now takes `(bounds, margins, region)` with the region from `shapeTextRect`.
 
-- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as the reference desktop app's Soft Bevel and Sharp Bevel WordArt write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
+- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as the reference desktop app's Soft Bevel and Sharp Bevel text styles write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
 
 ### Patch Changes
 
@@ -26,7 +26,7 @@
 
   Preview integrations can use `shapeTextAnchorOffset` to position editable text consistently with the rendered text block.
 
-- e18d19d: Text can now carry its own outline, shadow and glow — the WordArt half of a
+- e18d19d: Text can now carry its own outline, shadow and glow — the decorative half of a
   character format.
 
   `TextFormat` gained `outline`, `shadow` and `glow`, so every writer that takes
@@ -88,7 +88,7 @@ firstSlideNum>`.
   Japanese.
 
 - e18d19d: Extend the existing paragraph formatting API to table cells, render their bullets and paragraph spacing, and add bilingual editor controls for individual cell paragraphs and selected cell ranges. Preserve rich text and support undo, redo, and save/reload.
-- e18d19d: Paint text runs with a gradient fill (`<a:gradFill>`) or pattern fill (`<a:pattFill>`), such as the reference desktop app's gradient and pattern WordArt presets. These runs were previously drawn in the default text color. A gradient spans the whole text block, including every line, as in the reference desktop app. Theme colors and their tints are resolved. Pattern fills use the same tiles as shape pattern fills. This works in both the SVG and the browser (`foreignObject`) text layouts. The editor canvas now shows these fills, also while the text is being edited.
+- e18d19d: Paint text runs with a gradient fill (`<a:gradFill>`) or pattern fill (`<a:pattFill>`), such as the reference desktop app's gradient and pattern text-art presets. These runs were previously drawn in the default text color. A gradient spans the whole text block, including every line, as in the reference desktop app. Theme colors and their tints are resolved. Pattern fills use the same tiles as shape pattern fills. This works in both the SVG and the browser (`foreignObject`) text layouts. The editor canvas now shows these fills, also while the text is being edited.
 - e18d19d: Keep heavy, long-dash, dash-dot, double-wave, and words-only underlines visible when entering text editing, without moving the text or changing solid strikethroughs. Expose `textUnderlineStyle` so custom HTML editors can share the preview's DrawingML underline rendering.
 
 ### Patch Changes

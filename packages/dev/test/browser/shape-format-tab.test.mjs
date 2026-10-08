@@ -18,7 +18,7 @@ import { startPreview } from '../helpers/server.mjs';
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={6} height={1} text="Title" /></Slide></Presentation>`;
 
 test(
-  'Shape Format tab matches the reference desktop app: Edit Shape, WordArt styles, text effects, size and Format Pane',
+  'Shape Format tab matches the reference desktop app: Edit Shape, Text Art styles, text effects, size and Format Pane',
   { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-shape-format-'));
@@ -58,7 +58,7 @@ test(
       assert.deepEqual(groups, [
         'Insert Shapes',
         'Shape Styles',
-        'WordArt Styles',
+        'Text Art Styles',
         'Accessibility',
         'Arrange',
         'Size',
@@ -74,7 +74,7 @@ test(
       await changed(() => panel.getByRole('menuitem', { name: 'Glow', exact: true }).click());
       assert.ok(getShapeRunFormat((await shape()).shape, 0, 0).glow);
 
-      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
+      await panel.getByRole('button', { name: 'Text Art Quick Styles', exact: true }).click();
       await changed(() =>
         panel
           .getByRole('menuitem', {

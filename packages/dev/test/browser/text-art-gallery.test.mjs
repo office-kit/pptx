@@ -16,7 +16,7 @@ import { startPreview } from '../helpers/server.mjs';
 
 const DECK = `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={6} height={1} text="Title" /></Slide></Presentation>`;
 
-// The reference desktop app's (Mac) gallery, in order (test/fixtures/native/wordart-capture.md).
+// The reference desktop app's (Mac) gallery, in order (test/fixtures/native/text-art-capture.md).
 const PRESETS = [
   'Fill: Black, Text color 1; Shadow',
   'Fill: Blue, Accent color 1; Shadow',
@@ -41,10 +41,10 @@ const PRESETS = [
 ];
 
 test(
-  'WordArt gallery matches the reference desktop app: twenty swatches in Quick Styles and Insert ▸ WordArt',
+  'Text Art gallery matches the reference desktop app: twenty swatches in Quick Styles and Insert ▸ Text Art',
   { timeout: 180000 },
   async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'office-wordart-gallery-'));
+    const dir = await mkdtemp(join(tmpdir(), 'office-text-art-gallery-'));
     const file = join(dir, 'deck.tsx');
     await writeFile(file, DECK);
     let preview;
@@ -83,8 +83,8 @@ test(
       await page.locator('.hit').first().click();
       await page.getByRole('tab', { name: 'Shape Format', exact: true }).click();
       const panel = page.locator('#ribbon-panel');
-      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
-      const quickStyles = panel.getByRole('menu', { name: 'WordArt Quick Styles', exact: true });
+      await panel.getByRole('button', { name: 'Text Art Quick Styles', exact: true }).click();
+      const quickStyles = panel.getByRole('menu', { name: 'Text Art Quick Styles', exact: true });
       const listed = await swatches(quickStyles);
       assert.deepEqual(
         listed.map(([label]) => label),
@@ -92,7 +92,7 @@ test(
       );
       for (const [label, title] of listed) assert.equal(title, label);
       assert.equal(
-        await quickStyles.getByRole('menuitem', { name: 'Clear WordArt', exact: true }).count(),
+        await quickStyles.getByRole('menuitem', { name: 'Clear Text Art', exact: true }).count(),
         1,
       );
 
@@ -113,10 +113,10 @@ test(
       assert.equal(await focused(), PRESETS[10]);
       await page.keyboard.press('ArrowDown');
       await page.keyboard.press('ArrowDown');
-      assert.equal(await focused(), 'Clear WordArt');
-      // Down from Clear WordArt stays on it.
+      assert.equal(await focused(), 'Clear Text Art');
+      // Down from Clear Text Art stays on it.
       await page.keyboard.press('ArrowDown');
-      assert.equal(await focused(), 'Clear WordArt');
+      assert.equal(await focused(), 'Clear Text Art');
       await page.keyboard.press('ArrowUp');
       assert.equal(await focused(), PRESETS[15]);
       await page.keyboard.press('Home');
@@ -134,7 +134,7 @@ test(
       assert.equal(white.shadow.opacity, 0.3);
 
       // A second preset replaces the first, as the reference desktop app does.
-      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
+      await panel.getByRole('button', { name: 'Text Art Quick Styles', exact: true }).click();
       await changed(() =>
         quickStyles
           .getByRole('menuitem', { name: 'Fill: Black, Text color 1; Shadow', exact: true })
@@ -150,8 +150,8 @@ test(
       await changed(() => page.getByRole('button', { name: 'Undo', exact: true }).click());
       assert.equal(getShapeRunFormat((await shapes())[0], 0, 0).color, '#FFFFFF');
 
-      // The bevels write the text body's 3-D; Clear WordArt removes it again.
-      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
+      // The bevels write the text body's 3-D; Clear Text Art removes it again.
+      await panel.getByRole('button', { name: 'Text Art Quick Styles', exact: true }).click();
       await changed(() =>
         quickStyles
           .getByRole('menuitem', {
@@ -167,21 +167,24 @@ test(
         heightEmu: 12700,
         preset: 'angle',
       });
-      await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
+      await panel.getByRole('button', { name: 'Text Art Quick Styles', exact: true }).click();
       await changed(() =>
-        quickStyles.getByRole('menuitem', { name: 'Clear WordArt', exact: true }).click(),
+        quickStyles.getByRole('menuitem', { name: 'Clear Text Art', exact: true }).click(),
       );
       assert.equal(getShapeText3D((await shapes())[0]), null);
 
-      // Insert ▸ WordArt opens the same gallery and inserts "Your text here" in the pick.
+      // Insert ▸ Text Art opens the same gallery and inserts "Your text here" in the pick.
       await page.getByRole('tab', { name: 'Insert', exact: true }).click();
-      await panel.getByRole('button', { name: 'WordArt', exact: true }).click();
-      const insertGallery = page.getByRole('menu', { name: 'WordArt', exact: true });
+      await panel.getByRole('button', { name: 'Text Art', exact: true }).click();
+      const insertGallery = page.getByRole('menu', { name: 'Text Art', exact: true });
       assert.deepEqual(
         (await swatches(insertGallery)).map(([label]) => label),
         PRESETS,
       );
-      assert.equal(await insertGallery.getByRole('menuitem', { name: 'Clear WordArt' }).count(), 0);
+      assert.equal(
+        await insertGallery.getByRole('menuitem', { name: 'Clear Text Art' }).count(),
+        0,
+      );
       await changed(() =>
         insertGallery.getByRole('menuitem', { name: 'Gradient Fill, Gray', exact: true }).click(),
       );

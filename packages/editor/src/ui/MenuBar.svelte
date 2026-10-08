@@ -29,7 +29,7 @@
     open: () => file.open(),
     newPresentation: () => file.newPresentation(),
     columns: () => (columnsOpen = true),
-    // WordArt and Symbol, the Insert items that open a gallery, hang it under Insert.
+    // Text Art and Symbol, the Insert items that open a gallery, hang it under Insert.
     anchor: () => root.querySelector<HTMLElement>('[data-menu="insert"]'),
     get fullScreen() { return fullScreen; },
     toggleFullScreen: () => void toggleFullScreen(),

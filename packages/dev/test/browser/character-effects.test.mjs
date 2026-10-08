@@ -37,7 +37,7 @@ const deckWith = async (dir) => {
     y: inches(1),
     w: inches(4),
     h: inches(1.2),
-    text: '袋文字 WordArt',
+    text: '袋文字 Styled',
   });
   setShapeTextFormat(source, {
     size: 40,

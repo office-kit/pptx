@@ -1618,15 +1618,15 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
     setSlideTitle(slide, 'Text direction');
 
     // wordArtVert: characters upright, stacked top-to-bottom (not rotated).
-    const wordArt = addSlideTextBox(slide, {
+    const textArt = addSlideTextBox(slide, {
       x: inches(0.6),
       y: inches(1.5),
       w: inches(1.6),
       h: inches(4.5),
       text: 'wordArtVert upright stacked characters',
     });
-    setShapeTextDirection(wordArt, 'wordArtVert');
-    setShapeRunFormat(wordArt, 0, 0, { size: 18 });
+    setShapeTextDirection(textArt, 'wordArtVert');
+    setShapeRunFormat(textArt, 0, 0, { size: 18 });
 
     // eaVert: East-Asian upright, columns flow right-to-left.
     const eaVert = addSlideTextBox(slide, {

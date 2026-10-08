@@ -296,7 +296,7 @@ export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): v
 
 /**
  * Sets the 3-D on the shape's text body — `<a:scene3d>` and `<a:sp3d>` in
- * `<a:bodyPr>`, where the reference desktop app writes its WordArt bevels. `value.scene`
+ * `<a:bodyPr>`, where the reference desktop app writes its text-art bevels. `value.scene`
  * writes the camera and light rig; `bevelTop`, `extrusionHeightEmu`,
  * `material` and `contourColor` write `<a:sp3d>` (replacing `<a:flatTx>`).
  * A field left out removes what it describes; settings this API does not
@@ -552,7 +552,7 @@ export const setShapeTextBodyRotationDeg = (
  *   - `wordArtVert` — characters not rotated, stacked vertically.
  *   - `eaVert` — East-Asian vertical: characters upright, columns right-to-left.
  *   - `mongolianVert` — Mongolian: rotated 90°, columns left-to-right.
- *   - `wordArtVertRtl` — RTL word-art stacked vertically.
+ *   - `wordArtVertRtl` — upright characters stacked vertically, columns right-to-left.
  *
  * Returns `null` when the attribute is absent or set to the default
  * `horz`.

@@ -1,5 +1,5 @@
-// The WordArt gallery's presets against the run XML the reference desktop app (Mac) wrote for
-// each one (test/fixtures/native/wordart-*-shape.xml).
+// The Text Art gallery's presets against the run XML the reference desktop app (Mac) wrote for
+// each one (test/fixtures/native/text-art-*-shape.xml).
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -11,15 +11,15 @@ import {
   getShapeXmlString,
   inches,
 } from '@office-kit/pptx';
-import { applyWordArtPreset, WORDART_PRESETS } from '../src/core/wordart-presets.ts';
+import { applyTextArtPreset, TEXT_ART_PRESETS } from '../src/core/text-art-presets.ts';
 
 const fixture = (name) =>
   readFile(
-    new URL(`../../../test/fixtures/native/wordart-${name}-shape.xml`, import.meta.url),
+    new URL(`../../../test/fixtures/native/text-art-${name}-shape.xml`, import.meta.url),
     'utf8',
   );
 
-// Gallery order, as wordart-capture.md lists it.
+// Gallery order, as text-art-capture.md lists it.
 const FIXTURES = [
   'black-shadow',
   'accent1-shadow',
@@ -193,15 +193,15 @@ function deck() {
 }
 
 test('the gallery lists the twenty native presets in order', () => {
-  assert.equal(WORDART_PRESETS.length, FIXTURES.length);
+  assert.equal(TEXT_ART_PRESETS.length, FIXTURES.length);
 });
 
 for (const [index, name] of FIXTURES.entries()) {
-  const preset = WORDART_PRESETS[index];
+  const preset = TEXT_ART_PRESETS[index];
   test(`${preset.label} writes what the reference desktop app wrote`, async () => {
     const { box } = deck();
     const shape = box();
-    applyWordArtPreset(shape, preset);
+    applyTextArtPreset(shape, preset);
     const written = getShapeXmlString(shape);
     const native = await fixture(name);
     const expected = normalize(properties(native, 'rPr'));
@@ -215,16 +215,16 @@ for (const [index, name] of FIXTURES.entries()) {
 test('a preset without a bevel removes the previous preset’s', () => {
   const { box } = deck();
   const shape = box();
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('accent3-sharp-bevel')]);
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('black-shadow')]);
+  applyTextArtPreset(shape, TEXT_ART_PRESETS[FIXTURES.indexOf('accent3-sharp-bevel')]);
+  applyTextArtPreset(shape, TEXT_ART_PRESETS[FIXTURES.indexOf('black-shadow')]);
   assert.deepEqual(body3D(getShapeXmlString(shape)), [null, null]);
 });
 
 test('a preset replaces the previous one instead of merging with it', async () => {
   const { box } = deck();
   const shape = box();
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('white-accent5-shadow')]);
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('black-shadow')]);
+  applyTextArtPreset(shape, TEXT_ART_PRESETS[FIXTURES.indexOf('white-accent5-shadow')]);
+  applyTextArtPreset(shape, TEXT_ART_PRESETS[FIXTURES.indexOf('black-shadow')]);
   const xml = getShapeXmlString(shape);
   const black = normalize(properties(await fixture('black-shadow'), 'rPr'));
   // Native removes `b` instead of writing `b="0"`.
@@ -235,9 +235,9 @@ test('a preset replaces the previous one instead of merging with it', async () =
 test('a preset without spacing removes the previous preset’s `spc`', async () => {
   const { box } = deck();
   const shape = box();
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('white-accent1-glow')]);
+  applyTextArtPreset(shape, TEXT_ART_PRESETS[FIXTURES.indexOf('white-accent1-glow')]);
   assert.equal(normalize(properties(getShapeXmlString(shape), 'rPr')).spc, '50');
-  applyWordArtPreset(shape, WORDART_PRESETS[FIXTURES.indexOf('accent2-outline')]);
+  applyTextArtPreset(shape, TEXT_ART_PRESETS[FIXTURES.indexOf('accent2-outline')]);
   const xml = getShapeXmlString(shape);
   const native = normalize(properties(await fixture('accent2-outline'), 'rPr'));
   assert.deepEqual(normalize(properties(xml, 'rPr')), native);

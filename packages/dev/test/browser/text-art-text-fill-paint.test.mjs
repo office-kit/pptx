@@ -39,10 +39,10 @@ const paintsOf = (root, text) =>
   }, text);
 
 test(
-  'WordArt gradient and pattern fills paint the canvas text and survive editing',
+  'Text Art gradient and pattern fills paint the canvas text and survive editing',
   { timeout: 180000 },
   async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'office-wordart-text-fill-'));
+    const dir = await mkdtemp(join(tmpdir(), 'office-text-art-text-fill-'));
     const file = join(dir, 'deck.tsx');
     await writeFile(file, DECK);
     let preview;
@@ -72,8 +72,8 @@ test(
       };
       const panel = page.locator('#ribbon-panel');
       const applyPreset = async (name) => {
-        await panel.getByRole('button', { name: 'WordArt Quick Styles', exact: true }).click();
-        const menu = panel.getByRole('menu', { name: 'WordArt Quick Styles', exact: true });
+        await panel.getByRole('button', { name: 'Text Art Quick Styles', exact: true }).click();
+        const menu = panel.getByRole('menu', { name: 'Text Art Quick Styles', exact: true });
         await changed(() => menu.getByRole('menuitem', { name, exact: true }).click());
       };
       const shapePaint = page.locator('.paint [data-pptx-shape-id]').first();

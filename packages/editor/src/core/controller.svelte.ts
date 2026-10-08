@@ -296,10 +296,10 @@ export class EditorController {
   openShapeGallery(anchor: HTMLElement): void {
     this.shapeGallery = this.shapeGallery ? null : anchor.getBoundingClientRect();
   }
-  /** The Insert ▸ WordArt button while its gallery is open. */
-  wordArtGallery = $state<HTMLElement | null>(null);
-  openWordArtGallery(anchor: HTMLElement): void {
-    this.wordArtGallery = this.wordArtGallery ? null : anchor;
+  /** The Insert ▸ Text Art button while its gallery is open. */
+  textArtGallery = $state<HTMLElement | null>(null);
+  openTextArtGallery(anchor: HTMLElement): void {
+    this.textArtGallery = this.textArtGallery ? null : anchor;
   }
   symbolPicker = $state<DOMRect | null>(null);
   openSymbolPicker(anchor: HTMLElement): void {

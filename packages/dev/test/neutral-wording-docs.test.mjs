@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-// "PowerPoint", "Microsoft", "Excel" and "Word" are a third party's
+// "PowerPoint", "Microsoft", "Excel", "Word" and "WordArt" are a third party's
 // trademarks, so the docs, the editor and dev sources, the site and the
 // changelogs describe behaviour neutrally: "the reference desktop app" for
 // verified behaviour of that app, "presentation apps" for compatibility in
-// general, "spreadsheet app" and "word processor" for the other products. This scans the tracked
+// general, "spreadsheet app" and "word processor" for the other products and
+// "Text Art" for the styled-text gallery. This scans the tracked
 // files in those areas. The core library, preview, DSL, scripts and core tests
 // are covered by the root `test/neutral-wording.test.ts`; the shipped UI
 // strings by `brand-free-ui.test.mjs`.
@@ -62,9 +63,14 @@ const FORBIDDEN = [
   // GitHub org) and `Microsoft_Excel_Worksheet`.
   /\bExcel\b|\bEXCEL\b|エクセル/,
   // The word processor. Case-sensitive so the English word is not it, and
-  // `\b` skips `WordArt` and `WordprocessingML`. ワード alone is too common in
-  // Japanese (パスワード, キーワード), so only product-shaped uses count there.
+  // `\b` skips `WordprocessingML` (and `WordArt`, forbidden below). ワード
+  // alone is too common in Japanese (パスワード, キーワード), so only
+  // product-shaped uses count there.
   /\bWord\b|(?:Microsoft|MS|マイクロソフト) ?ワード|ワード(?:文書|ファイル|形式)/,
+  // "WordArt", that app's name for styled text; the editor says "Text Art" /
+  // 「テキスト アート」. Case-insensitive, so `wordart` in identifiers, paths
+  // and command ids counts too.
+  /word[ -]?art|ワードアート/i,
 ];
 
 // Everything here is stripped before FORBIDDEN is applied. Each entry is a
@@ -103,6 +109,9 @@ const ALLOWED = [
   // command's "Capitalize Each Word") and at the start of a sentence.
   /\b(?:Each|Whole) Words?\b/g,
   /\bWord (?=wrap|spacing|break|count|boundar)/g,
+  // ECMA-376 values: `ST_TextVerticalType` `wordArtVert` / `wordArtVertRtl`
+  // and the `<a:bodyPr fromWordArt>` attribute.
+  /\bwordArtVert(?:Rtl)?\b|\bfromWordArt\b/g,
 ];
 
 const tracked = execFileSync('git', ['ls-files', '-z', '--', ...SCOPES], {

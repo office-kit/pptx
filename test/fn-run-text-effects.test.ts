@@ -1,5 +1,5 @@
 // Character-level outline, shadow and glow — `<a:ln>` and `<a:effectLst>`
-// inside a run's `<a:rPr>`, the WordArt half of the text format.
+// inside a run's `<a:rPr>`, the decorative half of the text format.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -18,7 +18,7 @@ import {
   type TextFormat,
 } from '../src/api/index.ts';
 
-const textBox = (text = 'WordArt 文字') => {
+const textBox = (text = 'Styled 文字') => {
   const pres = createPresentation();
   const slide = addBlankSlide(pres);
   const shape = addSlideTextBox(slide, {

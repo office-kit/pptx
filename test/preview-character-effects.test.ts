@@ -22,7 +22,7 @@ const deck = (format: Parameters<typeof setShapeTextFormat>[1]) => {
     y: inches(1),
     w: inches(4),
     h: inches(1),
-    text: 'WordArt 文字',
+    text: 'Styled 文字',
   });
   setShapeTextFormat(shape, { size: 40, ...format });
   return { pres, slide };

@@ -23,8 +23,8 @@ const NONE: VerticalTextStyle = { declarations: '', transform: '' };
 
 /**
  * `<a:bodyPr vert="…"/>` as CSS. `writing-mode` is the right primitive for
- * the East-Asian and Mongolian cases, and `text-orientation` for the WordArt
- * ones, which stack upright glyphs. `vert270` reads bottom-to-top, which no
+ * the East-Asian and Mongolian cases, and `text-orientation` for the
+ * `wordArtVert` ones, which stack upright glyphs. `vert270` reads bottom-to-top, which no
  * writing-mode expresses on its own — hence the half turn. Its columns still
  * follow the OOXML vertical-rl progression before that half turn; using
  * vertical-lr here reverses the column order relative to the SVG renderer.

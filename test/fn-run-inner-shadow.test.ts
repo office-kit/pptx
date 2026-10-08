@@ -1,4 +1,4 @@
-// Character-level inner shadow: native WordArt fixture read and TextFormat mutation.
+// Character-level inner shadow: native text-art fixture read and TextFormat mutation.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +47,7 @@ const firstRunProperties = (xml: string) => {
 
 describe('fn API: character inner shadow', () => {
   it('reads the native inner-shadow fixture without confusing it with outer shadow', async () => {
-    const xml = await readFile(fixture('wordart-background2-inner-shadow-shape.xml'), 'utf8');
+    const xml = await readFile(fixture('text-art-background2-inner-shadow-shape.xml'), 'utf8');
     const format = parseRPrLikeElement(firstRunProperties(xml));
 
     expect(format.innerShadow).toMatchObject({
@@ -71,7 +71,7 @@ describe('fn API: character inner shadow', () => {
       w: inches(2),
       h: inches(1),
     });
-    setShapeText(shape, 'WordArt');
+    setShapeText(shape, 'Styled');
     setShapeTextFormat(shape, {
       innerShadow: { color: '#000000', blurEmu: 63500, offsetEmu: 50800, angleDeg: 225 },
     } satisfies TextFormat);
@@ -100,7 +100,7 @@ describe('fn API: character inner shadow', () => {
       w: inches(2),
       h: inches(1),
     });
-    setShapeText(shape, 'WordArt');
+    setShapeText(shape, 'Styled');
     setShapeTextFormat(shape, {
       shadow: { color: '#112233', blurEmu: 1016, offsetEmu: 2032, angleDeg: 45 },
       innerShadow: { color: '#000000', blurEmu: 63500, offsetEmu: 50800, angleDeg: 225 },
@@ -130,7 +130,7 @@ describe('fn API: character inner shadow', () => {
       w: inches(2),
       h: inches(1),
     });
-    setShapeText(shape, 'WordArt');
+    setShapeText(shape, 'Styled');
 
     expect(() => setShapeTextFormat(shape, { innerShadow: { blurEmu: Number.NaN } })).toThrow(
       RangeError,
@@ -154,7 +154,7 @@ describe('fn API: character inner shadow', () => {
       w: inches(2),
       h: inches(1),
     });
-    setShapeText(shape, 'WordArt');
+    setShapeText(shape, 'Styled');
     const txBody = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'txBody', NS.pml));
     const lstStyle = txBody && firstChildElement(txBody, qname('a', 'lstStyle', NS.dml));
     if (!lstStyle) throw new Error('text body list style missing');

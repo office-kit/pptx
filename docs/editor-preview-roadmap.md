@@ -287,7 +287,7 @@ Known minor gaps from the final source review, not fixed:
 
 On 2026-10-04 (10:27–11:17 UTC, same toolchain) the full vitest suite with
 one worker ran 496 files: 492 passed, 3 skipped and 1 failed (3549 tests
-passed, 109 skipped). The failure was not a flake: the WordArt fill validator
+passed, 109 skipped). The failure was not a flake: the text-fill validator
 ran before `setShapeGradientFill`'s own check and reported an invalid
 `path` as `gradient fill: path …` instead of `setShapeGradientFill: path …`.
 The validators now take the public caller's name (`setShapeTextFormat:
@@ -300,7 +300,7 @@ root, preview, dsl and dev `tsc --noEmit`, `oxfmt --check` (1087 files) and
 `oxlint` passed; the dev node tests (11 files, 22 tests) and site node tests
 (19 files, 166 tests) passed; and the three browser files in the table plus
 `download-button.test.mjs` passed again one at a time (`--test-timeout=120000`,
-each 1 pass, no process left behind). Editor screenshots of the WordArt font
+each 1 pass, no process left behind). Editor screenshots of the text-art font
 color change are in [docs/qa/pptx-editor-20261004](qa/pptx-editor-20261004/README.md).
 
 **NOT RUN:** a full vitest run on the final source, the rest of the browser

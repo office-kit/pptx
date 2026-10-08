@@ -1,19 +1,19 @@
 <script lang="ts">
   import { eventTarget } from '../core/dom-root.ts';
-  // The reference desktop app's WordArt gallery: twenty "A" swatches, five to a row, shared by
-  // Shape Format ▸ WordArt Quick Styles and Insert ▸ WordArt.
+  // The reference desktop app's Text Art gallery: twenty "A" swatches, five to a row, shared by
+  // Shape Format ▸ Text Art Quick Styles and Insert ▸ Text Art.
   import { onMount } from 'svelte';
   import { getPresentationTheme } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { wordArtSwatchStyle } from '../core/wordart-swatch.ts';
-  import { WORDART_PRESETS, type WordArtPreset } from '../core/wordart-presets.ts';
+  import { textArtSwatchStyle } from '../core/text-art-swatch.ts';
+  import { TEXT_ART_PRESETS, type TextArtPreset } from '../core/text-art-presets.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { label, choose, close, clear, anchor }: {
     label: string;
-    choose: (preset: WordArtPreset) => void;
+    choose: (preset: TextArtPreset) => void;
     close: () => void;
-    /** Clear WordArt, under the swatches; Insert ▸ WordArt has none. */
+    /** Clear Text Art, under the swatches; Insert ▸ Text Art has none. */
     clear?: () => void;
     /** The button the gallery opens under. */
     anchor: HTMLElement;
@@ -33,7 +33,7 @@
     event.preventDefault();
     const items = [...menu!.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
     if (event.key === 'Home' || event.key === 'End') { (event.key === 'Home' ? items[0] : items.at(-1))?.focus(); return; }
-    // Down from the last row reaches Clear WordArt below the grid.
+    // Down from the last row reaches Clear Text Art below the grid.
     const index = items.indexOf(event.target as HTMLButtonElement) + offsets[event.key]!;
     (items[index] ?? (index > 0 ? items.at(-1) : undefined))?.focus();
   }
@@ -49,22 +49,22 @@
 
 <svelte:window onpointerdown={(event) => { if (!menu?.contains(eventTarget(event) as Node) && !anchor.contains(eventTarget(event) as Node)) close(); }} />
 
-<div class="wordart-gallery" role="menu" aria-label={label} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
+<div class="text-art-gallery" role="menu" aria-label={label} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
   <div class="grid">
-    {#each WORDART_PRESETS as preset (preset.label)}
+    {#each TEXT_ART_PRESETS as preset (preset.label)}
       <button role="menuitem" aria-label={t(preset.label)} title={t(preset.label)} onclick={() => choose(preset)}>
-        <span class="letter" aria-hidden="true" style={wordArtSwatchStyle(preset, theme)}>A</span>
+        <span class="letter" aria-hidden="true" style={textArtSwatchStyle(preset, theme)}>A</span>
       </button>
     {/each}
   </div>
   {#if clear}
     <hr />
-    <button role="menuitem" class="clear" onclick={clear}>{t('Clear WordArt')}</button>
+    <button role="menuitem" class="clear" onclick={clear}>{t('Clear Text Art')}</button>
   {/if}
 </div>
 
 <style>
-  .wordart-gallery { position: fixed; z-index: 450; padding: 6px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
+  .text-art-gallery { position: fixed; z-index: 450; padding: 6px; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); box-shadow: var(--ok-shadow-lg); }
   .grid { display: grid; grid-template-columns: repeat(5, 48px); gap: 4px; }
   button { font: inherit; color: var(--ok-text); border: 1px solid transparent; border-radius: 3px; cursor: pointer; }
   .grid button { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; overflow: hidden; background: #fff; }

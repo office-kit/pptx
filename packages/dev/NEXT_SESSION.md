@@ -87,7 +87,7 @@
 - Notes superscript/subscript incorrectly passed 30/-25 instead of fractional 0.3/-0.25. A failing browser regression captured baseline="3000000"; the shared toggle helper now emits 30000/-25000 and toggles back to zero. All four notes-formatting browser tests pass (`/tmp/notes-script-fixed.log`).
 - Pure SVG outer-shadow/glow rendering was added. Review required replacing feDropShadow (which repainted the source glyph) with effect-only composition and expanding filter regions in user coordinates. Raster regressions cover separate effects, an invisible shadow (no duplicate glyph paint), and a large single-glyph shadow without clipping. Root format/lint/typecheck/test/build passed: 3515 tests, 109 skipped (`/tmp/parity-full-final.log`), using two workers after two CPU-contention timeouts in the initial full run. Preview/DSL build and typecheck also passed. Final format/lint, Svelte check (0 errors/warnings), and 3 focused HTML tests passed. Editor rebuild and browser checks passed: notes 4 tests (`/tmp/parity-notes-final.log`) and inline effects/copy 1 test (`/tmp/parity-inline-final.log`).
 - The HTML copy regression covers emitted outline/shadow/glow CSS. Direct shape/cell effective-format probes already resolve theme colors, so redundant copy-time color resolution was rejected during review. Notes still need their own effective-format reader: notesSlide clrMapOvr inherits notesMaster clrMap, and notesMaster can own a different theme relationship. Do not resolve notes using the slide theme/map. Existing getSlideNotesTextFormats is intentionally literal; preserve its contract. Add a regression with distinct notes theme and overridden tx1 mapping before implementing.
-- Active editing still lacks inner shadow and reflection; WordArt galleries, gradient/pattern text fills, 3D text and advanced shadow/reflection geometry remain incomplete. Existing limitations below still apply unless superseded explicitly here.
+- Active editing still lacks inner shadow and reflection; Text Art galleries, gradient/pattern text fills, 3D text and advanced shadow/reflection geometry remain incomplete. Existing limitations below still apply unless superseded explicitly here.
 - Native connection still fails with screen size 0×0, including after resetting the UI automation session. No native document mutations were made.
 
 ## 2026-10-03: Character effect preview and clipboard follow-up
@@ -104,10 +104,10 @@
 
 ## 2026-10-03: Character inner shadows and reflection preview
 
-- Character formatting now reads/writes `innerShadow`, supports independent removal/reset and paragraph inheritance, and preserves native outer-shadow alignment/rotation. Fixtures cover the captured WordArt inner shadow and centered outer shadow; omitted outer-shadow attributes resolve to the XSD defaults (`b`, rotation enabled).
+- Character formatting now reads/writes `innerShadow`, supports independent removal/reset and paragraph inheritance, and preserves native outer-shadow alignment/rotation. Fixtures cover the captured Text Art inner shadow and centered outer shadow; omitted outer-shadow attributes resolve to the XSD defaults (`b`, rotation enabled).
 - SVG and foreignObject previews now emit character reflection glyph layers. Regressions cover mixed runs, wrap, unique mask IDs, positive scales, center anchors, raster visibility, default-effect run boundaries and avoiding duplicate bullets in the overlay.
 - Root quality gates passed with 3507 tests (109 skipped) before the final default-reflection grouping regression; final scoped verification is recorded in `/tmp/native-effects-final-focused.log`. Preview and DSL build/typecheck passed. The temporary Chromium smoke test is preserved at `/tmp/pptx-reflection-browser-audit.test.ts`; it only proves text/overlay coexistence and nonzero bounds, not native geometry or edit-entry stability.
-- Still incomplete: WordArt gallery application, gradient/pattern character fills, inner-shadow rendering, body 3D, reflection font-metric calibration, arbitrary fade-direction fidelity and fixed-axis reflection under shape/group rotation. `rotateWithShape=false` is preserved but does not yet render correctly under rotation. Do not claim full WordArt or native parity.
+- Still incomplete: Text Art gallery application, gradient/pattern character fills, inner-shadow rendering, body 3D, reflection font-metric calibration, arbitrary fade-direction fidelity and fixed-axis reflection under shape/group rotation. `rotateWithShape=false` is preserved but does not yet render correctly under rotation. Do not claim full Text Art or native parity.
 - Native connection retry still returns screen size 0×0. No native mutations were performed in this step. Re-check the current reference window and restoration state before further native mutations.
 
 ## 2026-10-02: Browser preview tracking matches SVG
@@ -1866,25 +1866,25 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Added canonical `setShapeStyle` for native line/fill/effect/font references; validates references before mutation and preserves geometry and direct text formatting. Added theme effectRef resolution, including owning-master themes and explicit empty effects stopping inheritance.
 - Home gallery contains 6 theme rows plus 5 preset rows, each with dk1/accent1–6 (77 choices). Shape Format shows 3 thumbnails per page, matching the native next/previous operation observed in the reference desktop app. Swatches use rounded rectangles, the source slide's theme and color-map override. Batch `setShapeHidden` preserves unknown timing rather than deleting animated source shapes while preparing a temporary swatch slide.
 - Native reconnection succeeded again with AX and screenshot. `reference.pptx` is saved; Undo disabled. No native document content changed during this verification.
-- Full parity remains incomplete: live hover previews, WordArt styles, effectDag/3D style rendering, pattern/image style detail readers, and broader operation-by-operation native comparisons still require work. These gallery tests do not prove full native parity.
+- Full parity remains incomplete: live hover previews, Text Art styles, effectDag/3D style rendering, pattern/image style detail readers, and broader operation-by-operation native comparisons still require work. These gallery tests do not prove full native parity.
 - Verification: full root suite passed 484 files / 3482 tests (109 skipped), then final effect-reference fixes passed 32 focused tests across 6 files. Final format/lint/root typecheck passed; preview/DSL/dev typechecks and site check passed; workspace build and Chromium Quick Styles regression passed. Browser checks cover 900/1500/2200px Home overflow, 77 styles, native reference serialization, bold preservation, Undo/Redo, inline pagination and constant last-page width, and no page errors. Logs: `/tmp/quickstyle-complete-tests.log`, `/tmp/quickstyle-final-{focused,build,browser}.log`.
 - Explicit unresolved effectRef and effectDag now stop inherited effects. effectDag remains unrendered, rather than being replaced by the parent's or theme's unrelated shadow. Cache invalidation follows slide/version changes; inline apply preserves focus on the chosen thumbnail.
 
-### 2026-10-03 — native WordArt comparison resumed
+### 2026-10-03 — native Text Art comparison resumed
 
 - The native reference desktop app's AX, screenshot, Shape Format navigation, style application,
   Save, and Undo all worked after reconnecting.
-- Captured the first three WordArt styles into
-  `test/fixtures/native/wordart-*-shape.xml`; provenance and exact observations
-  are in `test/fixtures/native/wordart-capture.md`.
+- Captured the first three Text Art styles into
+  `test/fixtures/native/text-art-*-shape.xml`; provenance and exact observations
+  are in `test/fixtures/native/text-art-capture.md`.
 - Reference file restored with Undo + Save after every capture. Its final
-  `ppt/slides/slide1.xml` is byte-identical to `reference-before-wordart.pptx`.
-- Native WordArt uses run/end-paragraph properties, separate from shape quick
+  `ppt/slides/slide1.xml` is byte-identical to `reference-before-text-art.pptx`.
+- Native Text Art uses run/end-paragraph properties, separate from shape quick
   styles. Accent 2 outline also makes the text bold and applies luminance
   transforms. Accent 1 shadow uses `algn="ctr"`; current ShadowOptions writer
-  fixes alignment to `tl`. Do not substitute shape style effects for WordArt.
-- Remaining WordArt presets and replacement semantics still need comparison;
-  no WordArt gallery implementation is claimed by these captures.
+  fixes alignment to `tl`. Do not substitute shape style effects for Text Art.
+- Remaining Text Art presets and replacement semantics still need comparison;
+  no Text Art gallery implementation is claimed by these captures.
 - PR head `4281afe1` CI run `37118277823` failed before build: root typecheck
   could not resolve `@office-kit/pptx-preview` imported by the new swatch test.
   Root TypeScript and Vitest configurations now resolve the preview package
@@ -1895,14 +1895,14 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - Reproduced `wrap="none"` text changing from one painted line to seven editing lines in a narrow box; typing at the end shifted glyphs upward by about 56px. The edit overlay now uses `white-space:pre` and visible overflow for effective no-wrap bodies, preserving explicit paragraph breaks without inner scrolling.
 - Browser regression measures glyph ranges before editing and after typing, plus explicit-newline and square-wrap controls. Related text-entry, background, metrics, spacing, body-margin, vertical-writing and autofit tests passed (14 cases, `/tmp/text-wrap-related-tests.log`). Final focused results: `/tmp/text-wrap-final-tests.log`.
-- Native connection, screenshot and click interaction succeeded. A single click on the selected title enters editing at the clicked character without moving text. An accidental Shape Style click was immediately undone; saved reference slide XML matches `reference-before-wordart.pptx` byte-for-byte. No outstanding reference content change from this turn.
-- Added two earlier native WordArt captures (white/accent5 shadow and gray gradient), with provenance in `test/fixtures/native/wordart-capture.md`. WordArt gallery implementation and remaining presets are still outstanding.
+- Native connection, screenshot and click interaction succeeded. A single click on the selected title enters editing at the clicked character without moving text. An accidental Shape Style click was immediately undone; saved reference slide XML matches `reference-before-text-art.pptx` byte-for-byte. No outstanding reference content change from this turn.
+- Added two earlier native Text Art captures (white/accent5 shadow and gray gradient), with provenance in `test/fixtures/native/text-art-capture.md`. Text Art gallery implementation and remaining presets are still outstanding.
 - Full parity remains unproven. Continue the operation audit in NATIVE_PARITY.md; this correction covers the reproduced no-wrap shift, not all possible editing layout shifts.
 
-### 2026-10-03 — complete native WordArt preset capture
+### 2026-10-03 — complete native Text Art preset capture
 
-- All 20 WordArt gallery presets are captured as namespace-complete shape XML in `test/fixtures/native/`; see `wordart-capture.md` for labels, provenance and replacement observations. Captures establish native storage, not implemented UI parity.
-- Each temporary operation was undone and saved. Final slide XML matched `/tmp/pptx-outline-audit/reference-before-wordart-replacement.pptx` byte-for-byte. Reconnection then confirmed reference Saved to my Mac and Undo disabled; the subsequent Text Effects menu attempt returned screen size 0×0 twice. No new content mutation was requested.
+- All 20 Text Art gallery presets are captured as namespace-complete shape XML in `test/fixtures/native/`; see `text-art-capture.md` for labels, provenance and replacement observations. Captures establish native storage, not implemented UI parity.
+- Each temporary operation was undone and saved. Final slide XML matched `/tmp/pptx-outline-audit/reference-before-text-art-replacement.pptx` byte-for-byte. Reconnection then confirmed reference Saved to my Mac and Undo disabled; the subsequent Text Effects menu attempt returned screen size 0×0 twice. No new content mutation was requested.
 - Next implementation must preserve character-level effects separately from shape-level effects, and bodyPr 3D separately from spPr 3D. Do not build presets by copying shape styles or indiscriminately clearing font/paragraph properties.
 
 ### 2026-10-03 — character reflection round-trip support

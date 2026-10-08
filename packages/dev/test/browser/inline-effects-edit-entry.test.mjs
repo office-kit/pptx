@@ -36,7 +36,7 @@ test(
         y: inches(1),
         w: inches(5),
         h: inches(1.2),
-        text: 'WordArt editing',
+        text: 'Styled editing',
       });
       setPresentationTheme(pres, {
         accent1: '#112233',
@@ -82,7 +82,7 @@ test(
         });
       const staticText = editor
         .locator('.paint foreignObject > div')
-        .filter({ hasText: 'WordArt editing' })
+        .filter({ hasText: 'Styled editing' })
         .first();
       const staticRange = await rangeRect(staticText);
       await page.screenshot({ path: '/tmp/inline-effects-before.png' });
@@ -158,7 +158,7 @@ test(
         };
       });
       assert.equal(clipboard.defaultPrevented, true);
-      assert.equal(clipboard.plain, 'WordArt editing');
+      assert.equal(clipboard.plain, 'Styled editing');
       const cssColor = (hex, rgb) =>
         new RegExp(`(?:${hex}|rgb\\(${rgb.replaceAll(', ', ',\\s*')}\\))`, 'i');
       assert.match(clipboard.html, cssColor('#112233', '17, 34, 51'));
@@ -168,7 +168,7 @@ test(
       assert.doesNotMatch(clipboard.html, /accent[1-4]/i);
 
       const beforeEditRevision = (await waitForState(preview.url, () => true)).revision;
-      await input.fill('WordArt edited');
+      await input.fill('Styled edited');
       await page.keyboard.press('ControlOrMeta+Enter');
       await waitForState(preview.url, (state) => state.revision > beforeEditRevision);
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
@@ -176,7 +176,7 @@ test(
         new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
       );
       const savedShape = getSlideShapes(getSlides(saved)[0])[0];
-      assert.equal(getShapeText(savedShape), 'WordArt edited');
+      assert.equal(getShapeText(savedShape), 'Styled edited');
       const savedFormat = getShapeRunFormatEffective(saved, savedShape, 0, 0);
       assert.equal(savedFormat.outline?.color, '#223344');
       assert.equal(savedFormat.shadow?.color, '#334455');
@@ -191,7 +191,7 @@ test(
       );
       const undoneShape = getSlideShapes(getSlides(undone)[0])[0];
       assert.equal(getShapeRunFormatEffective(undone, undoneShape, 0, 0).color, '#112233');
-      assert.equal(getShapeText(undoneShape), 'WordArt editing');
+      assert.equal(getShapeText(undoneShape), 'Styled editing');
       assert.equal(getShapeRunFormatEffective(undone, undoneShape, 0, 0).outline?.color, '#223344');
       assert.deepEqual(getShapeBounds(undoneShape), getShapeBounds(shape));
     } finally {

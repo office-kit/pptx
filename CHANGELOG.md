@@ -9,7 +9,7 @@
   - `@office-kit/pptx`: new `getPresetGeometry(preset, size, adjustValues?)` evaluates any preset's paths and text rectangle in the same form as `getShapeCustomGeometry`.
   - `@office-kit/pptx-preview` (breaking): `shapeCustomTextRect(custom, extent)` is replaced by `shapeTextRect(shape)`, which reads custom and preset geometry alike, and `resolveTextBodyRect` now takes `(bounds, margins, region)` with the region from `shapeTextRect`.
 
-- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as the reference desktop app's Soft Bevel and Sharp Bevel WordArt write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
+- 089140c: The preview now draws text bevels (`<a:bodyPr>` `<a:sp3d><a:bevelT>`, as the reference desktop app's Soft Bevel and Sharp Bevel text styles write them): beveled glyphs are shaded with a light and dark edge sized from the bevel's width and height and lit from the light rig's direction, in shape text, table cells and the editor while text is being edited. The 12 bevel presets get different edge profiles and shiny materials add a highlight; this is a 2-D approximation, so the camera, extrusion and contour are not drawn. Text without a bevel renders exactly as before. New `getTableCellText3D` reads a table cell's text 3-D, like `getShapeText3D` does for shapes.
 
 ### Patch Changes
 
@@ -93,7 +93,7 @@
 
   Preview integrations can use `shapeTextAnchorOffset` to position editable text consistently with the rendered text block.
 
-- e18d19d: Text can now carry its own outline, shadow and glow — the WordArt half of a
+- e18d19d: Text can now carry its own outline, shadow and glow — the decorative half of a
   character format.
 
   `TextFormat` gained `outline`, `shadow` and `glow`, so every writer that takes
@@ -255,7 +255,7 @@
 
   The four existing stacking APIs also accept an array of sibling shapes. Selections from different parent containers are rejected before any shape is moved.
 
-- e18d19d: Preserve shadow alignment and rotation when reading and editing text from the reference desktop app. Shadow formatting now accepts `alignment` and `rotateWithShape`, including native WordArt anchors.
+- e18d19d: Preserve shadow alignment and rotation when reading and editing text from the reference desktop app. Shadow formatting now accepts `alignment` and `rotateWithShape`, including native text-art anchors.
 - e18d19d: Add character-level reflection formatting to `TextFormat`, including the reference desktop app's read, write, merge, removal, and round-trip support.
 - e18d19d: Group sibling shapes and ungroup groups inside an existing group without removing the outer group or changing its transform. Grouping preserves the members' stacking order regardless of selection order. Preview group commands support nested selections with Undo/Redo and reject selections spanning different parents.
 - e18d19d: Format selected speaker-note text from the Home ribbon, preserving mixed formatting when editing and saving notes. Add APIs to read and update notes character formatting and change letter case.
@@ -403,17 +403,17 @@ firstSlideNum>`.
 
   Keep Home ribbon controls accessible without horizontal scrolling at intermediate window widths.
 
-- e18d19d: Text formats can now carry the reference desktop app's theme tints and WordArt bevels.
+- e18d19d: Text formats can now carry the reference desktop app's theme tints and text-art bevels.
 
   - `TextFormat.colorTransforms`, and `colorTransforms` on `outline`, `shadow`, `innerShadow` and `glow`, write `<a:lumMod>`, `<a:lumOff>`, `<a:tint>`, ... on the run's colors — the same field gradient stops already take — so "Accent 2, Lighter 60%" stays a theme color instead of a fixed RGB. `getShapeRunFormat` reads them back beside the unresolved color and `toWritableTextFormat` carries them. The shared `ShadowOptions`, `InnerShadowOptions` and `GlowOptions` gain the field, so `setShapeShadow` and `setShapeGlow` accept it too.
-  - New `setShapeText3D(shape, value | null)` / `getShapeText3D(shape)` write and read the text body's 3-D (`<a:scene3d>` camera and light rig, `<a:sp3d>` top bevel, extrusion height, material and contour color), which is where the reference desktop app puts its WordArt bevels. Presets are typed by the schema's enums (`CameraPreset`, `LightRigType`, `LightRigDirection`, `BevelPreset`, `PresetMaterial`).
+  - New `setShapeText3D(shape, value | null)` / `getShapeText3D(shape)` write and read the text body's 3-D (`<a:scene3d>` camera and light rig, `<a:sp3d>` top bevel, extrusion height, material and contour color), which is where the reference desktop app puts its text-art bevels. Presets are typed by the schema's enums (`CameraPreset`, `LightRigType`, `LightRigDirection`, `BevelPreset`, `PresetMaterial`).
   - `setShapeTextAutoFit` now places its element ahead of any `<a:scene3d>` / `<a:sp3d>`, as the schema requires.
   - `getShapeRunFormat` reports a run effect's scheme color as its token (it returned an empty string without a theme), and a text gradient stop without alpha no longer reads back as `opacity: 1`, which wrote an `<a:alpha val="100000"/>` on the way back.
 
 - e18d19d: Support paragraph-internal line breaks when replacing shape or table-cell text with `newlines: 'break'`. The editor preserves these breaks for Shift+Enter and for Enter in title placeholders, matching the reference desktop app (Mac).
 - e18d19d: Add `setShapeTextLanguage(shape, lang)` and `getShapeTextLanguage(shape)` for the proofing language of a shape's text (`lang` on every run and paragraph end). The editor's Review tab gains Check Accessibility, Language, comment Delete/Previous/Next, Show Comments and Hide Ink; commands the library cannot support yet are shown disabled with the reason.
 - e18d19d: Support gradient and pattern fills on formatted text runs through `textFill`,
-  including theme color transforms and round-tripping native WordArt fills.
+  including theme color transforms and round-tripping native text-art fills.
   The existing `color` property remains the solid text color shorthand; passing
   both `color` and `textFill` is rejected.
 - e18d19d: Add slide-background shape fills through `setShapeSlideBackgroundFill` and the editor's Fill pane, including multiple selection, undo and saved reloads. Fill readers expose the new `background` kind. Preview paints the slide background through these shapes while keeping it aligned through shape and group transforms.

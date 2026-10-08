@@ -1,6 +1,6 @@
 <script lang="ts">
   // The reference desktop app's (Mac) Table Design tab: Table Style Options (six check boxes),
-  // Table Styles (style strip, Shading ▾, Borders ▾, Effects ▾), WordArt
+  // Table Styles (style strip, Shading ▾, Borders ▾, Effects ▾), Text Art
   // Styles (Quick Styles, Text Fill, Text Outline, Text Effects) and Draw
   // Borders (Pen Style, Pen Weight, Pen Color, Draw Table, Eraser). Below
   // 1300 pt Shading, Borders and Effects lose their labels.
@@ -8,12 +8,12 @@
   import { getEditor } from '../core/context.ts';
   import { tableTarget } from '../core/table-target.ts';
   import { NO_STYLE_NO_GRID, TABLE_STYLES_PER_ROW, tableStyleName, tableStyleSwatches } from '../core/table-styles.ts';
-  import { applyTableCellWordArtPreset, type WordArtPreset } from '../core/wordart-presets.ts';
+  import { applyTableCellTextArtPreset, type TextArtPreset } from '../core/text-art-presets.ts';
   import { getLocale, t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import Icon from '../ui/Icon.svelte';
   import TableStyleGallery from '../ui/TableStyleGallery.svelte';
-  import WordArtGallery from '../ui/WordArtGallery.svelte';
+  import TextArtGallery from '../ui/TextArtGallery.svelte';
   import MenuButton from './MenuButton.svelte';
   import { captionLines } from './caption.ts';
   import { RibbonCollapse } from './ribbon-collapse.svelte.ts';
@@ -136,9 +136,9 @@
   function textFormat(label: string, format: TextFormat) {
     edit(label, (cell) => setTableCellTextFormat(cell, format));
   }
-  function wordArt(preset: WordArtPreset) {
+  function textArt(preset: TextArtPreset) {
     quickStylesOpen = false;
-    edit('WordArt Styles', (cell) => applyTableCellWordArtPreset(cell, preset));
+    edit('Text Art Styles', (cell) => applyTableCellTextArtPreset(cell, preset));
   }
   // The reference desktop app's outer shadow, reflection and glow presets for text.
   const TEXT_SHADOW = { color: '#000000', blurEmu: 38100, offsetEmu: 38100, angleDeg: 45, opacity: 0.4 } as const;
@@ -195,11 +195,11 @@
     </div>
   </section>
 
-  <section class="ctx-group" aria-label={t('WordArt Styles')}>
+  <section class="ctx-group" aria-label={t('Text Art Styles')}>
     <div class="anchor">
-      <button class="ctx-big" bind:this={quickStylesButton} aria-label={t('WordArt Quick Styles')} aria-haspopup="menu" aria-expanded={quickStylesOpen} disabled={!editable} onclick={() => (quickStylesOpen = !quickStylesOpen)}><span class="ctx-icon-row"><span class="wordart" aria-hidden="true">A</span><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{captionLines(t('Quick Styles'))}</span></button>
+      <button class="ctx-big" bind:this={quickStylesButton} aria-label={t('Text Art Quick Styles')} aria-haspopup="menu" aria-expanded={quickStylesOpen} disabled={!editable} onclick={() => (quickStylesOpen = !quickStylesOpen)}><span class="ctx-icon-row"><span class="text-art" aria-hidden="true">A</span><span class="ctx-caret" aria-hidden="true">▾</span></span><span class="ctx-caption">{captionLines(t('Quick Styles'))}</span></button>
       {#if quickStylesOpen && quickStylesButton}
-        <WordArtGallery anchor={quickStylesButton} label={t('WordArt Quick Styles')} choose={wordArt} close={() => (quickStylesOpen = false)} />
+        <TextArtGallery anchor={quickStylesButton} label={t('Text Art Quick Styles')} choose={textArt} close={() => (quickStylesOpen = false)} />
       {/if}
     </div>
     <div class="ctx-rows">
@@ -230,7 +230,7 @@
   .table-swatch.current { border-color: var(--ok-selected-border); background: var(--ok-selected); }
   .table-swatch img { display: block; width: 100%; height: 100%; }
   .anchor { position: relative; display: flex; }
-  .wordart { font: 700 28px/32px Georgia, serif; color: var(--ok-accent); }
+  .text-art { font: 700 28px/32px Georgia, serif; color: var(--ok-accent); }
   .pens { gap: 0; }
   .pens select { box-sizing: border-box; width: 120px; height: 22px; padding: 0 4px; font-size: 11px; }
   .pen-color { width: 92px; box-sizing: border-box; }
