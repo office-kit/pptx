@@ -1,7 +1,17 @@
 const minimumVideoReadyState = 2;
 const frameDecodeTimeoutMs = 15000;
+// Chromium (seen on Linux x86-64) can fire `loadeddata` on a detached video
+// before its first decoded frame reaches the element's paint path; drawing it
+// then paints nothing. The frame follows within a few milliseconds, so redraw
+// until it does. A video whose first frame really is fully transparent (alpha
+// VP8/VP9) keeps the blank draw once the wait runs out.
+const firstFramePaintWaitMs = 1000;
+const firstFramePaintPollMs = 16;
 
-export async function encodeVideoFrame(video: HTMLVideoElement): Promise<Uint8Array> {
+function drawVideoFrame(video: HTMLVideoElement): {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+} {
   if (video.readyState < minimumVideoReadyState) {
     throw new Error('The video has no decoded frame available.');
   }
@@ -14,6 +24,20 @@ export async function encodeVideoFrame(video: HTMLVideoElement): Promise<Uint8Ar
   const context = canvas.getContext('2d');
   if (!context) throw new Error('The browser could not create a 2D canvas context.');
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return { canvas, context };
+}
+
+function paintedAnything(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement): boolean {
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let alpha = 3; alpha < pixels.length; alpha += 4) if (pixels[alpha] !== 0) return true;
+  return false;
+}
+
+export async function encodeVideoFrame(video: HTMLVideoElement): Promise<Uint8Array> {
+  return encodeCanvas(drawVideoFrame(video).canvas);
+}
+
+async function encodeCanvas(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
@@ -57,7 +81,13 @@ export async function decodeFirstVideoFrame(
       video.src = url;
       video.load();
     });
-    return await encodeVideoFrame(video);
+    const deadline = Date.now() + firstFramePaintWaitMs;
+    let drawn = drawVideoFrame(video);
+    while (!paintedAnything(drawn.context, drawn.canvas) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, firstFramePaintPollMs));
+      drawn = drawVideoFrame(video);
+    }
+    return await encodeCanvas(drawn.canvas);
   } finally {
     cleanup();
     video.removeAttribute('src');
