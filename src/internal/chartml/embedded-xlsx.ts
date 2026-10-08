@@ -26,7 +26,7 @@ const xmlEscape = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const colLetter = (col: number): string => {
-  // 0-based to A, B, …, Z, AA, AB, … (Excel-style).
+  // 0-based to A, B, …, Z, AA, AB, … (spreadsheet column letters).
   let n = col;
   let out = '';
   while (true) {
@@ -107,7 +107,7 @@ export const buildEmbeddedXlsx = (grid: ReadonlyArray<ReadonlyArray<SheetCell>>)
     'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
     '</Types>';
 
-  // Order matters — match what Excel itself emits.
+  // Order matters — match what spreadsheet apps themselves emit.
   return writeZip([
     { name: '[Content_Types].xml', data: encode(contentTypesXml) },
     { name: '_rels/.rels', data: encode(rootRelsXml) },

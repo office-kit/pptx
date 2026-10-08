@@ -1149,7 +1149,7 @@ marB="45720">` — plus a `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` that
   hanging indent through the paragraph cascade (new `bullet` field on
   `ParagraphProperties` from `getParagraphPropertiesEffective`); charts no
   longer invent a legend when the XML authors no `<c:legend>`, and the value
-  axis gets Excel-style headroom above the data max with the tick step
+  axis gets spreadsheet-style headroom above the data max with the tick step
   preserved; the chart builder writes `<c:smooth val="0"/>` explicitly on line
   series (the schema default for an absent element is smooth=1, which made
   LibreOffice draw unauthored lines as curves); and the pure-SVG text layer is
@@ -1454,7 +1454,7 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
 - c561df4: feat: `ChartSpec.categoryAxisNumberFormat` — number-format code for the
   category-axis tick labels (`<c:catAx><c:numFmt formatCode="…"/>`). Most
   useful on date-style categories (`"mm/dd/yyyy"`, `"mmm-yyyy"`) but
-  accepts any Excel format string. Independent of `valueAxis.numberFormat`.
+  accepts any spreadsheet number-format string. Independent of `valueAxis.numberFormat`.
   Read by chart-reader, written by chart-builder in the correct CT_CatAx
   schema order (after `<c:title>`, before `<c:majorTickMark>`).
 - 3ecc11b: feat(chart): category-axis label-skip + position. `ChartSpec.categoryAxisTickLabelSkip`
@@ -1475,7 +1475,7 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
 - 199031b: feat: chart data labels honor `<c:dLbls><c:numFmt formatCode="…"/>`.
   `ChartDataLabels.numberFormat` exposes the format code on both
   chart-level and per-series toggle groups, and the playground renderer
-  projects value labels through the same Excel-format subset the value
+  projects value labels through the same spreadsheet number-format subset the value
   axis already supports (`"0%"`, `"$#,##0"`, `"0.00"`, etc). Per-series
   formats win over the chart-level default.
 - b77c0ed: feat(chart): `ChartSpec.dispBlanksAs` reads `<c:dispBlanksAs>`
@@ -1531,7 +1531,7 @@ gapWidth/100)` with `clusterUnits = 1 + (S - 1)(1 - overlap/100)` —
   `ChartSpec.date1904` (`<c:date1904 val=…/>`) — chartSpace-level
   metadata round-tripped for parity. `language` is the UI
   language code (e.g. `'en-US'`, `'ja-JP'`); `date1904` selects the
-  1904 date epoch (default `false` = Excel 1900 epoch, surface only
+  1904 date epoch (default `false` = 1900 date epoch, surface only
   when explicitly true). pptx-kit's renderers don't act on either yet.
 - 028e3b7: feat: chart `<c:legend><c:legendEntry><c:delete val="1"/>` honored.
   `ChartSpec.legend.hiddenIndices` carries the series indices the
@@ -1556,15 +1556,15 @@ gapWidth/100)` with `clusterUnits = 1 + (S - 1)(1 - overlap/100)` —
 - 28d77ea: fix: chart categories accept `<c:cat><c:numRef>` (numeric / date
   categories). Previously the category-axis dropped to an empty
   labels array when the chart authored a numeric category channel
-  (common for date-axis line charts authored in Excel). Falls back
+  (common for date-axis line charts authored in a spreadsheet app). Falls back
   to formatting each cached numeric value as a string so date /
   number cats appear on the axis instead of disappearing.
-- 7b3ba0a: feat(chart): axis number formats now accept Excel's `"$"#,##0`
+- 7b3ba0a: feat(chart): axis number formats now accept the spreadsheet-style `"$"#,##0`
   quoted-literal prefix / suffix syntax. The reference desktop app typically emits
   currency as `"$"#,##0` (or `"\$"#,##0`) rather than the bare `$`
   form, so the previous detection missed it.
 - d2f86d2: feat(chart): `ChartAxisScaling.numberFormat` reads `<c:valAx><c:numFmt
-formatCode="…"/>`. Playground projects the most common Excel format
+formatCode="…"/>`. Playground projects the most common spreadsheet number-format
   codes to axis labels — percent (`'0%'`, `'0.0%'`), thousand
   separator (`'#,##0'`, `'#,##0.0'`), and currency prefixes
   (`'$#,##0'`, `'¥#,##0'`). Other codes fall through to the generic
@@ -1617,7 +1617,7 @@ formatCode="…"/>`. Playground projects the most common Excel format
   chart-builder.
 - 2599a46: feat: chart titles read `<c:tx><c:strRef>` workbook-cell references.
   Previously only literal `<c:rich>` titles surfaced; titles authored
-  via Excel's "Link to source cell" wizard (which emits `<c:strRef>`
+  via a spreadsheet app's "Link to source cell" feature (which emits `<c:strRef>`
   with a `<c:strCache>` of the resolved text) now flow through to
   `ChartSpec.title` as the cached value. Affects the title shown above
   the chart and, transitively, axis-title rendering.
@@ -2137,7 +2137,7 @@ lumOff=60000` (the reference desktop app's "Accent 1, Lighter 60%") resolves to 
   exposes the per-data-point pull-out percentage from `<c:dPt><c:explosion val="N"/>`,
   and the playground renderer offsets exploded slices (and their labels)
   outward along the slice mid-angle. Matches the "pulled-out" pie look
-  authors get from Excel's "Vary colors by point" toggle.
+  authors get from the "Vary colors by point" toggle in spreadsheet apps.
 - 2e9776d: feat(site/playground): chart / media count badges on each slide.
   `getSlideCharts(slide)` and `getSlideMediaPartNames(pres, slide)`
   power two new badges (`N chart`, `N media`) showing how many chart

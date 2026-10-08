@@ -4,10 +4,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 
-// "PowerPoint" and "Microsoft" are a third party's trademarks, so the docs,
-// the editor and dev sources, the site and the changelogs describe behaviour
-// neutrally: "the reference desktop app" for verified behaviour of that app,
-// "presentation apps" for compatibility in general. This scans the tracked
+// "PowerPoint", "Microsoft", "Excel" and "Word" are a third party's
+// trademarks, so the docs, the editor and dev sources, the site and the
+// changelogs describe behaviour neutrally: "the reference desktop app" for
+// verified behaviour of that app, "presentation apps" for compatibility in
+// general, "spreadsheet app" and "word processor" for the other products. This scans the tracked
 // files in those areas. The core library, preview, DSL, scripts and core tests
 // are covered by the root `test/neutral-wording.test.ts`; the shipped UI
 // strings by `brand-free-ui.test.mjs`.
@@ -56,6 +57,14 @@ const FORBIDDEN = [
   // `office-kit` are not it; the allowlist below strips the remaining
   // legitimate uses first.
   /\bOffice\b/,
+  // The spreadsheet app. Case-sensitive so the `vnd.ms-excel` content types
+  // and the verb "excel" are not it; `\b` skips `QtExcel` (the spec mirror's
+  // GitHub org) and `Microsoft_Excel_Worksheet`.
+  /\bExcel\b|\bEXCEL\b|エクセル/,
+  // The word processor. Case-sensitive so the English word is not it, and
+  // `\b` skips `WordArt` and `WordprocessingML`. ワード alone is too common in
+  // Japanese (パスワード, キーワード), so only product-shaped uses count there.
+  /\bWord\b|(?:Microsoft|MS|マイクロソフト) ?ワード|ワード(?:文書|ファイル|形式)/,
 ];
 
 // Everything here is stripped before FORBIDDEN is applied. Each entry is a
@@ -90,6 +99,10 @@ const ALLOWED = [
   /\['Office(?: 20\d\d - 20\d\d)?', '/g,
   // Not the product.
   /Office Open XML|LibreOffice|OfficeArt|Office Kit/g,
+  // "Word" as the English word in title-case labels (the Change Case
+  // command's "Capitalize Each Word") and at the start of a sentence.
+  /\b(?:Each|Whole) Words?\b/g,
+  /\bWord (?=wrap|spacing|break|count|boundar)/g,
 ];
 
 const tracked = execFileSync('git', ['ls-files', '-z', '--', ...SCOPES], {

@@ -5,8 +5,8 @@ import test from 'node:test';
 import ts from 'typescript';
 
 // The editor and the dev tool must not show a third-party trademark
-// (PowerPoint, Microsoft, OneDrive, SharePoint) or our own brand (Office
-// Kit) as UI text. Templates, i18n tables, menu data, tooltips and thrown
+// (PowerPoint, Microsoft, OneDrive, SharePoint, Excel, Word) or our own brand
+// (Office Kit) as UI text. Templates, i18n tables, menu data, tooltips and thrown
 // messages all end up as string literals in the built bundles, so this scans
 // every string literal there — which a source grep cannot do reliably for
 // compiled Svelte templates.
@@ -22,6 +22,8 @@ import ts from 'typescript';
 // - `typeface="…"` values, the `Microsoft_Excel_Worksheet` part name and the
 //   creator / application properties: font names, part names and document
 //   metadata inside generated OOXML, not UI text.
+// - "Word" as the English word in title-case labels (the Change Case
+//   command's "Capitalize Each Word").
 // - `office-kit` outside HTML text: package specifiers, storage keys, MIME
 //   types, element and attribute names. Only "Office Kit" as words, or
 //   `office-kit` inside an element's text, is the brand on screen.
@@ -38,6 +40,12 @@ const isToolSchema = (file) => basename(file).startsWith('agent-tools-');
 const FORBIDDEN = [
   /powerpoint|パワーポイント/i,
   /microsoft|マイクロソフト|onedrive|sharepoint/i,
+  // Case-sensitive: the `vnd.ms-excel` content types are not UI text, and
+  // `\b` skips the `Microsoft_Excel_Worksheet` part name, `WordArt` and
+  // `WordprocessingML`. ワード alone is too common in Japanese (パスワード,
+  // キーワード), so only product-shaped uses count there.
+  /\bExcel\b|\bEXCEL\b|エクセル/,
+  /\bWord\b|(?:MS|マイクロソフト) ?ワード|ワード(?:文書|ファイル|形式)/,
   /office kit/i,
   />[^<>{}()=;'"`]*office-kit[^<>{}()=;'"`]*</i,
 ];
@@ -50,6 +58,7 @@ const visibleText = (text) =>
     .replace(/application\/vnd\.ms-powerpoint[\w.+-]*/g, '')
     .replace(/typeface="[^"]*"/g, '')
     .replace(/Microsoft_Excel_Worksheet/g, '')
+    .replace(/\b(?:Each|Whole) Words?\b/g, '')
     .replace(/<(dc:creator|cp:lastModifiedBy|Application)>[^<]*<\/\1>/g, '');
 
 function stringLiterals(file) {

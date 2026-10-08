@@ -57,7 +57,7 @@ const NAME_MULTI_LVL_STR_CACHE = qname('c', 'multiLvlStrCache', NS_C);
 const NAME_LVL = qname('c', 'lvl', NS_C);
 const NAME_PT = qname('c', 'pt', NS_C);
 const NAME_PT_COUNT = qname('c', 'ptCount', NS_C);
-// Excel's row limit — the most points a chart cache can legitimately hold.
+// The worksheet row limit (2^20) — the most points a chart cache can legitimately hold.
 const MAX_PT_COUNT = 1_048_576;
 const NAME_V = qname('c', 'v', NS_C);
 const NAME_D_LBLS = qname('c', 'dLbls', NS_C);
@@ -858,7 +858,7 @@ const readValueAxisScaling = (valAx: XmlElement): ChartAxisScaling | undefined =
   }
   // <c:numFmt formatCode="…" sourceLinked="0|1"/> sits directly under
   // <c:valAx>. We surface the formatCode for renderers; sourceLinked
-  // (whether to inherit Excel cell format) isn't useful at our layer.
+  // (whether to inherit the source cell format) isn't useful at our layer.
   let numberFormat: string | undefined;
   const nfEl = firstChildElement(valAx, qname('c', 'numFmt', NS_C));
   if (nfEl) {

@@ -142,7 +142,7 @@ raster on every sample (now compensated by the `GRID_NUDGE_X` calibration in
 `text-layout.ts`), master-`bodyStyle` bullets not being inherited by body
 placeholders (now resolved through the paragraph cascade), chart legends being
 invented for charts that author no `<c:legend>`, and the value axis missing
-Excel-style headroom above the data max. Text-heavy slides now score
+spreadsheet-style headroom above the data max. Text-heavy slides now score
 0.87–0.95.
 
 Documented divergences (scored against their committed baseline, not fixed):

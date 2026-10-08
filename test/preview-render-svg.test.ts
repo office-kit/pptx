@@ -796,7 +796,7 @@ describe('chart chrome fidelity', () => {
     expect(textContentOf(svg)).not.toContain('S1');
   });
 
-  it('value axis gets Excel-style headroom above the data max', async () => {
+  it('value axis gets spreadsheet-style headroom above the data max', async () => {
     const { pres, slide } = await blankSlide();
     addSlideChart(slide, {
       x: inches(1),
