@@ -360,9 +360,10 @@ library's API, is described in [`src/README.md`](src/README.md).
 `@office-kit/pptx-editor/internal` and
 `@office-kit/pptx-editor/internal/animation-player` are **not public API**.
 They exist only for `@office-kit/pptx-dev` and change or disappear in any
-release: the first is `mountEditor` for the preview's frame, whose page
-presents slide shows and hosts the Agents pane over `postMessage`; the second
-is the slide-show animation player that page loads on its own.
+release: the first is `mountEditor` for the dev tool's editor page, which in
+the preview's frame presents slide shows and hosts the Agents pane over
+`postMessage`; the second is the slide-show animation player that page loads on
+its own.
 
 ## Trademarks
 

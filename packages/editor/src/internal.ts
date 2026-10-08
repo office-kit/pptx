@@ -4,15 +4,23 @@
 // notice. Everything else the dev host needs goes through `mountEditor`.
 
 import { mountEditor, type EditorHandle, type EditorOptions } from './index.ts';
-import { previewFrameOptions } from './core/preview-frame.ts';
+import { devHostOptions, type DevHostOptions } from './core/dev-host.ts';
+
+export type { DevHostOptions } from './core/dev-host.ts';
 
 /**
- * `mountEditor` for the frame inside the `pptx-dev` preview page. Slide Show,
- * Reading View, Rehearse Timings and the Agents pane button talk to that page
- * over `postMessage`, and the editor reports the slide being edited to it.
+ * `mountEditor` for `pptx-dev`'s editor page. Inside the preview's frame
+ * (`previewFrame`), Slide Show, Reading View, Rehearse Timings and the Agents
+ * pane button talk to that page over `postMessage`, and the editor reports the
+ * slide being edited to it. `feedback` adds Help ▸ Feedback, which hosts of the
+ * public `mountEditor` never get.
  * @internal
  */
-export function mountPreviewFrameEditor(target: HTMLElement, options: EditorOptions): EditorHandle {
-  previewFrameOptions.add(options);
+export function mountDevEditor(
+  target: HTMLElement,
+  options: EditorOptions,
+  dev: DevHostOptions,
+): EditorHandle {
+  devHostOptions.set(options, dev);
   return mountEditor(target, options);
 }

@@ -1001,6 +1001,17 @@ test(
         '類義語辞典にはオンラインの参照サービスが必要です。',
       );
       await closeMenus(editor);
+      // The dev tool turns Help ▸ Feedback on through the internal mount (the
+      // public mountEditor has none); it opens the issue tracker in a new tab.
+      const issues = 'https://github.com/office-kit/pptx/issues';
+      await page.context().route(`${issues}**`, (route) => route.fulfill({ body: '' }));
+      const help = await openPath(editor, ['ヘルプ']);
+      const [tab] = await Promise.all([
+        page.context().waitForEvent('page'),
+        help.getByRole('menuitem', { name: 'フィードバック', exact: true }).click(),
+      ]);
+      await tab.waitForURL(issues);
+      await tab.close();
       assert.deepEqual(errors, []);
     } finally {
       await session?.browser.close();

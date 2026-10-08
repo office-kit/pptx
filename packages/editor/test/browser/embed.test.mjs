@@ -368,6 +368,55 @@ test('shows the Japanese interface and saves through it', async () => {
   await page.close();
 });
 
+// A host owns its support channel: the public mount links to no feedback
+// form or issue tracker anywhere, and offers agents no such command.
+test('the public mount has no feedback entry point, in English or Japanese', async () => {
+  const HELP = {
+    en: {
+      menu: 'Help',
+      items: ['Editor Help', '----', 'Clear Application Data', '----', 'Check for Updates'],
+    },
+    ja: {
+      menu: 'ヘルプ',
+      items: [
+        'エディター ヘルプ',
+        '----',
+        'アプリケーション データのクリア',
+        '----',
+        '更新プログラムのチェック',
+      ],
+    },
+  };
+  for (const [locale, help] of Object.entries(HELP)) {
+    const { page, errors } = await hostPage();
+    const editor = await mount(page, 'a', await deck('Help'), { locale });
+    await editor
+      .getByRole('menubar')
+      .getByRole('menuitem', { name: help.menu, exact: true })
+      .click();
+    const menu = editor.getByRole('menu', { name: help.menu, exact: true });
+    const rows = await menu
+      .locator(':scope > .item, :scope > .branch > .item, :scope > .sep')
+      .evaluateAll((nodes) =>
+        nodes.map((node) =>
+          node.classList.contains('sep') ? '----' : node.getAttribute('aria-label'),
+        ),
+      );
+    assert.deepEqual(rows, help.items, locale);
+    await page.keyboard.press('Escape');
+    const markup = await editor.evaluate((node) => node.firstElementChild.shadowRoot.innerHTML);
+    assert.doesNotMatch(markup, /feedback|フィードバック|github\.com|report an issue/i, locale);
+    const tools = (await page.evaluate(() => window.handles.a.tools())).map((tool) => tool.name);
+    assert.deepEqual(
+      tools.filter((name) => /feedback/i.test(name)),
+      [],
+      locale,
+    );
+    assert.deepEqual(errors, []);
+    await page.close();
+  }
+});
+
 test('a failed onSave is shown, and an unreadable source rejects ready', async () => {
   const { page } = await hostPage();
   const editor = await mount(page, 'a', await deck('Failing save'), { locale: 'en' });

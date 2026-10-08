@@ -36,7 +36,7 @@
     return { destroy() { window.removeEventListener('resize', position); } };
   }
   function keys(event: KeyboardEvent) {
-    if (!event.isComposing && menuItemForKey(nativeMenus(), event)) { close(false); return; }
+    if (!event.isComposing && menuItemForKey(nativeMenus(editor), event)) { close(false); return; }
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); close(); return; }
     if (event.key === 'Tab') { close(false); return; }
