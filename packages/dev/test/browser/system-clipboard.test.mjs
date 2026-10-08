@@ -50,12 +50,30 @@ async function deckOf(preview) {
   );
 }
 
+/** The data: PNGs in clipboard HTML, decoded. */
+function htmlImages(html) {
+  return [...html.matchAll(/<img[^>]+src="data:image\/png;base64,([^"]+)"/g)].map(([, data]) =>
+    Buffer.from(data, 'base64'),
+  );
+}
+
+/** The pHYs density of a PNG in dots per inch, or null without one. */
+function pngDensityDpi(png) {
+  const at = png.indexOf('pHYs');
+  return at < 0 ? null : Math.round(png.readUInt32BE(at + 4) * 0.0254);
+}
+
 /** Reads the system clipboard in the editor frame, waiting for a copy newer than `previous`. */
 async function readClipboard(frame, previous) {
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
     const result = await frame.evaluate(async (deckType) => {
-      const [item] = await navigator.clipboard.read();
+      // A read during a pending write fails with "Clipboard data has changed"; poll again.
+      const items = await navigator.clipboard.read().catch((error) => {
+        if (error.name === 'InvalidStateError') return [];
+        throw error;
+      });
+      const [item] = items;
       if (!item) return null;
       const out = { types: [...item.types] };
       for (const type of item.types) {
@@ -124,8 +142,11 @@ test(
       assert.match(clip.marker, /^slides:/);
       assert.equal(getSlides(clip.deck).length, 1);
       assert.equal(getSlideText(getSlides(clip.deck)[0]).includes('Title 日本語'), true);
-      assert.match(clip['text/html'], /Title 日本語/);
-      assert.match(clip['text/html'], /<table[\s>]/);
+      // Desktop presentation apps paste HTML ahead of pictures, so a slide's HTML is a
+      // picture of it. Its pHYs density makes those apps size it as on the slide.
+      assert.equal(htmlImages(clip['text/html']).length, 1);
+      assert.doesNotMatch(clip['text/html'], /<table[\s>]/);
+      assert.equal(pngDensityDpi(htmlImages(clip['text/html'])[0]), 192);
       assert.match(clip['text/plain'], /Title 日本語/);
       assert.match(clip['text/plain'], /A\tB/);
       assert.match(clip['image/svg+xml'], /<text[\s>]/);
@@ -133,7 +154,7 @@ test(
       assert.equal(clip['image/png'].width, Math.round(slidePx.width * 2));
       assert.equal(clip['image/png'].height, Math.round(slidePx.height * 2));
 
-      // Several slides, from the thumbnail menu; the HTML carries every slide's text.
+      // Several slides, from the thumbnail menu; the HTML has a picture of each.
       await a
         .locator('.thumb-row')
         .nth(2)
@@ -143,7 +164,7 @@ test(
       clip = await readClipboard(frameA, clip.marker);
       assert.equal(getSlides(clip.deck).length, 3);
       assert.deepEqual(getSlides(clip.deck).slice(1).map(getSlideText), ['Second', 'Third']);
-      assert.match(clip['text/html'], /Second[\s\S]*Third/);
+      assert.equal(htmlImages(clip['text/html']).length, 3);
       assert.match(clip['text/plain'], /Second\n\nThird/);
       // The drawing is the first slide.
       assert.equal(clip['image/png'].width, Math.round(slidePx.width * 2));
@@ -198,7 +219,15 @@ test(
       );
       assert.equal(clip['text/plain'], 'A\tB\nC\tD');
 
-      // Several objects, cut: the payload keeps them all.
+      // Text on its own stays styled text.
+      await hits.nth(0).click();
+      await hits.nth(0).press('Control+c');
+      clip = await readClipboard(frameA, clip.marker);
+      assert.match(clip['text/html'], /Title 日本語/);
+      assert.equal(htmlImages(clip['text/html']).length, 0);
+
+      // Several objects, cut: the payload keeps them all, and with a drawing among
+      // them the HTML is one picture of the whole selection.
       await hits.nth(0).click();
       await hits.nth(1).click({ modifiers: ['Shift'] });
       await hits.nth(2).click({ modifiers: ['Shift'] });
@@ -206,7 +235,7 @@ test(
       clip = await readClipboard(frameA, clip.marker);
       shapes = getSlideShapes(getSlides(clip.deck)[0]);
       assert.equal(shapes.length, 3);
-      assert.match(clip['text/html'], /Title 日本語/);
+      assert.equal(htmlImages(clip['text/html']).length, 1);
       await savedA();
       assert.equal(getSlideShapes(getSlides(await deckOf(source))[0]).length, 1);
 

@@ -342,9 +342,11 @@ on a server, and returns `{ ok: true, bytes }` or `{ ok: false, conflicts }`.
   editor, view options such as rulers and gridlines). A `locale` you pass is not
   stored.
 - **Copy and paste use the system clipboard.** Copying slides or objects
-  writes one clipboard item with HTML text and tables, a PNG picture, an SVG
-  drawing (in browsers that write SVG) and plain text, so other apps paste
-  something useful, plus a private copy of the slides that another editor
+  writes one clipboard item with HTML, a PNG picture, an SVG drawing (in
+  browsers that write SVG) and plain text, so other apps paste something
+  useful: slides and drawn objects as pictures at their size on the slide,
+  text boxes and tables on their own as text and tables. It also holds a
+  private copy of the slides that another editor
   (another tab, page or browser) pastes as editable slides and objects. The
   browser asks the user before the editor may read the clipboard; without that
   permission, ⌘V / Ctrl+V still pastes text and pictures, and copies made in

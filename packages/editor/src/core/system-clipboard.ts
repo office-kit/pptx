@@ -9,13 +9,12 @@
 
 import {
   getParagraphPropertiesEffective,
-  getShapeImageBytes,
-  getShapeImageFormat,
+  getShapeFillEffective,
   getShapeKind,
-  getShapeMedia,
-  getShapeBoundsResolved,
   getShapeParagraphElements,
+  getShapePlaceholderType,
   getShapeRunFormatEffective,
+  getShapeStrokeEffective,
   getShapeText,
   getSlides,
   getSlideSize,
@@ -28,6 +27,7 @@ import {
   getTableCellSpan,
   getTableColumnWidths,
   getTableRowHeights,
+  isShapeTextBox,
   isTableShape,
   toWritableTextFormat,
   type ParagraphProperties,
@@ -45,7 +45,6 @@ import {
   TIMES,
   type TextMeasurer,
 } from '@office-kit/pptx-preview';
-import { shapeScope } from '../canvas/group-space.ts';
 import {
   CLIPBOARD_MARKER_ATTRIBUTE,
   clipboardMarker,
@@ -66,6 +65,9 @@ const EMU_PER_PX = 9525;
 const DEFAULT_SLIDE = { width: 12192000, height: 6858000 };
 /** The PNG is drawn at twice the slide's pixel size, so it stays sharp on high-density screens. */
 const PNG_SCALE = 2;
+/** CSS pixels per inch. */
+const CSS_DPI = 96;
+const METRES_PER_INCH = 0.0254;
 /** Larger canvases fail to allocate in some browsers. */
 const MAX_PNG_SIDE = 8192;
 /** Room around copied objects for outlines and effects drawn outside their geometry. */
@@ -77,14 +79,6 @@ const DEFAULT_CELL_MARGIN = { left: 91440, right: 91440, top: 45720, bottom: 457
 const BASIC_TYPES = new Set(['text/plain', 'text/html', 'image/png']);
 /** Pictures a paste accepts from other apps, in the order it prefers them. */
 const IMAGE_TYPES = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/gif', 'image/webp'];
-const IMAGE_MIME: Readonly<Record<string, string>> = {
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  bmp: 'image/bmp',
-  webp: 'image/webp',
-  svg: 'image/svg+xml',
-};
 
 // The SVG text path names the metric-compatible substitute faces the preview
 // measures with. Other apps rarely have them, so the clipboard drawing lists
@@ -135,13 +129,13 @@ export interface ClipboardDrawing {
 }
 
 /**
- * The SVG rendition, drawn with SVG text so it needs no HTML renderer: the
- * first copied slide, or the copied objects on a transparent surface cropped
- * to their bounds. Several slides draw the first one; their text is all in
- * the HTML.
+ * A drawing with SVG text, so it needs no HTML renderer: one copied slide, or
+ * the copied objects on a transparent surface cropped to their bounds. The
+ * SVG and PNG entries hold one picture, so a copy of several slides puts the
+ * first one there; the HTML has every slide.
  */
-export function clipboardDrawing(deck: ClipboardDeck): ClipboardDrawing {
-  const slide = getSlides(deck.pres)[0]!;
+export function clipboardDrawing(deck: ClipboardDeck, slideIndex = 0): ClipboardDrawing {
+  const slide = getSlides(deck.pres)[slideIndex]!;
   const size = getSlideSize(deck.pres) ?? DEFAULT_SLIDE;
   const objects = deck.kind === 'shapes' ? clipboardShapeBounds(deck) : null;
   const box = objects
@@ -188,15 +182,56 @@ export async function rasterizeSvg(
     canvas.width = Math.max(1, Math.round(width * factor));
     canvas.height = Math.max(1, Math.round(height * factor));
     canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((resolve, reject) =>
+    const png = await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
         (blob) => (blob ? resolve(blob) : reject(new Error(t('The picture could not be drawn')))),
         'image/png',
       ),
     );
+    return withPixelDensity(png, (canvas.width / Math.max(width, 1)) * CSS_DPI);
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/** Signature plus the IHDR chunk, which every PNG starts with. */
+const PNG_HEADER_BYTES = 33;
+const PNG_UNIT_METRE = 1;
+
+let crcTable: Uint32Array | undefined;
+function crc32(bytes: Uint8Array): number {
+  crcTable ??= Uint32Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c;
+  });
+  let crc = 0xffffffff;
+  for (const byte of bytes) crc = crcTable[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
+ * Adds a pHYs chunk so other apps size the picture as it appears on the slide.
+ * Canvas PNGs carry none, and the reference desktop app on Mac then reads
+ * them at 72 DPI: a 2× drawing pastes at nearly three times its size. It
+ * ignores width and height on an HTML image, so the density is the only size
+ * it takes. (Chromium re-encodes the image/png entry and drops the chunk; the
+ * data: image inside the HTML keeps it.)
+ */
+async function withPixelDensity(png: Blob, dpi: number): Promise<Blob> {
+  const bytes = new Uint8Array(await png.arrayBuffer());
+  const perMetre = Math.round(dpi / METRES_PER_INCH);
+  const chunk = new Uint8Array(21);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, 9);
+  chunk.set([0x70, 0x48, 0x59, 0x73], 4); // "pHYs"
+  view.setUint32(8, perMetre);
+  view.setUint32(12, perMetre);
+  chunk[16] = PNG_UNIT_METRE;
+  view.setUint32(17, crc32(chunk.subarray(4, 17)));
+  return new Blob([bytes.subarray(0, PNG_HEADER_BYTES), chunk, bytes.subarray(PNG_HEADER_BYTES)], {
+    type: 'image/png',
+  });
 }
 
 function dataUrl(blob: Blob): Promise<string> {
@@ -342,57 +377,52 @@ function tableElement(pres: PresentationData, shape: SlideShapeData): HTMLTableE
   return table;
 }
 
-async function pictureElement(
-  pres: PresentationData,
-  shape: SlideShapeData,
-): Promise<HTMLImageElement | null> {
-  const format = getShapeImageFormat(shape);
-  const bytes = getShapeImageBytes(shape);
-  const mime = format ? IMAGE_MIME[format] : undefined;
-  if (!bytes || !mime || getShapeMedia(shape)) return null;
+type Picture = { readonly blob: Blob; readonly width: number; readonly height: number };
+
+/** Text another app can rebuild from HTML: a table, or text with no paint of its own. */
+function isPlainText(pres: PresentationData, shape: SlideShapeData): boolean {
+  if (isTableShape(shape)) return true;
+  if (getShapeKind(shape) !== 'shape' || !getShapeText(shape).trim()) return false;
+  // A non-placeholder autoshape that inherits its paint takes it from its theme style.
+  if (!isShapeTextBox(shape) && !getShapePlaceholderType(shape)) return false;
+  const unpainted = (kind: string) => kind === 'none' || kind === 'inherit';
+  return (
+    unpainted(getShapeFillEffective(pres, shape).kind) &&
+    unpainted(getShapeStrokeEffective(pres, shape).kind)
+  );
+}
+
+async function imageElement({ blob, width, height }: Picture): Promise<HTMLImageElement> {
   const image = document.createElement('img');
-  image.src = await dataUrl(new Blob([bytes as BlobPart], { type: mime }));
-  const bounds = getShapeBoundsResolved(pres, shape);
-  if (bounds) {
-    image.width = Math.round(bounds.w / EMU_PER_PX);
-    image.height = Math.round(bounds.h / EMU_PER_PX);
-  }
+  image.src = await dataUrl(blob);
+  image.width = Math.round(width);
+  image.height = Math.round(height);
   return image;
 }
 
 /**
- * The HTML rendition: the copied text as styled paragraphs and lists, tables
- * as tables, and — for copied objects — pictures as data: images. Drawings
- * (shapes, charts) are in the image formats; when nothing else is left the
- * HTML carries `picture` so it still pastes as something.
+ * The HTML rendition. Desktop presentation apps rank HTML above pictures and
+ * paste it as text boxes, tables and images, so a slide goes in as a picture
+ * of the slide, and objects go in as styled text and tables only when they
+ * are nothing else; any other object makes the whole copy one picture,
+ * rather than pasting the text and dropping the drawing.
  */
 export async function clipboardHtml(
   deck: ClipboardDeck,
   id: string,
-  picture: () => Promise<{ blob: Blob; width: number; height: number }>,
+  picture: (slideIndex: number) => Promise<Picture>,
 ): Promise<string> {
   const root = document.createElement('div');
   root.setAttribute(CLIPBOARD_MARKER_ATTRIBUTE, clipboardMarker(deck.kind, id));
-  const shapes =
-    deck.kind === 'shapes'
-      ? clipboardShapes(deck.pres)
-      : getSlides(deck.pres).flatMap((slide) => shapeScope(slide, null).shapes);
-  for (const shape of leafShapes(shapes)) {
-    if (isTableShape(shape)) root.append(tableElement(deck.pres, shape));
-    else if (getShapeKind(shape) === 'picture') {
-      const image = deck.kind === 'shapes' ? await pictureElement(deck.pres, shape) : null;
-      if (image) root.append(image);
-    } else if (getShapeKind(shape) === 'shape' && getShapeText(shape).trim()) {
-      root.append(...paragraphBlocks(deck.pres, { shape }));
-    }
-  }
-  if (!root.childElementCount) {
-    const { blob, width, height } = await picture();
-    const image = document.createElement('img');
-    image.src = await dataUrl(blob);
-    image.width = Math.round(width);
-    image.height = Math.round(height);
-    root.append(image);
+  const shapes = deck.kind === 'shapes' ? leafShapes(clipboardShapes(deck.pres)) : [];
+  if (shapes.length && shapes.every((shape) => isPlainText(deck.pres, shape))) {
+    for (const shape of shapes)
+      if (isTableShape(shape)) root.append(tableElement(deck.pres, shape));
+      else root.append(...paragraphBlocks(deck.pres, { shape }));
+  } else {
+    const count = deck.kind === 'slides' ? getSlides(deck.pres).length : 1;
+    const pictures = await Promise.all(Array.from({ length: count }, (_, index) => picture(index)));
+    root.append(...(await Promise.all(pictures.map(imageElement))));
   }
   return root.outerHTML;
 }
@@ -421,20 +451,28 @@ export function writeSystemClipboard(id: string, deck: Promise<ClipboardDeck>): 
     return Promise.reject(new Error('The system clipboard is unavailable'));
   const blob = (value: string | Uint8Array, type: string) =>
     new Blob([value as BlobPart], { type });
-  const drawing = deck.then(clipboardDrawing);
-  let png: Promise<{ blob: Blob; width: number; height: number }> | undefined;
-  const picture = () =>
-    (png ??= drawing.then(async ({ svg, width, height }) => ({
-      blob: await rasterizeSvg(svg, width, height),
-      width,
-      height,
-    })));
+  const drawing = deck.then((value) => clipboardDrawing(value));
+  const pictures = new Map<number, Promise<Picture>>();
+  const picture = (slideIndex: number) => {
+    let png = pictures.get(slideIndex);
+    if (!png) {
+      png = (
+        slideIndex === 0 ? drawing : deck.then((value) => clipboardDrawing(value, slideIndex))
+      ).then(async ({ svg, width, height }) => ({
+        blob: await rasterizeSvg(svg, width, height),
+        width,
+        height,
+      }));
+      pictures.set(slideIndex, png);
+    }
+    return png;
+  };
   const entries: Record<string, Promise<Blob>> = {
     'text/plain': deck.then((value) => blob(clipboardPlainText(value), 'text/plain')),
     'text/html': deck
       .then((value) => clipboardHtml(value, id, picture))
       .then((html) => blob(html, 'text/html')),
-    'image/png': picture().then((value) => value.blob),
+    'image/png': picture(0).then((value) => value.blob),
   };
   if (supportsType('image/svg+xml'))
     entries['image/svg+xml'] = drawing.then(({ svg }) => blob(svg, 'image/svg+xml'));
