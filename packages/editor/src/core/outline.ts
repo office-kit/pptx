@@ -107,7 +107,7 @@ function paragraphSpans(shape: SlideShapeData): Array<{ start: number; end: numb
  * joins the start paragraph (which keeps its title or body level), and the
  * end slide's remaining body moves onto the start slide. Native comparison
  * covers title-to-title; the body-start and body-end cases follow the same
- * text model (see POWERPOINT_PARITY.md).
+ * text model (see NATIVE_PARITY.md).
  */
 export function deleteOutlineSlideRange(
   pres: PresentationData,

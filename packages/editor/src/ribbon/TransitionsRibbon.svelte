@@ -248,7 +248,7 @@
 </div>
 
 <style>
-  /* Measured from Mac PowerPoint 16 (see POWERPOINT_PARITY.md "Native
+  /* Measured from Mac PowerPoint 16 (see NATIVE_PARITY.md "Native
      geometry audit"): a 72 pt row, groups split by a rule with 10 pt on each
      side, large buttons as wide as PowerPoint's own, 26 pt control rows on a
      32 pt pitch starting 4 pt down. */

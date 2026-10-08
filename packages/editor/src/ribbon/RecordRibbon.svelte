@@ -48,7 +48,7 @@
 </div>
 
 <style>
-  /* Geometry measured from Mac PowerPoint 16 (POWERPOINT_PARITY.md, "Native
+  /* Geometry measured from Mac PowerPoint 16 (NATIVE_PARITY.md, "Native
      geometry audit"). */
   .record { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
   .cluster { display: flex; flex: none; align-items: stretch; padding: 0 10px; border-right: 1px solid var(--ok-border); }

@@ -270,7 +270,7 @@ const SPOKES: readonly EffectOption[] = [1, 2, 3, 4, 8].map((spokes) => ({
 // The emphasis effects' own sections. Mac PowerPoint was captured with each
 // effect's gallery default only, so these names (and their Japanese) follow
 // PowerPoint for Windows' Effect Options and are not verified against the Mac
-// menu; see POWERPOINT_PARITY.md.
+// menu; see NATIVE_PARITY.md.
 const SPIN_DIRECTIONS: readonly EffectOption[] = [
   { en: 'Clockwise', ja: '時計回り', patch: { spinDirection: 'clockwise' } },
   { en: 'Counterclockwise', ja: '反時計回り', patch: { spinDirection: 'counterclockwise' } },

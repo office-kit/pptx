@@ -3,7 +3,7 @@
 // on its text runs. Both go through one `EffectTarget` so the sections are
 // written once. Preset values follow what Mac PowerPoint writes for its
 // galleries; the ones not compared against a native capture are listed in
-// POWERPOINT_PARITY.md.
+// NATIVE_PARITY.md.
 
 import {
   asColor,

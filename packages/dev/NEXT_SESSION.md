@@ -150,7 +150,7 @@
 
 - HTML parsing now retains CSS double line-through as `dblStrike`. Editing and clipboard HTML emit the double strike separately from underline styles.
 - Reproduced the parser dropping double strike before the fix. Browser coverage checks both editing/clipboard output with no underline, single, double and wavy underlines. Shape/cell HTML paste tests verify saved PPTX double strike and Undo. All four html-text-clipboard browser tests pass; Svelte check has zero errors/warnings, scoped lint and editor build pass.
-- Native geometry comparison and pending reference restoration remain blocked by the native connection. Full parity remains incomplete. Continue the open areas in POWERPOINT_PARITY.md; do not infer completion from these scoped tests.
+- Native geometry comparison and pending reference restoration remain blocked by the native connection. Full parity remains incomplete. Continue the open areas in NATIVE_PARITY.md; do not infer completion from these scoped tests.
 
 ## 2026-10-02: Double strikethrough preview
 
@@ -1110,7 +1110,7 @@
 
 1. `CLAUDE.md` を読む。既存の公開 API を使い、機能ごとに API を重複させない。pnpm を使う。
 2. `git status` と PR #287 の状態・CI を確認する。今回の修正は `fix(editor): preserve custom tabs during direct text editing` のコミットを探す。
-3. このファイルと `packages/dev/POWERPOINT_PARITY.md` を読む。後者は履歴形式で、古い「未実装」が後段で解決されている場合があるため現コードと照合する。
+3. このファイルと `packages/dev/NATIVE_PARITY.md` を読む。後者は履歴形式で、古い「未実装」が後段で解決されている場合があるため現コードと照合する。
 4. 下記の「次に進める項目」から、実機確認・失敗するテスト・修正・検証の順で進める。
 
 ## Git / PR
@@ -1244,7 +1244,7 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 
 - 右クリック Cut/Copy/Paste を実装。HTML 書式保持と非同期クリップボード応答中のフォーカス移動を検証。
 - スライドアイコンのドラッグ並べ替えを実装。連続・非連続の複数選択、Undo、保存後の再読込を英日 4 ケースで検証。Mac の追加選択は Command-click。
-- 残件表は POWERPOINT_PARITY.md の冒頭を参照。ドラッグの実機との完全一致やスクロール、本文の視覚的階層・書式表示、スライド間の文字選択などは未完了。
+- 残件表は NATIVE_PARITY.md の冒頭を参照。ドラッグの実機との完全一致やスクロール、本文の視覚的階層・書式表示、スライド間の文字選択などは未完了。
 
 ## 最新追記: 本文段落の上下移動
 
@@ -1254,7 +1254,7 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 
 ## 最新追記: スライド参照と並べ替え
 
-- 絶対参照と `./` を含む参照で、読み込み・並べ替え・単一移動が失敗する不具合を再現して修正。複数スライドの移動は一括 sort に変更。英日ブラウザー 2 件、site 89 件成功。詳細は POWERPOINT_PARITY.md。
+- 絶対参照と `./` を含む参照で、読み込み・並べ替え・単一移動が失敗する不具合を再現して修正。複数スライドの移動は一括 sort に変更。英日ブラウザー 2 件、site 89 件成功。詳細は NATIVE_PARITY.md。
 - 実機タイトル文字の Move Up は前スライド末尾の本文を現在スライド先頭へ、Move Down は現在スライド先頭の本文を前スライド末尾へ移す。スライドアイコンの移動とは違う。実装は残件。
 - 実機参照は Normal 120%、1 枚、Undo disabled に復元して保存済み。未復元変更なし。
 
@@ -1269,7 +1269,7 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - 追加オブジェクトがあるタイトル降格は Yes/No ダイアログを表示。No は文書を変更せず、Yes 後の Undo はスライドとオブジェクトを復元。
 - 前スライドの本文枠が削除済みならレイアウトから復元。Title Only ではレイアウトを維持し、マスター由来の本文枠を追加。実機保存 XML の unmatched idx を確認。
 - コア 3,072 成功 / 109 skip、site 93 成功、英日ブラウザー 4 件成功。型検査 0 errors / 0 warnings。実機の一時変更はすべて取り消して保存済み。
-- 全操作一致は未完成。残件は POWERPOINT_PARITY.md 冒頭を参照。
+- 全操作一致は未完成。残件は NATIVE_PARITY.md 冒頭を参照。
 
 ## 最新追記: アウトラインの階層表示
 
@@ -1444,7 +1444,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - table_band_edges continues editor.test.mjs, including migrating image crop controls while preserving exact reload assertions. table_theme_refs continues inline-paragraphs.test.mjs: five focused cases pass, spacing rendering assertion remains under investigation. Root requested restoration/equivalent checks for removed mixed-format assertions; do not accept weakened tests. No agent changes are committed yet.
 - Native retry after the user's availability reply failed both PowerPoint selection and app inventory with native pipe startup failure. No native changes were made. Reference restoration remains pending, and full parity is incomplete.
 
-- Reconciled stale Latin-word wrapping status in POWERPOINT_PARITY.md with native evidence and implementation in 76810d7a. Current text-layout and SVG text-mode tests pass (73 cases, `/tmp/latin-wrap-current.log`). This documents resolution of that specific regression without claiming full rendering equivalence.
+- Reconciled stale Latin-word wrapping status in NATIVE_PARITY.md with native evidence and implementation in 76810d7a. Current text-layout and SVG text-mode tests pass (73 cases, `/tmp/latin-wrap-current.log`). This documents resolution of that specific regression without claiming full rendering equivalence.
 
 ## 2026-10-03: Editor and paragraph regression review completed
 
@@ -1897,7 +1897,7 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Browser regression measures glyph ranges before editing and after typing, plus explicit-newline and square-wrap controls. Related text-entry, background, metrics, spacing, body-margin, vertical-writing and autofit tests passed (14 cases, `/tmp/text-wrap-related-tests.log`). Final focused results: `/tmp/text-wrap-final-tests.log`.
 - Native connection, screenshot and click interaction succeeded. A single click on the selected title enters editing at the clicked character without moving text. An accidental Shape Style click was immediately undone; saved reference slide XML matches `reference-before-wordart.pptx` byte-for-byte. No outstanding reference content change from this turn.
 - Added two earlier native WordArt captures (white/accent5 shadow and gray gradient), with provenance in `test/fixtures/native/wordart-capture.md`. WordArt gallery implementation and remaining presets are still outstanding.
-- Full parity remains unproven. Continue the operation audit in POWERPOINT_PARITY.md; this correction covers the reproduced no-wrap shift, not all possible editing layout shifts.
+- Full parity remains unproven. Continue the operation audit in NATIVE_PARITY.md; this correction covers the reproduced no-wrap shift, not all possible editing layout shifts.
 
 ### 2026-10-03 — complete native WordArt preset capture
 

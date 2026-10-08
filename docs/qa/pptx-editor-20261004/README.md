@@ -42,7 +42,7 @@ and opened through `<Presentation source={bytes} />`:
 ## Limits
 
 - The editor does not paint gradient or pattern text fills yet
-  (`packages/dev/POWERPOINT_PARITY.md`, "Font color replacement on WordArt").
+  (`packages/dev/NATIVE_PARITY.md`, "Font color replacement on WordArt").
   The pattern-filled "Pattern" therefore shows as plain black in every image;
   the pattern is proven only by the saved-deck checks above.
 - Not compared with PowerPoint, Keynote or another native app.

@@ -1,6 +1,6 @@
 /* Mac PowerPoint's contextual tabs (Shape Format, Picture Format, Table
    Design, Table Layout), measured through the accessibility API at 1512 and
-   1200 pt (packages/dev/POWERPOINT_PARITY.md). Like the Home tab: a 72 pt row
+   1200 pt (packages/dev/NATIVE_PARITY.md). Like the Home tab: a 72 pt row
    of groups separated by a rule with 10 pt on either side, large buttons that
    fill the row, 26 pt small buttons, and 22 pt rows with an icon and a label.
    Global because the shared controls (menus, galleries, spin boxes) are used

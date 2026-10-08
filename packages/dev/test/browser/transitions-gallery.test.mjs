@@ -68,7 +68,7 @@ const TILES = [
 ];
 
 // How the library writes a duration (PowerPoint's rule, see
-// POWERPOINT_PARITY.md): `spd` is the fastest speed at least that long, left
+// NATIVE_PARITY.md): `spd` is the fastest speed at least that long, left
 // out when fast, and `p14:dur` only when the speed does not already say it.
 const SPEED_MS = { fast: 500, med: 750, slow: 1000 };
 const timingRead = (durationMs) => {

@@ -390,7 +390,7 @@ const EDGES_FROM_BOTTOM: readonly AnimationDirection[] = [
 
 // What PowerPoint writes for each Effect Options choice — preset id, subtype
 // and filter — as its object model records them (MsoAnimEffect, PowerPoint 16;
-// see POWERPOINT_PARITY.md "Animations"). The defaults are the ones the
+// see NATIVE_PARITY.md "Animations"). The defaults are the ones the
 // captures were made with, and the native-capture test checks them.
 const OPTION_FAMILIES: Readonly<Record<string, OptionFamily>> = {
   fly: {

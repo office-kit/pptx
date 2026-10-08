@@ -283,7 +283,7 @@
 </div>
 
 <style>
-  /* Geometry measured from Mac PowerPoint 16 (POWERPOINT_PARITY.md, "Native
+  /* Geometry measured from Mac PowerPoint 16 (NATIVE_PARITY.md, "Native
      geometry audit"): a 72 pt row, a rule with 10 pt each side between groups,
      PowerPoint's own large-button widths and 26 pt rows on a 32 pt pitch. */
   .animations { display: flex; align-items: stretch; width: 100%; min-width: 0; height: 72px; }
