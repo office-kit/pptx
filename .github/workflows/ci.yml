@@ -103,7 +103,8 @@ jobs:
         run: git submodule update --init --depth 1 references/ecma-376-5th
 
       - name: Install XML schema validator
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
+        timeout-minutes: 12
+        run: .github/scripts/retry.sh 180 bash -c 'sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils'
 
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
@@ -145,7 +146,8 @@ jobs:
       - name: Build authoring packages
         run: pnpm --filter @office-kit/pptx-dev... build
       - name: Install preview test browser
-        run: pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium
+        timeout-minutes: 20
+        run: .github/scripts/retry.sh 360 pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium
       # `node --test` only honours --test-shard before the file list, so this
       # repeats `test:browser`'s flags instead of appending to the script.
       - name: Test live preview in Chromium
@@ -177,10 +179,11 @@ jobs:
       # to whatever fontconfig scrapes up and every text slide's fg-SSIM
       # collapses to ~0.
       - name: Install LibreOffice, poppler, and fonts
+        timeout-minutes: 32
         run: >
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          .github/scripts/retry.sh 600 bash -c 'sudo apt-get update && sudo apt-get install -y --no-install-recommends
           libreoffice-impress poppler-utils
-          fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation
+          fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation'
 
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6

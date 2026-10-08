@@ -55,7 +55,8 @@ jobs:
         run: git submodule update --init --depth 1 references/ecma-376-5th
 
       - name: Install XML schema validator
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
+        timeout-minutes: 12
+        run: .github/scripts/retry.sh 180 bash -c 'sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils'
 
       - uses: pnpm/action-setup@v6
 
