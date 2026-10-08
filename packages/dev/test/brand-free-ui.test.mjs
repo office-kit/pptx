@@ -127,3 +127,15 @@ test('the editor bundle carries no issue-tracker URL; only the dev tool passes o
     'the dev tool no longer passes the feedback URL to the editor',
   );
 });
+
+// Help links to a vendor's support site would send users of any host there.
+// schemas.microsoft.com namespace URIs are part of the file format and stay.
+test('shipped bundles link to no vendor support or product site', () => {
+  const VENDOR_SITE = /https?:\/\/(?!schemas\.)[a-z0-9.-]*(?:microsoft|office|live)\.com\b/i;
+  const files = globSync('packages/{editor,dev}/dist/**/*.{js,mjs}', { cwd: root });
+  assert.ok(files.length > 0, 'no bundles found; run the build first');
+  assert.deepEqual(
+    files.filter((file) => VENDOR_SITE.test(readFileSync(resolve(root, file), 'utf8'))),
+    [],
+  );
+});
