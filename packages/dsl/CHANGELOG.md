@@ -1,6 +1,6 @@
 # @office-kit/pptx-dsl
 
-## 1.0.0
+## 0.11.0
 
 ### Patch Changes
 

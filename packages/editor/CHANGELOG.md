@@ -96,4 +96,4 @@
 - Updated dependencies [197b737]
 - Updated dependencies [24a6ae0]
   - @office-kit/pptx@0.24.0
-  - @office-kit/pptx-preview@1.0.0
+  - @office-kit/pptx-preview@0.15.0
