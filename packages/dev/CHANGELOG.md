@@ -1,5 +1,228 @@
 # @office-kit/pptx-dev
 
+## 0.12.0
+
+### Minor Changes
+
+- 4410413: All 95 animation presets of the reference desktop app, written exactly as it writes them, and the Sequence (text build) option:
+
+  - **Every gallery preset.** `setShapeAnimation`, `updateSlideAnimation` and `getSlideAnimations` cover the 35 entrance, 24 emphasis and 36 exit presets in the galleries of the reference desktop app (Mac, 16). Each writes the preset id, subtype, behaviours, default duration and build entry the reference desktop app writes for the same gallery item; a test compares every one against XML saved by the reference desktop app. New `AnimationEffect` tokens include `expandIn`, `swivelIn`, `basicZoomIn`, `centerRevolveIn`, `floatIn`, `growTurnIn`, `riseUpIn`, `spinnerIn`, `stretchIn`, `boomerangIn`, `bounceIn`, `creditsIn`, `curveUpIn`, `dropIn`, `flipIn`, `floatingIn`, `pinwheelIn`, `spiralIn`, `basicSwivelIn` and `whipIn`; the exits `contractOut`, `collapseOut`, `floatOut`, `shrinkTurnOut`, `sinkDownOut`, `stretchyOut`, `curveDownOut` and the counterparts of the entrances; and the emphasis effects `fillColor`, `fontColor`, `growShrink`, `lineColor`, `transparency`, `boldFlash`, `brushColor`, `complementaryColor`, `complementaryColor2`, `contrastingColor`, `darken`, `desaturate`, `lighten`, `objectColor`, `pulse`, `underline`, `colorPulse`, `growWithColor`, `shimmer`, `teeter`, `blink`, `boldReveal` and `wave`. An exhaustive `switch` over `AnimationEffect` needs the new cases.
+  - **Breaking: `build` replaces `byParagraph`.** `setShapeAnimation` and `updateSlideAnimation` take `build: 'asOneObject' | 'allAtOnce' | 'byParagraph'` (the reference desktop app's Effect Options ▸ Sequence) instead of `byParagraph: boolean`, and `SlideAnimationStep.build` (`AnimationTextBuild | 'custom'`) replaces `buildByParagraph`. Replace `byParagraph: true` with `build: 'byParagraph'`. `'allAtOnce'` is new: it gives every paragraph its own effect, all starting together. Fill Color and Line Color take no build and refuse one.
+  - **Breaking: `zoomIn` / `zoomOut` are now the reference desktop app's Zoom** (preset 53, a fade with a zoom). The plain scale they wrote before is the reference desktop app's Basic Zoom, now `basicZoomIn` / `basicZoomOut`.
+  - **Changed output to match the reference desktop app.** `fadeIn` / `fadeOut` write the reference desktop app's fade filter instead of an opacity animation; `spin` defaults to 2 s; exit behaviours carry no `fill`; a shape with no fill and no line writes no `animBg`. `durationMs` now rescales every behaviour of a multi-behaviour preset together, as the reference desktop app's Duration box does; Transparency and Bold Reveal hold until the end of the slide and refuse a duration.
+  - **Editor.** Every tile of the Entrance and Emphasis galleries and every Exit Effects item is enabled, in the reference desktop app's order and with its English and Japanese names. Each writes the preset's own default duration. Effect Options ▸ Sequence offers As One Object, All at Once and By Paragraph, and the animation pane lists every preset and has a Sequence choice. The slide show and Preview play an approximation of the new presets (a pose from scale, rotation, translation and opacity, or a colour filter for the emphasis colour effects).
+
+- d8e455d: The reference desktop app's 74 built-in table styles are now fully supported.
+
+  - `setTableStyleId` accepts a built-in style's English name as well as a GUID (`setTableStyleId(table, 'Light Style 1 - Accent 2')`). Applying a built-in style writes the reference desktop app's definition of it into `ppt/tableStyles.xml` (creating the part when a deck has none), as the reference desktop app does, so Keynote, Google Slides and LibreOffice draw the same table. A deck's own definition of a GUID is kept. `addSlideTable` likewise writes the definition of its default style.
+  - New `BUILTIN_TABLE_STYLES` lists every built-in style (`id`, `name`, gallery `category`) in the order of the reference desktop app's Table Styles gallery.
+  - `getTableCellAppearanceEffective` now resolves every built-in style, not only Medium Style 2 - Accent 1 and No Style, Table Grid, and reports `fillOpacity` for translucent fills. New `getTableBackgroundEffective` resolves the table background (`a:tblPr` fill, else the style's `a:tblBg`).
+  - The preview draws all table style parts for built-in and custom styles, including translucent bands and the Themed Styles' background.
+  - The editor's Table Design ▸ Table Styles gallery offers all built-in styles, grouped as in the reference desktop app (Best Match for Document, Light, Medium, Dark), with swatches drawn by the preview renderer that follow the Table Style Options check boxes, the reference desktop app's English and Japanese names, and Clear Table.
+
+- 1be45ba: The editor's right-click menus for text, table cells, pictures and the slide background now match the reference desktop app (Mac):
+
+  - **Text being edited** gets the reference desktop app's menu instead of the browser's: Cut, Copy, Paste, Exit Edit Text, Font..., Paragraph..., Bullets ▸ and Numbering ▸ galleries, Format Shape..., Lock, Hyperlink... and New Comment. The menu leaves the caret and selection in the text, and its commands act on the selected range.
+  - **Table cells** offer Insert ▸ (columns left/right, rows above/below), Delete ▸ (columns, rows, table), Select ▸ (table, column, row), Merge Cells and Split Cells..., plus the text commands. Clear cell text, Select all cells and Select table left the menu (Delete, ⌘A and Select ▸ Select Table do the same).
+  - **Pictures** offer Change Picture ▸ From a File..., Crop, Format Picture... and the reference desktop app's other picture items.
+  - **The slide background** offers Paste Special..., New/Duplicate/Delete Slide, Hide Slide, Ruler, Grid and Guides ▸ toggles, Zoom..., Format Background..., Slide Show and New Comment; Layout ▸, Reset Slide and Select all left it (they remain on the Home tab and ⌘A).
+
+  Menus show the reference desktop app's Mac shortcut hints, including in submenus; commands the editor cannot perform yet are disabled with the reason as a tooltip.
+
+- 375fa71: The editor's contextual ribbon tabs now match the reference desktop app's (Mac) layout and sizes:
+
+  - **Shape Format** shows the reference desktop app's in-ribbon shape strip, Quick Styles and Text Art strips, a large Shape Fill / Text Fill button with Outline and Effects menus beside it, and the expanded Arrange group (Bring Forward, Send Backward, Selection Pane, Reorder Objects, Align, Group, Rotate). Text Box ▾ adds a Vertical Text Box, and Size gains Lock Aspect Ratio. Below 1300 pt the Insert Shapes and Arrange groups collapse as they do in the reference desktop app.
+  - **Picture Format** is new: a selected picture shows it instead of Shape Format, with Corrections, Color and Transparency presets, Change Picture, Reset Picture, Picture Border, Picture Effects, Crop (with Crop to Shape), Size and Format Pane. Remove Background, Artistic Effects, Compress Pictures, Picture Quality, picture styles, Picture Layout and Animate as Background are shown disabled with the reason.
+  - **Table Design** gains the six Table Style Options check boxes, a table style strip (No Style, No Grid; No Style, Table Grid; Medium Style 2 - Accent 1), Shading, Borders (twelve edge choices drawn with the Pen Style, Pen Weight and Pen Color settings) and Text Art styles for the selected cells.
+  - **Table Layout** (renamed from Layout) gains Select, Delete ▾ (columns, rows or the table), Insert Row Above/Below, Insert Column Left/Right, Split Cells, Row and Column size boxes, Distribute Rows/Columns, the six cell alignment toggles, Text Direction, Cell Margins presets, Table Size and the Arrange group. Row and column changes keep the table's frame the size of its grid.
+  - Japanese labels use the reference desktop app's (Mac) wording; Format Pane is now 書式ウィンドウ and Reorder Objects オブジェクトの並べ替え.
+
+- c8512fe: Animations tab:
+
+  - Effect Options lists the emphasis effects' own options. Spin has Direction and Amount (Quarter Spin to Two Spins), Grow/Shrink has Direction and Amount (Tiny, Smaller, Larger, Huge), and Transparency has Amount (25–100%). The colour effects show the theme and standard colour palette. The animation pane offers the same choices.
+  - Exit Effects opens a gallery of tiles under the reference desktop app's group headings (Basic, Subtle, Moderate, Exciting), like Entrance and Emphasis. A narrow ribbon's Emphasis Effects button opens the same kind of gallery.
+  - Picking a different effect gives it that effect's own default duration instead of keeping the old one.
+  - Preview plays the spin angle, grow/shrink size and transparency amount that are set. Multi-part presets such as Bounce, Boomerang, Center Revolve, Rise Up, Float, Drop, Flip, Whip, Curve Up, Teeter, Wave, Pulse and Blink now follow each part's own timing.
+
+- c535941: feat: copy slides and objects to the system clipboard. Copying slides or objects in the editor now puts them on the clipboard for other presentation apps and documents: slides and drawn objects paste there as pictures at their size on the slide, and text boxes and tables copied on their own paste as text and tables. Another editor — in another tab or browser — pastes them back as editable slides and objects, with their pictures, layouts and themes. Pictures and text copied in other apps paste as a picture or a text box.
+
+  feat: the slide thumbnail menu has **Download Selected Slides...**, which saves just the selected slides as a `.pptx` to import into another presentation app.
+
+  feat: `renderSlideToSvg(pres, slide, { background: false })` draws only the slide's own shapes on a transparent surface, without the background or master and layout graphics.
+
+- 2912bdc: The editor's Format Shape pane now follows the reference desktop app (Mac) more closely:
+
+  - **Shape Options / Text Options** switch at the top. Text Options has the reference desktop app's Text Fill & Outline, Text Effects and Textbox categories and applies to the text of the selected shapes.
+  - **Effects** shows the reference desktop app's Shadow, Reflection, Glow, Soft Edges, 3-D Format and 3-D Rotation sections with their preset galleries, color buttons, sliders and boxes, instead of the editor's list of effect commands. Text Effects offers the same sections for the text (Soft Edges and Keep text flat are shown disabled, with the reason, because the library cannot write them yet).
+  - **Every section starts collapsed**, as in the reference desktop app, and stays as you left it for the session. Size and Position... still opens the Size and Position sections.
+  - The Line section gains **Sketched style** (shown disabled: the library does not write sketched lines yet), and the Begin/End Arrow type and size buttons are the reference desktop app's 39 pt gallery buttons. Arrow sizes are named Arrow L Size 1–9 / Arrow R Size 1–9 as in the reference desktop app.
+  - The flip checkboxes left the Position section (the reference desktop app has none there); Arrange ▸ Rotate keeps Flip Vertical and Flip Horizontal.
+
+- 550b55c: Gradient lines, sketched lines and more text paints:
+
+  - **Gradient lines.** `setShapeStroke(shape, { fill: { kind: 'gradient', ...gradient } })` writes `<a:ln><a:gradFill>` with the same gradient options as `setShapeGradientFill`, and a text outline takes the same `fill` (`setShapeTextFormat(shape, { outline: { fill } })`). `getShapeStrokeGradient(shape, pres?)` reads it back; `getShapeStroke` / `getShapeStrokeEffective` now report `{ kind: 'gradient' }` for such lines (previously `inherit`), so a `switch` over `ShapeStroke['kind']` needs a `gradient` case.
+  - **Sketched lines.** `setShapeStrokeSketch(shape, 'curved' | 'freehand' | 'scribble' | null)` / `getShapeStrokeSketch(shape)` write and read the reference desktop app's Sketched style (`ask:lineSketchStyleProps`). Other `<a:ln>` extensions are kept, and a sketch the reference desktop app saved (which replaces the geometry with the hand-drawn path) gets its original geometry back when the sketch is changed or removed.
+  - **Text fills.** `TextFormat.textFill` accepts `{ kind: 'none' }` (`<a:noFill/>`) and `{ kind: 'image', bytes }` (a PNG, JPEG, GIF, BMP, TIFF or WebP stretched over the text, as the reference desktop app writes it), on shapes, table cells and notes.
+  - **Keep text flat.** `setShapeTextFlat(shape, flat)` / `getShapeTextFlat(shape)` write `<a:bodyPr><a:flatTx/>`.
+  - **Preview** strokes gradient outlines on shapes, connectors and text, paints no-fill and picture-filled text, and draws a hand-drawn approximation of sketched outlines.
+  - **Editor**: Gradient line in Line and Text Outline (with the gradient type, direction, angle and stop controls of Gradient fill), the Sketched style menu (None, Curved, Freehand, Scribble), No fill and Picture or texture fill for text, and Keep text flat are now enabled. Text Effects ▸ Soft Edges stays disabled, as in the reference desktop app. The Text Fill gradient and pattern options no longer fail to apply.
+
+- 6359001: The editor's Insert, Draw and Design tabs now match the reference desktop app's (Mac) layout:
+
+  - Insert has the reference desktop app's ▾ menus: Table offers a grid that inserts a table of the chosen size; Pictures, Screenshot, Video and Audio list the reference desktop app's sources, with those the browser cannot reach shown disabled; Chart opens the chart dialog on the chosen type; Text Box ▾ can also draw a vertical text box. In a narrower window 3D Models, SmartArt and Chart become small rows and Date & Time, Slide Number and Object small icons, as in the reference desktop app.
+  - Draw has Eraser ▾ (Stroke Eraser) and Add ▾ with Add Pen, Add Pencil and Add Highlighter.
+  - Design's Colors and Fonts menus list all of the reference desktop app's built-in color sets and font pairs, with the deck's current ones on top; Slide Size marks the current size; the Themes gallery fills the window's width. The Legacy (2007 - 2010) fonts are now Calibri / Calibri, as the reference desktop app lists them.
+  - Button sizes, group spacing and two-line captions follow the reference desktop app in English and Japanese.
+
+- afe80eb: Slide, notes and handout masters can now be edited:
+
+  - Slide masters: `addSlideMaster`, `removeSlideMaster`, `getSlideMasterLayouts`, `getSlideMasterPlaceholders`, `getSlideMasterName` / `setSlideMasterName`, `isSlideMasterPreserved` / `setSlideMasterPreserved` and `setSlideMasterPlaceholderIncluded`. A new master gets the reference desktop app's default structure: eleven default layouts and its own copy of the theme.
+  - Layouts: `addSlideLayout`, `removeSlideLayout`, `addSlideLayoutPlaceholder` (content, text, picture, chart, table, SmartArt, media and online image, plus vertical content and text), `setSlideLayoutTitleIncluded`, `setSlideLayoutFootersIncluded` and `setSlideLayoutBackgroundGraphicsHidden`.
+  - Removing a master or layout that slides still use throws, as does removing the last one.
+  - Notes and handout masters: `getNotesMasterPlaceholders` / `setNotesMasterPlaceholderIncluded`, `getHandoutMasterPlaceholders` / `setHandoutMasterPlaceholderIncluded`, `getNotesPageSize` / `setNotesPageOrientation` and `getHandoutSlidesPerPage` / `setHandoutSlidesPerPage`. If the deck has no such master, the first edit creates the reference desktop app's default one.
+  - `@office-kit/pptx-preview` adds `renderSlideLayoutToSvg`, which draws a layout's or master's background and decorative shapes without its placeholders.
+  - In the editor, the Slide Master, Handout Master and Notes Master tabs no longer have disabled commands:
+    - Insert Slide Master, Insert Layout, Delete, Rename, Preserve, Master Layout and Insert Placeholder all work, as do the Title, Footers and Hide Background Graphics checkboxes.
+    - Orientation, the placeholder checkboxes and Slides Per Page also work.
+    - The master views draw the deck's decorative shapes and its real placeholder positions.
+
+- af4e181: The editor's title bar now carries the reference desktop app's (Mac) menu bar — File, Edit, View, Insert, Format, Arrange, Tools, Slide Show, Window and Help — in place of the Edit and View buttons:
+
+  - **Menus match the reference desktop app** in English and Japanese: order, separators, submenus and shortcut glyphs, with items enabled and checked as the reference desktop app's are with nothing, a shape or text selected (Undo names the last edit; Apply To Defaults becomes Apply Object Style when something is selected). Items run the editor's existing commands; what the editor cannot do yet is disabled with the reason as a tooltip. While text is being edited, the menus leave the caret and selection in the text.
+  - **Keyboard shortcuts follow the reference desktop app's**, from the same table the menus show. Changed keys: ⌘G is Find Next, so Group is ⌥⌘G and Ungroup ⌥⇧⌘G; ⌘K inserts a hyperlink and the command search moved to ⌘? (Help ▸ Editor Help); Pick Up / Apply Object Style are ⇧⌘C / ⇧⌘V (⌥⌘C to pick up in Japanese) instead of ⌥⌘C / ⌥⌘V; Paste and Match Formatting is ⌥⇧⌘V (was ⇧⌘V); Replace is ⌃H (was ⌘H). While editing slide text, ⌘L/⌘E/⌘R align it, and ⌘T, ⌘K, ⌥⌘M and the object-style keys act on the selected text. Control still stands in for Command where the reference desktop app has no Control shortcut of its own.
+  - The command search now closes with Escape.
+
+- 13c84de: The editor's window now matches the reference desktop app's (Mac) measurements:
+
+  - **Zoom percentages** mean what they mean in the reference desktop app (Mac): at 100% a slide point is one screen point (a widescreen slide is 960 px wide; it was 1280 px), so Fit to Window now reads about 120% in a full-size window instead of about 76%. Fit leaves the reference desktop app's 22 pt margin around the slide.
+  - **Home ribbon**: a 72 pt command row with the reference desktop app's button sizes and group spacing; Add-ins and Designer are separate groups; the second Font row is in the reference desktop app's order (… Character Spacing, Change Case, then Text Highlight Color and Font Color). The extra Font dialog (A…) button is removed — use Cmd+T or Character Spacing ▸ More Spacing....
+  - **Layout**: the thumbnail pane is 249 pt wide, the notes pane opens one line tall, and the status bar uses the reference desktop app's sizes.
+  - **Format Shape pane**: a compact title, larger category tabs, chevron section headers, and one-line label / control rows with the reference desktop app's 26 pt controls and 112 pt pop-ups. The Line section now starts with No line / Solid line / Gradient line, replacing the No outline button, and hides its settings for No line.
+  - **Right-click menus** on objects and slide thumbnails list the reference desktop app's items in its order, with its separators and 24 pt rows. Objects gain Lock/Unlock, Reorder Overlapping Objects and Action Settings...; Link... and Edit Alt Text... are now Hyperlink... and View Alt Text...; commands the editor cannot perform yet are shown disabled with the reason. Thumbnails gain Select All, Zoom... and Slide Show, and no longer list Layout or Reset Slide (they remain on the Home tab).
+
+- d92bbd7: Outline View now edits across slide boundaries as the reference desktop app's (Mac) outline does:
+
+  - **Select across slides** by dragging with the mouse or Shift-clicking, as well as with Shift+arrow keys.
+  - **Delete, Cut, typing, pasting and Enter** over a selection that crosses a slide title remove the slides whose titles are selected: the remaining text after the selection joins the paragraph where it starts, and the last slide's remaining body moves up. This now works from any title or body paragraph, not only from a title. Slides with other objects ask for confirmation first.
+  - **Backspace** at the start of a slide title (or **Delete** at the end of the text before it) merges that slide into the previous one.
+  - **Drag a bullet** to move the paragraph and its sub-points to any position, including another slide; dragging sideways changes their level, and dragging a top-level bullet left turns it into a new slide.
+  - **Drag a slide icon to the right** to demote the slide into the previous slide's body.
+  - **Drag selected text** to move it, or hold Option (Control elsewhere) to copy it, including into another slide.
+
+  Each of these is one Undo step.
+
+- acb95fc: Picture Format: Compress Pictures, Reset Picture & Size and the Artistic Effects gallery.
+
+  - New `getShapeImageArtisticEffect` reads the Artistic Effect the reference desktop app applied to a picture or image fill (`a14:imgProps`, e.g. `'pencilSketch'`), or `null`. The embedded picture is already the effect's result, so the preview keeps drawing it as is; the effect, its JPEG XR original and the relationship to it survive edits, duplication and saving.
+  - Fix: setting a picture's transparency, brightness, contrast or recolor wrote the effect after the picture's `a:extLst`, which is schema-invalid; it now goes before it.
+  - The editor's Compress Pictures (Picture Format and File ▸ Compress Pictures...) offers the reference desktop app's Picture Quality choices (High Fidelity, HD 330, Print 220, On-screen 150, Email 96 ppi, Use Original Quality), Delete cropped areas of pictures and Apply to. It downsamples PNG and JPEG pictures in the browser to the chosen resolution of their frame and removes cropped-away pixels, as one undo step.
+  - Reset Picture ▸ Reset Picture & Size now works: it also removes the crop and restores the picture's natural size at its own resolution.
+  - Artistic Effects shows the reference desktop app's gallery (English and Japanese names) with the picture's current effect checked. Applying an effect stays unavailable: the reference desktop app stores its own rendering plus a JPEG XR original, which the editor cannot produce.
+
+- 21d59f7: Picture Styles, and Compress Pictures that labels pictures the way the reference desktop app does.
+
+  - New `setShapePictureStyle(picture, 'Metal Oval')` applies one of the reference desktop app's 28 built-in picture styles. It writes exactly the `p:spPr` markup the reference desktop app (Mac, 16.113) saves for that style (geometry, fill, border, effects and 3-D, with literal colors) and keeps the picture, its crop and its position. `getShapePictureStyle` returns the style a picture carries exactly, or `null`. New `BUILTIN_PICTURE_STYLES` lists the style names in the order of the reference desktop app's gallery.
+  - New `setShapeImageCompressionState` / `getShapeImageCompressionState` write and read the picture's `a:blip/@cstate` (`'print'`, `'screen'`, `'email'`, …) together with the `a14:useLocalDpi` extension the reference desktop app writes beside it.
+  - Preview: pictures now draw their effects (outer and inner shadow, glow, soft edge, reflection), their own fill and an approximation of their 3-D: the camera rotation as a flat projection and a top bevel as edge lighting.
+  - Fix (preview): a reflection faded the wrong way, strongest at its far edge, and ignored its end position; it now starts at the shape's edge and fades out by `endPos`. A soft edge blurred the whole shape; it now only feathers the outline.
+  - The editor's Picture Format ▸ Picture Styles gallery works: the 28 styles in the reference desktop app's order, drawn by the preview renderer, with the reference desktop app's English and Japanese names as tooltips and the applied style checked.
+  - The editor's Compress Pictures writes `cstate` for Print, On-screen and Email, as the reference desktop app does, and only replaces a picture's pixels when cropped areas are removed or the resampled picture is smaller. Picture Quality now opens the reference desktop app's menu: Compress Pictures... and Upscale Picture (unavailable: it uses the vendor's cloud AI service).
+
+- 1d447f8: Editor ruler: indent and tab markers now also appear for rotated, flipped and vertical text. Rotated text is measured along its own lines as if the shape were unrotated, and vertical text (`vert`, `eaVert`, `vert270`, …) is measured on the vertical ruler. While you drag an indent marker or a tab stop, the text reflows immediately; the change is still saved as one undo step on release, and Escape restores the original layout. With several paragraphs selected, the ruler shows the first paragraph's markers; dragging moves each paragraph relative to its own indents, and moving a tab stop changes only the paragraphs that have it. While editing, decimal tabs align on the run language's decimal separator, such as `,` for German.
+- 842cfd9: The editor's Transitions, Animations, Slide Show, Record, Review and View tabs now match the reference desktop app (Mac):
+
+  - Every tab uses the reference desktop app's 72 pt command row, button widths, groups and order. Custom Show and Record (Slide Show tab) and Delete (Review tab) open menus, and the menu buttons show ▾.
+  - The Transitions gallery lists all of the reference desktop app's transitions in its order, shows as many tiles as fit (10 at 1512 pt, 6 at 1200 pt) and pages with ‹ ›. Transitions the library cannot write (2010-and-later effects such as Morph) are shown disabled with a reason. Effect Options opens the reference desktop app's per-effect menu (for example Push: From Bottom / Left / Right / Top, Wipe and Cover: eight directions, Shape: Circle / Diamond / Plus, Fade: Smoothly / Through Black) instead of a dialog. Duration, Sound, On Mouse Click, After and Apply To All form one Timing group, and Duration can be set for a slide with no effect, as in the reference desktop app. Gallery tiles now write the reference desktop app's default options (Push From Bottom, Split Vertical Out, Random Bars and Blinds Vertical, Clock Clockwise).
+  - The Animations tab has separate Entrance and Emphasis galleries with the reference desktop app's effects (unsupported ones disabled). At narrower widths the Emphasis gallery collapses into an Emphasis Effects ▾ button. Effect Options is now the reference desktop app's Direction / Sequence menu (From Bottom, Left, Top or Right, plus As One Object or By Paragraph). The galleries no longer have a None tile; remove an effect from the Animation Pane, as in the reference desktop app.
+  - Japanese uses the reference desktop app's (Mac) wording for the new gallery and menu items.
+
+- 24a6ae0: The 2010-and-later transitions and the filter animations of the reference desktop app:
+
+  - **Transitions.** `setSlideTransition` writes the 2010-and-later transition effects — `vortex`, `switch`, `flip`, `ripple`, `honeycomb`, `prism`, `doors`, `window`, `ferris`, `gallery`, `conveyor`, `pan`, `glitter`, `warp`, `flythrough`, `flash`, `shred`, `reveal` and `wheelReverse` — the twelve `prstTrans` presets (`{ effect: 'prstTrans', preset: 'curtains' }`, with `invertX` / `invertY`) and Morph (`{ effect: 'morph', morphOption: 'byObject' | 'byWord' | 'byChar' }`). They are written the way the reference desktop app writes them, inside `mc:AlternateContent` with a `<p:fade/>` fallback for readers that do not know them. New options: `pattern` (glitter, shred), `isContent`, `isInverted`, `hasBounce` and the directions each effect takes. `getSlideTransition` reads all of them back; an extension effect the library does not know is reported as `prefix:local` (for example `p99:sparkle`) and kept on the slide. `TransitionEffect` gained these tokens, so an exhaustive `switch` over it needs the new cases.
+  - **Animations.** `setShapeAnimation` writes the reference desktop app's filter entrance and exit effects with the preset ids, subtypes, filters and default durations the reference desktop app writes: `wipeIn` / `wipeOut`, `peekIn` / `peekOut`, `splitIn` / `splitOut`, `blindsIn` / `blindsOut`, `checkerboardIn` / `checkerboardOut`, `randomBarsIn` / `randomBarsOut`, `shapeIn` / `shapeOut`, `stripsIn` / `stripsOut`, `wheelIn` / `wheelOut`, `dissolveIn` / `dissolveOut` and `wedgeIn` / `wedgeOut`. New options `orientation`, `inOut`, `shape` and `spokes` (and `direction` for wipe, peek and strips) are accepted by `setShapeAnimation` and `updateSlideAnimation` and reported by `getSlideAnimations`. `flyIn` / `flyOut` take the four diagonal directions (`'topLeft'`, `'topRight'`, `'bottomLeft'`, `'bottomRight'`). `AnimationEffect` and `AnimationDirection` gained these tokens, so an exhaustive `switch` over them needs the new cases. An option given to an effect that does not take it throws, as `direction` always did. Without `durationMs`, shape, wedge and wheel run 2 s (the reference desktop app's default); everything else keeps 500 ms.
+  - **Editor.** All 49 transitions and every Effect Options item are enabled, each tile writing the reference desktop app's default option and duration; the slide show plays an approximation of the 2010+ effects. The Entrance gallery enables Blinds, Checkerboard, Dissolve In, Peek In, Random Bars, Shape, Split, Strips, Wedge, Wheel and Wipe; Exit Effects lists the reference desktop app's exit gallery with their counterparts enabled; Effect Options offers each effect's directions, shapes and spokes, including Fly's diagonals. Preview plays the filter effects as an animated clip. All at Once and the remaining motion and emphasis presets stay disabled with a reason.
+
+- f6395fd: The editor's views now match the reference desktop app (Mac):
+
+  - The status bar view switcher has the reference desktop app's four buttons: Normal, Slide Sorter, Reading View and Slide Show. None is selected in Notes Page or the master views. The status text shows "Notes N of M" on the notes page and the master's name in master views. The Notes and Comments buttons appear only in Normal and Outline View.
+  - Slide Sorter opens at 80% and lays out thumbnails like the reference desktop app: six to a row in a full-width window, centred, with slide numbers below.
+  - Outline View uses the reference desktop app's indents: titles 36 pt in and 11.5 pt per level. Show Formatting is on by default and draws text at a third of its size. The outline menu adds Hyperlink… and the reference desktop app's item order.
+  - Slide Master view shows each master and its indented layouts. Its Slide Master tab can rename layouts and change the theme, colors, fonts, background and slide size. A layout's placeholders can be moved by dragging or with the arrow keys. Commands the library cannot perform yet are shown disabled with the reason.
+  - Handout Master and Notes Master views show the reference desktop app's default master pages and ribbons. They are view-only for now.
+  - Notes Page view shows the whole portrait page, fitted to the window.
+  - Reading View opens a full-window reading mode in the standalone editor.
+  - ⌘1–⌘5 and ⌥⌘1–⌥⌘3 switch views as in the reference desktop app.
+  - Japanese uses the reference desktop app's wording for all of the above.
+
+### Patch Changes
+
+- 88105a3: TSX rebuilds now reach the open editor as one undo step ("Source changed") merged with unsaved canvas edits, instead of reloading the deck and starting a new Undo history. A collision is offered as before (**Keep my edits** / **Use source**), and **Use source** can be undone in the editor.
+- 1c7d8ee: Agents in the browser can now read and edit the embedded editor's presentation through the `mountEditor` handle:
+
+  - `selection()` returns the shapes the user selected as `ShapeRef`s (`{ slideIndex, slide, shapeId, name }`), and `resolveShape(presentation, ref)` finds such a shape again, throwing once it has been deleted.
+  - `apply(label, edit)` runs `edit(presentation)` with the `@office-kit/pptx` API as one undo step named "Agent: label" (「エージェント: label」 in Japanese). An edit that throws is rolled back completely and `apply` rejects with its error.
+  - `on('change', listener)` reports every kept edit with its source (`'user'` or `'agent'`), including Undo and Redo; `on('selectionchange', listener)` reports the user's selection.
+
+- 5e6bbc5: Built-in theme names are now neutral.
+
+  - `createPresentation()` writes its theme as "Default Theme", with color, font and format schemes named "Default". Decks created earlier keep the names they were saved with.
+  - The editor's Design tab names the first three themes Standard Theme, Classic Theme and Legacy Theme (標準テーマ, クラシック テーマ, レガシー テーマ), and the matching color sets and font pairs Standard, Classic and Legacy (標準, クラシック, レガシー). Picking one writes the new name into the deck. When an opened deck's color scheme uses the name another presentation app gives one of these sets, Theme Colors shows the editor's name for it.
+
+- 74e4e7d: The editor and the dev tool no longer show third-party product names or our own branding in their UI.
+
+  - **Editor.** The title bar starts with the File menu; the "◈ @office-kit/pptx Editor" mark is gone, so an embedded editor carries no brand. The Help menu's product-named help item is now "Editor Help" (エディター ヘルプ), the Tools menu's product-named add-ins item is "Add-ins..." (アドイン), and Share ▸ Send a Copy offers "PPTX Presentation". Tooltips for unavailable features describe what is missing (for example "Translation needs an online translation service.", "Macros (VBA) do not run in this editor.", "Soft edges are not available for text.") instead of naming a third-party product or service.
+  - **Dev tool.** The preview, presenter and editor pages are titled "Presentation preview", "Presenter view" and "Presentation editor", and the scaffolded project instructions and agent prompts say "presentation" rather than naming a product.
+
+- 3f4aefe: The READMEs and npm package descriptions describe compatibility in terms of presentation apps in general instead of naming a third-party product. The root README gains a Trademarks section. No code behaviour changes.
+- ec775df: The editor's styled-text gallery is now called "Text Art" (テキスト アート) instead of using a third-party feature name: Insert ▸ Text Art, Shape Format and Table Design ▸ Text Art Styles (テキスト アートのスタイル), Text Art Quick Styles (テキスト アートのクイック スタイル) and Clear Text Art (テキスト アートのクリア). The presets and what they write are unchanged.
+- 54b0607: The editor's ruler and texture defaults now follow what the reference desktop app (Mac) does:
+
+  - **Ruler with several paragraphs selected** shows the last selected paragraph's indent markers and tab stops, as the reference desktop app does, instead of the first paragraph's.
+  - **Picture or texture fill** inserts the last texture picked for a shape in this session (starting with Papyrus) for both shapes and slide backgrounds. Textures picked in Format Background do not change it. Like the reference desktop app's, which resets on relaunch, it is not saved and returns to Papyrus when the editor page is reloaded.
+
+- 197b737: Transitions are saved the way the reference desktop app (Mac) saves them:
+
+  - **`setSlideTransition` with `durationMs`.** `spd` is now the fastest speed at least as long as the duration (≤ 0.5 s fast, ≤ 0.75 s medium, otherwise slow). `fast` is left out because it is the schema default. A duration equal to its speed's own (500, 750 or 1000 ms) is written as that speed alone, with no `p14:dur` and no `mc:AlternateContent` unless the effect needs one. It reads back as `speed` without `durationMs`. Any other duration is written as before.
+  - **Editor.** Each Transitions gallery tile now writes the element, attributes and duration the reference desktop app (Mac, 16) saves for it, and the ribbon Duration shows the reference desktop app's value. Twenty-three durations changed, for example Reveal 3.40, Curtains 6.00, Honeycomb 4.40, Shape 0.80 and Zoom 0.90. Default directions the reference desktop app does not write are no longer written, for example on Split, Reveal, Ripple, Shred, Cube and Fly Through, and Wind, Airplane and Origami no longer write `invX`. Ten Japanese gallery names now match the reference desktop app, for example 垂れ幕, 破砕, ハチの巣, 細分, 扉 and 窓.
+  - **Durations of transitions without `spd`.** The ribbon Duration, the Slide transition dialog's speed and the slide-show preview now use the schema default (fast, 0.5 s) for a transition without `spd`. They used medium (0.75 s) before.
+  - **Effect Options.** Choosing an option keeps a duration that is stored only as a speed. Before, the transition fell back to fast.
+
+- Updated dependencies [c8512fe]
+- Updated dependencies [4410413]
+- Updated dependencies [d8e455d]
+- Updated dependencies [0d26527]
+- Updated dependencies [1c7d8ee]
+- Updated dependencies [52ff93e]
+- Updated dependencies [c8512fe]
+- Updated dependencies [167bdc1]
+- Updated dependencies [88105a3]
+- Updated dependencies [c535941]
+- Updated dependencies [550b55c]
+- Updated dependencies [afe80eb]
+- Updated dependencies [5e6bbc5]
+- Updated dependencies [74e4e7d]
+- Updated dependencies [3f4aefe]
+- Updated dependencies [946dac4]
+- Updated dependencies [9d0754c]
+- Updated dependencies [af5b2b4]
+- Updated dependencies [ec775df]
+- Updated dependencies [d92bbd7]
+- Updated dependencies [1d447f8]
+- Updated dependencies [acb95fc]
+- Updated dependencies [21d59f7]
+- Updated dependencies [fc1acfa]
+- Updated dependencies [1d447f8]
+- Updated dependencies [2912bdc]
+- Updated dependencies [ec775df]
+- Updated dependencies [6ac3ead]
+- Updated dependencies [197b737]
+- Updated dependencies [24a6ae0]
+- Updated dependencies [9cad210]
+  - @office-kit/pptx@0.24.0
+  - @office-kit/pptx-preview@1.0.0
+  - @office-kit/pptx-editor@0.1.0
+  - @office-kit/pptx-dsl@1.0.0
+
 ## 0.11.0
 
 ### Minor Changes

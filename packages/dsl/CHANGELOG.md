@@ -1,5 +1,30 @@
 # @office-kit/pptx-dsl
 
+## 1.0.0
+
+### Patch Changes
+
+- 946dac4: The READMEs describe compatibility in terms of presentation apps in general instead of naming a third-party product.
+- 9d0754c: API documentation (the TSDoc shipped in the type declarations and in the editor's tool descriptions) no longer uses third-party product names. Behaviour that was checked against a specific desktop presentation app is now described as "the reference desktop app". The `@office-kit/pptx-dsl` package description and the `@office-kit/pptx-preview` npm keywords were reworded the same way. No API or output changes.
+- Updated dependencies [c8512fe]
+- Updated dependencies [4410413]
+- Updated dependencies [d8e455d]
+- Updated dependencies [0d26527]
+- Updated dependencies [550b55c]
+- Updated dependencies [afe80eb]
+- Updated dependencies [5e6bbc5]
+- Updated dependencies [3f4aefe]
+- Updated dependencies [9d0754c]
+- Updated dependencies [af5b2b4]
+- Updated dependencies [1d447f8]
+- Updated dependencies [acb95fc]
+- Updated dependencies [21d59f7]
+- Updated dependencies [2912bdc]
+- Updated dependencies [ec775df]
+- Updated dependencies [197b737]
+- Updated dependencies [24a6ae0]
+  - @office-kit/pptx@0.24.0
+
 ## 0.10.0
 
 ### Patch Changes

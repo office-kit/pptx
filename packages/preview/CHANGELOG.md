@@ -1,5 +1,83 @@
 # pptx-kit-preview
 
+## 1.0.0
+
+### Minor Changes
+
+- d8e455d: The reference desktop app's 74 built-in table styles are now fully supported.
+
+  - `setTableStyleId` accepts a built-in style's English name as well as a GUID (`setTableStyleId(table, 'Light Style 1 - Accent 2')`). Applying a built-in style writes the reference desktop app's definition of it into `ppt/tableStyles.xml` (creating the part when a deck has none), as the reference desktop app does, so Keynote, Google Slides and LibreOffice draw the same table. A deck's own definition of a GUID is kept. `addSlideTable` likewise writes the definition of its default style.
+  - New `BUILTIN_TABLE_STYLES` lists every built-in style (`id`, `name`, gallery `category`) in the order of the reference desktop app's Table Styles gallery.
+  - `getTableCellAppearanceEffective` now resolves every built-in style, not only Medium Style 2 - Accent 1 and No Style, Table Grid, and reports `fillOpacity` for translucent fills. New `getTableBackgroundEffective` resolves the table background (`a:tblPr` fill, else the style's `a:tblBg`).
+  - The preview draws all table style parts for built-in and custom styles, including translucent bands and the Themed Styles' background.
+  - The editor's Table Design ▸ Table Styles gallery offers all built-in styles, grouped as in the reference desktop app (Best Match for Document, Light, Medium, Dark), with swatches drawn by the preview renderer that follow the Table Style Options check boxes, the reference desktop app's English and Japanese names, and Clear Table.
+
+- c535941: feat: copy slides and objects to the system clipboard. Copying slides or objects in the editor now puts them on the clipboard for other presentation apps and documents: slides and drawn objects paste there as pictures at their size on the slide, and text boxes and tables copied on their own paste as text and tables. Another editor — in another tab or browser — pastes them back as editable slides and objects, with their pictures, layouts and themes. Pictures and text copied in other apps paste as a picture or a text box.
+
+  feat: the slide thumbnail menu has **Download Selected Slides...**, which saves just the selected slides as a `.pptx` to import into another presentation app.
+
+  feat: `renderSlideToSvg(pres, slide, { background: false })` draws only the slide's own shapes on a transparent surface, without the background or master and layout graphics.
+
+- 550b55c: Gradient lines, sketched lines and more text paints:
+
+  - **Gradient lines.** `setShapeStroke(shape, { fill: { kind: 'gradient', ...gradient } })` writes `<a:ln><a:gradFill>` with the same gradient options as `setShapeGradientFill`, and a text outline takes the same `fill` (`setShapeTextFormat(shape, { outline: { fill } })`). `getShapeStrokeGradient(shape, pres?)` reads it back; `getShapeStroke` / `getShapeStrokeEffective` now report `{ kind: 'gradient' }` for such lines (previously `inherit`), so a `switch` over `ShapeStroke['kind']` needs a `gradient` case.
+  - **Sketched lines.** `setShapeStrokeSketch(shape, 'curved' | 'freehand' | 'scribble' | null)` / `getShapeStrokeSketch(shape)` write and read the reference desktop app's Sketched style (`ask:lineSketchStyleProps`). Other `<a:ln>` extensions are kept, and a sketch the reference desktop app saved (which replaces the geometry with the hand-drawn path) gets its original geometry back when the sketch is changed or removed.
+  - **Text fills.** `TextFormat.textFill` accepts `{ kind: 'none' }` (`<a:noFill/>`) and `{ kind: 'image', bytes }` (a PNG, JPEG, GIF, BMP, TIFF or WebP stretched over the text, as the reference desktop app writes it), on shapes, table cells and notes.
+  - **Keep text flat.** `setShapeTextFlat(shape, flat)` / `getShapeTextFlat(shape)` write `<a:bodyPr><a:flatTx/>`.
+  - **Preview** strokes gradient outlines on shapes, connectors and text, paints no-fill and picture-filled text, and draws a hand-drawn approximation of sketched outlines.
+  - **Editor**: Gradient line in Line and Text Outline (with the gradient type, direction, angle and stop controls of Gradient fill), the Sketched style menu (None, Curved, Freehand, Scribble), No fill and Picture or texture fill for text, and Keep text flat are now enabled. Text Effects ▸ Soft Edges stays disabled, as in the reference desktop app. The Text Fill gradient and pattern options no longer fail to apply.
+
+- afe80eb: Slide, notes and handout masters can now be edited:
+
+  - Slide masters: `addSlideMaster`, `removeSlideMaster`, `getSlideMasterLayouts`, `getSlideMasterPlaceholders`, `getSlideMasterName` / `setSlideMasterName`, `isSlideMasterPreserved` / `setSlideMasterPreserved` and `setSlideMasterPlaceholderIncluded`. A new master gets the reference desktop app's default structure: eleven default layouts and its own copy of the theme.
+  - Layouts: `addSlideLayout`, `removeSlideLayout`, `addSlideLayoutPlaceholder` (content, text, picture, chart, table, SmartArt, media and online image, plus vertical content and text), `setSlideLayoutTitleIncluded`, `setSlideLayoutFootersIncluded` and `setSlideLayoutBackgroundGraphicsHidden`.
+  - Removing a master or layout that slides still use throws, as does removing the last one.
+  - Notes and handout masters: `getNotesMasterPlaceholders` / `setNotesMasterPlaceholderIncluded`, `getHandoutMasterPlaceholders` / `setHandoutMasterPlaceholderIncluded`, `getNotesPageSize` / `setNotesPageOrientation` and `getHandoutSlidesPerPage` / `setHandoutSlidesPerPage`. If the deck has no such master, the first edit creates the reference desktop app's default one.
+  - `@office-kit/pptx-preview` adds `renderSlideLayoutToSvg`, which draws a layout's or master's background and decorative shapes without its placeholders.
+  - In the editor, the Slide Master, Handout Master and Notes Master tabs no longer have disabled commands:
+    - Insert Slide Master, Insert Layout, Delete, Rename, Preserve, Master Layout and Insert Placeholder all work, as do the Title, Footers and Hide Background Graphics checkboxes.
+    - Orientation, the placeholder checkboxes and Slides Per Page also work.
+    - The master views draw the deck's decorative shapes and its real placeholder positions.
+
+- 21d59f7: Picture Styles, and Compress Pictures that labels pictures the way the reference desktop app does.
+
+  - New `setShapePictureStyle(picture, 'Metal Oval')` applies one of the reference desktop app's 28 built-in picture styles. It writes exactly the `p:spPr` markup the reference desktop app (Mac, 16.113) saves for that style (geometry, fill, border, effects and 3-D, with literal colors) and keeps the picture, its crop and its position. `getShapePictureStyle` returns the style a picture carries exactly, or `null`. New `BUILTIN_PICTURE_STYLES` lists the style names in the order of the reference desktop app's gallery.
+  - New `setShapeImageCompressionState` / `getShapeImageCompressionState` write and read the picture's `a:blip/@cstate` (`'print'`, `'screen'`, `'email'`, …) together with the `a14:useLocalDpi` extension the reference desktop app writes beside it.
+  - Preview: pictures now draw their effects (outer and inner shadow, glow, soft edge, reflection), their own fill and an approximation of their 3-D: the camera rotation as a flat projection and a top bevel as edge lighting.
+  - Fix (preview): a reflection faded the wrong way, strongest at its far edge, and ignored its end position; it now starts at the shape's edge and fades out by `endPos`. A soft edge blurred the whole shape; it now only feathers the outline.
+  - The editor's Picture Format ▸ Picture Styles gallery works: the 28 styles in the reference desktop app's order, drawn by the preview renderer, with the reference desktop app's English and Japanese names as tooltips and the applied style checked.
+  - The editor's Compress Pictures writes `cstate` for Print, On-screen and Email, as the reference desktop app does, and only replaces a picture's pixels when cropped areas are removed or the resampled picture is smaller. Picture Quality now opens the reference desktop app's menu: Compress Pictures... and Upscale Picture (unavailable: it uses the vendor's cloud AI service).
+
+- 1d447f8: Decimal tab stops align on the decimal separator of each run's language (`,` for `de-DE`, `fr-FR`, …) instead of always `.`. Runs without a language still use `.`. `decimalSeparatorOf(lang)` is exported. Paragraph indents in vertical text rendered as HTML now run along the text lines, as in the reference desktop app, instead of being applied as a left margin.
+
+### Patch Changes
+
+- 0d26527: Colors with a large `satMod` (or `satOff`) now resolve to the color the reference desktop app paints. `resolveDrawingColor` capped saturation at 100%, as ECMA-376 §20.1.2.3.27 describes, but the reference desktop app does not cap it. Because of that cap, the theme gradients that use `satMod` 300–350% came out too light and too gray in the preview. The Themed Style table backgrounds and the gradient fills of the built-in 2007-era themes are the visible cases: an orange accent was off by up to 70 levels per channel. They now match the reference desktop app's own exports within 2 levels.
+
+  `resolveDrawingColor` now also applies the `hue`, `sat`, `lum`, `red`/`green`/`blue` (with their `Mod`/`Off` forms), `gamma` and `invGamma` transforms, which it ignored before.
+
+- 946dac4: The READMEs describe compatibility in terms of presentation apps in general instead of naming a third-party product.
+- 9d0754c: API documentation (the TSDoc shipped in the type declarations and in the editor's tool descriptions) no longer uses third-party product names. Behaviour that was checked against a specific desktop presentation app is now described as "the reference desktop app". The `@office-kit/pptx-dsl` package description and the `@office-kit/pptx-preview` npm keywords were reworded the same way. No API or output changes.
+- 6ac3ead: Themed Style 2 tables now show the same background gradient as the reference desktop app. The reference desktop app does not blend this two-stop table background at a constant rate: the top color holds through the header row, then the blend gets steeper toward the bottom. The preview used a constant rate, which made the middle rows up to 21 levels per channel too dark. It now uses the curve fitted to the reference desktop app's exports and matches them within 2 levels for all six accents.
+- Updated dependencies [c8512fe]
+- Updated dependencies [4410413]
+- Updated dependencies [d8e455d]
+- Updated dependencies [0d26527]
+- Updated dependencies [550b55c]
+- Updated dependencies [afe80eb]
+- Updated dependencies [5e6bbc5]
+- Updated dependencies [3f4aefe]
+- Updated dependencies [9d0754c]
+- Updated dependencies [af5b2b4]
+- Updated dependencies [1d447f8]
+- Updated dependencies [acb95fc]
+- Updated dependencies [21d59f7]
+- Updated dependencies [2912bdc]
+- Updated dependencies [ec775df]
+- Updated dependencies [197b737]
+- Updated dependencies [24a6ae0]
+  - @office-kit/pptx@0.24.0
+
 ## 0.14.0
 
 ### Minor Changes
