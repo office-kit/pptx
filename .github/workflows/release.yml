@@ -95,10 +95,11 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          # `pnpm changeset version` consumes pending changesets and writes the
-          # version bump + CHANGELOG. `pnpm release` is the project-defined
-          # publish script (typically `changeset publish`).
-          version: pnpm changeset version
+          # `changeset version` consumes pending changesets and writes the
+          # version bump + CHANGELOG; the script keeps 0.x packages off an
+          # accidental 1.0.0 (see its header). `pnpm release` is the
+          # project-defined publish script (typically `changeset publish`).
+          version: node scripts/changeset-version.mjs
           publish: pnpm release
           title: 'chore(release): version packages'
           commit: 'chore(release): version packages'
