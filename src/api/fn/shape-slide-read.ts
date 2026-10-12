@@ -394,14 +394,14 @@ export const findShapesByPreset = (
  */
 export const getShapeSlide = (shape: SlideShapeData): SlideData => shape[SHAPE_SLIDE];
 
+// The shape's prefixes are declared on its slide's root, so it is written as a
+// fragment: declaring them on the shape would make it read differently from
+// the same element inside `getSlideXmlString`.
 /**
  * Returns the shape's current XML element as a string. Diagnostic
  * sibling of `getSlideXmlString`; useful for snapshot tests, bug
  * reports, and before/after dumps during transformations.
  */
-// The shape's prefixes are declared on its slide's root, so it is written as a
-// fragment: declaring them on the shape would make it read differently from
-// the same element inside `getSlideXmlString`.
 export const getShapeXmlString = (shape: SlideShapeData): string =>
   XML_DECLARATION + serializeFragment(shape[SHAPE_ELEMENT]);
 

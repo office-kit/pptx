@@ -94,23 +94,21 @@ const DOCUMENT_SCOPE: Scope = new Map([['xml', NS.xml]]);
 // element's own name and attributes need that is not already in scope.
 const missingDecls = (e: XmlElement, scope: Scope): Map<string, string> | null => {
   let added: Map<string, string> | null = null;
-  const require = (prefix: string, uri: string): void => {
-    const own = e.prefixDecls.get(prefix) ?? added?.get(prefix);
-    if (own !== undefined) {
-      if (own !== uri) {
-        throw new Error(
-          `prefix "${prefix}" on <${rawName(e.name.prefix, e.name.localName)}> is bound to both ${own} and ${uri}`,
-        );
-      }
-      return;
+  for (let i = -1; i < e.attrs.length; i++) {
+    const name = i < 0 ? e.name : e.attrs[i]!.name;
+    // Unprefixed attributes are in no namespace whatever the default is.
+    if (i >= 0 && name.prefix === '') continue;
+    const own = e.prefixDecls.get(name.prefix) ?? added?.get(name.prefix);
+    if (own === undefined) {
+      if ((scope.get(name.prefix) ?? '') === name.namespaceURI) continue;
+      added ??= new Map();
+      added.set(name.prefix, name.namespaceURI);
+    } else if (own !== name.namespaceURI) {
+      throw new Error(
+        `prefix "${name.prefix}" on <${rawName(e.name.prefix, e.name.localName)}> is bound to both ${own} and ${name.namespaceURI}`,
+      );
     }
-    if ((scope.get(prefix) ?? '') === uri) return;
-    added ??= new Map();
-    added.set(prefix, uri);
-  };
-  require(e.name.prefix, e.name.namespaceURI);
-  // Unprefixed attributes are in no namespace whatever the default is.
-  for (const a of e.attrs) if (a.name.prefix !== '') require(a.name.prefix, a.name.namespaceURI);
+  }
   return added;
 };
 
