@@ -39,4 +39,4 @@ export {
   textContent,
   walkElements,
 } from './query.ts';
-export { serializeFragment, serializeXml } from './serialize.ts';
+export { XML_DECLARATION, serializeFragment, serializeXml } from './serialize.ts';

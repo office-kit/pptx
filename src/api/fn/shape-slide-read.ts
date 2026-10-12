@@ -16,7 +16,7 @@ import {
   type ShapeKind,
   readSlideLayoutPart,
 } from '../../internal/presentationml/index.ts';
-import { parseXml, serializeXml } from '../../internal/xml/index.ts';
+import { XML_DECLARATION, parseXml, serializeFragment } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
   LAYOUT_DOCUMENT,
@@ -399,14 +399,11 @@ export const getShapeSlide = (shape: SlideShapeData): SlideData => shape[SHAPE_S
  * sibling of `getSlideXmlString`; useful for snapshot tests, bug
  * reports, and before/after dumps during transformations.
  */
+// The shape's prefixes are declared on its slide's root, so it is written as a
+// fragment: declaring them on the shape would make it read differently from
+// the same element inside `getSlideXmlString`.
 export const getShapeXmlString = (shape: SlideShapeData): string =>
-  serializeXml({
-    kind: 'document',
-    decl: null,
-    root: shape[SHAPE_ELEMENT],
-    prolog: [],
-    epilog: [],
-  });
+  XML_DECLARATION + serializeFragment(shape[SHAPE_ELEMENT]);
 
 /**
  * Returns the 0-based document-order index of `shape` on its slide,
