@@ -1,6 +1,13 @@
 // Core properties and extended properties.
 
-import { emptyRels, nextRelId, partName } from '../../internal/opc/index.ts';
+import {
+  PACKAGE_ROOT,
+  type PartName,
+  emptyRels,
+  nextRelId,
+  partName,
+  resolveTarget,
+} from '../../internal/opc/index.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import {
   type XmlElement,
@@ -11,8 +18,22 @@ import {
   serializeXml,
   text as textNode,
 } from '../../internal/xml/index.ts';
+import type { OpcPackage } from '../../internal/parts/index.ts';
 import { INTERNAL_PACKAGE, type PresentationData } from '../_internal-symbols.ts';
 import { decode, encode } from './_helpers.ts';
+
+// OPC locates the properties parts through the package-root relationships;
+// `/docProps/*.xml` is only the name the reference desktop app gives them, and
+// other producers store them elsewhere (e.g. `/package/services/metadata/…`).
+const findRootRelPart = (pkg: OpcPackage, type: string): PartName | null => {
+  const rel = pkg.rootRels()?.items.find((r) => r.type === type && r.targetMode === 'Internal');
+  return rel ? resolveTarget(PACKAGE_ROOT, rel.target) : null;
+};
+
+const getRootRelPart = (pkg: OpcPackage, type: string) => {
+  const name = findRootRelPart(pkg, type);
+  return name ? pkg.getPart(name) : null;
+};
 
 // ---------------------------------------------------------------------------
 // Core properties (`/docProps/core.xml`).
@@ -100,8 +121,7 @@ export const getPresentationModified = (pres: PresentationData): Date | null => 
 };
 
 export const getCoreProperties = (pres: PresentationData): CoreProperties | null => {
-  const pkg = pres[INTERNAL_PACKAGE];
-  const part = pkg.getPart(CORE_PROPS_PART_NAME);
+  const part = getRootRelPart(pres[INTERNAL_PACKAGE], REL_TYPES.coreProperties);
   if (!part) return null;
   const root = parseXml(decode(part.data)).root;
   const read = (uri: string, local: string): string | null => {
@@ -177,7 +197,7 @@ export const setCoreProperties = (
   values: Partial<CoreProperties>,
 ): void => {
   const pkg = pres[INTERNAL_PACKAGE];
-  let part = pkg.getPart(CORE_PROPS_PART_NAME);
+  const part = getRootRelPart(pkg, REL_TYPES.coreProperties);
   let root: XmlElement;
   let doc: ReturnType<typeof parseXml>;
   if (part) {
@@ -212,7 +232,10 @@ export const setCoreProperties = (
     return;
   }
 
-  // Bootstrap: register override, add part, wire root rel.
+  // Bootstrap: register override, add part, wire root rel. A part already at
+  // the default name is not the core-properties part (no relationship points
+  // at it), so it is replaced rather than adopted.
+  pkg.removePart(CORE_PROPS_PART_NAME);
   pkg.contentTypes.overrides.push({
     partName: CORE_PROPS_PART_NAME,
     contentType: CORE_PROPS_CONTENT_TYPE,
@@ -220,6 +243,9 @@ export const setCoreProperties = (
   pkg.addPart(CORE_PROPS_PART_NAME, CORE_PROPS_CONTENT_TYPE, bytes);
 
   const rootRels = pkg.rootRels() ?? emptyRels();
+  // A relationship whose target part is missing would otherwise sit beside the
+  // new one, and OPC allows only one core-properties relationship.
+  rootRels.items = rootRels.items.filter((r) => r.type !== REL_TYPES.coreProperties);
   const rId = nextRelId(rootRels.items.map((r) => r.id));
   rootRels.items.push({
     id: rId,
@@ -234,7 +260,6 @@ export const setCoreProperties = (
 // Extended properties (`/docProps/app.xml`).
 
 const NS_EXT_PROPS = 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties';
-const EXT_PROPS_PART_NAME = partName('/docProps/app.xml');
 
 /**
  * Selected string fields from `/docProps/app.xml`
@@ -261,8 +286,7 @@ export interface ExtendedProperties {
  * corresponding element is absent or empty.
  */
 export const getExtendedProperties = (pres: PresentationData): ExtendedProperties | null => {
-  const pkg = pres[INTERNAL_PACKAGE];
-  const part = pkg.getPart(EXT_PROPS_PART_NAME);
+  const part = getRootRelPart(pres[INTERNAL_PACKAGE], REL_TYPES.extendedProperties);
   if (!part) return null;
   const root = parseXml(decode(part.data)).root;
   const read = (local: string): string | null => {
@@ -305,10 +329,11 @@ export const setExtendedProperties = (
   pres: PresentationData,
   values: Partial<ExtendedProperties>,
 ): void => {
-  const pkg = pres[INTERNAL_PACKAGE];
-  const part = pkg.getPart(EXT_PROPS_PART_NAME);
+  const part = getRootRelPart(pres[INTERNAL_PACKAGE], REL_TYPES.extendedProperties);
   if (!part) {
-    throw new Error('setExtendedProperties: /docProps/app.xml not present; cannot bootstrap');
+    throw new Error(
+      'setExtendedProperties: the package has no extended-properties part; cannot bootstrap',
+    );
   }
   const doc = parseXml(decode(part.data));
   for (const field of EXT_PROP_FIELDS) {

@@ -6,6 +6,7 @@ export { readZip, shouldStore, writeZip } from './zip.ts';
 
 export type { PartName } from './part-name.ts';
 export {
+  PACKAGE_ROOT,
   basename,
   dirname,
   fromZipPath,

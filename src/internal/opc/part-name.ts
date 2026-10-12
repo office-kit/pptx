@@ -77,18 +77,24 @@ export const relsPartNameFor = (name: PartName): PartName => {
   return partName(`${prefix}${file}.rels`);
 };
 
+/** The source of the package-root relationships (`/_rels/.rels`). */
+export const PACKAGE_ROOT = '/';
+
 /**
  * Resolves a relationship Target (which may be relative) against a base part
- * name. Returns the absolute part name (always starts with `/`).
+ * name, or against `PACKAGE_ROOT` for a package-root relationship. Returns the absolute part name (always starts with `/`).
  *
  * `target` is from a Relationship element's `Target` attribute when
  * `TargetMode="Internal"`. External targets must not be passed through here.
  */
-export const resolveTarget = (basePart: PartName, target: string): PartName => {
+export const resolveTarget = (
+  basePart: PartName | typeof PACKAGE_ROOT,
+  target: string,
+): PartName => {
   if (target === '') throw new Error('relationship target is empty');
   if (target.startsWith('/')) return partName(target);
 
-  const baseDir = dirname(basePart);
+  const baseDir = basePart === PACKAGE_ROOT ? PACKAGE_ROOT : dirname(basePart);
   const stack = baseDir === '/' ? [] : baseDir.slice(1).split('/');
   for (const segment of target.split('/')) {
     if (segment === '' || segment === '.') continue;
