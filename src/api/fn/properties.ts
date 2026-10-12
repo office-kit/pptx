@@ -2,10 +2,10 @@
 
 import {
   PACKAGE_ROOT,
-  type PartName,
   emptyRels,
   nextRelId,
   partName,
+  partNamesEqual,
   resolveTarget,
 } from '../../internal/opc/index.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
@@ -25,14 +25,15 @@ import { decode, encode } from './_helpers.ts';
 // OPC locates the properties parts through the package-root relationships;
 // `/docProps/*.xml` is only the name the reference desktop app gives them, and
 // other producers store them elsewhere (e.g. `/package/services/metadata/…`).
-const findRootRelPart = (pkg: OpcPackage, type: string): PartName | null => {
-  const rel = pkg.rootRels()?.items.find((r) => r.type === type && r.targetMode === 'Internal');
-  return rel ? resolveTarget(PACKAGE_ROOT, rel.target) : null;
-};
-
+// A package may hold only one relationship of each of these types; if an
+// invalid one holds several, the first whose part exists is used.
 const getRootRelPart = (pkg: OpcPackage, type: string) => {
-  const name = findRootRelPart(pkg, type);
-  return name ? pkg.getPart(name) : null;
+  for (const rel of pkg.rootRels()?.items ?? []) {
+    if (rel.type !== type || rel.targetMode !== 'Internal') continue;
+    const part = pkg.getPart(resolveTarget(PACKAGE_ROOT, rel.target));
+    if (part) return part;
+  }
+  return null;
 };
 
 // ---------------------------------------------------------------------------
@@ -236,6 +237,10 @@ export const setCoreProperties = (
   // the default name is not the core-properties part (no relationship points
   // at it), so it is replaced rather than adopted.
   pkg.removePart(CORE_PROPS_PART_NAME);
+  // `removePart` leaves the override of a part that was already missing.
+  pkg.contentTypes.overrides = pkg.contentTypes.overrides.filter(
+    (o) => !partNamesEqual(o.partName, CORE_PROPS_PART_NAME),
+  );
   pkg.contentTypes.overrides.push({
     partName: CORE_PROPS_PART_NAME,
     contentType: CORE_PROPS_CONTENT_TYPE,

@@ -98,5 +98,26 @@ describe('issue-457: properties parts are found through the root relationships',
     const out = await savePresentation(dangling);
     expect(strFromU8(unzipSync(out)['_rels/.rels']!).match(CORE_RELATIONSHIP)).toHaveLength(1);
     expect(getCoreProperties(await loadPresentation(out))?.title).toBe('Restored');
+    const contentTypes = strFromU8(unzipSync(out)['[Content_Types].xml']!);
+    expect(contentTypes.match(/PartName="\/docProps\/core\.xml"/g)).toHaveLength(1);
+  });
+
+  it('uses the relationship whose part exists when several are present', async () => {
+    const files = unzipSync(await movePart('docProps/core.xml', moved));
+    files['_rels/.rels'] = strToU8(
+      strFromU8(files['_rels/.rels']!).replace(
+        '</Relationships>',
+        '<Relationship Id="rId99" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="missing/core.xml"/></Relationships>',
+      ),
+    );
+    // Put the dangling relationship first.
+    files['_rels/.rels'] = strToU8(
+      strFromU8(files['_rels/.rels']!).replace(
+        /(<Relationships[^>]*>)([\s\S]*)(<Relationship Id="rId99"[^>]*\/>)/,
+        '$1$3$2',
+      ),
+    );
+    const pres = await loadPresentation(zipSync(files));
+    expect(getCoreProperties(pres)?.title).toBe('Quarterly review');
   });
 });
