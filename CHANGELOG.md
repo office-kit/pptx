@@ -1,5 +1,12 @@
 # @office-kit/pptx
 
+## 0.24.1
+
+### Patch Changes
+
+- 44afe47: Fixed: `getCoreProperties` returned `null`, and `setCoreProperties` added a second core-properties part and relationship, for packages that store core properties somewhere other than `/docProps/core.xml` (e.g. `package/services/metadata/core-properties/….psmdcp`) (#457). Core and extended properties are now found through the package's root relationships, as OPC specifies, so `getExtendedProperties` / `setExtendedProperties` also work when `app.xml` lives elsewhere. A `/docProps/core.xml` part that no relationship points at is no longer read as the core properties, and a core-properties relationship whose target escapes the package root (`../…`) now throws instead of being ignored.
+- 5de41e0: Fixed: `duplicateSlide`, `addSlideImage` and other edits could save XML with an unbound `r:` (or other) prefix when the template declared that prefix on individual elements instead of the part root, so the saved file failed to load (#456). The writer now declares any prefix a new element or attribute uses that is not already in scope.
+
 ## 0.24.0
 
 ### Minor Changes
