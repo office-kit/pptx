@@ -152,6 +152,18 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
     expect(after).toMatch(painted(id, 'Outline title'));
   });
 
+  it('names the overlay glyphs with the same CSS font stack as the HTML', () => {
+    const { pres, slide, shape } = deck(nativeFormat('text-art-gray-gradient-shape.xml'));
+    setShapeTextFormat(shape, { font: 'M PLUS 1p' });
+    const svg = renderSlideToSvg(pres, slide);
+    const after = svg.slice(svg.indexOf('</foreignObject>'));
+    // A stack, not one quoted name, or the layer falls back to the viewer's
+    // default font and drifts from the HTML glyphs underneath.
+    expect(after).toContain(
+      `font-family="&quot;M PLUS 1p&quot;, Calibri, 'Helvetica Neue', Arial, sans-serif"`,
+    );
+  });
+
   it('includes the fill layer in the editor text-effects overlay', () => {
     const { pres, slide, shape } = deck(nativeFormat('text-art-white-pattern-shadow-shape.xml'));
     const overlay = renderTextEffectsSvg(pres, slide, shape, { w: inches(6), h: inches(2) });

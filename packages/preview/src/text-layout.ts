@@ -183,6 +183,8 @@ export type UnderlineStyle =
 export interface PieceInput {
   readonly text: string;
   readonly family: string; // internal substituted name
+  /** `family` as written to `font-family` when that differs (a quoted name). */
+  readonly cssFamily?: string;
   readonly sizePx: number; // post-autofit
   readonly bold: boolean;
   readonly italic: boolean;
@@ -314,6 +316,8 @@ export interface TextReflectionInput {
 export interface BulletInput {
   readonly text: string;
   readonly family: string;
+  /** `family` as written to `font-family` when that differs (a quoted name). */
+  readonly cssFamily?: string;
   readonly sizePx: number;
   readonly fillHex: string;
   // Data URL for a picture bullet (`<a:buBlip>`); when set, the bullet
@@ -494,7 +498,7 @@ const escapeXml = (s: string): string =>
 // whole value invalid, and the viewer silently falls back to its default
 // font. The bundled substitute names are plain identifiers and stay unquoted.
 const CSS_IDENT = /^-?[A-Za-z_\u0080-\u{10FFFF}][\w\u0080-\u{10FFFF}-]*$/u;
-const cssFamilyName = (family: string): string =>
+export const cssFamilyName = (family: string): string =>
   family.split(' ').every((word) => CSS_IDENT.test(word))
     ? family
     : `"${family.replace(/["\\]/g, '\\$&')}"`;
@@ -1064,7 +1068,7 @@ const emitPlacements = (
         );
       } else {
         parts.push(
-          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(cssFamilyName(b.family))}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
+          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.cssFamily ?? b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
         );
       }
     }
@@ -1733,7 +1737,7 @@ const tspan = (g: Group): string => {
   const p = g.piece;
   const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
-    `font-family="${escapeXml(cssFamilyName(p.family))}"`,
+    `font-family="${escapeXml(p.cssFamily ?? p.family)}"`,
     `font-size="${fmt(sizePx)}"`,
     `fill="${p.fillHex}"`,
   ];
