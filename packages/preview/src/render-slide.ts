@@ -1739,7 +1739,6 @@ const smallCapsParts = (
   return parts;
 };
 
-// Build the px-native engine input from the resolved paraData (at a.autoFitScale).
 // The face a piece or bullet is measured and written with.
 const faceOf = (
   a: SvgTextArgs,
@@ -1749,6 +1748,7 @@ const faceOf = (
   return a.familyIsCssList ? { family } : { family, cssFamily: cssFamilyName(family) };
 };
 
+// Build the px-native engine input from the resolved paraData (at a.autoFitScale).
 export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
   const scale = a.autoFitScale;
   const paragraphs: ParaInput[] = a.paraData.map((para, pi): ParaInput => {

@@ -17,7 +17,8 @@
 /** What a measurer needs to size one run. Pixels at 96 DPI; the caller has
  *  already applied EMU→px, pt→px and the autofit fontScale. `family` is a
  *  single family name, not a CSS list: what `RenderSlideOptions.resolveFamily`
- *  returned, by default a bundled substitute (see `substituteFamily`). */
+ *  returned, by default a bundled substitute (see `substituteFamily`). The
+ *  text audit passes the authored name instead. */
 export interface FontSpec {
   readonly family: string;
   readonly sizePx: number;
@@ -182,7 +183,7 @@ export type UnderlineStyle =
 
 export interface PieceInput {
   readonly text: string;
-  readonly family: string; // internal substituted name
+  readonly family: string; // what SvgTextArgs.resolveFamily returned
   /** `family` as written to `font-family` when that differs (a quoted name). */
   readonly cssFamily?: string;
   readonly sizePx: number; // post-autofit

@@ -152,13 +152,13 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
     expect(after).toMatch(painted(id, 'Outline title'));
   });
 
-  it('names the overlay glyphs with the same CSS font stack as the HTML', () => {
+  it('writes the overlay's CSS font stack verbatim rather than quoting it as one name', () => {
     const { pres, slide, shape } = deck(nativeFormat('text-art-gray-gradient-shape.xml'));
     setShapeTextFormat(shape, { font: 'M PLUS 1p' });
     const svg = renderSlideToSvg(pres, slide);
     const after = svg.slice(svg.indexOf('</foreignObject>'));
-    // A stack, not one quoted name, or the layer falls back to the viewer's
-    // default font and drifts from the HTML glyphs underneath.
+    // Quoted as a single name, the stack would match no font, and the layer
+    // would fall back to the viewer's default and drift from the HTML glyphs.
     expect(after).toContain(
       `font-family="&quot;M PLUS 1p&quot;, Calibri, 'Helvetica Neue', Arial, sans-serif"`,
     );
