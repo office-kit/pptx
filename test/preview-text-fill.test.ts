@@ -152,7 +152,7 @@ describe('renderSlideToSvg: gradient and pattern text fills', () => {
     expect(after).toMatch(painted(id, 'Outline title'));
   });
 
-  it('writes the overlay's CSS font stack verbatim rather than quoting it as one name', () => {
+  it('writes the overlay CSS font stack verbatim rather than quoting it as one name', () => {
     const { pres, slide, shape } = deck(nativeFormat('text-art-gray-gradient-shape.xml'));
     setShapeTextFormat(shape, { font: 'M PLUS 1p' });
     const svg = renderSlideToSvg(pres, slide);
