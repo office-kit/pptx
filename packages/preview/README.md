@@ -42,6 +42,25 @@ const svg = renderSlideToSvg(pres, getSlides(pres)[0]);
 // → '<svg …>…</svg>'  (text laid out via <foreignObject> — the browser wraps it)
 ```
 
+Pass `{ textLayout: 'svg', measureText }` to lay text out as pure SVG
+`<text>` instead of `<foreignObject>` (for example when the SVG is shown as an
+`<img>` or sanitized). In that mode each run's font is replaced with one of the
+bundled metric-compatible substitutes (`substituteFamily`: Carlito, Caladea,
+Liberation Sans / Serif / Mono). To keep a family the viewer can load — say
+through `@font-face` rules you embed in the SVG — pass `resolveFamily`, and a
+`measureText` that knows that font's metrics so line breaks match its glyphs:
+
+```ts
+import { renderSlideToSvg, substituteFamily } from '@office-kit/pptx-preview';
+
+const svg = renderSlideToSvg(pres, slide, {
+  textLayout: 'svg',
+  measureText,
+  resolveFamily: (family) =>
+    family === 'Lora' || family === 'Inter' ? family : substituteFamily(family),
+});
+```
+
 `renderSlideLayoutToSvg(pres, layout, { master })` draws what a slide master
 editor shows behind the placeholders: the layout's background and decorative
 shapes over its master's (the master's are left out when the layout hides

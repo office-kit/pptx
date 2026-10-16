@@ -62,6 +62,16 @@ export interface RenderSlideOptions {
   /** `false` paints only the slide's own shapes on a transparent surface:
    *  no background fill and no master or layout graphics. Defaults to `true`. */
   readonly background?: boolean;
+  /** Maps an authored font name (a run's font, a bullet font, or the theme
+   *  face; `null` when none applies) to the family written to the SVG's
+   *  `<text font-family>` and handed to `measureText`. Only consulted when
+   *  `textLayout` is `'svg'`; the foreignObject path writes the authored name
+   *  into a CSS font stack itself. Defaults to `substituteFamily`, which maps
+   *  every family to one of the bundled metric-compatible substitutes. Keep a
+   *  family only when the SVG's viewer can load it (for example through an
+   *  `@font-face` rule the host embeds), and pair it with a `measureText` that
+   *  knows its metrics so line breaks match the glyphs. */
+  readonly resolveFamily?: (family: string | null) => string;
 }
 
 // ---------------------------------------------------------------------------
