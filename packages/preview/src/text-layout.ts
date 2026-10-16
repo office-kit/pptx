@@ -15,8 +15,9 @@
 // Public injection contract.
 
 /** What a measurer needs to size one run. Pixels at 96 DPI; the caller has
- *  already applied EMU→px, pt→px and the autofit fontScale. `family` is the
- *  resolved internal family name (see `substituteFamily`), not a CSS list. */
+ *  already applied EMU→px, pt→px and the autofit fontScale. `family` is a
+ *  single family name, not a CSS list: what `RenderSlideOptions.resolveFamily`
+ *  returned, by default a bundled substitute (see `substituteFamily`). */
 export interface FontSpec {
   readonly family: string;
   readonly sizePx: number;
@@ -64,7 +65,8 @@ export interface RenderSlideOptions {
   readonly background?: boolean;
   /** Maps an authored font name (a run's font, a bullet font, or the theme
    *  face; `null` when none applies) to the family written to the SVG's
-   *  `<text font-family>` and handed to `measureText`. Only consulted when
+   *  `<text font-family>` and handed to `measureText`. Return one family name,
+   *  unquoted; the renderer quotes it in the SVG when CSS requires that. Only consulted when
    *  `textLayout` is `'svg'`; the foreignObject path writes the authored name
    *  into a CSS font stack itself. Defaults to `substituteFamily`, which maps
    *  every family to one of the bundled metric-compatible substitutes. Keep a
@@ -486,6 +488,16 @@ const bulletSpec = (b: BulletInput): FontSpec => ({
 
 const escapeXml = (s: string): string =>
   s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c);
+
+// An unquoted `font-family` must be a sequence of CSS identifiers. Any other
+// name (a word starting with a digit as in "M PLUS 1p", a comma, …) makes the
+// whole value invalid, and the viewer silently falls back to its default
+// font. The bundled substitute names are plain identifiers and stay unquoted.
+const CSS_IDENT = /^-?[A-Za-z_\u0080-\u{10FFFF}][\w\u0080-\u{10FFFF}-]*$/u;
+const cssFamilyName = (family: string): string =>
+  family.split(' ').every((word) => CSS_IDENT.test(word))
+    ? family
+    : `"${family.replace(/["\\]/g, '\\$&')}"`;
 
 const fmt = (n: number): string => {
   const r = Math.round(n * 100) / 100;
@@ -1052,7 +1064,7 @@ const emitPlacements = (
         );
       } else {
         parts.push(
-          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
+          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(cssFamilyName(b.family))}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
         );
       }
     }
@@ -1721,7 +1733,7 @@ const tspan = (g: Group): string => {
   const p = g.piece;
   const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
-    `font-family="${escapeXml(p.family)}"`,
+    `font-family="${escapeXml(cssFamilyName(p.family))}"`,
     `font-size="${fmt(sizePx)}"`,
     `fill="${p.fillHex}"`,
   ];

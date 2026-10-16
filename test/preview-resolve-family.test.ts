@@ -18,6 +18,7 @@ import {
   setTableCellTextFormat,
 } from '@office-kit/pptx';
 import {
+  auditTextLayout,
   defaultMeasurer,
   renderSlideToSvg,
   substituteFamily,
@@ -28,6 +29,8 @@ import {
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
 
 const CUSTOM = 'Lora';
+// Far more than a 2×1 in box holds, so a normAutofit body runs the shrink search.
+const LINES = Array.from({ length: 8 }, (_, i) => `Line ${i + 1}`).join('\n');
 const keepCustom = (family: string | null): string =>
   family === CUSTOM ? family : substituteFamily(family);
 
@@ -120,7 +123,7 @@ describe('RenderSlideOptions.resolveFamily', () => {
       y: inches(1),
       w: inches(2),
       h: inches(1),
-      text: Array.from({ length: 8 }, (_, i) => `Line ${i + 1}`).join('\n'),
+      text: LINES,
     });
     setShapeTextFormat(shape, { font: CUSTOM });
     setShapeTextAutoFit(shape, 'normal');
@@ -135,19 +138,64 @@ describe('RenderSlideOptions.resolveFamily', () => {
     expect([...families]).toEqual([CUSTOM]);
   });
 
+  it('quotes a kept family that is not a plain CSS identifier sequence', async () => {
+    const { pres, slide } = await deck();
+    addSlideTextBox(slide, { x: inches(1), y: inches(1), w: inches(5), h: inches(1), text: 'x' });
+    const { measure, families } = recordingMeasurer();
+
+    const svg = renderSlideToSvg(pres, slide, {
+      textLayout: 'svg',
+      measureText: measure,
+      resolveFamily: () => 'M PLUS 1p',
+    });
+
+    // Unquoted, "1p" is not an identifier and the browser drops the whole value.
+    expect(svg).toContain('font-family="&quot;M PLUS 1p&quot;"');
+    expect([...families]).toEqual(['M PLUS 1p']);
+  });
+
   it('is ignored by the foreignObject path, which keeps the authored name itself', async () => {
     const { pres, slide } = await deck();
     const shape = addSlideTextBox(slide, {
       x: inches(1),
       y: inches(1),
-      w: inches(5),
+      w: inches(2),
       h: inches(1),
-      text: 'Hello',
+      text: LINES,
     });
     setShapeTextFormat(shape, { font: CUSTOM });
+    // The shrink-to-fit search measures with the SVG engine in this mode too.
+    setShapeTextAutoFit(shape, 'normal');
+    const { measure, families } = recordingMeasurer();
 
-    const plain = renderSlideToSvg(pres, slide);
-    expect(renderSlideToSvg(pres, slide, { resolveFamily: () => 'Other' })).toBe(plain);
+    const plain = renderSlideToSvg(pres, slide, { measureText: measure });
+    const withOption = renderSlideToSvg(pres, slide, {
+      measureText: measure,
+      resolveFamily: () => 'Other',
+    });
+
+    expect(withOption).toBe(plain);
+    expect(families.has('Other')).toBe(false);
     expect(plain).toContain(`font-family:${CUSTOM}, Calibri`);
+  });
+});
+
+describe('auditTextLayout', () => {
+  it('fits a normAutofit body with the authored family, as it lays it out', async () => {
+    const { pres, slide } = await deck();
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: LINES,
+    });
+    setShapeTextFormat(shape, { font: CUSTOM });
+    setShapeTextAutoFit(shape, 'normal');
+    const { measure, families } = recordingMeasurer();
+
+    auditTextLayout(pres, { measureText: measure });
+
+    expect([...families]).toEqual([CUSTOM]);
   });
 });

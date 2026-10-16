@@ -7104,8 +7104,8 @@ const renderSurface = (
     groupReflected: false,
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
-    // The host's mapping is svg-only: in foreignObject mode the shared
-    // autofit measurement keeps the default, so both modes shrink alike.
+    // The host's mapping is svg-only, so foreignObject output (including its
+    // autofit, measured with the SVG engine) never depends on it.
     resolveFamily:
       opts.textLayout === 'svg' ? (opts.resolveFamily ?? substituteFamily) : substituteFamily,
     ownShapes: true,

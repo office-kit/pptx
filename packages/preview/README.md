@@ -48,7 +48,10 @@ Pass `{ textLayout: 'svg', measureText }` to lay text out as pure SVG
 bundled metric-compatible substitutes (`substituteFamily`: Carlito, Caladea,
 Liberation Sans / Serif / Mono). To keep a family the viewer can load — say
 through `@font-face` rules you embed in the SVG — pass `resolveFamily`, and a
-`measureText` that knows that font's metrics so line breaks match its glyphs:
+`measureText` that knows that font's metrics so line breaks match its glyphs
+(in a browser, for example, one that wraps `CanvasRenderingContext2D.measureText`
+once the font has loaded). Return a single family name; the renderer quotes it
+in the SVG when CSS requires that:
 
 ```ts
 import { renderSlideToSvg, substituteFamily } from '@office-kit/pptx-preview';

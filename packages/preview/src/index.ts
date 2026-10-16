@@ -28,10 +28,11 @@ export type {
   MeasureResult,
 } from './text-layout.ts';
 
-// The substitute family names a custom `measureText` must key off, plus the
-// default (heuristic) measurer and the family-substitution map. Exposed so a
-// caller supplying their own measurer can resolve the same families the
-// emitter writes into the SVG.
+// The substitute family names a custom `measureText` receives unless
+// `resolveFamily` keeps another one, plus the default (heuristic) measurer and
+// the family-substitution map. Exposed so a caller supplying their own
+// measurer or `resolveFamily` can resolve the same families the emitter writes
+// into the SVG.
 export {
   substituteFamily,
   defaultMeasurer,

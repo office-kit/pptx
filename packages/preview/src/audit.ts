@@ -121,6 +121,8 @@ const auditShape = (
     getShapePlaceholderType(shape),
     measure,
     '#000000', // colors don't affect metrics
+    false,
+    passthroughFamily,
   );
   if (model === null) return;
 

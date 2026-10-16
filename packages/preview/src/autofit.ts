@@ -28,7 +28,9 @@ export interface ShapeAutoFitScaleOptions {
   };
   /** Measurer for run widths, defaulting to the heuristic one the renderer
    *  uses in a browser. Pass the same measurer the render call uses, or the
-   *  two disagree about how much text fits. */
+   *  two disagree about how much text fits. Families are resolved with
+   *  `substituteFamily`, as the foreignObject render does; an svg render
+   *  with its own `resolveFamily` can measure a different face. */
   readonly measureText?: TextMeasurer;
 }
 
