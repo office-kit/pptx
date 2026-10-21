@@ -10,6 +10,27 @@ were distilled from years of the author's own conference decks. See
 [sources](sources.md). When the deck is Japanese, also apply [writing-ja.md](writing-ja.md);
 where the two differ, this file wins for headlines.
 
+## Presenting for a decision
+
+Some talks exist to get something approved: an internal proposal, a budget or headcount
+request, a go/no-go on a plan. The audience came to decide, not to be taken on a journey,
+and holding the ask back until the end leaves them judging every slide without knowing
+what it supports. For these talks:
+
+- Put the ask on the first slides after the cover: what you want approved, how much it
+  costs, and by when the decision is needed.
+- Then build the case in the order the deciders will test it: the problem with its
+  numbers, the cause, the proposal, its effect and cost, the risks and how they are
+  handled, the alternatives you rejected.
+- End by asking again, concretely: the decision you need today and what happens first
+  after a yes. Not a summary or a thank-you slide.
+
+"Do not give the answer first", the no-agenda rule and the question dividers below are
+for talks that teach or persuade an audience that owes the speaker nothing; do not apply
+them here. Headlines state findings, as in [document mode](story-document.md), and the
+headline-mix ranges do not apply: check the headline track with `--mode document`. The
+amount, figure, notes and timing rules still hold.
+
 ## Before outlining
 
 1. Confirm the official title, abstract and time slot from the event page. Everything the
@@ -36,8 +57,9 @@ repeated on every slide looks finished and says nothing. Do not import document 
 or the speaker's own recent experience. After the self-introduction, one or two questions
 to the audience work as the entrance to the body.
 
-**Do not give the answer first.** Revealing information one step at a time keeps the
-cognitive load low and the talk interesting.
+**Do not give the answer first** (except when presenting for a decision; see above).
+Revealing information one step at a time keeps the cognitive load low and the talk
+interesting.
 
 - No agenda or "today I will talk about three things" slide, no upfront conclusion, no
   overview map at the start.
@@ -199,7 +221,8 @@ Replace these unit times with the speaker's own once measured.
 3. No slide has two figures or two emphasised spots.
 4. Every divider starts being answered on the next slide and is fully answered before the
    next divider; no question is asked twice.
-5. No agenda, upfront summary or overview-as-answer slipped in.
+5. No agenda, upfront summary or overview-as-answer slipped in. When presenting for a
+   decision, the opposite: the ask is on the opening slides and again on the last one.
 6. The headline mix and pattern runs look like a person's, not a template's.
 7. The abstract's promises all appear, the title's promise is paid off by the end, and the
    time estimate fits the slot.

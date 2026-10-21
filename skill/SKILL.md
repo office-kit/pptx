@@ -43,7 +43,9 @@ Decide which kind of deck this is before writing any slide text, including outli
 drafts shown to the user:
 
 - **Talk** (the default when a speaker presents it: conference talk, lightning talk,
-  lecture, all-hands). Read [the talk rules](references/story-talk.md).
+  lecture, all-hands). Read [the talk rules](references/story-talk.md). A talk given to
+  get something approved (an internal proposal or budget request) follows its
+  "Presenting for a decision" section.
 - **Document** (read without the author, or used to reach a decision: report, proposal,
   decision memo, board pack, handout). Read [the document rules](references/story-document.md).
 
@@ -61,6 +63,8 @@ change structure only when asked.
 
 ## Author and revise
 
+Before styling a new deck, read [the visual design rules](references/design.md): type
+size floors, cover and closing slides, color, cards, charts and tables.
 Read [the TSX reference](references/tsx.md) when first authoring or using unfamiliar
 elements; reuse already-read guidance during revisions. It covers
 native elements, charts, tables, template selection and the Raw escape hatch.
@@ -69,8 +73,8 @@ functions and data to reuse content; do not add React, Vue or a web UI.
 
 - Use the supplied brief, audience and source material. Ask only for information
   needed to proceed; label illustrative data when real figures are unavailable.
-- Choose a consistent palette and typography, with clear hierarchy and enough
-  space for text. Inspect chart labels, table density, contrast and overflow.
+- Keep the palette and type scale in `theme.ts` as [the design rules](references/design.md)
+  set them. Inspect chart labels, table density, contrast and overflow.
 - Keep text, shapes, charts and tables as native objects. Do not rasterize whole
   slides to make a preview look correct.
 - Keep assets and imported components under the slide project directory so they

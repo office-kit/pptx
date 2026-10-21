@@ -130,6 +130,10 @@ Keep the facts, numbers and history; rebuild the order and wording answer-first.
   and not conclusions.
 - Keep each column at one grain and one viewpoint; write 「—」 for non-applicable cells.
 - In a table that shows changes, list only what changed.
+- A column of sentences wraps to at most two lines per cell. Shorten the text, or move
+  the detail to the notes or an appendix table.
+- Table body text is 12 pt or larger ([design.md](design.md)). When the table does not
+  fit, drop columns or split it across slides; do not shrink the text.
 
 ## Final check for document decks
 
