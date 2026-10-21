@@ -153,7 +153,8 @@ The static SVG preview does not play the transition in this example.
 ## Embedding compile() in your own build
 
 An `office-pptx init` project comes with a build that records source locations and a
-`check` script that runs `tsc --noEmit`. A host that calls `compile()` from its own
+`check` script that runs `tsc --noEmit` and then `office-pptx check`, which measures
+the slide text with `auditTextLayout` from `@office-kit/pptx-preview`. A host that calls `compile()` from its own
 build has to arrange both.
 
 - Build with the dev JSX transform (TypeScript `"jsx": "react-jsxdev"`, esbuild

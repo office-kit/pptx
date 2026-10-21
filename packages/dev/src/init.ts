@@ -58,7 +58,9 @@ for shared design values. The JSX runtime is
 - Keep the preview running during revisions and inspect affected slides after
   saving. Review all affected consumers for shared changes. Do not run a separate
   export for every intermediate edit. Before delivery, run npm run check and
-  npm run build to export deck.pptx, then review the whole deck.
+  npm run build to export deck.pptx, then review the whole deck. check also
+  measures slide text: fix every error (overflow, text under 10pt) and judge
+  each warning (a word split across lines, a last line of one or two characters).
 - Coordinates and dimensions are inches; font sizes and stroke widths are points.
   The default 16:9 canvas is 13.333 × 7.5 inches.
 - Use native Text, Shape, Image, Table and Chart elements. Use JS functions,
@@ -108,7 +110,7 @@ export async function initProject(directory: string): Promise<string> {
           scripts: {
             dev: 'office-pptx dev deck.tsx',
             build: 'office-pptx build deck.tsx --out deck.pptx',
-            check: 'tsc --noEmit',
+            check: 'tsc --noEmit && office-pptx check deck.tsx',
           },
           dependencies: { '@office-kit/pptx': versions[0]!, '@office-kit/pptx-dsl': versions[1]! },
           devDependencies: {

@@ -131,7 +131,12 @@ npm run check
 npm run build
 ```
 
-`check` runs TypeScript; `build` writes `deck.pptx`. Compilation alone does not
+`check` runs TypeScript, then `office-pptx check`, which builds the deck and
+measures every text box with the preview's layout engine. It fails on text that
+overflows its box or is smaller than 10pt (`--min-font-size` changes the floor),
+and warns about a word split across lines and a wrapped paragraph that ends on a
+line of one or two characters. Table and chart text is not measured. `build`
+writes `deck.pptx`. Compilation alone does not
 perform TypeScript checking, so run both before delivery. Exported charts, text,
 images and tables remain editable. The renderer previews the serialized PPTX,
 but is not a guarantee of identical rendering in desktop presentation apps.
@@ -323,6 +328,7 @@ the amount of PPTX evaluation.
 - `office-pptx init <new-directory>` creates a TSX project without overwriting an existing directory.
 - `office-pptx dev <deck.tsx> [--port 4173]` watches the entry file's directory recursively.
 - `office-pptx build <deck.tsx> [--out deck.pptx]` writes a PPTX.
+- `office-pptx check <deck.tsx> [--min-font-size 10]` reports text overflow, text below the minimum size, split words and one- or two-character last lines; it exits with 1 when there is an error.
 - `office-pptx inspect <template.pptx>` prints slides, shape targets and layout references as JSON.
 
 Keep imported components, source PPTX files and images inside the watched
