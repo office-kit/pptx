@@ -206,6 +206,9 @@ importers:
       '@office-kit/pptx-dsl':
         specifier: workspace:^
         version: link:../dsl
+      '@office-kit/pptx-editor':
+        specifier: workspace:^
+        version: link:../editor
       '@office-kit/pptx-preview':
         specifier: workspace:^
         version: link:../preview
@@ -234,9 +237,6 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
     devDependencies:
-      '@office-kit/pptx-editor':
-        specifier: workspace:^
-        version: link:../editor
       '@types/markdown-it':
         specifier: ^14.2.0
         version: 14.2.0
