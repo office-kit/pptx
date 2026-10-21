@@ -290,6 +290,10 @@ const DEFAULT_TITLE_PT = 44;
 const DEFAULT_FONT = "Calibri, 'Helvetica Neue', Arial, sans-serif";
 const browserFontFamily = (family: string | null): string =>
   family ? `${JSON.stringify(family)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
+// An unresolved theme token such as `+mj-lt` names no face, so the element
+// keeps the font it inherits.
+const fontFamilyStyles = (font: string): string[] =>
+  font.startsWith('+') ? [] : [`font-family:${escapeXml(browserFontFamily(font))}`];
 // SVG text laid out beside foreignObject HTML (custom tabs, character effects)
 // names its face with the same CSS stack, which is already a valid
 // `font-family` value and is written verbatim.
@@ -1448,7 +1452,7 @@ const renderRun = (
         ? `line-height:${lineHeightOverride}`
         : 'line-height:1.05',
   );
-  if (format?.font) styles.push(`font-family:${escapeXml(browserFontFamily(format.font))}`);
+  if (format?.font) styles.push(...fontFamilyStyles(format.font));
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
   const underline = format?.underline;
@@ -2577,7 +2581,7 @@ const renderHtmlParagraphs = (
         ? `font-size:${(firstRunPt * PX_PER_PT * autoFitScale).toFixed(2)}px`
         : 'font-size:0',
       ...(para.lineSpacing?.kind === 'pts' && para.runs[0]?.fmt?.font
-        ? [`font-family:${escapeXml(browserFontFamily(para.runs[0].fmt.font))}`]
+        ? fontFamilyStyles(para.runs[0].fmt.font)
         : []),
       ...(para.emptySizePt !== undefined
         ? [`font-size:${(para.emptySizePt * PX_PER_PT * autoFitScale).toFixed(2)}px`]
@@ -2665,11 +2669,7 @@ const renderHtmlParagraphs = (
         ? (para.runs.find((r) => r.text !== '\n' && r.text !== '')?.fmt?.font ??
           DEFAULT_BULLET_FONT)
         : (para.bulletDetail.font ?? DEFAULT_BULLET_FONT);
-      // An unresolved theme token such as the `+mj-lt` an autoNum list carries
-      // names no face, so the label keeps the paragraph's font.
-      if (!bulletFont.startsWith('+')) {
-        bulletStyles.push(`font-family:${escapeXml(browserFontFamily(bulletFont))}`);
-      }
+      bulletStyles.push(...fontFamilyStyles(bulletFont));
       prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     // The index is the one `<p:bldP build="p">` counts in: a paragraph build

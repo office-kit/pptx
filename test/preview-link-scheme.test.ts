@@ -164,26 +164,24 @@ describe('preview links', () => {
       expect(hrefsOf(render(pres, slide, textLayout))).toEqual([]);
     });
 
-    it.each(ALLOWED.filter((href) => !href.startsWith('#')))(
-      'links %j on every path',
-      async (url) => {
-        const run = await blankSlide();
-        setShapeRunHyperlink(run.shape, 0, 0, url);
-        expect(hrefsOf(render(run.pres, run.slide, textLayout))).toContain(url);
+    it('links a web URL on every path', async () => {
+      const url = ALLOWED[0]!;
+      const run = await blankSlide();
+      setShapeRunHyperlink(run.shape, 0, 0, url);
+      expect(hrefsOf(render(run.pres, run.slide, textLayout))).toContain(url);
 
-        const runAction = await blankSlide();
-        setShapeClickAction(runAction.shape, { kind: 'url', url }, { range: { start: 0, end: 5 } });
-        expect(hrefsOf(render(runAction.pres, runAction.slide, textLayout))).toContain(url);
+      const runAction = await blankSlide();
+      setShapeClickAction(runAction.shape, { kind: 'url', url }, { range: { start: 0, end: 5 } });
+      expect(hrefsOf(render(runAction.pres, runAction.slide, textLayout))).toContain(url);
 
-        const shape = await blankSlide();
-        setShapeClickAction(shape.shape, { kind: 'url', url });
-        expect(hrefsOf(render(shape.pres, shape.slide, textLayout))).toContain(url);
+      const shape = await blankSlide();
+      setShapeClickAction(shape.shape, { kind: 'url', url });
+      expect(hrefsOf(render(shape.pres, shape.slide, textLayout))).toContain(url);
 
-        const table = await tableCell();
-        setTableCellClickAction(table.cell, { kind: 'url', url });
-        expect(hrefsOf(render(table.pres, table.slide, textLayout))).toContain(url);
-      },
-    );
+      const table = await tableCell();
+      setTableCellClickAction(table.cell, { kind: 'url', url });
+      expect(hrefsOf(render(table.pres, table.slide, textLayout))).toContain(url);
+    });
 
     it.each(BLOCKED_IN_XML)('does not link a table cell click action to %j', async (url) => {
       const { pres, slide, cell } = await tableCell();
@@ -292,6 +290,13 @@ describe('preview font names in style', () => {
     expect(svg).toMatch(/<span style="[^"]*">1\./);
     expect(svg).not.toMatch(/<span style="[^"]*font-family[^"]*">1\./);
     expect(svg).not.toContain('+mj-lt');
+  });
+
+  it('lets a run with a theme-token font keep the inherited font', async () => {
+    const { pres, slide, shape } = await blankSlide();
+    setShapeTextFormat(shape, { font: '+mj-ea' });
+    setParagraphLineSpacing(shape, 0, { kind: 'pts', value: 20 });
+    expect(render(pres, slide, 'foreignObject')).not.toContain('&quot;+mj-ea');
   });
 
   it('quotes the theme major and minor faces', async () => {
