@@ -145,8 +145,8 @@ aid, not a guarantee of fidelity in desktop presentation apps or animation/media
 
 The script also lists every `[要確認: …]` still on a slide, including chart titles and
 labels. Confirm each with the user and fill it, or move it to the slide notes when the
-slide reads correctly without it. Never deliver a deck that still shows one; report the
-ones the script lists in the notes (slide and what is missing).
+slide reads correctly without it. Never deliver a deck that still shows one; report each
+one the script lists under notes to the user (slide and what is missing).
 
 Deliver the preview URL, the generated `deck.pptx` path and the editable project
 path. State any unverified rendering or unsupported requested feature. On the

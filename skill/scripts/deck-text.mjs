@@ -90,6 +90,7 @@ function chartTexts(spec) {
     spec.valueAxisTitle,
     spec.secondaryValueAxis?.title,
     ...spec.categories,
+    ...(spec.categoryGroupLevels ?? []).flat(),
     ...spec.series.flatMap((series) => [
       series.name,
       ...(series.pointDataLabels ?? []).map((labels) => labels?.text),
@@ -150,6 +151,7 @@ function printFullText(all) {
     console.log(`\n## ${label(slide)} ${slide.headline ?? ''}`);
     for (const text of slide.texts) console.log(`- ${oneLine(text)}`);
     for (const text of slide.code) console.log(`- [code] ${oneLine(text)}`);
+    for (const text of slide.chart) console.log(`- [chart] ${oneLine(text)}`);
     if (slide.notes) console.log(`  notes: ${oneLine(slide.notes)}`);
   }
 }
@@ -285,7 +287,10 @@ function printWordingFlags(all) {
   console.log('\n# Wording flags (judge each against references/writing-ja.md)');
   let count = 0;
   for (const slide of all) {
-    const lines = [slide.headline ?? '', ...slide.texts.flatMap((text) => text.split(/\n/))];
+    const lines = [
+      slide.headline ?? '',
+      ...[...slide.texts, ...slide.chart].flatMap((text) => text.split(/\n/)),
+    ];
     const notes = slide.notes.split(/\n/);
     for (const [where, line] of [
       ...lines.map((line) => ['', line]),

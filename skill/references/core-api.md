@@ -253,16 +253,15 @@ strips content it doesn't model.
 A schema-valid deck can still look like a template. Before building, commit to a
 look and apply it consistently:
 
-- **Pick a bold, content-informed palette** and let _one_ color dominate
-  (~60–70% of visual weight), with one accent. Don't scatter six accent colors
-  per slide. Define the palette once as hex constants and reuse it.
+- **Colors and type sizes** follow [the design rules](design.md): one primary
+  color, one accent that marks the problem, and the type-size floors there.
+  Define them once as constants and reuse them.
 - **Every slide needs a visual element** — a chart, table, image, colored
   shape, or a strong type hierarchy. Avoid bullet-only text slides; convert
   lists into two-column layouts, icon/number rows, or small-multiple cards.
 - **Don't repeat the same layout** slide after slide. Alternate: full-bleed
   title, two-column, chart-led, table-led, quote/stat callout.
-- **Typography**: titles 32–44pt bold, body 14–18pt, one or two font families.
-  Keep a ≥0.5in (`inches(0.5)`) margin from the slide edge; don't crowd edges.
+- **Typography**: one or two font families. Keep a ≥0.5in (`inches(0.5)`) margin from the slide edge; don't crowd edges.
 - **Numbers deserve charts**, not sentences. A trend → line; parts of a whole →
   pie/doughnut; comparison across categories → column/bar.
 - **Avoid the tells**: a thin accent line under every title, dense walls of
