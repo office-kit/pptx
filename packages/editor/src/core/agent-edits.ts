@@ -183,8 +183,8 @@ export class AgentEditError extends Error {
   /** The failing edit's position in the batch; `null` when the batch did not match the schema. */
   readonly index: number | null;
 
-  constructor(index: number | null, message: string) {
-    super(message);
+  constructor(index: number | null, message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'AgentEditError';
     this.index = index;
   }
@@ -204,14 +204,16 @@ export type DecodedAgentEdits = readonly DecodedAgentEdit[] & { readonly [decode
 /**
  * Checks a model's `edits` (the `edits` of `agentEditSchema`) without
  * touching a presentation. Throws an `AgentEditError` with `index: null`
- * that lists every problem by its JSON Pointer. `touchedSlides` are the
+ * that lists every problem by its JSON Pointer into `agentEditSchema`'s
+ * input (`/edits/0/input/…`). `touchedSlides` are the
  * part names of the slides the edits change, in order, each once.
  */
 export function decodeAgentEdits(edits: unknown): {
   edits: DecodedAgentEdits;
   touchedSlides: readonly string[];
 } {
-  const errors = schemaErrors({ ...editsSchema, $defs: agentEditSchema.$defs! }, edits);
+  // Pointers start at the tool input (`/edits/0/…`), where the model wrote them.
+  const errors = schemaErrors(agentEditSchema, { edits });
   if (errors.length > 0)
     throw new AgentEditError(
       null,
@@ -248,7 +250,9 @@ export async function applyAgentEdits(
       // Each edit reads what the previous one left, so they run one by one.
       results.push(await runTool(host, tool, input));
     } catch (error) {
-      throw new AgentEditError(index, error instanceof Error ? error.message : String(error));
+      throw new AgentEditError(index, error instanceof Error ? error.message : String(error), {
+        cause: error,
+      });
     }
   }
   return results;

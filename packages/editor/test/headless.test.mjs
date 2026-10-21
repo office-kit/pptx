@@ -192,7 +192,10 @@ test('decoding checks every edit and names the slides they touch', () => {
     Array.from({ length: 51 }, () => ({ tool: 'removeShape', input: { shape: box } })),
     /takes at most 50 items/,
   );
-  rejects([{ tool: 'addSlideShape', input: {} }], /\/0\/tool: must be one of "setShapeText"/);
+  rejects(
+    [{ tool: 'addSlideShape', input: {} }],
+    /\/edits\/0\/tool: must be one of "setShapeText"/,
+  );
   rejects(
     [
       {
@@ -200,18 +203,22 @@ test('decoding checks every edit and names the slides they touch', () => {
         input: { shape: box, value: 'x', options: { preserveFormatting: false } },
       },
     ],
-    /\/0\/input: unknown property "options"/,
+    /\/edits\/0\/input: unknown property "options"/,
   );
   rejects(
     [{ tool: 'setShapeTextFormat', input: { shape: box, format: { font: 'Arial' } } }],
-    /\/0\/input\/format: unknown property "font" \(allowed: size, bold, italic, color\)/,
+    /\/edits\/0\/input\/format: unknown property "font" \(allowed: size, bold, italic, color\)/,
   );
   rejects(
     [
       { tool: 'removeShape', input: { shape: box } },
       { tool: 'moveSlide', input: { slide: second, toIndex: 1.5 } },
     ],
-    /\/1\/input\/toIndex: expected integer, got number 1\.5/,
+    /\/edits\/1\/input\/toIndex: expected integer, got number 1\.5/,
+  );
+  rejects(
+    [{ tool: 'moveSlide', input: { slide: second, toIndex: -1 } }],
+    /\/edits\/0\/input\/toIndex: /,
   );
 });
 
@@ -251,6 +258,7 @@ test('applies edits in order, keeping formatting, and reports the one that faile
     assert.ok(error instanceof AgentEditError);
     assert.equal(error.index, 1);
     assert.match(error.message, /There is no shape/);
+    assert.ok(error.cause instanceof Error);
     return true;
   });
   await assert.rejects(

@@ -333,8 +333,7 @@ on a server, and returns `{ ok: true, bytes }` or `{ ok: false, conflicts }`.
 server, say) nine edits for small revisions, as one tool: `setShapeText`,
 `setTableCellText`, `setChartData`, `setShapeTextFormat` (size, bold, italic,
 color of a shape's whole text), `setShapeFill`, `setShapeBounds`,
-`removeShape`, `moveSlide` and `removeSlide`. Their schemas together are about
-9 KB. Text edits always keep the formatting of the text they do not change.
+`removeShape`, `moveSlide` and `removeSlide`, in one compact schema. Text edits always keep the formatting of the text they do not change.
 It has no DOM dependency and runs in Node.
 
 ```ts

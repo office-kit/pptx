@@ -513,6 +513,8 @@ const NAME_C_NUM_REF = qname('c', 'numRef', NS.chart);
 const NAME_C_NUM_LIT = qname('c', 'numLit', NS.chart);
 const NAME_C_NUM_CACHE = qname('c', 'numCache', NS.chart);
 const NAME_C_MULTI_LVL_STR_REF = qname('c', 'multiLvlStrRef', NS.chart);
+const NAME_C_MULTI_LVL_STR_CACHE = qname('c', 'multiLvlStrCache', NS.chart);
+const NAME_C_LVL = qname('c', 'lvl', NS.chart);
 const NAME_C_FORMAT_CODE = qname('c', 'formatCode', NS.chart);
 const NAME_C_PT_COUNT = qname('c', 'ptCount', NS.chart);
 const NAME_C_EXT_LST = qname('c', 'extLst', NS.chart);
@@ -539,18 +541,20 @@ const setCachePoints = (cache: XmlElement, points: ReadonlyArray<string | null>)
   const extLst = allChildElements(cache, NAME_C_EXT_LST);
   const ptCount = firstChildElement(cache, NAME_C_PT_COUNT) ?? chartElem(cache, 'ptCount');
   ptCount.attrs = [attr(ATTR_VAL, String(points.length))];
-  const pts = points.flatMap((point, i) =>
+  cache.children = [...formatCode, ptCount, ...pointElems(cache, points), ...extLst];
+};
+
+const pointElems = (sibling: XmlElement, points: ReadonlyArray<string | null>): XmlElement[] =>
+  points.flatMap((point, i) =>
     point === null
       ? []
       : [
-          chartElem(cache, 'pt', {
+          chartElem(sibling, 'pt', {
             attrs: [attr(ATTR_IDX, String(i))],
-            children: [chartElem(cache, 'v', { children: [textNode(point)] })],
+            children: [chartElem(sibling, 'v', { children: [textNode(point)] })],
           }),
         ],
   );
-  cache.children = [...formatCode, ptCount, ...pts, ...extLst];
-};
 
 /**
  * Rewrites a `c:cat` / `c:val` / `c:tx` channel: its formula when `formula`
@@ -582,7 +586,22 @@ const setChannel = (
     firstChildElement(channel, NAME_C_STR_LIT) ?? firstChildElement(channel, NAME_C_NUM_LIT);
   if (literal && points !== null) setCachePoints(literal, points);
   const multiLevel = firstChildElement(channel, NAME_C_MULTI_LVL_STR_REF);
-  if (multiLevel && formula !== null) setFormula(multiLevel, formula);
+  if (!multiLevel) return;
+  if (formula !== null) setFormula(multiLevel, formula);
+  if (points !== null) setSingleLevelCache(multiLevel, points);
+};
+
+// pptxgenjs writes plain text categories as a one-level `c:multiLvlStrRef`;
+// several levels never reach here (setChartData refuses them).
+const setSingleLevelCache = (ref: XmlElement, points: ReadonlyArray<string | null>): void => {
+  const cache =
+    firstChildElement(ref, NAME_C_MULTI_LVL_STR_CACHE) ?? chartElem(ref, 'multiLvlStrCache');
+  if (!ref.children.includes(cache)) ref.children.push(cache);
+  const lvl = firstChildElement(cache, NAME_C_LVL) ?? chartElem(cache, 'lvl');
+  const ptCount = firstChildElement(cache, NAME_C_PT_COUNT) ?? chartElem(cache, 'ptCount');
+  ptCount.attrs = [attr(ATTR_VAL, String(points.length))];
+  lvl.children = [...pointElems(cache, points), ...allChildElements(lvl, NAME_C_EXT_LST)];
+  cache.children = [ptCount, lvl, ...allChildElements(cache, NAME_C_EXT_LST)];
 };
 
 const isNumericChannel = (channel: XmlElement): boolean =>
@@ -599,13 +618,17 @@ const isNumericChannel = (channel: XmlElement): boolean =>
  * legend, series names and colors, and the rest of its formatting returns
  * to the defaults; to keep it, copy the series names exactly as they are
  * read. Each series needs one value per category: when changing
- * `categories`, pass every series with values of the same length. The
- * embedded workbook is rewritten with the new data.
+ * `categories`, pass every series with values of the same length. A pie or
+ * doughnut chart takes exactly one series. On a date axis the categories
+ * are read as date serial numbers (days since 1899-12-30, e.g. `"45292"`
+ * for 2024-01-01) and must be passed the same way. The embedded workbook
+ * is rewritten with the new data.
  *
  * Throws when the chart is of another kind (scatter, bubble, stock,
- * surface, radar, or one this library cannot read), when a series has
- * more or fewer values than there are categories, and when categories
- * change on a chart whose categories have several levels.
+ * surface, radar, or one this library cannot read), when `categories` or
+ * `series` is empty, when a series has more or fewer values than there are
+ * categories, when a date-axis category is not a number, and when
+ * categories change on a chart whose categories have several levels.
  */
 export const setChartData = (chart: SlideChartData, data: ChartData): void => {
   const slide = chart.shape[SHAPE_SLIDE];
@@ -620,6 +643,9 @@ export const setChartData = (chart: SlideChartData, data: ChartData): void => {
     throw new Error(
       `setChartData: the data of ${current === null ? 'this chart' : `a ${current.kind} chart`} cannot be replaced; build the chart again instead`,
     );
+  }
+  if (data.categories?.length === 0 || data.series?.length === 0) {
+    throw new Error('setChartData: categories and series must not be empty');
   }
   const kind = data.kind ?? current.kind;
   const categories = data.categories ?? current.categories;
@@ -748,6 +774,8 @@ const rebuiltChartSpec = (
     if (only === undefined || rest.length > 0) {
       throw new Error(`setChartData: a ${kind} chart takes exactly one series`);
     }
+    // Same object on both sides: TS matches a `'pie' | 'doughnut'` kind to the
+    // ChartSpec union only once it is narrowed to one of them.
     return kind === 'pie'
       ? { kind, ...common, series: [only] }
       : { kind, ...common, series: [only] };

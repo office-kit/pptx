@@ -22,6 +22,8 @@ import { partName } from '../src/internal/opc/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
+const pptxgenjsFixture = (name: string): string =>
+  fileURLToPath(new URL(`./fixtures/pptxgenjs/${name}`, import.meta.url));
 
 const CHART_PART = '/ppt/charts/chart1.xml';
 const WORKBOOK_PART = '/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx';
@@ -224,5 +226,81 @@ describe('setChartData', () => {
     expect(() => setChartData(chartOf(pres), { categories: ['A', 'B'] })).toThrow(
       /several category levels/,
     );
+  });
+
+  it('replaces the one-level multiLvlStrRef categories pptxgenjs writes', async () => {
+    const pres = await loadPresentation(await readFile(pptxgenjsFixture('combo.pptx')));
+    const chart = chartOf(pres);
+    const names = chart.spec!.series.map((s) => s.name);
+    setChartData(chart, {
+      categories: ['A', 'B', 'C', 'NEW'],
+      series: names.map((name, i) => ({ name, values: [1, 2, 3, i] })),
+    });
+    const reread = await loadPresentation(await savePresentation(pres));
+    const spec = chartOf(reread).spec!;
+    expect(spec.categories).toEqual(['A', 'B', 'C', 'NEW']);
+    expect(spec.series.map((s) => s.values)).toEqual(names.map((_, i) => [1, 2, 3, i]));
+    const xml = new TextDecoder().decode(readPackagePart(reread, '/ppt/charts/chart2.xml')!);
+    expect(xml).toContain('<c:f>Sheet1!$A$2:$A$5</c:f>');
+    expect(xml).not.toMatch(/<c:multiLvlStrCache>\s*<c:ptCount val="3"\/>/);
+
+    // Renaming labels at the same length changes them too.
+    setChartData(chartOf(reread), { categories: ['x', 'y', 'z', 'w'] });
+    expect(chartOf(reread).spec!.categories).toEqual(['x', 'y', 'z', 'w']);
+  });
+
+  it('throws on empty categories or series', async () => {
+    const pres = await deckWith(COLUMN);
+    expect(() =>
+      setChartData(chartOf(pres), { categories: [], series: [{ name: 'East', values: [] }] }),
+    ).toThrow(/must not be empty/);
+    expect(() => setChartData(chartOf(pres), { series: [] })).toThrow(/must not be empty/);
+  });
+
+  it('takes date serial numbers on a date category axis', async () => {
+    const pres = await deckWith(COLUMN);
+    editChartXml(pres, (xml) =>
+      xml.replaceAll(
+        /<c:cat>[\s\S]*?<\/c:cat>/g,
+        '<c:cat><c:numRef><c:f>Sheet1!$A$2:$A$3</c:f><c:numCache><c:formatCode>m/d</c:formatCode>' +
+          '<c:ptCount val="2"/><c:pt idx="0"><c:v>45292</c:v></c:pt><c:pt idx="1"><c:v>45299</c:v></c:pt>' +
+          '</c:numCache></c:numRef></c:cat>',
+      ),
+    );
+    expect(chartOf(pres).spec!.categories).toEqual(['45292', '45299']);
+    expect(() =>
+      setChartData(chartOf(pres), {
+        categories: ['8/4', '8/11'],
+        series: [
+          { name: 'East', values: [1, 2] },
+          { name: 'West', values: [3, 4] },
+        ],
+      }),
+    ).toThrow(/numeric \(date\) categories; pass numbers/);
+    setChartData(chartOf(pres), {
+      categories: ['45306', '45313', '45320'],
+      series: [
+        { name: 'East', values: [1, 2, 3] },
+        { name: 'West', values: [4, 5, 6] },
+      ],
+    });
+    expect(chartOf(pres).spec!.categories).toEqual(['45306', '45313', '45320']);
+    expect(chartXml(pres).match(/<c:formatCode>m\/d<\/c:formatCode>/g)).toHaveLength(2);
+  });
+
+  it('leaves the formulas alone on a chart without an embedded workbook', async () => {
+    const pres = await deckWith(COLUMN);
+    pres[INTERNAL_PACKAGE].setRels(partName(CHART_PART), { items: [] });
+    const formulas = (xml: string) => xml.match(/<c:f>[^<]*<\/c:f>/g);
+    const before = formulas(chartXml(pres));
+    setChartData(chartOf(pres), {
+      categories: ['Q1', 'Q2', 'Q3'],
+      series: [
+        { name: 'East', values: [1, 2, 3] },
+        { name: 'West', values: [4, 5, 6] },
+      ],
+    });
+    expect(formulas(chartXml(pres))).toEqual(before);
+    expect(chartOf(pres).spec!.categories).toEqual(['Q1', 'Q2', 'Q3']);
   });
 });

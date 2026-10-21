@@ -532,7 +532,7 @@ const readTools: readonly ReadTool[] = [
   },
   {
     name: 'listShapes',
-    description: `Lists the shapes on a slide, back to front: each shape's ref (which other tools take as "shape", or with "row" and "col" added as a table "cell"), its kind, placeholder type, bounds and text (for a table, the text of every cell; for a chart, its kind, title, categories and series values, or null when its kind cannot be read). Bounds are in ${'EMU: 914400 per inch, 360000 per cm, 12700 per point.'}`,
+    description: `Lists the shapes on a slide, back to front: each shape's ref (which other tools take as "shape", or with "row" and "col" added as a table "cell"), its kind, placeholder type, bounds and text (for a table, the text of every cell; for a chart, its kind, title, categories and series values, or null when its kind cannot be read; date-axis categories are date serial numbers). Bounds are in ${'EMU: 914400 per inch, 360000 per cm, 12700 per point.'}`,
     input_schema: SLIDE_INPUT,
     read: (presentation, input) =>
       pptx
