@@ -2313,7 +2313,7 @@ export const generatedTools: GeneratedTools = {
               { type: 'string', enum: ['none', 'cross'] },
             ],
             description:
-              'Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`).',
+              "Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`).\nDefault: `'none'` on bar / column charts, `'out'` otherwise.",
           },
           CategoryAxisMinorGridlineColor: {
             type: 'string',
@@ -2334,7 +2334,7 @@ export const generatedTools: GeneratedTools = {
               { type: 'string', enum: ['none', 'cross'] },
             ],
             description:
-              'Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`).',
+              "Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`); default `'none'`.",
           },
           CategoryAxisNoMultiLevelLabel: {
             type: 'boolean',
@@ -3257,7 +3257,8 @@ export const generatedTools: GeneratedTools = {
               { $ref: '#/$defs/AnimationInOut' },
               { type: 'string', enum: ['none', 'cross'] },
             ],
-            description: 'Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`).',
+            description:
+              "Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`); default `'none'`.",
           },
           ValueAxisOrientation: {
             type: 'string',
@@ -7564,7 +7565,7 @@ export const generatedTools: GeneratedTools = {
               { type: 'string', enum: ['none', 'cross'] },
             ],
             description:
-              'Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`).',
+              "Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`).\nDefault: `'none'` on bar / column charts, `'out'` otherwise.",
           },
           CategoryAxisMinorGridlineColor: {
             type: 'string',
@@ -7585,7 +7586,7 @@ export const generatedTools: GeneratedTools = {
               { type: 'string', enum: ['none', 'cross'] },
             ],
             description:
-              'Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`).',
+              "Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`); default `'none'`.",
           },
           CategoryAxisNoMultiLevelLabel: {
             type: 'boolean',
@@ -8521,7 +8522,8 @@ export const generatedTools: GeneratedTools = {
               { $ref: '#/$defs/AnimationInOut' },
               { type: 'string', enum: ['none', 'cross'] },
             ],
-            description: 'Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`).',
+            description:
+              "Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`); default `'none'`.",
           },
           ValueAxisOrientation: {
             type: 'string',

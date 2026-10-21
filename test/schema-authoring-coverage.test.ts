@@ -273,8 +273,8 @@ describe('schema coverage: charts', () => {
       valueAxis: { min: 0, max: 10 },
     });
     const xml = await authoredXml(pres);
-    expect(xml.indexOf('<c:max')).toBeGreaterThan(-1);
-    expect(xml.indexOf('<c:max')).toBeLessThan(xml.indexOf('<c:min'));
+    expect(xml.indexOf('<c:max ')).toBeGreaterThan(-1);
+    expect(xml.indexOf('<c:max ')).toBeLessThan(xml.indexOf('<c:min '));
   });
 
   skipIfNoXmllint('marker/smooth/invertIfNegative are gated to valid kinds', async () => {

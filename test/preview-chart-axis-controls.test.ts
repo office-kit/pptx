@@ -106,7 +106,8 @@ describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s axis visi
     expect(spines(svg)).toHaveLength(0);
     expect(svg).toContain('>Alpha</text>');
     expect(svg).toContain('>100</text>');
-    expect(attrsOf(svg, 'line')).toHaveLength(9);
+    // Bar-family category axes are written without major ticks by default.
+    expect(attrsOf(svg, 'line')).toHaveLength(kind === 'line' || kind === 'area' ? 9 : 6);
   });
   it.each(['value', 'category'] as const)('hides only the %s axis spine', async (axis) => {
     const svg = await render(
@@ -176,15 +177,9 @@ describe.each(['column', 'bar', 'combo'] as const)('%s category ticks', (kind) =
       },
     );
   });
-  it('keeps the default outward major ticks and no minor ticks', async () => {
+  it('draws no category ticks by default', async () => {
     const svg = await render(chart(kind, { valueAxisHidden: true, categoryAxisLineHidden: true }));
-    const ticks = attrsOf(svg, 'line');
-    expect(ticks).toHaveLength(3);
-    expect(
-      ticks.every(
-        (l) => Math.abs(Number(l.x1) - Number(l.x2)) + Math.abs(Number(l.y1) - Number(l.y2)) === 5,
-      ),
-    ).toBe(true);
+    expect(attrsOf(svg, 'line')).toHaveLength(0);
   });
 });
 

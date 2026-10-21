@@ -766,12 +766,16 @@ const catAxis = (spec: ChartSpec): XmlElement => {
       }),
     );
   }
-  if (spec.categoryAxisMajorTickMark !== undefined) {
-    children.push(valNode(c('majorTickMark'), spec.categoryAxisMajorTickMark));
-  }
-  if (spec.categoryAxisMinorTickMark !== undefined) {
-    children.push(valNode(c('minorTickMark'), spec.categoryAxisMinorTickMark));
-  }
+  // An absent tick mark element means `cross` (schema default), which no app
+  // draws by default, so the defaults are always written out.
+  children.push(
+    valNode(
+      c('majorTickMark'),
+      spec.categoryAxisMajorTickMark ??
+        (spec.kind === 'bar' || spec.kind === 'column' ? 'none' : 'out'),
+    ),
+    valNode(c('minorTickMark'), spec.categoryAxisMinorTickMark ?? 'none'),
+  );
   if (spec.categoryAxisTickLabelPos !== undefined) {
     children.push(valNode(c('tickLblPos'), spec.categoryAxisTickLabelPos));
   }
@@ -916,12 +920,11 @@ const valueAxisElement = (
       }),
     );
   }
-  if (f.majorTickMark !== undefined) {
-    children.push(valNode(c('majorTickMark'), f.majorTickMark));
-  }
-  if (f.minorTickMark !== undefined) {
-    children.push(valNode(c('minorTickMark'), f.minorTickMark));
-  }
+  // Absent means `cross`; see `catAxis`.
+  children.push(
+    valNode(c('majorTickMark'), f.majorTickMark ?? 'out'),
+    valNode(c('minorTickMark'), f.minorTickMark ?? 'none'),
+  );
   if (f.tickLabelPos !== undefined) {
     children.push(valNode(c('tickLblPos'), f.tickLabelPos));
   }

@@ -718,9 +718,12 @@ export interface ReadChartSpec {
    *   - `'none'` — no tick marks
    */
   readonly valueAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
-  /** Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`). */
+  /**
+   * Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`).
+   * Default: `'none'` on bar / column charts, `'out'` otherwise.
+   */
   readonly categoryAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
-  /** Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`). */
+  /** Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`); default `'none'`. */
   readonly valueAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /**
    * Value-axis tick label position (`<c:valAx><c:tickLblPos val="…"/>`),
@@ -729,7 +732,7 @@ export interface ReadChartSpec {
    * (default) next to the axis. Primary axis only.
    */
   readonly valueAxisTickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
-  /** Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`). */
+  /** Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`); default `'none'`. */
   readonly categoryAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /**
    * Authored color on the value-axis major gridlines — `<c:valAx>

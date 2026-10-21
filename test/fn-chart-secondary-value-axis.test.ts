@@ -102,7 +102,11 @@ describe('fn API: secondaryValueAxis', () => {
         { name: 'Score', values: [3, 4], chartKind: 'line', secondaryAxis: true },
       ],
     });
-    expect(spec.secondaryValueAxis).toEqual({ labelStyle: { color: '#000000' } });
+    expect(spec.secondaryValueAxis).toEqual({
+      labelStyle: { color: '#000000' },
+      majorTickMark: 'out',
+      minorTickMark: 'none',
+    });
     expect(spec.series[1]!.secondaryAxis).toBe(true);
   });
 
