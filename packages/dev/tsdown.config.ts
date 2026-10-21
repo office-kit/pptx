@@ -4,7 +4,9 @@ export default defineConfig({
   format: ['esm'],
   target: 'es2022',
   platform: 'node',
-  deps: { neverBundle: [/^@office-kit\//, 'esbuild', /^node:/] },
+  // The editor is bundled like the browser pages bundle it, so installing
+  // pptx-dev never needs @office-kit/pptx-editor from the registry.
+  deps: { neverBundle: [/^@office-kit\/(?!pptx-editor)/, 'esbuild', /^node:/] },
   dts: true,
   sourcemap: true,
   clean: true,
