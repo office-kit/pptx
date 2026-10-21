@@ -1,5 +1,21 @@
 # @office-kit/pptx-dsl
 
+## 0.12.0
+
+### Minor Changes
+
+- 3293e4a: `Table` now throws when its `columnWidths` do not add up to its `width` (a difference of 0.01 in or more). The column widths decide how wide the table is drawn, so a mismatch was exported silently and the table overflowed or fell short of the space laid out for it.
+
+### Patch Changes
+
+- Updated dependencies [3293e4a]
+- Updated dependencies [3293e4a]
+- Updated dependencies [e46d45b]
+- Updated dependencies [a27d7f1]
+- Updated dependencies [2bcceca]
+- Updated dependencies [a27d7f1]
+  - @office-kit/pptx@0.25.0
+
 ## 0.11.0
 
 ### Patch Changes

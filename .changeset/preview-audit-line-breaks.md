@@ -1,5 +1,0 @@
----
-'@office-kit/pptx-preview': minor
----
-
-`auditTextLayout` can now report three more text problems. With `reportBadWraps: true` it reports `word-break` once per word that a wrap splits (Latin, Greek or Cyrillic letters and digits, or a katakana run; `text` holds the word with `|` at each break) and `short-last-line` when a wrapped paragraph ends on a line of only one or two characters, counted as characters rather than words (泣き別れ). With `minFontSizePt` it reports `small-font` for a shape whose text, after autofit shrinking, is smaller than that size. Both are off unless you pass them, so existing calls return the same issues; code that switches over `TextAuditIssue['kind']` exhaustively has three new kinds to handle. Overflow issues now also carry `shapeOverflowPx` (how much text lies outside the shape itself, both sides added, 0 while it stays within the insets) and `lineHeightPx` (the tallest line's height). An overlong word in the preview now wraps after its hyphens and slashes before it is split between letters.

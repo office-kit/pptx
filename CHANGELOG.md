@@ -1,5 +1,21 @@
 # @office-kit/pptx
 
+## 0.25.0
+
+### Minor Changes
+
+- e46d45b: `compactPackage` now removes every part that cannot be reached from the package root (`/_rels/.rels`) through internal relationships, not only `/ppt/media/` parts. This drops the charts, embedded workbooks, notes slides and tags that `removeSlide` leaves behind, so the saved file no longer carries a removed slide's chart data. Any other part nothing points at, such as custom data added without a relationship, is removed too. If the root relationships do not reach `/ppt/presentation.xml`, nothing is removed. `getOrphanMediaPartNames` follows the same rule, so media used only by an unreachable part now counts as orphaned. In the editor, copied slides and shapes no longer carry the other slides' notes, charts and workbooks.
+- 2bcceca: New `setChartData(chart, { kind?, categories?, series? })` replaces the data of a bar, column, line, area, pie or doughnut chart. When the kind and the set of series names stay the same, it rewrites only the cached values and their ranges in the chart part, so formatting from another app (colors, number formats, layout, extensions) is kept; changing the kind or the series builds the chart again through `setChartSpec`, carrying over its title, axis titles, legend and series colors. The embedded workbook is rewritten either way. It throws when `categories` or `series` is empty, when a series does not have one value per category, and on charts of other kinds; a date category axis takes its categories as date serial numbers.
+
+### Patch Changes
+
+- 3293e4a: Charts now write their axis tick marks even when none are authored. An absent `<c:majorTickMark>` / `<c:minorTickMark>` means `cross` in the schema, so some apps drew ticks crossing every axis. The defaults written are: value axes (including a scatter / bubble chart's horizontal axis and the secondary value axis) major `out`, minor `none`; the category axis major `none` on bar and column charts and `out` on the others, minor `none`; the series (depth) axis of 3-D and surface charts major `out`, minor `none`. Authored `*TickMark` fields are written as before. Reading such a chart back now reports these tick marks.
+- 3293e4a: Fixed two problems with `ChartSeries.pointDataLabels`. A per-point label with literal `text` lost its `textStyle` (color, bold, size, font), because apps ignore a label's `<c:txPr>` once it carries its own text; the style is now also written into the label's rich text. And setting `pointDataLabels` without the series-level `dataLabels` threw at build time even though the types allow it; the other points of the series now keep the chart-level `dataLabels` (or show no label when there are none), so a per-point override no longer hides the labels of its neighbours. That fallback is written as the series' own labels, so reading such a chart back reports it as the series' `dataLabels`, and a later change to the chart-level `dataLabels` no longer reaches that series.
+- a27d7f1: Fixed: loading a `.pptx` with many parts took time quadratic in the part count, because each part's content type was found by scanning every `<Override>` in `[Content_Types].xml` and each part lookup scanned every part. A package with 30,000 parts and overrides took about 7 seconds to load; it now takes about a quarter of a second.
+- a27d7f1: Fixed: a small `.pptx` whose ZIP entries understate their decompressed size could block `loadPresentation` for seconds or minutes. The load now throws as soon as an entry outgrows its declared size, so decompression work is bounded by the uncompressed sizes recorded in the archive's central directory (plus at most about 17 MB per load).
+
+  `loadPresentation` also now throws on malformed archives it used to read silently: an entry whose data is shorter than declared, an entry declaring more data than its compressed bytes could possibly hold, a stored entry whose two sizes differ, two entries with the same name, and offsets or sizes that point outside the file. Errors for corrupt compressed data now start with `invalid ZIP:` and name the entry.
+
 ## 0.24.1
 
 ### Patch Changes

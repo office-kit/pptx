@@ -1,5 +1,27 @@
 # @office-kit/pptx-editor
 
+## 0.2.0
+
+### Minor Changes
+
+- 2bcceca: New entry `@office-kit/pptx-editor/headless` lets an agent revise a presentation without mounting the editor, in Node as well as the browser. `agentEditSchema` describes nine edits as one tool (`setShapeText`, `setTableCellText`, `setChartData`, `setShapeTextFormat`, `setShapeFill`, `setShapeBounds`, `removeShape`, `moveSlide`, `removeSlide`) in one compact JSON Schema, with text edits always keeping the formatting of unchanged text. `readForAgent` returns each slide's title, notes and shapes, `decodeAgentEdits` checks a batch and names every problem by its JSON Pointer from the tool input (`/edits/0/…`), and `applyAgentEdits` applies it, reporting which edit failed as an `AgentEditError`.
+
+  The `listShapes` tool now also reports a chart's kind, title, categories and series values, and `tools()` includes `setChartData`.
+
+### Patch Changes
+
+- e46d45b: `compactPackage` now removes every part that cannot be reached from the package root (`/_rels/.rels`) through internal relationships, not only `/ppt/media/` parts. This drops the charts, embedded workbooks, notes slides and tags that `removeSlide` leaves behind, so the saved file no longer carries a removed slide's chart data. Any other part nothing points at, such as custom data added without a relationship, is removed too. If the root relationships do not reach `/ppt/presentation.xml`, nothing is removed. `getOrphanMediaPartNames` follows the same rule, so media used only by an unreachable part now counts as orphaned. In the editor, copied slides and shapes no longer carry the other slides' notes, charts and workbooks.
+- Updated dependencies [3293e4a]
+- Updated dependencies [3293e4a]
+- Updated dependencies [e46d45b]
+- Updated dependencies [a27d7f1]
+- Updated dependencies [3293e4a]
+- Updated dependencies [5307cf8]
+- Updated dependencies [2bcceca]
+- Updated dependencies [a27d7f1]
+  - @office-kit/pptx@0.25.0
+  - @office-kit/pptx-preview@0.17.0
+
 ## 0.1.1
 
 ### Patch Changes
