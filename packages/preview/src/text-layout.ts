@@ -626,9 +626,28 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
             ? width > avail - bulletLead
             : para.latinLineBreak === true || width > avail - bulletLead;
           if (input.wrap && canBreak && [...segment].length > 1) {
+            // An overlong word breaks after its hyphens and slashes (UAX #14) first;
+            // only a part still too wide for the line is split between letters.
+            const breakAnywhere = para.latinLineBreak === true || EAST_ASIAN_CHAR.test(segment);
+            let chunk: Token[] = [];
+            let chunkWidth = 0;
+            const flushChunk = (): void => {
+              const keepWhole = chunk.length > 1 && chunkWidth <= avail - bulletLead;
+              chunk.forEach((token, ci) =>
+                tokens.push(keepWhole && ci > 0 ? { ...token, continuesSegment: true } : token),
+              );
+              chunk = [];
+              chunkWidth = 0;
+            };
             for (const fragment of fragments) {
-              for (const ch of fragment.text) tokens.push(makeToken(ch, fragment.piece));
+              for (const ch of fragment.text) {
+                const token = makeToken(ch, fragment.piece);
+                chunk.push(token);
+                chunkWidth += token.width;
+                if (breakAnywhere || ch === '-' || ch === '/') flushChunk();
+              }
             }
+            flushChunk();
           } else {
             for (const fragment of fragments) tokens.push(fragment);
           }

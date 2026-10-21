@@ -133,10 +133,13 @@ npm run build
 
 `check` runs TypeScript, then `office-pptx check`, which builds the deck and
 measures every text box with the preview's layout engine. It fails on text that
-overflows its box, and warns about text smaller than 10pt (`--min-font-size`
-changes the floor), a word split across lines, a wrapped paragraph that ends on a
-line of one or two characters, and an overflow measured with an estimated width
-(a font the preview does not bundle). Table and chart text is not measured. `build`
+runs out of its shape, and warns about text that only spills into the box's inner
+margins, text smaller than 10pt (`--min-font-size` changes the floor), a word split
+across lines, and a wrapped paragraph that ends on a line of one or two characters.
+When a width had to be estimated (a font the preview does not bundle, such as any
+Japanese font), it fails only on text more than a line's height past the top or
+bottom of its shape and warns about smaller overflows. Table and chart text is not
+measured. `build`
 writes `deck.pptx`. Compilation alone does not
 perform TypeScript checking, so run both before delivery. Exported charts, text,
 images and tables remain editable. The renderer previews the serialized PPTX,
@@ -329,7 +332,7 @@ the amount of PPTX evaluation.
 - `office-pptx init <new-directory>` creates a TSX project without overwriting an existing directory.
 - `office-pptx dev <deck.tsx> [--port 4173]` watches the entry file's directory recursively.
 - `office-pptx build <deck.tsx> [--out deck.pptx]` writes a PPTX.
-- `office-pptx check <deck.tsx> [--min-font-size 10]` reports text overflow, text below the minimum size, split words and one- or two-character last lines; it exits with 1 when measured text overflows its box.
+- `office-pptx check <deck.tsx> [--min-font-size 10]` reports text overflow, text below the minimum size, split words and one- or two-character last lines; it exits with 1 when text runs out of its shape.
 - `office-pptx inspect <template.pptx>` prints slides, shape targets and layout references as JSON.
 
 Keep imported components, source PPTX files and images inside the watched

@@ -68,6 +68,11 @@ describe('auditTextLayout — overflow', () => {
     expect(oy).toBeDefined();
     expect(oy!.kind === 'overflow-y' && oy!.overflowPx).toBeGreaterThan(1);
     expect(oy!.approximate).toBe(false);
+    // Top-anchored, so the ink leaves the shape 0.05in (4.8px, the bottom inset) later.
+    if (oy!.kind === 'overflow-y') {
+      expect(oy!.shapeOverflowPx).toBeCloseTo(oy!.overflowPx - 4.8, 1);
+      expect(oy!.lineHeightPx).toBeGreaterThan(20);
+    }
   });
 
   it('audits a group child exactly once (flattened list is not re-recursed)', async () => {
@@ -226,6 +231,13 @@ describe('auditTextLayout — line breaks and font size', () => {
     expect(splits).toHaveLength(1);
     const text = splits[0]!.kind === 'word-break' ? splits[0]!.text : '';
     expect(text).toBe('カス|タマーサク|セス');
+  });
+
+  it('breaks an overlong word after its hyphens and slashes', async () => {
+    const hyphens = await box('state-of-the-art well-known end-to-end', 1.2);
+    expect(lineIssues(hyphens.pres)).toEqual([]);
+    const url = await box('See https://example.com/a/very/long/path/name for details', 2);
+    expect(lineIssues(url.pres).filter((i) => i.kind === 'word-break')).toEqual([]);
   });
 
   it('does not report wraps at spaces or authored breaks', async () => {

@@ -227,6 +227,13 @@ test('the documented TSX agenda builds without Raw or invented components', asyn
     assert.match(result.slideTexts[0], new RegExp(title));
 });
 
+test('check does not fail text that only spills into its box insets', async () => {
+  // Its bottom-anchored two-line titles reach about 1.5px into the 0.05in top inset.
+  const example = fileURLToPath(new URL('../../dsl/examples/board-deck.tsx', import.meta.url));
+  const { stdout } = await execute(process.execPath, [cli, 'check', example]);
+  assert.match(stdout, /^0 error\(s\)/m);
+});
+
 test('check passes the starter deck and fails text that overflows or is too small', async (t) => {
   const directory = await fixture(t);
   const project = await initProject(join(directory, 'slides'));
@@ -244,6 +251,7 @@ export default <Presentation><Slide>
   <Text name="Crowded" x={1} y={1} width={2} height={0.4} size={18}>${'word '.repeat(30)}</Text>
   <Text name="Note" x={1} y={3} width={4} height={1} size={8}>Footnote</Text>
   <Text name="Split" x={1} y={5} width={1} height={2} size={18}>Internationalization</Text>
+  <Text name="JP" x={5} y={1} width={2} height={0.4} size={18}>${'売上は前年比で大きく伸びましたが利益率は低下しました。'.repeat(3)}</Text>
 </Slide></Presentation>;`,
   );
   const failed = await execute(process.execPath, [cli, 'check', deck]).then(
@@ -254,6 +262,11 @@ export default <Presentation><Slide>
   assert.match(
     failed.stdout,
     /^error: Slide 1, "Crowded": text runs [\d.]+px past the top or bottom/m,
+  );
+  // Estimated (Japanese) widths still fail once the text runs lines past its box.
+  assert.match(
+    failed.stdout,
+    /^error: Slide 1, "JP": text runs [\d.]+px past the top or bottom of its box \(estimated width\)$/m,
   );
   assert.match(failed.stdout, /^warning: Slide 1, "Note": text at 8pt is below 10pt$/m);
   assert.match(failed.stdout, /^warning: Slide 1, "Split": paragraph 1 breaks the word "Intern/m);

@@ -136,7 +136,7 @@ npm run build
 
 `check` type-checks and then measures the slide text (`office-pptx check deck.tsx`; run
 that directly in a project whose `check` script is only `tsc`). Neither runs on the
-live rebuild. Fix every error (text overflowing its box), judge each warning (text under
+live rebuild. Fix every error (text running out of its shape), judge each warning (a smaller overflow, text under
 10pt, a word split across lines, a last line of one or two characters) and review all slides,
 including template slides retained in edit mode. Then review the words and the story
 with [the review steps](references/review.md): run `scripts/deck-text.mjs` from this

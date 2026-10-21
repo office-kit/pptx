@@ -170,8 +170,10 @@ export interface ChartSeries {
   /**
    * Optional per-data-point data-label overrides
    * (`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back
-   * to the series-level `dataLabels`, or show no label when the series sets
-   * none. The reference desktop app draws the per-point element
+   * to the series-level `dataLabels`, else the chart-level `dataLabels`, else
+   * no label. That fallback is written as the series' own `<c:dLbls>`, so
+   * reading the chart back reports it as the series' `dataLabels`. The
+   * reference desktop app draws the per-point element
    * over the series defaults, which is how pie / doughnut exporters give each
    * slice its own label content and font.
    */
@@ -613,7 +615,9 @@ export interface ChartSecondaryValueAxis {
   readonly lineColor?: string;
   /** Axis line width in EMU, the mirror of `ChartSpec.valueAxisLineWidthEmu`. */
   readonly lineWidthEmu?: number;
+  /** Major tick marks; default `'out'`. */
   readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Minor tick marks; default `'none'`. */
   readonly minorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /** Tick-label position, the mirror of `ChartSpec.valueAxisTickLabelPos`. */
   readonly tickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';

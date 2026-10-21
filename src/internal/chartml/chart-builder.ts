@@ -765,8 +765,8 @@ const catAxis = (spec: ChartSpec): XmlElement => {
       }),
     );
   }
-  // An absent tick mark element means `cross` (schema default), which no app
-  // draws by default, so the defaults are always written out.
+  // Apps differ on an absent tick mark element (the schema default is
+  // `cross`), so the intended defaults are always written out.
   children.push(
     valNode(
       c('majorTickMark'),

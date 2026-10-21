@@ -117,7 +117,7 @@ const measureText = buildFontkitMeasurer({
 });
 
 const issues = auditTextLayout(pres, { measureText, reportSoftWraps: true });
-// → [{ kind: 'overflow-y', slideIndex: 2, shapeName: 'Title 1', overflowPx: 14.3, approximate: false }, …]
+// → [{ kind: 'overflow-y', slideIndex: 2, shapeName: 'Title 1', overflowPx: 14.3, shapeOverflowPx: 9.5, lineHeightPx: 52.8, approximate: false }, …]
 ```
 
 `auditTextLayout` measures every shape's text body — placeholders, text boxes,
@@ -127,12 +127,17 @@ text, columns) and `normAutofit` shrinking. It returns one issue per finding:
 
 | `kind`            | Meaning                                                                             | Extra fields                   |
 | ----------------- | ----------------------------------------------------------------------------------- | ------------------------------ |
-| `overflow-x`      | Text ink escapes the box horizontally (typically `wrap="none"`)                     | `overflowPx`                   |
-| `overflow-y`      | Wrapped text is taller than the box (or escapes the top when bottom-anchored)       | `overflowPx`                   |
+| `overflow-x`      | Text ink escapes the box horizontally (typically `wrap="none"`)                     | `overflowPx` and the two below |
+| `overflow-y`      | Wrapped text is taller than the box (or escapes the top when bottom-anchored)       | `overflowPx` and the two below |
 | `soft-wrap`       | A paragraph wrapped onto more lines than its authored `<a:br>` count (段落ち)       | `paragraphIndex`, `extraLines` |
 | `word-break`      | A wrap split a word (Latin / Greek / Cyrillic letters or digits, or a katakana run) | `paragraphIndex`, `text`       |
 | `short-last-line` | A wrapped paragraph ends on a line of one or two characters (泣き別れ)              | `paragraphIndex`, `text`       |
 | `small-font`      | The shape draws text below `minFontSizePt`, after autofit shrinking                 | `sizePt`                       |
+
+`overflowPx` is measured against the text area (the box minus its insets);
+`shapeOverflowPx` is how far the ink leaves the shape itself (0 while the
+spill stays inside the insets, where nobody sees it); `lineHeightPx` is the
+tallest line's height, about how far one misjudged wrap moves the text.
 
 Every issue also carries `slideIndex`, `shapeName`, and `approximate` —
 `true` when a width had to be estimated (the heuristic measurer, or glyphs the

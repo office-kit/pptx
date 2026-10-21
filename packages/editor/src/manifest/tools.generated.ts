@@ -2231,12 +2231,6 @@ export const generatedTools: GeneratedTools = {
         additionalProperties: false,
         $defs: {
           AnimationInOut: { type: 'string', enum: ['in', 'out'] },
-          AnimationInOutOrString: {
-            anyOf: [
-              { $ref: '#/$defs/AnimationInOut' },
-              { type: 'string', enum: ['none', 'cross'] },
-            ],
-          },
           Bar3DShape: {
             type: 'string',
             enum: ['box', 'cone', 'coneToMax', 'cylinder', 'pyramid', 'pyramidToMax'],
@@ -2631,8 +2625,20 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Axis line width in EMU, the mirror of `ChartSpec.valueAxisLineWidthEmu`.',
               },
-              majorTickMark: { $ref: '#/$defs/AnimationInOutOrString' },
-              minorTickMark: { $ref: '#/$defs/AnimationInOutOrString' },
+              majorTickMark: {
+                anyOf: [
+                  { $ref: '#/$defs/AnimationInOut' },
+                  { type: 'string', enum: ['none', 'cross'] },
+                ],
+                description: "Major tick marks; default `'out'`.",
+              },
+              minorTickMark: {
+                anyOf: [
+                  { $ref: '#/$defs/AnimationInOut' },
+                  { type: 'string', enum: ['none', 'cross'] },
+                ],
+                description: "Minor tick marks; default `'none'`.",
+              },
               tickLabelPos: {
                 type: 'string',
                 enum: ['none', 'low', 'high', 'nextTo'],
@@ -3053,7 +3059,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/ChartDataLabels' }] },
             description:
-              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`, or show no label when the series sets\nnone. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
+              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`, else the chart-level `dataLabels`, else\nno label. That fallback is written as the series\' own `<c:dLbls>`, so\nreading the chart back reports it as the series\' `dataLabels`. The\nreference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
           },
           PointExplosions: {
             type: 'array',
@@ -7483,12 +7489,6 @@ export const generatedTools: GeneratedTools = {
         additionalProperties: false,
         $defs: {
           AnimationInOut: { type: 'string', enum: ['in', 'out'] },
-          AnimationInOutOrString: {
-            anyOf: [
-              { $ref: '#/$defs/AnimationInOut' },
-              { type: 'string', enum: ['none', 'cross'] },
-            ],
-          },
           Bar3DShape: {
             type: 'string',
             enum: ['box', 'cone', 'coneToMax', 'cylinder', 'pyramid', 'pyramidToMax'],
@@ -7887,8 +7887,20 @@ export const generatedTools: GeneratedTools = {
                 description:
                   'Axis line width in EMU, the mirror of `ChartSpec.valueAxisLineWidthEmu`.',
               },
-              majorTickMark: { $ref: '#/$defs/AnimationInOutOrString' },
-              minorTickMark: { $ref: '#/$defs/AnimationInOutOrString' },
+              majorTickMark: {
+                anyOf: [
+                  { $ref: '#/$defs/AnimationInOut' },
+                  { type: 'string', enum: ['none', 'cross'] },
+                ],
+                description: "Major tick marks; default `'out'`.",
+              },
+              minorTickMark: {
+                anyOf: [
+                  { $ref: '#/$defs/AnimationInOut' },
+                  { type: 'string', enum: ['none', 'cross'] },
+                ],
+                description: "Minor tick marks; default `'none'`.",
+              },
               tickLabelPos: {
                 type: 'string',
                 enum: ['none', 'low', 'high', 'nextTo'],
@@ -8305,7 +8317,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/ChartDataLabels' }] },
             description:
-              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`, or show no label when the series sets\nnone. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
+              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`, else the chart-level `dataLabels`, else\nno label. That fallback is written as the series\' own `<c:dLbls>`, so\nreading the chart back reports it as the series\' `dataLabels`. The\nreference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
           },
           PointExplosions: {
             type: 'array',

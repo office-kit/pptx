@@ -5,9 +5,10 @@ import { buildDeck } from './index.ts';
 
 /** The smallest size a footnote should use on a slide. */
 export const DEFAULT_MIN_FONT_SIZE_PT = 10;
+const OVERFLOW_TOLERANCE_PX = 1;
 
 export interface CheckFinding {
-  /** Errors are measured overflow; warnings need a look (estimated widths, line breaks, small type). */
+  /** Errors are text leaving its shape; warnings need a look (spills into the insets, estimated widths, line breaks, small type). */
   severity: 'error' | 'warning';
   message: string;
 }
@@ -24,14 +25,18 @@ export async function checkDeck(
     minFontSizePt,
   });
   return issues.map((issue) => ({
-    // Template footers are often 8-9pt and estimated widths can be off, so only
-    // measured overflow fails the check.
-    severity:
-      (issue.kind === 'overflow-x' || issue.kind === 'overflow-y') && !issue.approximate
-        ? 'error'
-        : 'warning',
+    severity: isError(issue) ? 'error' : 'warning',
     message: `Slide ${issue.slideIndex + 1}, ${issue.shapeName ? `"${issue.shapeName}"` : 'unnamed shape'}: ${describe(issue, minFontSizePt)}${issue.approximate ? ' (estimated width)' : ''}`,
   }));
+}
+
+// Only text leaving the shape fails: a spill into the insets is invisible. An
+// estimated width can misplace a wrap by one line, so beyond that the
+// vertical overflow is real too (Japanese text is always estimated).
+function isError(issue: TextAuditIssue): boolean {
+  if (issue.kind !== 'overflow-x' && issue.kind !== 'overflow-y') return false;
+  if (!issue.approximate) return issue.shapeOverflowPx > OVERFLOW_TOLERANCE_PX;
+  return issue.kind === 'overflow-y' && issue.shapeOverflowPx > issue.lineHeightPx;
 }
 
 function describe(issue: TextAuditIssue, minFontSizePt: number): string {

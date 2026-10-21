@@ -52,8 +52,12 @@ interface IssueBase {
 export type TextAuditIssue =
   | (IssueBase & {
       readonly kind: 'overflow-x' | 'overflow-y';
-      /** How far the text ink escapes the box, in px at 96 DPI. */
+      /** How far the text ink escapes the text area (the box minus its insets), in px at 96 DPI. */
       readonly overflowPx: number;
+      /** How far the ink escapes the shape itself; 0 while it stays within the insets. */
+      readonly shapeOverflowPx: number;
+      /** The tallest line's height in px: about how far one misjudged wrap moves the text. */
+      readonly lineHeightPx: number;
     })
   | (IssueBase & {
       readonly kind: 'soft-wrap';
@@ -105,17 +109,21 @@ export interface AuditTextLayoutOptions {
 const DEFAULT_TOLERANCE_PX = 1;
 const PT_PER_PX = 72 / 96;
 const SHORT_LAST_LINE_MAX_CHARS = 2;
-const WORD_CHAR = /[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Nd}]/u;
+const LETTER_OR_DIGIT = /[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Nd}]/u;
 // U+30FC (the prolonged sound mark) is Script=Common but belongs to the katakana word.
-const KATAKANA_CHAR = /[\p{Script=Katakana}\u30FC]/u;
-const WORD_RUN =
-  /[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Nd}\p{Script=Katakana}\u30FC]*$/u;
-const WORD_RUN_START =
-  /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Nd}\p{Script=Katakana}\u30FC]*/u;
+const KATAKANA = /[\p{Script=Katakana}\u30FC]/u;
+const isWordChar = (ch: string): boolean => LETTER_OR_DIGIT.test(ch) || KATAKANA.test(ch);
 
 const splitsWord = (before: string, after: string): boolean =>
-  (WORD_CHAR.test(before) && WORD_CHAR.test(after)) ||
-  (KATAKANA_CHAR.test(before) && KATAKANA_CHAR.test(after));
+  (LETTER_OR_DIGIT.test(before) && LETTER_OR_DIGIT.test(after)) ||
+  (KATAKANA.test(before) && KATAKANA.test(after));
+
+const charBefore = (s: string, i: number): string => {
+  const pair = i >= 2 ? s.codePointAt(i - 2)! : 0;
+  return pair > 0xffff ? s.slice(i - 2, i) : s.slice(i - 1, i);
+};
+const charAt = (s: string, i: number): string =>
+  i < s.length ? String.fromCodePoint(s.codePointAt(i)!) : '';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -215,55 +223,75 @@ const auditShape = (
   // swapped extents re-centred on the box, so ink must be compared against
   // that frame, not the box itself.
   const rotated = vert === 'cw90' || vert === 'cw270';
-  const frame = rotated
-    ? {
-        x: input.boxXpx + input.boxWpx / 2 - input.boxHpx / 2,
-        y: input.boxYpx + input.boxHpx / 2 - input.boxWpx / 2,
-        w: input.boxHpx,
-        h: input.boxWpx,
-      }
-    : { x: input.boxXpx, y: input.boxYpx, w: input.boxWpx, h: input.boxHpx };
+  const frameOf = (x: number, y: number, w: number, h: number) =>
+    rotated ? { x: x + w / 2 - h / 2, y: y + h / 2 - w / 2, w: h, h: w } : { x, y, w, h };
+  const frame = frameOf(input.boxXpx, input.boxYpx, input.boxWpx, input.boxHpx);
+  const shapeFrame = frameOf(
+    (bounds.x as number) / EMU_PER_PX,
+    (bounds.y as number) / EMU_PER_PX,
+    (bounds.w as number) / EMU_PER_PX,
+    (bounds.h as number) / EMU_PER_PX,
+  );
 
   // Ink extents over every placed line. Empty lines (blank paragraphs, lines
   // of spaces) paint nothing — they influence later lines' positions but are
   // not themselves visible overflow.
+  let inkLeft = Infinity;
+  let inkRight = -Infinity;
   let inkTop = Infinity;
   let inkBottom = -Infinity;
-  let overflowX = 0;
-  let anyInk = false;
+  let lineHeight = 0;
   for (const p of core.placements) {
     const toks = [...p.line.tokens];
     while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
       toks.pop();
     }
     if (!toks.some((t) => !t.isSpace && !t.isBreak)) continue;
-    anyInk = true;
     let lineW = 0;
     for (const t of toks) {
       if (!t.isBreak) lineW += t.width;
     }
     const left =
-      p.line.textAnchor === 'middle'
+      (p.line.textAnchor === 'middle'
         ? p.line.anchorX - lineW / 2
         : p.line.textAnchor === 'end'
           ? p.line.anchorX - lineW
-          : p.line.anchorX;
-    const over = Math.max(frame.x - (left + p.dx), left + p.dx + lineW - (frame.x + frame.w));
-    if (over > overflowX) overflowX = over;
+          : p.line.anchorX) + p.dx;
+    inkLeft = Math.min(inkLeft, left);
+    inkRight = Math.max(inkRight, left + lineW);
     inkTop = Math.min(inkTop, p.baselineY - p.line.ascent);
     inkBottom = Math.max(inkBottom, p.baselineY + p.line.descent);
+    lineHeight = Math.max(lineHeight, p.line.ascent + p.line.descent);
   }
-  if (!anyInk) return;
+  if (inkLeft === Infinity) return;
 
   const approximate = detectApproximate(input.paragraphs, measure);
   const slideRef = { slideIndex, shapeName: getShapeName(shape), approximate };
+  const overflowXOf = (f: typeof frame): number =>
+    Math.max(0, f.x - inkLeft, inkRight - (f.x + f.w));
+  const overflowYOf = (f: typeof frame): number =>
+    Math.max(0, f.y - inkTop, inkBottom - (f.y + f.h));
+  const lineHeightPx = round2(lineHeight);
 
+  const overflowX = overflowXOf(frame);
   if (overflowX > tolerancePx) {
-    issues.push({ ...slideRef, kind: 'overflow-x', overflowPx: round2(overflowX) });
+    issues.push({
+      ...slideRef,
+      kind: 'overflow-x',
+      overflowPx: round2(overflowX),
+      shapeOverflowPx: round2(overflowXOf(shapeFrame)),
+      lineHeightPx,
+    });
   }
-  const overflowY = Math.max(frame.y - inkTop, inkBottom - (frame.y + frame.h));
+  const overflowY = overflowYOf(frame);
   if (overflowY > tolerancePx) {
-    issues.push({ ...slideRef, kind: 'overflow-y', overflowPx: round2(overflowY) });
+    issues.push({
+      ...slideRef,
+      kind: 'overflow-y',
+      overflowPx: round2(overflowY),
+      shapeOverflowPx: round2(overflowYOf(shapeFrame)),
+      lineHeightPx,
+    });
   }
 
   // 段落ち — a paragraph occupying more lines than 1 + its explicit <a:br>
@@ -330,9 +358,10 @@ const auditParagraphBreaks = (
   ref: IssueBase & { readonly paragraphIndex: number },
   issues: TextAuditIssue[],
 ): void => {
-  const found: TextAuditIssue[] = [];
   // A word spanning several lines is one issue, with a `|` at each break.
-  const wordBreaks = new Map<number, { issue: number; breaks: number[]; end: number }>();
+  type SplitWord = { readonly start: number; readonly end: number; readonly breaks: number[] };
+  const found: Array<TextAuditIssue | SplitWord> = [];
+  const wordsByStart = new Map<number, SplitWord>();
   let previousEnd = -1;
   let wrappedLines = 0;
   const closeSegment = (lastLine: string): void => {
@@ -352,35 +381,41 @@ const auditParagraphBreaks = (
         wrappedLines = 0;
       } else {
         wrappedLines++;
-        const before = /.$/u.exec(source.slice(0, start))?.[0] ?? '';
-        const after = /^./u.exec(source.slice(start))?.[0] ?? '';
-        if (gap === '' && splitsWord(before, after)) {
-          const wordStart = start - WORD_RUN.exec(source.slice(0, start))![0].length;
-          const word = wordBreaks.get(wordStart) ?? {
-            issue: found.length,
-            breaks: [],
-            end: start + WORD_RUN_START.exec(source.slice(start))![0].length,
-          };
-          word.breaks.push(start);
-          wordBreaks.set(wordStart, word);
-          let text = '';
-          let from = wordStart;
-          for (const at of word.breaks) {
-            text += `${source.slice(from, at)}|`;
-            from = at;
+        if (gap === '' && splitsWord(charBefore(source, start), charAt(source, start))) {
+          let wordStart = start;
+          while (wordStart > 0 && isWordChar(charBefore(source, wordStart))) {
+            wordStart -= charBefore(source, wordStart).length;
           }
-          found[word.issue] = {
-            ...ref,
-            kind: 'word-break',
-            text: text + source.slice(from, word.end),
-          };
+          let word = wordsByStart.get(wordStart);
+          if (!word) {
+            let end = start;
+            while (end < source.length && isWordChar(charAt(source, end))) {
+              end += charAt(source, end).length;
+            }
+            word = { start: wordStart, end, breaks: [] };
+            wordsByStart.set(wordStart, word);
+            found.push(word);
+          }
+          word.breaks.push(start);
         }
       }
     }
     previousEnd = start + lines[i]!.length;
   }
   closeSegment(lines[lines.length - 1]!);
-  issues.push(...found);
+  for (const entry of found) {
+    if ('kind' in entry) {
+      issues.push(entry);
+      continue;
+    }
+    let text = '';
+    let from = entry.start;
+    for (const at of entry.breaks) {
+      text += `${source.slice(from, at)}|`;
+      from = at;
+    }
+    issues.push({ ...ref, kind: 'word-break', text: text + source.slice(from, entry.end) });
+  }
 };
 
 // A shape's verdict is approximate when any of its runs was measured by
