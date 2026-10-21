@@ -369,10 +369,12 @@ describe('table cell text rendering', () => {
       expect(output).toMatch(
         textLayout === 'svg'
           ? /font-family="(?:Courier New|Liberation Mono)"/
-          : /font-family:Courier New/,
+          : /font-family:&quot;Courier New&quot;/,
       );
       expect(output).toMatch(
-        textLayout === 'svg' ? /font-family="(?:Arial|Liberation Sans)"/ : /font-family:Arial/,
+        textLayout === 'svg'
+          ? /font-family="(?:Arial|Liberation Sans)"/
+          : /font-family:&quot;Arial&quot;/,
       );
       expect(output).toMatch(textLayout === 'svg' ? /fill="#CC0000"/ : /color:#CC0000/);
       expect(output).toMatch(textLayout === 'svg' ? /fill="#008800"/ : /color:#008800/);

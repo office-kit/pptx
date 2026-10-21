@@ -176,7 +176,7 @@ describe('RenderSlideOptions.resolveFamily', () => {
 
     expect(withOption).toBe(plain);
     expect(families.has('Other')).toBe(false);
-    expect(plain).toContain(`font-family:${CUSTOM}, Calibri`);
+    expect(plain).toContain(`font-family:&quot;${CUSTOM}&quot;, Calibri`);
   });
 });
 

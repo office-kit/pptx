@@ -11,6 +11,8 @@
 // a `TextMeasurer`; in the browser that can wrap `ctx.measureText`, in Node it
 // wraps fontkit (see site/fidelity/measure.ts). All geometry is in CSS px.
 
+import { safeLinkHref } from './link-href.ts';
+
 // ---------------------------------------------------------------------------
 // Public injection contract.
 
@@ -1129,12 +1131,11 @@ const emitLine = (
   const tspans = groups
     .map((g) => {
       const span = tspan(g);
-      if (!g.piece.href) return span;
-      const target = g.piece.href.startsWith('#')
-        ? ''
-        : ' target="_blank" rel="noopener noreferrer"';
+      const href = g.piece.href ? safeLinkHref(g.piece.href) : undefined;
+      if (!href) return span;
+      const target = href.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
       const title = g.piece.hrefTip ? `<title>${escapeXml(g.piece.hrefTip)}</title>` : '';
-      return `<a href="${escapeXml(g.piece.href)}"${target}>${title}${span}</a>`;
+      return `<a href="${escapeXml(href)}"${target}>${title}${span}</a>`;
     })
     .join('');
   if (tspans === '') return '';

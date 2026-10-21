@@ -206,6 +206,7 @@ import {
 import { browserTextMeasurer } from './browser-measure.ts';
 import { textBevelOf } from './text-bevel.ts';
 import { bevelFilterPrimitives, cameraTransform } from './shape-3d.ts';
+import { safeLinkHref } from './link-href.ts';
 
 export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from './text-layout.ts';
 
@@ -240,7 +241,7 @@ const clickActionHref = (
   action: ReturnType<typeof getShapeClickAction>,
 ): string | undefined => {
   if (!action) return undefined;
-  if (action.kind === 'url') return action.url;
+  if (action.kind === 'url') return safeLinkHref(action.url);
   if (action.kind === 'customShow')
     return `#pptx-custom-show?id=${action.id}&return=${action.returnToShow}`;
   if (action.kind === 'endShow') return '#pptx-end-show';
@@ -1447,7 +1448,7 @@ const renderRun = (
         ? `line-height:${lineHeightOverride}`
         : 'line-height:1.05',
   );
-  if (format?.font) styles.push(`font-family:${escapeXml(format.font)}, ${DEFAULT_FONT}`);
+  if (format?.font) styles.push(`font-family:${escapeXml(browserFontFamily(format.font))}`);
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
   const underline = format?.underline;
@@ -2107,9 +2108,7 @@ export const resolveTextBodyModel = (
   const themeFace = isTitlePlaceholder
     ? (themeFonts?.majorLatin ?? null)
     : (themeFonts?.minorLatin ?? null);
-  const effectiveDefaultFont = themeFace
-    ? `${escapeXml(themeFace)}, ${DEFAULT_FONT}`
-    : DEFAULT_FONT;
+  const effectiveDefaultFont = escapeXml(browserFontFamily(themeFace));
   // Effective body-property cascade — anchor, wrap, vert, margins all
   // inherit from the layout / master placeholder when the slide doesn't
   // override them.
@@ -2528,11 +2527,12 @@ const renderHtmlParagraphs = (
             ? '0'
             : undefined,
       );
-      if (!run.href) return span;
-      const isInPage = run.href.startsWith('#');
+      const href = run.href ? safeLinkHref(run.href) : undefined;
+      if (!href) return span;
+      const isInPage = href.startsWith('#');
       const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
       const titleAttr = run.hrefTip ? ` title="${escapeXml(run.hrefTip)}"` : '';
-      return `<a href="${escapeXml(run.href)}"${targetAttrs}${titleAttr} style="color:inherit;text-decoration:inherit">${span}</a>`;
+      return `<a href="${escapeXml(href)}"${targetAttrs}${titleAttr} style="color:inherit;text-decoration:inherit">${span}</a>`;
     });
     // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
     // sets a fixed point value. CSS line-height accepts both forms;
@@ -2577,7 +2577,7 @@ const renderHtmlParagraphs = (
         ? `font-size:${(firstRunPt * PX_PER_PT * autoFitScale).toFixed(2)}px`
         : 'font-size:0',
       ...(para.lineSpacing?.kind === 'pts' && para.runs[0]?.fmt?.font
-        ? [`font-family:${escapeXml(para.runs[0].fmt.font)}, ${DEFAULT_FONT}`]
+        ? [`font-family:${escapeXml(browserFontFamily(para.runs[0].fmt.font))}`]
         : []),
       ...(para.emptySizePt !== undefined
         ? [`font-size:${(para.emptySizePt * PX_PER_PT * autoFitScale).toFixed(2)}px`]
@@ -2665,7 +2665,7 @@ const renderHtmlParagraphs = (
         ? (para.runs.find((r) => r.text !== '\n' && r.text !== '')?.fmt?.font ??
           DEFAULT_BULLET_FONT)
         : (para.bulletDetail.font ?? DEFAULT_BULLET_FONT);
-      bulletStyles.push(`font-family:${escapeXml(bulletFont)}, ${DEFAULT_FONT}`);
+      bulletStyles.push(`font-family:${escapeXml(browserFontFamily(bulletFont))}`);
       prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     // The index is the one `<p:bldP build="p">` counts in: a paragraph build
@@ -5762,7 +5762,7 @@ const renderTableCellText = (
   // foreignObject path (browser preview): one <p> per paragraph, each run
   // rendered through renderRun so the browser lays the styled text out.
   const justify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
-  const familyFont = themeFace ? `${escapeXml(themeFace)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
+  const familyFont = escapeXml(browserFontFamily(themeFace));
   const body = renderHtmlParagraphs(paraData, numberLabels, theme, 1, DEFAULT_BODY_PT, color).join(
     '',
   );
