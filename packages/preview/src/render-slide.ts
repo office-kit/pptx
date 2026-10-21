@@ -2665,7 +2665,11 @@ const renderHtmlParagraphs = (
         ? (para.runs.find((r) => r.text !== '\n' && r.text !== '')?.fmt?.font ??
           DEFAULT_BULLET_FONT)
         : (para.bulletDetail.font ?? DEFAULT_BULLET_FONT);
-      bulletStyles.push(`font-family:${escapeXml(browserFontFamily(bulletFont))}`);
+      // An unresolved theme token such as the `+mj-lt` an autoNum list carries
+      // names no face, so the label keeps the paragraph's font.
+      if (!bulletFont.startsWith('+')) {
+        bulletStyles.push(`font-family:${escapeXml(browserFontFamily(bulletFont))}`);
+      }
       prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     // The index is the one `<p:bldP build="p">` counts in: a paragraph build

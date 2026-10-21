@@ -6,17 +6,22 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import {
   addSlide,
+  addSlideTable,
   addSlideTextBox,
   findSlideLayout,
   getSlides,
+  getTableCell,
   inches,
   loadPresentation,
   savePresentation,
+  setParagraphBullet,
+  setParagraphLineSpacing,
   setPresentationFonts,
   setShapeClickAction,
   setShapeRunHyperlink,
   setShapeTextFormat,
   setSlideTitle,
+  setTableCellClickAction,
   type PresentationData,
   type SlideData,
 } from '../src/api/index.ts';
@@ -62,8 +67,9 @@ const BLOCKED = [
 
 // C0 controls other than tab/LF/CR cannot be written to XML at all, so only
 // the direct `safeLinkHref` check sees them.
-const TAB_CODE = 0x09;
-const BLOCKED_IN_XML = BLOCKED.filter((href) => ![...href].some((c) => c.charCodeAt(0) < TAB_CODE));
+const XML_CONTROLS = new Set(['\t', '\n', '\r']);
+const isXmlIllegal = (c: string): boolean => c < ' ' && !XML_CONTROLS.has(c);
+const BLOCKED_IN_XML = BLOCKED.filter((href) => ![...href].some(isXmlIllegal));
 
 const decode = (value: string): string =>
   value
@@ -88,6 +94,39 @@ const blankSlide = async () => {
     text: 'click me',
   });
   return { pres, slide, shape };
+};
+
+const tableCell = async () => {
+  const pres = await loadPresentation(
+    await readFile(new URL('./fixtures/minimal/blank.pptx', import.meta.url)),
+  );
+  const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
+  const table = addSlideTable(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(4),
+    h: inches(1),
+    rows: [['click me']],
+  });
+  return { pres, slide, cell: getTableCell(table, 0, 0) };
+};
+
+// Saves the deck, rewrites a string in the parts `part` picks, and loads it back.
+const patchSaved = async (
+  pres: PresentationData,
+  part: (name: string, text: string) => boolean,
+  from: string,
+  to: string,
+): Promise<PresentationData> => {
+  const { entries } = readZip(await savePresentation(pres));
+  const patched = entries.map((entry) => {
+    const text = new TextDecoder().decode(entry.data);
+    return part(entry.name, text)
+      ? { ...entry, data: new TextEncoder().encode(text.replaceAll(from, to)) }
+      : entry;
+  });
+  expect(patched).not.toEqual(entries);
+  return loadPresentation(writeZip(patched));
 };
 
 const render = (
@@ -132,11 +171,34 @@ describe('preview links', () => {
         setShapeRunHyperlink(run.shape, 0, 0, url);
         expect(hrefsOf(render(run.pres, run.slide, textLayout))).toContain(url);
 
+        const runAction = await blankSlide();
+        setShapeClickAction(runAction.shape, { kind: 'url', url }, { range: { start: 0, end: 5 } });
+        expect(hrefsOf(render(runAction.pres, runAction.slide, textLayout))).toContain(url);
+
         const shape = await blankSlide();
         setShapeClickAction(shape.shape, { kind: 'url', url });
         expect(hrefsOf(render(shape.pres, shape.slide, textLayout))).toContain(url);
+
+        const table = await tableCell();
+        setTableCellClickAction(table.cell, { kind: 'url', url });
+        expect(hrefsOf(render(table.pres, table.slide, textLayout))).toContain(url);
       },
     );
+
+    it.each(BLOCKED_IN_XML)('does not link a table cell click action to %j', async (url) => {
+      const { pres, slide, cell } = await tableCell();
+      setTableCellClickAction(cell, { kind: 'url', url });
+      expect(hrefsOf(render(pres, slide, textLayout))).toEqual([]);
+    });
+
+    it('links a run to another slide in the deck', async () => {
+      const { pres, slide, shape } = await blankSlide();
+      const target = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
+      setShapeClickAction(shape, { kind: 'slide', slide: target }, { range: { start: 0, end: 5 } });
+      expect(hrefsOf(render(pres, slide, textLayout))).toEqual([
+        `#slide-${getSlides(pres).indexOf(target) + 1}`,
+      ]);
+    });
   });
 
   // The rels parser decodes character references, so an encoded scheme
@@ -150,15 +212,12 @@ describe('preview links', () => {
   ])('does not link a saved rels target written as %j', async (encoded) => {
     const { pres, shape } = await blankSlide();
     setShapeRunHyperlink(shape, 0, 0, PLACEHOLDER_URL);
-    const { entries } = readZip(await savePresentation(pres));
-    const patched = entries.map((entry) => {
-      const text = new TextDecoder().decode(entry.data);
-      return entry.name.endsWith('.rels') && text.includes(PLACEHOLDER_URL)
-        ? { ...entry, data: new TextEncoder().encode(text.replace(PLACEHOLDER_URL, encoded)) }
-        : entry;
-    });
-    expect(patched).not.toEqual(entries);
-    const loaded = await loadPresentation(writeZip(patched));
+    const loaded = await patchSaved(
+      pres,
+      (name, text) => name.endsWith('.rels') && text.includes(PLACEHOLDER_URL),
+      PLACEHOLDER_URL,
+      encoded,
+    );
     const slide = getSlides(loaded).at(-1)!;
     for (const textLayout of LAYOUTS) {
       expect(hrefsOf(render(loaded, slide, textLayout))).toEqual([]);
@@ -190,6 +249,49 @@ describe('preview font names in style', () => {
     setShapeTextFormat(shape, { font: QUOTE_BREAK });
     const svg = render(pres, slide, 'foreignObject');
     expect(injectedDeclarations(svg)).toEqual([]);
+  });
+
+  it('quotes a run font on a paragraph with fixed line spacing', async () => {
+    const { pres, slide, shape } = await blankSlide();
+    setShapeTextFormat(shape, { font: HOSTILE });
+    setParagraphLineSpacing(shape, 0, { kind: 'pts', value: 20 });
+    const svg = render(pres, slide, 'foreignObject');
+    expect(svg).toMatch(/<p [^>]*font-family:&quot;X;background/);
+    expect(injectedDeclarations(svg)).toEqual([]);
+  });
+
+  it('quotes a bullet font', async () => {
+    const { pres, shape } = await blankSlide();
+    setParagraphBullet(shape, 0, 'number');
+    const loaded = await patchSaved(
+      pres,
+      (name) => /^ppt\/slides\/slide\d+\.xml$/.test(name),
+      'typeface="+mj-lt"',
+      `typeface="${HOSTILE}"`,
+    );
+    const svg = render(loaded, getSlides(loaded).at(-1)!, 'foreignObject');
+    expect(svg).toMatch(/<span style="[^"]*font-family:&quot;X;background[^"]*">1\./);
+    expect(injectedDeclarations(svg)).toEqual([]);
+  });
+
+  it('lets a numbered list label keep the paragraph font', async () => {
+    const pres = await loadPresentation(
+      await readFile(new URL('./fixtures/minimal/blank.pptx', import.meta.url)),
+    );
+    setPresentationFonts(pres, { majorLatin: 'Major Face', minorLatin: 'Minor Face' });
+    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'first',
+    });
+    setParagraphBullet(shape, 0, 'number');
+    const svg = render(pres, slide, 'foreignObject');
+    expect(svg).toMatch(/<span style="[^"]*">1\./);
+    expect(svg).not.toMatch(/<span style="[^"]*font-family[^"]*">1\./);
+    expect(svg).not.toContain('+mj-lt');
   });
 
   it('quotes the theme major and minor faces', async () => {
