@@ -194,7 +194,8 @@ tool with the next release.
 
 - **Names** are the export names (`setShapeFill`, `addSlideShape`, …), sorted.
   Four tools are the editor's own, for finding what the others take:
-  `listSlides`, `listShapes` (refs, kind, bounds and text of each shape),
+  `listSlides`, `listShapes` (refs, kind, bounds and text of each shape, and a
+  chart's kind, title, categories and series values),
   `listLayouts` and `listComments`.
 - **Descriptions** are the exports' TSDoc. **Input schemas** are JSON Schema
   (draft 2020-12) generated from the functions' TypeScript signatures, one
@@ -325,6 +326,39 @@ have saved, a deck that ends up equal to it has no unsaved changes.
 The merge itself is `mergeDecks(base, ours, theirs)` from
 `@office-kit/pptx-editor/merge`. It has no DOM dependency, for hosts that merge
 on a server, and returns `{ ok: true, bytes }` or `{ ok: false, conflicts }`.
+
+### Small edits without the editor
+
+`@office-kit/pptx-editor/headless` gives an agent that has no editor (on a
+server, say) nine edits for small revisions, as one tool: `setShapeText`,
+`setTableCellText`, `setChartData`, `setShapeTextFormat` (size, bold, italic,
+color of a shape's whole text), `setShapeFill`, `setShapeBounds`,
+`removeShape`, `moveSlide` and `removeSlide`. Their schemas together are about
+9 KB. Text edits always keep the formatting of the text they do not change.
+It has no DOM dependency and runs in Node.
+
+```ts
+import { loadPresentation, savePresentation } from '@office-kit/pptx';
+import {
+  agentEditSchema,
+  applyAgentEdits,
+  decodeAgentEdits,
+  readForAgent,
+} from '@office-kit/pptx-editor/headless';
+
+const deck = await loadPresentation(bytes);
+const context = readForAgent(deck, null); // slides, notes, shapes, chart values
+// Give the model `agentEditSchema` as one tool's input schema; it answers `{ edits }`.
+const { edits, touchedSlides } = decodeAgentEdits(input.edits);
+await applyAgentEdits(deck, edits);
+const revised = await savePresentation(deck);
+```
+
+`decodeAgentEdits` checks the whole batch without a presentation and throws an
+`AgentEditError` (`index: null`) naming every problem by its JSON Pointer.
+`applyAgentEdits` applies the edits in order; when one fails it rejects with
+that edit's `index`, and the edits before it have been applied, so discard
+the presentation.
 
 ## Behaviour on your page
 

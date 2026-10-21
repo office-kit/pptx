@@ -42,6 +42,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     merge: 'src/merge.ts',
+    headless: 'src/headless.ts',
     internal: 'src/internal.ts',
     'internal/animation-player': 'src/internal-animation-player.ts',
   },

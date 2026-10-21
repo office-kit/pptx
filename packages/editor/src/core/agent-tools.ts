@@ -478,7 +478,8 @@ const NO_INPUT = {
   additionalProperties: false,
 } as const satisfies EditorTool['input_schema'];
 
-function shapeSummary(presentation: PresentationData, shape: SlideShapeData): JsonValue {
+/** A shape as `listShapes` reports it. */
+export function shapeSummary(presentation: PresentationData, shape: SlideShapeData): JsonValue {
   const bounds = pptx.getShapeBoundsResolved(presentation, shape);
   const summary: Record<string, JsonValue> = {
     shape: { ...shapeRef(presentation, shape) },
@@ -497,6 +498,16 @@ function shapeSummary(presentation: PresentationData, shape: SlideShapeData): Js
         pptx.getTableCellText(pptx.getTableCell(shape, row, col)),
       ),
     );
+  } else if (pptx.isChartShape(shape)) {
+    // Just what `setChartData` takes, so a model edits what it read and
+    // writes it back; `null` for a chart of a kind the library cannot read.
+    const spec = pptx.getShapeChartSpec(shape);
+    summary.chart = spec && {
+      kind: spec.kind,
+      title: spec.title ?? null,
+      categories: spec.categories,
+      series: spec.series.map(({ name, values }) => ({ name, values })),
+    };
   } else if (pptx.hasShapeText(shape)) summary.text = pptx.getShapeText(shape);
   return summary;
 }
@@ -521,7 +532,7 @@ const readTools: readonly ReadTool[] = [
   },
   {
     name: 'listShapes',
-    description: `Lists the shapes on a slide, back to front: each shape's ref (which other tools take as "shape", or with "row" and "col" added as a table "cell"), its kind, placeholder type, bounds and text (for a table, the text of every cell). Bounds are in ${'EMU: 914400 per inch, 360000 per cm, 12700 per point.'}`,
+    description: `Lists the shapes on a slide, back to front: each shape's ref (which other tools take as "shape", or with "row" and "col" added as a table "cell"), its kind, placeholder type, bounds and text (for a table, the text of every cell; for a chart, its kind, title, categories and series values, or null when its kind cannot be read). Bounds are in ${'EMU: 914400 per inch, 360000 per cm, 12700 per point.'}`,
     input_schema: SLIDE_INPUT,
     read: (presentation, input) =>
       pptx
@@ -578,6 +589,16 @@ function defsOf(schema: JsonSchema): Readonly<Record<string, JsonSchema>> {
 }
 
 /**
+ * The problems with `value` against `schema`, a root schema with its own
+ * `$defs`, each named by its JSON Pointer; empty when it matches.
+ */
+export function schemaErrors(schema: JsonSchema, value: unknown): string[] {
+  const checking: Decoding = { defs: defsOf(schema), errors: [] };
+  decode(schema, value, '', checking);
+  return checking.errors;
+}
+
+/**
  * Runs tool `name` with the model's `input`. Rejects, editing nothing, when
  * there is no such tool or the input does not match its schema; the message
  * lists each problem by its JSON Pointer, for the model to correct.
@@ -587,11 +608,10 @@ export async function runTool(host: ToolHost, name: string, input: unknown): Pro
   if (!tool)
     throw new Error(`There is no tool ${JSON.stringify(name)}. Call one of the tools listed.`);
   const defs = defsOf(tool.input_schema);
-  const checking: Decoding = { defs, errors: [] };
-  decode(tool.input_schema, input, '', checking);
-  if (checking.errors.length > 0)
+  const errors = schemaErrors(tool.input_schema, input);
+  if (errors.length > 0)
     throw new Error(
-      `Invalid input for ${name}:\n${checking.errors.map((error) => `- ${error}`).join('\n')}`,
+      `Invalid input for ${name}:\n${errors.map((error) => `- ${error}`).join('\n')}`,
     );
   const resolve = (presentation: PresentationData) =>
     decode(tool.input_schema, input, '', { defs, errors: [], presentation }) as Record<

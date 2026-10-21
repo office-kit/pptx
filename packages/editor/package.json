@@ -29,6 +29,10 @@
       "types": "./dist/merge.d.ts",
       "import": "./dist/merge.js"
     },
+    "./headless": {
+      "types": "./dist/headless.d.ts",
+      "import": "./dist/headless.js"
+    },
     "./internal": {
       "types": "./dist/internal.d.ts",
       "import": "./dist/internal.js"
