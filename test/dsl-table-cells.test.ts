@@ -252,3 +252,16 @@ describe('Table merges', () => {
     );
   });
 });
+
+describe('Table columnWidths', () => {
+  it('rejects widths that do not add up to the table width', async () => {
+    await expect(compileTable({ rows: [['A', 'B']], columnWidths: [3, 4] })).rejects.toThrow(
+      'Table columnWidths add up to 7 in, but width is 8 in; make them equal.',
+    );
+  });
+
+  it('accepts widths within a hundredth of an inch of the table width', async () => {
+    const { table } = await compileTable({ rows: [['A', 'B']], columnWidths: [3, 4.995] });
+    expect(api.getTableColumnWidths(table)).toHaveLength(2);
+  });
+});

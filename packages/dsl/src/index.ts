@@ -375,6 +375,7 @@ export type TableCellSpec = TableCellContent & {
 export type TableCell = string | TableCellSpec;
 export interface TableProps extends Bounds, Children {
   rows: readonly (readonly TableCell[])[];
+  /** Inches, adding up to `width`. */
   columnWidths?: readonly number[];
   rowHeights?: readonly number[];
   cellStyle?: CellStyle;
@@ -440,8 +441,21 @@ function checkCells(rows: TableProps['rows'], covered: Map<string, CellPosition>
     }),
   );
 }
+// Below this, a mismatch is float noise from adding decimal inches.
+const COLUMN_WIDTH_TOLERANCE_IN = 0.01;
+function checkColumnWidths(props: TableProps) {
+  if (!props.columnWidths) return;
+  const total = props.columnWidths.reduce((sum, width) => sum + width, 0);
+  // The grid, not `width`, decides how wide the table is drawn, so a mismatch
+  // overflows or leaves a gap next to whatever was laid out against `width`.
+  if (Math.abs(total - props.width) >= COLUMN_WIDTH_TOLERANCE_IN)
+    throw new Error(
+      `Table columnWidths add up to ${Number(total.toFixed(4))} in, but width is ${props.width} in; make them equal.`,
+    );
+}
 export function Table(props: TableProps): Node {
   return node('Table', async (context) => {
+    checkColumnWidths(props);
     const covered = coveredPositions(props.rows);
     checkCells(props.rows, covered);
     const shape = created(
