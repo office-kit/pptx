@@ -5626,6 +5626,71 @@ export const generatedTools: GeneratedTools = {
       output: { type: 'null' },
     },
     {
+      name: 'setChartData',
+      description:
+        "Replaces the data of a bar, column, line, area, pie or doughnut chart.\n\nWhen `kind` is the chart's own and `series` names the same series (in any\norder), only the values change: everything else in the chart, its\nformatting included, is kept. Changing `kind`, or adding, removing or\nrenaming a series, builds the chart again from its title, axis titles,\nlegend, series names and colors, and the rest of its formatting returns\nto the defaults; to keep it, copy the series names exactly as they are\nread. Each series needs one value per category: when changing\n`categories`, pass every series with values of the same length. The\nembedded workbook is rewritten with the new data.\n\nThrows when the chart is of another kind (scatter, bubble, stock,\nsurface, radar, or one this library cannot read), when a series has\nmore or fewer values than there are categories, and when categories\nchange on a chart whose categories have several levels.",
+      args: ['chart', 'data'],
+      input_schema: {
+        type: 'object',
+        properties: {
+          chart: { $ref: '#/$defs/ChartRef' },
+          data: {
+            type: 'object',
+            properties: {
+              kind: { type: 'string', enum: ['bar', 'column', 'line', 'pie', 'doughnut', 'area'] },
+              categories: { type: 'array', items: { type: 'string' } },
+              series: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    values: {
+                      type: 'array',
+                      items: { type: ['null', 'number'] },
+                      description: 'One value per category; `null` leaves the point empty.',
+                    },
+                  },
+                  required: ['name', 'values'],
+                  additionalProperties: false,
+                },
+                description: 'Every series of the chart, in order.',
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        required: ['chart', 'data'],
+        additionalProperties: false,
+        $defs: {
+          ChartRef: {
+            $ref: '#/$defs/ShapeRef',
+            description: 'A chart, by the ShapeRef of the graphic frame that holds it.',
+          },
+          ShapeRef: {
+            type: 'object',
+            description:
+              "A shape, by its slide and id, as `listShapes` or the user's selection reports it. `slideIndex` and `name` are informational.",
+            properties: {
+              slide: { $ref: '#/$defs/SlideRef' },
+              shapeId: { type: 'integer', minimum: 0 },
+              slideIndex: { type: 'integer', minimum: 0 },
+              name: { type: 'string' },
+            },
+            required: ['slide', 'shapeId'],
+            additionalProperties: false,
+          },
+          SlideRef: {
+            type: 'string',
+            pattern: '^/ppt/slides/[^/]+\\.xml$',
+            description:
+              'A slide, by its part name as `listSlides` reports it, e.g. "/ppt/slides/slide1.xml".',
+          },
+        },
+      },
+      output: { type: 'null' },
+    },
+    {
       name: 'setChartSpec',
       description:
         'Replaces the chart definition on an existing graphic-frame chart\nshape. Updates the inline `<c:strCache>` / `<c:numCache>` blocks so\nthe reference desktop app renders the new data without opening the embedded\nworkbook. The shape\'s geometry (position / size / rotation) is\npreserved verbatim.\n\nThe embedded xlsx is re-written too — it\'s what the "Edit data"\naffordance opens. The previous workbook is replaced wholesale (no\nattempt to preserve styles a user added in a spreadsheet app).\n\nPass any `ChartSpec`, including a different `kind` from the\noriginal; this acts as "change my column chart to a line chart with\nfresh data."',

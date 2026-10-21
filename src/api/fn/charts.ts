@@ -27,7 +27,9 @@ import {
 import {
   NS,
   type XmlElement,
+  allChildElements,
   attr,
+  childElements,
   elem,
   firstChildElement,
   getAttrValue,
@@ -455,21 +457,310 @@ export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
   chartPart.data = chartBytes;
 
   // Rewrite the embedded xlsx (the part chart→package rel points at).
-  // Reuse the existing rel; fall back to creating a fresh xlsx part if
-  // the chart had no package rel (unusual for charts we authored).
-  const chartRels = pkg.getRels(resolved.partName);
-  if (chartRels) {
-    const xlsxRel = chartRels.items.find((r) => r.type === REL_TYPES.package);
-    if (xlsxRel) {
-      const xlsxName = xlsxRel.target.startsWith('/')
-        ? partName(xlsxRel.target)
-        : resolveTarget(resolved.partName, xlsxRel.target);
-      const xlsxPart = pkg.getPart(xlsxName);
-      if (xlsxPart) {
-        xlsxPart.data = buildEmbeddedXlsx(layoutChartSheet(spec).grid);
+  const workbook = embeddedWorkbookPart(pkg, resolved.partName);
+  if (workbook) workbook.data = buildEmbeddedXlsx(layoutChartSheet(spec).grid);
+};
+
+// The workbook "Edit data" opens, or `null` when the chart has none (a chart
+// without a package rel, or one linked to an external file).
+const embeddedWorkbookPart = (pkg: OpcPackage, chartPartName: PartName) => {
+  const xlsxRel = pkg.getRels(chartPartName)?.items.find((r) => r.type === REL_TYPES.package);
+  if (!xlsxRel || xlsxRel.targetMode === 'External') return null;
+  const xlsxName = xlsxRel.target.startsWith('/')
+    ? partName(xlsxRel.target)
+    : resolveTarget(chartPartName, xlsxRel.target);
+  return pkg.getPart(xlsxName) ?? null;
+};
+
+/** A chart kind whose values {@link setChartData} can replace. */
+export type ChartDataKind = 'bar' | 'column' | 'line' | 'area' | 'pie' | 'doughnut';
+
+/** One series of {@link ChartData}: its name and one value per category. */
+export interface ChartDataSeries {
+  readonly name: string;
+  /** One value per category; `null` leaves the point empty. */
+  readonly values: ReadonlyArray<number | null>;
+}
+
+/** The data of a chart, as {@link setChartData} takes it. Omitted fields keep the chart's own. */
+export interface ChartData {
+  readonly kind?: ChartDataKind;
+  readonly categories?: ReadonlyArray<string>;
+  /** Every series of the chart, in order. */
+  readonly series?: ReadonlyArray<ChartDataSeries>;
+}
+
+const CHART_DATA_KINDS: ReadonlySet<ChartKind> = new Set<ChartDataKind>([
+  'bar',
+  'column',
+  'line',
+  'area',
+  'pie',
+  'doughnut',
+]);
+const isChartDataKind = (kind: ChartKind): kind is ChartDataKind => CHART_DATA_KINDS.has(kind);
+
+const NAME_C_PLOT_AREA = qname('c', 'plotArea', NS.chart);
+const NAME_C_SER = qname('c', 'ser', NS.chart);
+const NAME_C_TX = qname('c', 'tx', NS.chart);
+const NAME_C_CAT = qname('c', 'cat', NS.chart);
+const NAME_C_VAL = qname('c', 'val', NS.chart);
+const NAME_C_F = qname('c', 'f', NS.chart);
+const NAME_C_STR_REF = qname('c', 'strRef', NS.chart);
+const NAME_C_STR_LIT = qname('c', 'strLit', NS.chart);
+const NAME_C_STR_CACHE = qname('c', 'strCache', NS.chart);
+const NAME_C_NUM_REF = qname('c', 'numRef', NS.chart);
+const NAME_C_NUM_LIT = qname('c', 'numLit', NS.chart);
+const NAME_C_NUM_CACHE = qname('c', 'numCache', NS.chart);
+const NAME_C_MULTI_LVL_STR_REF = qname('c', 'multiLvlStrRef', NS.chart);
+const NAME_C_FORMAT_CODE = qname('c', 'formatCode', NS.chart);
+const NAME_C_PT_COUNT = qname('c', 'ptCount', NS.chart);
+const NAME_C_EXT_LST = qname('c', 'extLst', NS.chart);
+const ATTR_VAL = qname('', 'val', '');
+const ATTR_IDX = qname('', 'idx', '');
+
+/** A `c:` element named like `sibling`, so it uses the prefix the part already declares. */
+const chartElem = (
+  sibling: XmlElement,
+  localName: string,
+  init: Parameters<typeof elem>[1] = {},
+): XmlElement => elem(qname(sibling.name.prefix, localName, NS.chart), init);
+
+const setFormula = (ref: XmlElement, formula: string): void => {
+  const f = firstChildElement(ref, NAME_C_F);
+  if (f) f.children = [textNode(formula)];
+};
+
+// Rewrites the points of a CT_StrData / CT_NumData, keeping its
+// `formatCode` and `extLst`: they are what a number format or an
+// extension written by another app lives in.
+const setCachePoints = (cache: XmlElement, points: ReadonlyArray<string | null>): void => {
+  const formatCode = allChildElements(cache, NAME_C_FORMAT_CODE);
+  const extLst = allChildElements(cache, NAME_C_EXT_LST);
+  const ptCount = firstChildElement(cache, NAME_C_PT_COUNT) ?? chartElem(cache, 'ptCount');
+  ptCount.attrs = [attr(ATTR_VAL, String(points.length))];
+  const pts = points.flatMap((point, i) =>
+    point === null
+      ? []
+      : [
+          chartElem(cache, 'pt', {
+            attrs: [attr(ATTR_IDX, String(i))],
+            children: [chartElem(cache, 'v', { children: [textNode(point)] })],
+          }),
+        ],
+  );
+  cache.children = [...formatCode, ptCount, ...pts, ...extLst];
+};
+
+/**
+ * Rewrites a `c:cat` / `c:val` / `c:tx` channel: its formula when `formula`
+ * is given, its cached points when `points` is.
+ */
+const setChannel = (
+  channel: XmlElement,
+  formula: string | null,
+  points: ReadonlyArray<string | null> | null,
+): void => {
+  for (const [refName, cacheName] of [
+    [NAME_C_STR_REF, NAME_C_STR_CACHE],
+    [NAME_C_NUM_REF, NAME_C_NUM_CACHE],
+  ] as const) {
+    const ref = firstChildElement(channel, refName);
+    if (!ref) continue;
+    if (formula !== null) setFormula(ref, formula);
+    if (points !== null) {
+      let cache = firstChildElement(ref, cacheName);
+      if (!cache) {
+        cache = chartElem(ref, cacheName.localName);
+        ref.children.push(cache);
       }
+      setCachePoints(cache, points);
+    }
+    return;
+  }
+  const literal =
+    firstChildElement(channel, NAME_C_STR_LIT) ?? firstChildElement(channel, NAME_C_NUM_LIT);
+  if (literal && points !== null) setCachePoints(literal, points);
+  const multiLevel = firstChildElement(channel, NAME_C_MULTI_LVL_STR_REF);
+  if (multiLevel && formula !== null) setFormula(multiLevel, formula);
+};
+
+const isNumericChannel = (channel: XmlElement): boolean =>
+  firstChildElement(channel, NAME_C_NUM_REF) !== null ||
+  firstChildElement(channel, NAME_C_NUM_LIT) !== null;
+
+/**
+ * Replaces the data of a bar, column, line, area, pie or doughnut chart.
+ *
+ * When `kind` is the chart's own and `series` names the same series (in any
+ * order), only the values change: everything else in the chart, its
+ * formatting included, is kept. Changing `kind`, or adding, removing or
+ * renaming a series, builds the chart again from its title, axis titles,
+ * legend, series names and colors, and the rest of its formatting returns
+ * to the defaults; to keep it, copy the series names exactly as they are
+ * read. Each series needs one value per category: when changing
+ * `categories`, pass every series with values of the same length. The
+ * embedded workbook is rewritten with the new data.
+ *
+ * Throws when the chart is of another kind (scatter, bubble, stock,
+ * surface, radar, or one this library cannot read), when a series has
+ * more or fewer values than there are categories, and when categories
+ * change on a chart whose categories have several levels.
+ */
+export const setChartData = (chart: SlideChartData, data: ChartData): void => {
+  const slide = chart.shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const resolved = resolveChartPartName(slide, chart.shape);
+  if (!resolved) throw new Error('setChartData: shape is not a chart graphic frame');
+  const part = pkg.getPart(resolved.partName);
+  if (!part) throw new Error(`setChartData: chart part ${resolved.partName} not found`);
+  const doc = parseXml(decode(part.data));
+  const current = readChartSpec(doc.root);
+  if (current === null || !isChartDataKind(current.kind)) {
+    throw new Error(
+      `setChartData: the data of ${current === null ? 'this chart' : `a ${current.kind} chart`} cannot be replaced; build the chart again instead`,
+    );
+  }
+  const kind = data.kind ?? current.kind;
+  const categories = data.categories ?? current.categories;
+  const series = data.series ?? current.series;
+  for (const s of series) {
+    if (s.values.length !== categories.length) {
+      throw new Error(
+        `setChartData: series "${s.name}" has ${s.values.length} values for ${categories.length} categories`,
+      );
+    }
+    if (s.values.some((v) => v !== null && !Number.isFinite(v))) {
+      throw new Error(`setChartData: series "${s.name}" has a value that is not a finite number`);
     }
   }
+  const byName = new Map(series.map((s) => [s.name, s]));
+  if (data.series !== undefined && byName.size !== series.length) {
+    throw new Error('setChartData: series names must be distinct');
+  }
+  const sameSeries =
+    data.series === undefined ||
+    (new Set(current.series.map((s) => s.name)).size === series.length &&
+      current.series.every((s) => byName.has(s.name)));
+  if (kind !== current.kind || !sameSeries) {
+    setChartSpec(chart, rebuiltChartSpec(current, kind, categories, series));
+    return;
+  }
+
+  if (data.categories !== undefined && current.categoryGroupLevels !== undefined) {
+    throw new Error(
+      'setChartData: the categories of a chart with several category levels cannot be replaced',
+    );
+  }
+  const sers = childElements(
+    firstChildElement(firstChildElement(doc.root, NAME_C_CHART)!, NAME_C_PLOT_AREA)!,
+  ).flatMap((group) => allChildElements(group, NAME_C_SER));
+  const values = current.series.map((s) =>
+    data.series === undefined ? s.values : byName.get(s.name)!.values,
+  );
+  const numericCategories = sers.some((ser) => {
+    const cat = firstChildElement(ser, NAME_C_CAT);
+    return cat !== null && isNumericChannel(cat);
+  });
+  if (
+    data.categories !== undefined &&
+    numericCategories &&
+    categories.some((c) => !Number.isFinite(Number(c)) || c.trim() === '')
+  ) {
+    throw new Error('setChartData: this chart has numeric (date) categories; pass numbers');
+  }
+
+  // The workbook is rebuilt in the layout this library writes, so every
+  // formula is pointed at it; without a workbook the formulas are left be.
+  const workbook = embeddedWorkbookPart(pkg, resolved.partName);
+  const layout = workbook
+    ? layoutChartSheet({
+        ...current,
+        categories,
+        series: current.series.map((s, i) => ({ ...s, values: values[i]! })),
+      })
+    : null;
+  sers.forEach((ser, i) => {
+    const refs = layout?.series[i];
+    const tx = firstChildElement(ser, NAME_C_TX);
+    if (tx && refs) setChannel(tx, refs.name, null);
+    let cat = firstChildElement(ser, NAME_C_CAT);
+    const val = firstChildElement(ser, NAME_C_VAL);
+    if (!val) throw new Error('setChartData: a series of this chart has no values');
+    if (!cat && data.categories !== undefined) {
+      cat = chartElem(ser, 'cat', {
+        children: [
+          layout
+            ? chartElem(ser, 'strRef', {
+                children: [chartElem(ser, 'f'), chartElem(ser, 'strCache')],
+              })
+            : chartElem(ser, 'strLit'),
+        ],
+      });
+      ser.children.splice(ser.children.indexOf(val), 0, cat);
+    }
+    if (cat) {
+      setChannel(
+        cat,
+        layout?.categories ?? null,
+        data.categories === undefined
+          ? null
+          : isNumericChannel(cat)
+            ? categories.map((c) => String(Number(c)))
+            : categories,
+      );
+    }
+    setChannel(
+      val,
+      refs?.values ?? null,
+      data.series === undefined ? null : values[i]!.map((v) => (v === null ? null : String(v))),
+    );
+  });
+  part.data = encode(serializeXml(doc));
+  if (workbook && layout) workbook.data = buildEmbeddedXlsx(layout.grid);
+};
+
+// The chart `setChartData` builds when the data no longer fits the chart's
+// series: what does not depend on the kind carries over.
+const rebuiltChartSpec = (
+  current: ReadChartSpec,
+  kind: ChartDataKind,
+  categories: ReadonlyArray<string>,
+  series: ReadonlyArray<ChartDataSeries>,
+): ChartSpec => {
+  const colors = new Map(current.series.map((s) => [s.name, s.color]));
+  const plain = series.map(({ name, values }) => {
+    const color = colors.get(name);
+    return { name, values, ...(color !== undefined ? { color } : {}) };
+  });
+  const legend = current.legend && {
+    position: current.legend.position,
+    ...(current.legend.overlay !== undefined ? { overlay: current.legend.overlay } : {}),
+    ...(current.legend.textStyle !== undefined ? { textStyle: current.legend.textStyle } : {}),
+  };
+  const common = {
+    categories,
+    ...(current.title !== undefined ? { title: current.title } : {}),
+    ...(legend !== undefined ? { legend } : {}),
+  };
+  if (kind === 'pie' || kind === 'doughnut') {
+    const [only, ...rest] = plain;
+    if (only === undefined || rest.length > 0) {
+      throw new Error(`setChartData: a ${kind} chart takes exactly one series`);
+    }
+    return kind === 'pie'
+      ? { kind, ...common, series: [only] }
+      : { kind, ...common, series: [only] };
+  }
+  return {
+    kind,
+    ...common,
+    series: plain,
+    ...(current.categoryAxisTitle !== undefined
+      ? { categoryAxisTitle: current.categoryAxisTitle }
+      : {}),
+    ...(current.valueAxisTitle !== undefined ? { valueAxisTitle: current.valueAxisTitle } : {}),
+  };
 };
 
 /**

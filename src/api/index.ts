@@ -72,7 +72,7 @@ export type {
   SurfaceChartSpec,
 } from '../internal/chartml/index.ts';
 export { isChartSpec } from '../internal/chartml/index.ts';
-export type { SlideChartData } from './fn.ts';
+export type { ChartData, ChartDataKind, ChartDataSeries, SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type {
@@ -616,6 +616,7 @@ export {
   searchSlides,
   sendShapeBackward,
   sendShapeToBack,
+  setChartData,
   setChartSpec,
   setCoreProperties,
   setExtendedProperties,

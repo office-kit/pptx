@@ -466,6 +466,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
   replaceTextInSlide: { labelJa: 'スライド内のテキストを置換' },
   replaceTextInSlideNotes: { labelJa: 'スライドのノート内のテキストを置換' },
   reverseSlides: { labelJa: 'スライドの順序を反転' },
+  setChartData: { labelJa: 'グラフのデータの置換' },
   setChartSpec: { labelJa: 'グラフのデータと設定' },
   setCoreProperties: { labelJa: '文書の基本情報' },
   setExtendedProperties: { labelJa: '文書の詳細情報' },

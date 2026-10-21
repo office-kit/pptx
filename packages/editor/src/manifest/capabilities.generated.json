@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 224,
+  "count": 225,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1025,6 +1025,19 @@
       "returns": "void",
       "canvas": true,
       "params": []
+    },
+    {
+      "id": "setChartData",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "chart",
+      "file": "api/fn/charts.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        { "name": "chart", "type": "SlideChartData", "kind": "object", "optional": false },
+        { "name": "data", "type": "ChartData", "kind": "object", "optional": false }
+      ]
     },
     {
       "id": "setChartSpec",
