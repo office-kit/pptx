@@ -72,6 +72,33 @@ describe('fn API: compactPackage', () => {
     void pic;
   });
 
+  it('stops resolving removed parts by name', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    addSlideImage(getSlides(pres)[0]!, tinyPng(), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
+    });
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const pkg = _internalPackageOf(reloaded);
+    pkg.setRels(partName('/ppt/slides/slide1.xml'), {
+      items: [
+        {
+          id: 'rId1',
+          type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
+          target: '../slideLayouts/slideLayout1.xml',
+          targetMode: 'Internal',
+        },
+      ],
+    });
+
+    const { removed } = compactPackage(reloaded);
+    expect(removed.length).toBeGreaterThan(0);
+    for (const name of removed) expect(pkg.getPart(partName(name))).toBeNull();
+  });
+
   it('does not touch media that is still referenced', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideImage(getSlides(pres)[0]!, tinyPng(), {
