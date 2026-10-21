@@ -74,7 +74,7 @@ export async function buildClipboardDeck(
   const keep = new Set(content.kind === 'slides' ? content.slideIndices : [content.slideIndex]);
   if (content.kind === 'shapes') isolateShapes(slides[content.slideIndex]!, content.shapeIds);
   for (const [index, slide] of slides.entries()) if (!keep.has(index)) removeSlide(pres, slide);
-  // Removing slides leaves their pictures behind; only the copied ones stay.
+  // Removing slides leaves their parts behind; only the copied ones stay.
   compactPackage(pres);
   return { kind: content.kind, pres, bytes: await savePresentation(pres) };
 }

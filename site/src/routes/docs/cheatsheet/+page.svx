@@ -119,7 +119,7 @@ Pass `{ coveredText: 'append' }` to `mergeTableCells` to collect the selected ce
 |------|-----------|
 | Validate the package | `validatePresentation(pres)` |
 | Inspect parts list | `listPackageParts` + `readPackagePart` |
-| Strip unused media | `compactPackage` |
+| Remove unused parts (media, charts, notes) | `compactPackage` |
 
 ## Snippets
 

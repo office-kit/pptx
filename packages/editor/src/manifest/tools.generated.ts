@@ -4599,7 +4599,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'compactPackage',
       description:
-        "Removes every part that cannot be reached from the package root\n(`/_rels/.rels`) through internal relationships, together with its\n`.rels` part and its `[Content_Types].xml` override. Returns the\nremoved part names.\n\n`removeSlide` removes only the slide and its `.rels`, so the slide's\ncharts, embedded workbooks, notes slide, tags and media stay in the\npackage until this runs. Parts still in use — including layouts no\nslide uses, which their master references — are kept.",
+        "Removes every part that cannot be reached from the package root\n(`/_rels/.rels`) through internal relationships, together with its\n`.rels` part and its `[Content_Types].xml` override. Returns the\nremoved part names.\n\n`removeSlide` removes only the slide and its `.rels`, so the slide's\ncharts, embedded workbooks, notes slide, tags and media stay in the\npackage until this runs. Parts still in use — including layouts no\nslide uses, which their master references — are kept. Any other part\nnothing points at, such as custom data added without a relationship, is\nremoved too. When `/_rels/.rels` does not reach `/ppt/presentation.xml`,\nnothing is removed.",
       args: [null],
       input_schema: { type: 'object', properties: {}, additionalProperties: false },
       output: {

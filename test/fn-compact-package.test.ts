@@ -1,18 +1,15 @@
 // compactPackage — drop parts unreachable from the package root.
 
-import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   _internalPackageOf,
-  addSlide,
   addSlideChart,
   addSlideImage,
   compactPackage,
   getMediaParts,
   getOrphanMediaPartNames,
-  getSlideLayouts,
   getSlideNotes,
   getSlidePartName,
   getSlides,
@@ -23,10 +20,11 @@ import {
   removeShape,
   removeSlide,
   savePresentation,
+  setNotesMasterPlaceholderIncluded,
   setSlideNotes,
   type SlideData,
 } from '../src/api/index.ts';
-import { partName, relsPartNameFor, resolveTarget } from '../src/internal/opc/index.ts';
+import { partName, relsPartNameFor } from '../src/internal/opc/index.ts';
 import { expectPackageValid } from './lib/expect-package-valid.ts';
 
 const fixture = (name: string): string =>
@@ -138,8 +136,6 @@ describe('fn API: compactPackage', () => {
 
   describe('unreachable parts', () => {
     const TAGS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags';
-    const LAYOUT_REL =
-      'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
 
     const addTags = (pres: PresentationData, slide: SlideData, n: number): void => {
       const pkg = _internalPackageOf(pres);
@@ -163,46 +159,25 @@ describe('fn API: compactPackage', () => {
       pkg.setRels(source, rels);
     };
 
-    // Internal targets of `source`'s rels other than its layout.
-    const targetsOf = (pres: PresentationData, source: string): string[] =>
-      (_internalPackageOf(pres).getRels(partName(source))?.items ?? [])
-        .filter((r) => r.targetMode !== 'External' && r.type !== LAYOUT_REL)
-        .map((r) => resolveTarget(partName(source), r.target));
-
-    // What a slide alone pulls in: its charts with their workbooks, its notes
-    // slide, tags and pictures. Notes slides point back at the slide and on to
-    // the shared notes master, so they are not followed.
-    const slideDependencies = (pres: PresentationData, slide: SlideData): Set<string> => {
-      const out = new Set<string>();
-      for (const target of targetsOf(pres, getSlidePartName(slide))) {
-        out.add(target);
-        if (target.startsWith('/ppt/charts/')) for (const t of targetsOf(pres, target)) out.add(t);
-      }
-      return out;
+    const addImageRel = (pres: PresentationData, target: string): void => {
+      const pkg = _internalPackageOf(pres);
+      const slide = partName('/ppt/slides/slide1.xml');
+      const rels = pkg.getRels(slide)!;
+      rels.items.push({
+        id: 'rIdExtra',
+        type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        target,
+        targetMode: 'Internal',
+      });
+      pkg.setRels(slide, rels);
     };
 
     const partNames = (pres: PresentationData): string[] =>
       listPackageParts(pres).map((p) => p.name);
 
     it('drops the charts, workbooks, notes slide and tags of a removed slide', async () => {
-      // A pptxgenjs deck: a chart slide with its notes slide and a notes master.
-      const files = unzipSync(
-        await readFile(fileURLToPath(new URL('./fixtures/pptxgenjs/combo.pptx', import.meta.url))),
-      );
-      // pptxgenjs writes <p:notesMasterIdLst> after <p:sldIdLst>; the schema wants it before.
-      const presentation = strFromU8(files['ppt/presentation.xml']!);
-      const notesMasterIdLst = /<p:notesMasterIdLst>.*?<\/p:notesMasterIdLst>/.exec(
-        presentation,
-      )![0];
-      files['ppt/presentation.xml'] = strToU8(
-        presentation
-          .replace(notesMasterIdLst, '')
-          .replace('<p:sldIdLst>', `${notesMasterIdLst}<p:sldIdLst>`),
-      );
-      const pres = await loadPresentation(zipSync(files));
-      addSlide(pres, { layout: getSlideLayouts(pres)[0]! });
-      const slides = getSlides(pres);
-      for (const [i, slide] of slides.entries()) {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      for (const [i, slide] of getSlides(pres).entries()) {
         addSlideChart(slide, {
           x: inches(0.5),
           y: inches(0.5),
@@ -224,25 +199,28 @@ describe('fn API: compactPackage', () => {
         setSlideNotes(slide, `Notes ${i + 1}`);
         addTags(pres, slide, i + 1);
       }
-      const [first, second] = slides as [SlideData, SlideData];
-      const kept = slideDependencies(pres, second);
-      const dropped = [...slideDependencies(pres, first)].filter((name) => !kept.has(name));
-      // Each kind the removed slide used must be represented, or the test proves nothing.
-      for (const prefix of ['/ppt/charts/', '/ppt/embeddings/', '/ppt/notesSlides/', '/ppt/tags/'])
-        expect(dropped.some((name) => name.startsWith(prefix))).toBe(true);
-      const droppedWithRels = new Set(
-        dropped.flatMap((name) => [name, relsPartNameFor(partName(name))]),
-      );
+      // Creates the notes master and links both notes slides to it.
+      setNotesMasterPlaceholderIncluded(pres, 'hdr', true);
 
-      const slideName = getSlidePartName(first);
+      const first = getSlides(pres)[0]!;
       removeSlide(pres, first);
       const before = partNames(pres);
       const { removed } = compactPackage(pres);
 
-      // Exactly the removed slide's own parts (and their rels) go; presentation.xml,
-      // docProps, theme, master, every layout, notes master and the other slide stay.
-      expect(new Set(removed)).toEqual(new Set(before.filter((name) => droppedWithRels.has(name))));
-      expect(partNames(pres)).toEqual(before.filter((name) => !droppedWithRels.has(name)));
+      expect([...removed].sort()).toEqual(
+        [
+          '/ppt/charts/chart1.xml',
+          '/ppt/charts/_rels/chart1.xml.rels',
+          '/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx',
+          '/ppt/media/image1.png',
+          '/ppt/notesSlides/notesSlide1.xml',
+          '/ppt/notesSlides/_rels/notesSlide1.xml.rels',
+          '/ppt/tags/tag1.xml',
+        ].sort(),
+      );
+      expect(partNames(pres)).toEqual(before.filter((name) => !removed.includes(name)));
+      // presentation.xml, docProps, theme, master, every layout, the notes
+      // master with its theme and the other slide's parts stay.
       for (const name of [
         '/ppt/presentation.xml',
         '/docProps/core.xml',
@@ -251,11 +229,16 @@ describe('fn API: compactPackage', () => {
         '/ppt/theme/theme1.xml',
         '/ppt/slideMasters/slideMaster1.xml',
         '/ppt/slideLayouts/slideLayout1.xml',
+        '/ppt/slideLayouts/slideLayout11.xml',
         '/ppt/notesMasters/notesMaster1.xml',
+        '/ppt/theme/theme2.xml',
+        '/ppt/charts/chart2.xml',
+        '/ppt/embeddings/Microsoft_Excel_Worksheet2.xlsx',
+        '/ppt/media/image2.png',
+        '/ppt/notesSlides/notesSlide2.xml',
+        '/ppt/tags/tag2.xml',
       ])
         expect(partNames(pres)).toContain(name);
-      for (const name of kept) expect(partNames(pres)).toContain(name);
-      expect(partNames(pres)).not.toContain(slideName);
       const overrides = _internalPackageOf(pres).contentTypes.overrides.map((o) => o.partName);
       for (const name of removed) expect(overrides).not.toContain(name);
 
@@ -274,21 +257,33 @@ describe('fn API: compactPackage', () => {
 
     it('follows a percent-encoded target to a part stored under the decoded name', async () => {
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-      const pkg = _internalPackageOf(pres);
       const picture = partName('/ppt/media/logo 1.png');
-      pkg.addPart(picture, 'image/png', tinyPng());
-      const slide = partName('/ppt/slides/slide1.xml');
-      const rels = pkg.getRels(slide)!;
-      rels.items.push({
-        id: 'rIdLogo',
-        type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
-        target: '../media/logo%201.png',
-        targetMode: 'Internal',
-      });
-      pkg.setRels(slide, rels);
+      _internalPackageOf(pres).addPart(picture, 'image/png', tinyPng());
+      addImageRel(pres, '../media/logo%201.png');
 
       expect(compactPackage(pres).removed).toEqual([]);
       expect(partNames(pres)).toContain(picture);
+    });
+
+    it('follows a percent-encoded non-ASCII target whatever its case', async () => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const pkg = _internalPackageOf(pres);
+      const picture = partName('/ppt/media/Émage.png');
+      pkg.addPart(picture, 'image/png', tinyPng());
+      addImageRel(pres, '../media/%C3%89mage.png');
+
+      expect(getOrphanMediaPartNames(pres)).toEqual([]);
+      expect(compactPackage(pres).removed).toEqual([]);
+    });
+
+    it('drops `..` segments above the root instead of losing the part', async () => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const picture = partName('/ppt/media/image99.png');
+      _internalPackageOf(pres).addPart(picture, 'image/png', tinyPng());
+      addImageRel(pres, '../../../ppt/media/image99.png');
+
+      expect(getOrphanMediaPartNames(pres)).toEqual([]);
+      expect(compactPackage(pres).removed).toEqual([]);
     });
 
     it('drops a part nothing points at, with its override', async () => {
@@ -348,24 +343,9 @@ describe('fn API: compactPackage', () => {
       );
     });
 
-    describe('without /_rels/.rels', () => {
-      const withoutRootRels = async (): Promise<PresentationData> => {
+    describe('when /_rels/.rels does not reach presentation.xml', () => {
+      const unreachablePresentation = async (): Promise<PresentationData> => {
         const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-        _internalPackageOf(pres).removePart(partName('/_rels/.rels'));
-        return pres;
-      };
-
-      it('compactPackage throws and leaves the package unchanged', async () => {
-        const pres = await withoutRootRels();
-        const before = partNames(pres);
-        const overrides = [..._internalPackageOf(pres).contentTypes.overrides];
-        expect(() => compactPackage(pres)).toThrow('package has no /_rels/.rels');
-        expect(partNames(pres)).toEqual(before);
-        expect(_internalPackageOf(pres).contentTypes.overrides).toEqual(overrides);
-      });
-
-      it('getOrphanMediaPartNames reports every media part', async () => {
-        const pres = await withoutRootRels();
         addSlideImage(getSlides(pres)[0]!, tinyPng(), {
           x: inches(0),
           y: inches(0),
@@ -373,9 +353,23 @@ describe('fn API: compactPackage', () => {
           h: inches(1),
           format: 'png',
         });
-        const media = getMediaParts(pres).map((p) => p.name);
-        expect(media.length).toBeGreaterThan(0);
-        expect(getOrphanMediaPartNames(pres)).toEqual(media);
+        const rootRels = _internalPackageOf(pres).getPart(partName('/_rels/.rels'))!;
+        const xml = new TextDecoder().decode(rootRels.data);
+        const withoutPresentation = xml.replace(/<Relationship [^>]*\/officeDocument"[^>]*\/>/, '');
+        expect(withoutPresentation).not.toBe(xml);
+        rootRels.data = new TextEncoder().encode(withoutPresentation);
+        return pres;
+      };
+
+      it('compactPackage removes nothing', async () => {
+        const pres = await unreachablePresentation();
+        const before = partNames(pres);
+        expect(compactPackage(pres).removed).toEqual([]);
+        expect(partNames(pres)).toEqual(before);
+      });
+
+      it('getOrphanMediaPartNames reports nothing', async () => {
+        expect(getOrphanMediaPartNames(await unreachablePresentation())).toEqual([]);
       });
     });
   });
