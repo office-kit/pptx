@@ -5,7 +5,7 @@ import {
   SYNTHETIC_REL_TYPES,
   buildSyntheticPackageBytes,
 } from '../../../test/lib/synthetic-package.ts';
-import { partName } from '../opc/index.ts';
+import { partName, writeZip } from '../opc/index.ts';
 import { OpcPackage } from './index.ts';
 
 const decode = (b: Uint8Array): string => new TextDecoder().decode(b);
@@ -52,6 +52,53 @@ describe('OpcPackage.load', () => {
     const pkg = OpcPackage.load(buildSyntheticPackageBytes());
     const image = pkg.getPart(partName('/ppt/media/image1.png'));
     expect(image?.contentType).toBe('image/png');
+  });
+
+  it('resolves case-insensitive Overrides, first match winning', () => {
+    const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="XML" ContentType="application/xml"/>
+  <Override PartName="/PPT/A.xml" ContentType="first"/>
+  <Override PartName="/ppt/a.xml" ContentType="second"/>
+</Types>`;
+    const pkg = OpcPackage.load(
+      writeZip([
+        { name: '[Content_Types].xml', data: new TextEncoder().encode(contentTypes) },
+        { name: 'ppt/a.xml', data: new Uint8Array() },
+        { name: 'ppt/b.Xml', data: new Uint8Array() },
+      ]),
+    );
+    expect(pkg.getPart(partName('/ppt/a.xml'))?.contentType).toBe('first');
+    expect(pkg.getPart(partName('/PPT/B.XML'))?.contentType).toBe('application/xml');
+  });
+
+  it('loads a package with tens of thousands of Overrides in linear time', () => {
+    const build = (count: number): Uint8Array => {
+      const overrides: string[] = [];
+      const entries = [];
+      for (let i = 0; i < count; i++) {
+        overrides.push(`<Override PartName="/p/part${i}.bin" ContentType="application/x-test"/>`);
+        entries.push({ name: `p/part${i}.bin`, data: new Uint8Array() });
+      }
+      const xml = `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">${overrides.join('')}</Types>`;
+      return writeZip([
+        { name: '[Content_Types].xml', data: new TextEncoder().encode(xml) },
+        ...entries,
+      ]);
+    };
+    const time = (bytes: Uint8Array): number => {
+      const started = performance.now();
+      const pkg = OpcPackage.load(bytes);
+      const elapsed = performance.now() - started;
+      expect(pkg.getPart(partName('/P/PART7.BIN'))?.contentType).toBe('application/x-test');
+      return elapsed;
+    };
+    const small = build(3_000);
+    const large = build(30_000);
+    time(small);
+    // Ten times the parts must not cost anywhere near the hundredfold a
+    // per-part scan of every Override would.
+    expect(time(large)).toBeLessThan(Math.max(time(small), 5) * 30);
   });
 
   it('throws when [Content_Types].xml is missing', () => {
@@ -156,6 +203,17 @@ describe('OpcPackage authoring', () => {
     expect(pkg.removePart(partName('/ppt/slides/slide99.xml'))).toBe(true);
     expect(pkg.parts.length).toBe(0);
     expect(pkg.contentTypes.overrides.length).toBe(0);
+    expect(pkg.getPart(partName('/ppt/slides/slide99.xml'))).toBeNull();
+  });
+
+  it('finds added parts case-insensitively and forgets removed ones', () => {
+    const pkg = OpcPackage.empty();
+    const added = pkg.addPart(partName('/ppt/A.xml'), 'application/xml', new Uint8Array());
+    expect(pkg.getPart(partName('/PPT/a.XML'))).toBe(added);
+    expect(pkg.removePart(partName('/ppt/a.xml'))).toBe(true);
+    expect(pkg.getPart(partName('/ppt/A.xml'))).toBeNull();
+    const readded = pkg.addPart(partName('/ppt/a.xml'), 'application/xml', new Uint8Array());
+    expect(pkg.getPart(partName('/ppt/A.xml'))).toBe(readded);
   });
 
   it('omits the Override when an existing default already matches', () => {

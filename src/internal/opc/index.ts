@@ -19,6 +19,7 @@ export {
 
 export type { ContentTypeDefault, ContentTypeOverride, ContentTypes } from './content-types.ts';
 export {
+  contentTypeResolver,
   emptyContentTypes,
   lookupContentType,
   parseContentTypes,

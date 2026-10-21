@@ -20,6 +20,7 @@ import {
   type PartName,
   type Relationships,
   type ZipEntry,
+  contentTypeResolver,
   emptyContentTypes,
   fromZipPath,
   lookupContentType,
@@ -70,17 +71,28 @@ const CONTENT_TYPES_PART = '[Content_Types].xml';
 export class OpcPackage {
   /**
    * Ordered list of parts. The order is the order parts will be written to
-   * the ZIP central directory on `save()`. Direct mutation is allowed for
-   * callers that need to reorder, but `addPart` / `removePart` /
-   * `retainParts` are the supported entry points.
+   * the ZIP central directory on `save()`. Callers may reorder it in place,
+   * but must add and remove parts through `addPart` / `removePart` /
+   * `retainParts` so the name index stays in sync.
    */
   readonly parts: Part[];
   /** Mutable Content_Types map. Direct mutation is allowed. */
   contentTypes: ContentTypes;
+  /** Lowercased part name → first part with that name, for `getPart`. */
+  private readonly partsByName = new Map<string, Part>();
 
   private constructor(parts: Part[], contentTypes: ContentTypes) {
     this.parts = parts;
     this.contentTypes = contentTypes;
+    this.indexParts();
+  }
+
+  private indexParts(): void {
+    this.partsByName.clear();
+    for (const part of this.parts) {
+      const key = part.name.toLowerCase();
+      if (!this.partsByName.has(key)) this.partsByName.set(key, part);
+    }
   }
 
   /**
@@ -127,8 +139,9 @@ export class OpcPackage {
       throw new Error('package is missing [Content_Types].xml');
     }
 
+    const resolveContentType = contentTypeResolver(contentTypes);
     for (const part of parts) {
-      const ct = lookupContentType(contentTypes, part.name);
+      const ct = resolveContentType(part.name);
       if (ct === null) {
         throw new Error(
           `part "${part.name}" has no content type registered in [Content_Types].xml`,
@@ -157,10 +170,7 @@ export class OpcPackage {
    * Looks up a part by name (case-insensitive per OPC §9.1.1.7).
    */
   getPart(name: PartName): Part | null {
-    for (const p of this.parts) {
-      if (partNamesEqual(p.name, name)) return p;
-    }
-    return null;
+    return this.partsByName.get(name.toLowerCase()) ?? null;
   }
 
   /**
@@ -174,6 +184,7 @@ export class OpcPackage {
     }
     const part: Part = { name, contentType, data };
     this.parts.push(part);
+    this.partsByName.set(name.toLowerCase(), part);
     // If neither an existing default nor an existing override covers this
     // content type, register an Override so the on-disk Content_Types stays
     // consistent. Callers can replace the override later if they prefer a
@@ -200,6 +211,7 @@ export class OpcPackage {
       }
     }
     if (removed) {
+      this.partsByName.delete(name.toLowerCase());
       this.contentTypes.overrides = this.contentTypes.overrides.filter(
         (o) => !partNamesEqual(o.partName, name),
       );
@@ -221,6 +233,7 @@ export class OpcPackage {
     }
     this.parts.length = kept;
     if (removed.length > 0) {
+      this.indexParts();
       const gone = new Set(removed.map((name) => name.toLowerCase()));
       this.contentTypes.overrides = this.contentTypes.overrides.filter(
         (o) => !gone.has(o.partName.toLowerCase()),

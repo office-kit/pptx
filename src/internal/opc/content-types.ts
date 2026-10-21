@@ -15,7 +15,7 @@
 // and `rels`, plus overrides for most parts.
 
 import { NS, type XmlDocument, elem, parseXml, qname, serializeXml } from '../xml/index.ts';
-import { type PartName, basename, partName, partNamesEqual } from './part-name.ts';
+import { type PartName, basename, partName } from './part-name.ts';
 
 export interface ContentTypeDefault {
   /** Lowercase, no leading dot, e.g. `xml`. */
@@ -114,7 +114,7 @@ export const serializeContentTypes = (ct: ContentTypes): string => {
 };
 
 /**
- * Resolves the content type for a given part name.
+ * Builds a resolver for many part names against one `ContentTypes`.
  *
  *   1. The first Override whose PartName matches case-insensitively wins.
  *   2. Otherwise, the first Default whose Extension matches the part's
@@ -122,20 +122,33 @@ export const serializeContentTypes = (ct: ContentTypes): string => {
  *   3. Returns `null` if neither rule matches — `[Content_Types].xml` is
  *      required to cover every part, so a null here indicates a malformed
  *      package.
+ *
+ * The resolver snapshots `ct`; later edits to it are not reflected.
  */
-export const lookupContentType = (ct: ContentTypes, name: PartName): string | null => {
+export const contentTypeResolver = (ct: ContentTypes): ((name: PartName) => string | null) => {
+  const overrides = new Map<string, string>();
   for (const o of ct.overrides) {
-    if (partNamesEqual(o.partName, name)) return o.contentType;
+    const key = o.partName.toLowerCase();
+    if (!overrides.has(key)) overrides.set(key, o.contentType);
   }
-  const file = basename(name);
-  const dot = file.lastIndexOf('.');
-  if (dot < 0) return null;
-  const ext = file.slice(dot + 1).toLowerCase();
+  const defaults = new Map<string, string>();
   for (const d of ct.defaults) {
-    if (d.extension.toLowerCase() === ext) return d.contentType;
+    const key = d.extension.toLowerCase();
+    if (!defaults.has(key)) defaults.set(key, d.contentType);
   }
-  return null;
+  return (name) => {
+    const override = overrides.get(name.toLowerCase());
+    if (override !== undefined) return override;
+    const file = basename(name);
+    const dot = file.lastIndexOf('.');
+    if (dot < 0) return null;
+    return defaults.get(file.slice(dot + 1).toLowerCase()) ?? null;
+  };
 };
+
+/** Resolves the content type of one part name; see `contentTypeResolver`. */
+export const lookupContentType = (ct: ContentTypes, name: PartName): string | null =>
+  contentTypeResolver(ct)(name);
 
 /**
  * Convenience: a fresh ContentTypes seeded with the two defaults every PPTX
