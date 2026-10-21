@@ -113,6 +113,13 @@ export const serializeContentTypes = (ct: ContentTypes): string => {
   return serializeXml(doc);
 };
 
+// Lowercased extension a Default would match, or null when there is none.
+const defaultKeyOf = (name: PartName): string | null => {
+  const file = basename(name);
+  const dot = file.lastIndexOf('.');
+  return dot < 0 ? null : file.slice(dot + 1).toLowerCase();
+};
+
 /**
  * Builds a resolver for many part names against one `ContentTypes`.
  *
@@ -139,10 +146,8 @@ export const contentTypeResolver = (ct: ContentTypes): ((name: PartName) => stri
   return (name) => {
     const override = overrides.get(name.toLowerCase());
     if (override !== undefined) return override;
-    const file = basename(name);
-    const dot = file.lastIndexOf('.');
-    if (dot < 0) return null;
-    return defaults.get(file.slice(dot + 1).toLowerCase()) ?? null;
+    const ext = defaultKeyOf(name);
+    return ext === null ? null : (defaults.get(ext) ?? null);
   };
 };
 
@@ -154,10 +159,8 @@ export const lookupContentType = (ct: ContentTypes, name: PartName): string | nu
   for (const o of ct.overrides) {
     if (partNamesEqual(o.partName, name)) return o.contentType;
   }
-  const file = basename(name);
-  const dot = file.lastIndexOf('.');
-  if (dot < 0) return null;
-  const ext = file.slice(dot + 1).toLowerCase();
+  const ext = defaultKeyOf(name);
+  if (ext === null) return null;
   for (const d of ct.defaults) {
     if (d.extension.toLowerCase() === ext) return d.contentType;
   }

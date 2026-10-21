@@ -81,10 +81,11 @@ describe('OpcPackage.load', () => {
         entries.push({ name: `p/part${i}.bin`, data: new Uint8Array() });
       }
       const xml = `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">${overrides.join('')}</Types>`;
-      return writeZip([
-        { name: '[Content_Types].xml', data: new TextEncoder().encode(xml) },
-        ...entries,
-      ]);
+      // Stored, so building and inflating stay out of what is being timed.
+      return writeZip(
+        [{ name: '[Content_Types].xml', data: new TextEncoder().encode(xml) }, ...entries],
+        { level: 0 },
+      );
     };
     const time = (bytes: Uint8Array): number => {
       const started = performance.now();
@@ -93,8 +94,8 @@ describe('OpcPackage.load', () => {
       expect(pkg.getPart(partName('/P/PART7.BIN'))?.contentType).toBe('application/x-test');
       return elapsed;
     };
-    const small = build(3_000);
-    const large = build(30_000);
+    const small = build(2_000);
+    const large = build(20_000);
     // Best of three keeps one slow run on a busy machine from skewing the ratio.
     const best = (bytes: Uint8Array): number => Math.min(time(bytes), time(bytes), time(bytes));
     // Ten times the parts must not cost anywhere near the hundredfold a

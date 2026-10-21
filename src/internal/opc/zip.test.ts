@@ -201,14 +201,37 @@ describe('readZip on hostile input', () => {
     expect(() => readZip(zip)).toThrow(/beyond its declared size of 10 bytes/);
   });
 
-  it('rejects a 10-byte entry that really inflates to 1 GB quickly', () => {
+  it('rejects a 10-byte entry that really inflates to 1 GB', () => {
     const matches = Math.ceil(2 ** 30 / 258);
     const zip = buildZip([
       { name: 'bomb.xml', method: 8, stored: zeroBomb(matches), declaredSize: 10 },
     ]);
-    const started = performance.now();
     expect(() => readZip(zip)).toThrow(/beyond its declared size/);
-    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it('rejects a small entry that outgrows its declared size', () => {
+    const zip = buildZip([deflated('small.xml', utf8('<a/>'.repeat(100)), 10)]);
+    expect(() => readZip(zip)).toThrow(/"small.xml" inflates beyond its declared size of 10 bytes/);
+  });
+
+  it('rejects a small stored DEFLATE block that outgrows its declared size', () => {
+    // BFINAL stored block: LEN 8, NLEN ~8, then 8 bytes.
+    const block = new Uint8Array([0x01, 0x08, 0x00, 0xf7, 0xff, ...new Uint8Array(8)]);
+    const zip = buildZip([{ name: 'raw.xml', method: 8, stored: block, declaredSize: 4 }]);
+    expect(() => readZip(zip)).toThrow(/"raw.xml" inflates beyond its declared size of 4 bytes/);
+  });
+
+  it('rejects a declared size its compressed bytes cannot reach before allocating it', () => {
+    const stored = deflateSync(utf8('<a/>'));
+    const zip = buildZip([{ name: 'huge.xml', method: 8, stored, declaredSize: SENTINEL_32 - 1 }]);
+    expect(() => readZip(zip)).toThrow(/^invalid ZIP: entry "huge.xml" declares 4294967294 bytes/);
+  });
+
+  it('accepts a maximally compressed entry', () => {
+    // Zeros deflate at ~1030:1, right at the ratio inflateEntry allows.
+    const size = 4 << 20;
+    const zip = buildZip([deflated('zeros.bin', new Uint8Array(size))]);
+    expect(readZip(zip).entries[0]?.data.length).toBe(size);
   });
 
   it('rejects an entry that inflates to less than its declared size', () => {

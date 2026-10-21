@@ -3,15 +3,15 @@
 // Wraps `fflate` because it is the only ZIP library that is small (~30KB),
 // synchronous, and works in both Node and browsers without a polyfill.
 // Writing goes through `zipSync`; reading walks the central directory here and
-// inflates each entry through fflate's streaming `Inflate`.
+// inflates each entry with fflate.
 //
 // Reading treats the archive as untrusted input. `unzipSync` inflates every
 // entry to the end even when the output overflows the size the central
 // directory declares, so a few-KB entry declaring 10 bytes can still burn
-// seconds of synchronous CPU. Here each entry is fed in small chunks and
-// rejected as soon as its output exceeds the declared size, which caps the
-// work at the sum of declared sizes plus about one chunk of overrun — the
-// sizes callers can check up front from the central directory alone.
+// seconds of synchronous CPU. Here an entry is inflated at most one chunk of
+// input past the point its output exceeds the declared size, which caps the
+// work at the sum of the central directory's declared sizes plus about one
+// chunk of overrun.
 //
 // What we preserve on round-trip:
 //
@@ -30,7 +30,7 @@
 //   - Extra fields, file attributes, UTF-8 flags. These are not load-bearing
 //     for PPTX as consumed by the reference desktop app.
 
-import { Inflate, type ZipOptions, strFromU8, zipSync } from 'fflate';
+import { Inflate, type ZipOptions, inflateSync, strFromU8, zipSync } from 'fflate';
 
 export interface ZipEntry {
   /** Path inside the archive, forward-slash separated (`ppt/slides/slide1.xml`). */
@@ -105,6 +105,10 @@ const METHOD_DEFLATE = 8;
 // A 16KB DEFLATE chunk inflates to at most ~17MB (~30ms), which bounds the
 // work done past an entry's declared size before the overflow is noticed.
 const INFLATE_CHUNK_SIZE = 16 * 1024;
+// DEFLATE needs at least 2 bits per 258-byte match, so it expands at most
+// ~1032:1; the slack covers block headers and the first literals.
+const MAX_DEFLATE_RATIO = 1032;
+const DEFLATE_RATIO_SLACK = 1024;
 
 const invalid = (reason: string): Error => new Error(`invalid ZIP: ${reason}`);
 
@@ -187,16 +191,50 @@ const resolveZip64Sizes = (
   throw invalid('ZIP64 sizes without a ZIP64 extra field');
 };
 
+const overflowError = (name: string, declaredSize: number): Error =>
+  invalid(`entry "${name}" inflates beyond its declared size of ${declaredSize} bytes`);
+
+const corruptError = (name: string, error: unknown): Error => {
+  const reason = error instanceof Error ? error.message : String(error);
+  return invalid(`entry "${name}" is not valid DEFLATE data: ${reason}`);
+};
+
+// One-shot inflate into a buffer one byte longer than declared: fflate drops
+// writes past a caller's buffer, so a full buffer means overflow. Streaming
+// `Inflate` costs ~70µs per entry, which dominates packages of many tiny parts.
+const inflateSmallEntry = (
+  compressed: Uint8Array,
+  declaredSize: number,
+  name: string,
+): Uint8Array => {
+  // fflate returns the whole buffer for empty input; an empty stream yields nothing.
+  if (compressed.length === 0) return new Uint8Array(0);
+  let out: Uint8Array;
+  try {
+    out = inflateSync(compressed, { out: new Uint8Array(declaredSize + 1) });
+  } catch (error) {
+    // A stored block that overruns the buffer surfaces as a RangeError from `set`.
+    if (error instanceof RangeError) throw overflowError(name, declaredSize);
+    throw corruptError(name, error);
+  }
+  if (out.length > declaredSize) throw overflowError(name, declaredSize);
+  return out;
+};
+
 // Fills a buffer of the declared size, as `unzipSync` did, so a large entry is
-// held once; the caller can bound declared sizes from the central directory.
-const inflateEntry = (compressed: Uint8Array, declaredSize: number, name: string): Uint8Array => {
+// held once.
+const inflateLargeEntry = (
+  compressed: Uint8Array,
+  declaredSize: number,
+  name: string,
+): Uint8Array => {
   const out = new Uint8Array(declaredSize);
   let overflowed = false;
   let produced = 0;
   const inflater = new Inflate((chunk) => {
     if (produced + chunk.length > declaredSize) {
       overflowed = true;
-      throw invalid(`entry "${name}" inflates beyond its declared size of ${declaredSize} bytes`);
+      throw overflowError(name, declaredSize);
     }
     out.set(chunk, produced);
     produced += chunk.length;
@@ -207,13 +245,26 @@ const inflateEntry = (compressed: Uint8Array, declaredSize: number, name: string
       inflater.push(compressed.subarray(at, end), end === compressed.length);
     } catch (error) {
       if (overflowed) throw error;
-      const reason = error instanceof Error ? error.message : String(error);
-      throw invalid(`entry "${name}" is not valid DEFLATE data: ${reason}`);
+      throw corruptError(name, error);
     }
   }
-  if (produced !== declaredSize) {
+  return out.subarray(0, produced);
+};
+
+const inflateEntry = (compressed: Uint8Array, declaredSize: number, name: string): Uint8Array => {
+  // Checked before allocating so a tiny entry cannot reserve gigabytes.
+  if (declaredSize > compressed.length * MAX_DEFLATE_RATIO + DEFLATE_RATIO_SLACK) {
     throw invalid(
-      `entry "${name}" inflates to ${produced} bytes, not its declared ${declaredSize}`,
+      `entry "${name}" declares ${declaredSize} bytes, more than ${compressed.length} compressed bytes can hold`,
+    );
+  }
+  const out =
+    compressed.length <= INFLATE_CHUNK_SIZE
+      ? inflateSmallEntry(compressed, declaredSize, name)
+      : inflateLargeEntry(compressed, declaredSize, name);
+  if (out.length !== declaredSize) {
+    throw invalid(
+      `entry "${name}" inflates to ${out.length} bytes, not its declared ${declaredSize}`,
     );
   }
   return out;

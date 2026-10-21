@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   basename,
+  contentTypeResolver,
   dirname,
   emptyContentTypes,
   emptyRels,
@@ -135,6 +136,26 @@ describe('Content_Types', () => {
       'application/vnd.openxmlformats-package.relationships+xml',
     );
     expect(lookupContentType(ct, partName('/unknown/file.bin'))).toBeNull();
+  });
+
+  it('resolves the same content type through the resolver and the single lookup', () => {
+    const ct = parseContentTypes(
+      `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+        `<Default Extension="XML" ContentType="d/xml-upper"/>` +
+        `<Default Extension="xml" ContentType="d/xml-lower"/>` +
+        `<Default Extension="bin" ContentType="d/bin"/>` +
+        `<Override PartName="/A/One.xml" ContentType="o/first"/>` +
+        `<Override PartName="/a/one.XML" ContentType="o/second"/>` +
+        `<Override PartName="/noext" ContentType="o/noext"/>` +
+        `</Types>`,
+    );
+    const resolve = contentTypeResolver(ct);
+    const names = ['/a/one.xml', '/b/two.Xml', '/c/three.BIN', '/noext', '/other', '/d.e/f', '/g.'];
+    for (const name of names.map(partName)) {
+      expect(lookupContentType(ct, name)).toBe(resolve(name));
+    }
+    expect(resolve(partName('/a/one.xml'))).toBe('o/first');
+    expect(resolve(partName('/b/two.Xml'))).toBe('d/xml-upper');
   });
 
   it('rejects non-Types root', () => {
