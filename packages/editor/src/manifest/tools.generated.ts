@@ -5046,7 +5046,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'removeSlide',
       description:
-        "Removes the given slide from the deck. Removes the `<p:sldId>`, the\n`presentation.xml.rels` entry, and the slide part + its `.rels` part.\nLinks to this slide from other slides are cleared to prevent accidental\nretargeting when a slide part name is reused.\n\nParts the slide referenced (media, charts and their workbooks, the notes\nslide, tags) are left in place because other slides may share them; call\n`compactPackage` afterwards to drop the ones nothing references any more. The freed `sldId` is NOT reused on subsequent\n`addSlide` calls (the reference desktop app's quirk, see plan §Risks).",
+        "Removes the given slide from the deck. Removes the `<p:sldId>`, the\n`presentation.xml.rels` entry, and the slide part + its `.rels` part.\nLinks to this slide from other slides are cleared to prevent accidental\nretargeting when a slide part name is reused.\n\nParts the slide referenced (media, charts and their workbooks, the notes\nslide, tags) are left in place because other slides may share them; call\n`compactPackage` afterwards to drop the ones nothing references any more.\nThe freed `sldId` is NOT reused on subsequent `addSlide` calls (the\nreference desktop app's quirk, see plan §Risks).",
       args: [null, 'slide'],
       input_schema: {
         type: 'object',

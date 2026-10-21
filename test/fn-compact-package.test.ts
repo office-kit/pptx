@@ -163,7 +163,7 @@ describe('fn API: compactPackage', () => {
       pkg.setRels(source, rels);
     };
 
-    // Internal targets of `source`'s rels, optionally only those of `types`.
+    // Internal targets of `source`'s rels other than its layout.
     const targetsOf = (pres: PresentationData, source: string): string[] =>
       (_internalPackageOf(pres).getRels(partName(source))?.items ?? [])
         .filter((r) => r.targetMode !== 'External' && r.type !== LAYOUT_REL)
@@ -305,6 +305,78 @@ describe('fn API: compactPackage', () => {
       expect(compactPackage(pres).removed).toEqual([stray]);
       expect(pkg.contentTypes.overrides.map((o) => o.partName)).not.toContain(stray);
       await expectPackageValid(pres);
+    });
+
+    it('keeps an override whose part was already missing', async () => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const pkg = _internalPackageOf(pres);
+      const dangling = partName('/ppt/tags/tag9.xml');
+      pkg.contentTypes.overrides.push({
+        partName: dangling,
+        contentType: 'application/vnd.openxmlformats-officedocument.presentationml.tags+xml',
+      });
+
+      expect(compactPackage(pres).removed).toEqual([]);
+      expect(pkg.contentTypes.overrides.map((o) => o.partName)).toContain(dangling);
+    });
+
+    it('reports media referenced only by an unreachable part as orphaned', async () => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const pkg = _internalPackageOf(pres);
+      const chart = partName('/ppt/charts/chart99.xml');
+      const picture = partName('/ppt/media/image99.png');
+      pkg.addPart(
+        chart,
+        'application/vnd.openxmlformats-officedocument.drawingml.chart+xml',
+        new TextEncoder().encode('<c:chartSpace/>'),
+      );
+      pkg.addPart(picture, 'image/png', tinyPng());
+      pkg.setRels(chart, {
+        items: [
+          {
+            id: 'rId1',
+            type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+            target: '../media/image99.png',
+            targetMode: 'Internal',
+          },
+        ],
+      });
+
+      expect(getOrphanMediaPartNames(pres)).toEqual([picture]);
+      expect(new Set(compactPackage(pres).removed)).toEqual(
+        new Set([chart, relsPartNameFor(chart), picture]),
+      );
+    });
+
+    describe('without /_rels/.rels', () => {
+      const withoutRootRels = async (): Promise<PresentationData> => {
+        const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+        _internalPackageOf(pres).removePart(partName('/_rels/.rels'));
+        return pres;
+      };
+
+      it('compactPackage throws and leaves the package unchanged', async () => {
+        const pres = await withoutRootRels();
+        const before = partNames(pres);
+        const overrides = [..._internalPackageOf(pres).contentTypes.overrides];
+        expect(() => compactPackage(pres)).toThrow('package has no /_rels/.rels');
+        expect(partNames(pres)).toEqual(before);
+        expect(_internalPackageOf(pres).contentTypes.overrides).toEqual(overrides);
+      });
+
+      it('getOrphanMediaPartNames reports every media part', async () => {
+        const pres = await withoutRootRels();
+        addSlideImage(getSlides(pres)[0]!, tinyPng(), {
+          x: inches(0),
+          y: inches(0),
+          w: inches(1),
+          h: inches(1),
+          format: 'png',
+        });
+        const media = getMediaParts(pres).map((p) => p.name);
+        expect(media.length).toBeGreaterThan(0);
+        expect(getOrphanMediaPartNames(pres)).toEqual(media);
+      });
     });
   });
 });

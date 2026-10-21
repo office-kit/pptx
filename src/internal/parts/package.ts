@@ -71,8 +71,8 @@ export class OpcPackage {
   /**
    * Ordered list of parts. The order is the order parts will be written to
    * the ZIP central directory on `save()`. Direct mutation is allowed for
-   * callers that need to reorder, but `addPart` / `removePart` are the
-   * supported entry points.
+   * callers that need to reorder, but `addPart` / `removePart` /
+   * `retainParts` are the supported entry points.
    */
   readonly parts: Part[];
   /** Mutable Content_Types map. Direct mutation is allowed. */
@@ -202,6 +202,28 @@ export class OpcPackage {
     if (removed) {
       this.contentTypes.overrides = this.contentTypes.overrides.filter(
         (o) => !partNamesEqual(o.partName, name),
+      );
+    }
+    return removed;
+  }
+
+  /**
+   * Keeps only the parts `keep` accepts and drops the `Override` entries of
+   * the removed ones, in one pass (`removePart` per part would be O(n²)).
+   * Returns the removed part names in package order.
+   */
+  retainParts(keep: (part: Part) => boolean): PartName[] {
+    const removed: PartName[] = [];
+    let kept = 0;
+    for (const part of this.parts) {
+      if (keep(part)) this.parts[kept++] = part;
+      else removed.push(part.name);
+    }
+    this.parts.length = kept;
+    if (removed.length > 0) {
+      const gone = new Set(removed.map((name) => name.toLowerCase()));
+      this.contentTypes.overrides = this.contentTypes.overrides.filter(
+        (o) => !gone.has(o.partName.toLowerCase()),
       );
     }
     return removed;

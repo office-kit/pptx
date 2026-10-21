@@ -355,8 +355,9 @@ const stripSlideReferences = (element: XmlElement, relIds: ReadonlySet<string>):
  *
  * Parts the slide referenced (media, charts and their workbooks, the notes
  * slide, tags) are left in place because other slides may share them; call
- * `compactPackage` afterwards to drop the ones nothing references any more. The freed `sldId` is NOT reused on subsequent
- * `addSlide` calls (the reference desktop app's quirk, see plan §Risks).
+ * `compactPackage` afterwards to drop the ones nothing references any more.
+ * The freed `sldId` is NOT reused on subsequent `addSlide` calls (the
+ * reference desktop app's quirk, see plan §Risks).
  */
 export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
   const pkg = pres[INTERNAL_PACKAGE];

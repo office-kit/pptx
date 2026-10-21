@@ -1,7 +1,14 @@
 // Package introspection escape hatches.
 import { getSlides, isSlideHidden } from './slide-query.ts';
 
-import { parseRels, partName, relsPartNameFor } from '../../internal/opc/index.ts';
+import {
+  PACKAGE_ROOT,
+  type PartName,
+  parseRels,
+  partName,
+  relsPartNameFor,
+  resolveTarget,
+} from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
 import { type ShapeKind } from '../../internal/presentationml/index.ts';
 import { NS } from '../../internal/xml/index.ts';
@@ -110,16 +117,16 @@ export const getMediaParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
 const ROOT_RELS = '/_rels/.rels';
 const RELS_PART = /^(.*)\/_rels\/([^/]+)\.rels$/;
 
-// Resolves without throwing: a malformed target in a loaded file only means
-// the part it names is not reached.
-const resolveRelTarget = (sourcePart: string, target: string): string => {
-  if (target.startsWith('/')) return target;
-  const segments = sourcePart.split('/').slice(0, -1);
-  for (const seg of target.split('/')) {
-    if (seg === '..') segments.pop();
-    else if (seg !== '.' && seg.length > 0) segments.push(seg);
+// A malformed target in a loaded file only means the part it names is not reached.
+const tryResolveTarget = (
+  source: PartName | typeof PACKAGE_ROOT,
+  target: string,
+): string | null => {
+  try {
+    return resolveTarget(source, target);
+  } catch {
+    return null;
   }
-  return `/${segments.filter((seg) => seg.length > 0).join('/')}`;
 };
 
 /** `/ppt/slides/_rels/slide1.xml.rels` → `/ppt/slides/slide1.xml`; `null` for other parts. */
@@ -147,23 +154,20 @@ const existingPartName = (byName: ReadonlyMap<string, unknown>, target: string):
  */
 const reachablePartNames = (pkg: OpcPackage): ReadonlySet<string> => {
   const byName = new Map(pkg.parts.map((p) => [p.name.toLowerCase(), p]));
-  if (!byName.has(ROOT_RELS)) {
-    // Without root rels nothing is reachable; compacting would empty the package.
-    throw new Error('package has no /_rels/.rels');
-  }
   const reachable = new Set<string>();
-  const queue: string[] = ['/'];
+  const queue: Array<PartName | typeof PACKAGE_ROOT> = [PACKAGE_ROOT];
   while (queue.length > 0) {
     const source = queue.pop()!;
-    const relsName = source === '/' ? ROOT_RELS : relsPartNameFor(partName(source)).toLowerCase();
+    const relsName = source === PACKAGE_ROOT ? ROOT_RELS : relsPartNameFor(source).toLowerCase();
     const relsPart = byName.get(relsName);
     if (!relsPart) continue;
     for (const rel of parseRels(TEXT_DECODER.decode(relsPart.data)).items) {
       if (rel.targetMode === 'External') continue;
-      const target = existingPartName(byName, resolveRelTarget(source, rel.target));
+      const resolved = tryResolveTarget(source, rel.target);
+      const target = resolved === null ? null : existingPartName(byName, resolved);
       if (target === null || reachable.has(target)) continue;
       reachable.add(target);
-      queue.push(target);
+      queue.push(partName(target));
     }
   }
   return reachable;
@@ -176,7 +180,8 @@ const reachablePartNames = (pkg: OpcPackage): ReadonlySet<string> => {
  * whether to delete.
  *
  * Useful for audit UIs that want to surface bloat before cleaning,
- * and for "is this asset still used?" checks.
+ * and for "is this asset still used?" checks. A package without
+ * `/_rels/.rels` reaches nothing, so every media part is reported.
  */
 export const getOrphanMediaPartNames = (pres: PresentationData): ReadonlyArray<string> => {
   const pkg = pres[INTERNAL_PACKAGE];
@@ -270,26 +275,14 @@ export const compactPackage = (
   pres: PresentationData,
 ): { readonly removed: ReadonlyArray<string> } => {
   const pkg = pres[INTERNAL_PACKAGE];
+  // Without root rels nothing is reachable; compacting would empty the package.
+  if (pkg.getPart(partName(ROOT_RELS)) === null) throw new Error('package has no /_rels/.rels');
   const reachable = reachablePartNames(pkg);
-  const keeps = (name: string): boolean => {
-    const lower = name.toLowerCase();
+  const removed = pkg.retainParts((part) => {
+    const lower = part.name.toLowerCase();
     if (lower === ROOT_RELS) return true;
-    const source = relsSourceOf(lower);
-    return reachable.has(source ?? lower);
-  };
-
-  const removed: string[] = [];
-  let kept = 0;
-  for (const part of pkg.parts) {
-    if (keeps(part.name)) pkg.parts[kept++] = part;
-    else removed.push(part.name);
-  }
-  pkg.parts.length = kept;
-
-  const remaining = new Set(pkg.parts.map((p) => p.name.toLowerCase()));
-  pkg.contentTypes.overrides = pkg.contentTypes.overrides.filter((o) =>
-    remaining.has(o.partName.toLowerCase()),
-  );
+    return reachable.has(relsSourceOf(lower) ?? lower);
+  });
   return { removed };
 };
 
