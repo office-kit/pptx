@@ -135,8 +135,9 @@ text, columns) and `normAutofit` shrinking. It returns one issue per finding:
 | `small-font`      | The shape draws text below `minFontSizePt`, after autofit shrinking                 | `sizePt`                       |
 
 `overflowPx` is measured against the text area (the box minus its insets);
-`shapeOverflowPx` is how far the ink leaves the shape itself (0 while the
-spill stays inside the insets, where nobody sees it); `lineHeightPx` is the
+`shapeOverflowPx` is how much ink lies outside the shape itself, both sides
+added (a centre-anchored body spills above and below; 0 while the spill stays
+inside the insets, where nobody sees it); `lineHeightPx` is the
 tallest line's height, about how far one misjudged wrap moves the text.
 
 Every issue also carries `slideIndex`, `shapeName`, and `approximate` —

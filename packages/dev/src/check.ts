@@ -31,20 +31,24 @@ export async function checkDeck(
 }
 
 // Only text leaving the shape fails: a spill into the insets is invisible. An
-// estimated width can misplace a wrap by one line, so beyond that the
-// vertical overflow is real too (Japanese text is always estimated).
+// estimated width can be off by about a line (a misplaced wrap, or a line's
+// worth of glyph error), so beyond that the overflow is real too (Japanese text
+// is always estimated).
 function isError(issue: TextAuditIssue): boolean {
   if (issue.kind !== 'overflow-x' && issue.kind !== 'overflow-y') return false;
-  if (!issue.approximate) return issue.shapeOverflowPx > OVERFLOW_TOLERANCE_PX;
-  return issue.kind === 'overflow-y' && issue.shapeOverflowPx > issue.lineHeightPx;
+  return issue.shapeOverflowPx > (issue.approximate ? issue.lineHeightPx : OVERFLOW_TOLERANCE_PX);
 }
 
 function describe(issue: TextAuditIssue, minFontSizePt: number): string {
   switch (issue.kind) {
     case 'overflow-x':
-      return `text runs ${issue.overflowPx}px past the sides of its box`;
+      return issue.shapeOverflowPx > 0
+        ? `text runs ${issue.shapeOverflowPx}px past the sides of its shape`
+        : `text spills ${issue.overflowPx}px into the side margins of its box`;
     case 'overflow-y':
-      return `text runs ${issue.overflowPx}px past the top or bottom of its box`;
+      return issue.shapeOverflowPx > 0
+        ? `text runs ${issue.shapeOverflowPx}px past the top or bottom of its shape`
+        : `text spills ${issue.overflowPx}px into the top or bottom margin of its box`;
     // Not requested by checkDeck; listed so the switch stays exhaustive.
     case 'soft-wrap':
       return `paragraph ${issue.paragraphIndex + 1} wraps onto ${issue.extraLines} more line(s)`;

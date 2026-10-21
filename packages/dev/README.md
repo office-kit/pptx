@@ -137,8 +137,9 @@ runs out of its shape, and warns about text that only spills into the box's inne
 margins, text smaller than 10pt (`--min-font-size` changes the floor), a word split
 across lines, and a wrapped paragraph that ends on a line of one or two characters.
 When a width had to be estimated (a font the preview does not bundle, such as any
-Japanese font), it fails only on text more than a line's height past the top or
-bottom of its shape and warns about smaller overflows. Table and chart text is not
+Japanese font), it fails only on text more than a line's height out of its shape
+(counting what spills above and below a centred box together) and warns about
+smaller overflows. Table and chart text is not
 measured. `build`
 writes `deck.pptx`. Compilation alone does not
 perform TypeScript checking, so run both before delivery. Exported charts, text,

@@ -15,6 +15,7 @@ import {
   groupShapes,
   loadPresentation,
   inches,
+  setShapeTextAnchor,
   setShapeTextAutoFit,
   setShapeTextFormat,
   setShapeTextWrap,
@@ -72,6 +73,27 @@ describe('auditTextLayout — overflow', () => {
     if (oy!.kind === 'overflow-y') {
       expect(oy!.shapeOverflowPx).toBeCloseTo(oy!.overflowPx - 4.8, 1);
       expect(oy!.lineHeightPx).toBeGreaterThan(20);
+    }
+  });
+
+  it('adds up the spill above and below a centre-anchored body', async () => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(0.5),
+      text: LONG_PARAGRAPH,
+      name: 'centred',
+    });
+    setShapeTextAnchor(box, 'center');
+    const oy = ofShape(auditTextLayout(pres, { measureText }), 'centred').find(
+      (i) => i.kind === 'overflow-y',
+    );
+    expect(oy?.kind).toBe('overflow-y');
+    // The ink leaves the shape on both sides, each 4.8px (the inset) past the text area.
+    if (oy?.kind === 'overflow-y') {
+      expect(oy.shapeOverflowPx).toBeGreaterThan(1.5 * (oy.overflowPx - 4.8));
     }
   });
 

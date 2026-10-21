@@ -54,7 +54,8 @@ export type TextAuditIssue =
       readonly kind: 'overflow-x' | 'overflow-y';
       /** How far the text ink escapes the text area (the box minus its insets), in px at 96 DPI. */
       readonly overflowPx: number;
-      /** How far the ink escapes the shape itself; 0 while it stays within the insets. */
+      /** How much ink lies outside the shape itself along that axis, both sides added
+       *  (a centred body spills half above, half below); 0 while it stays within the insets. */
       readonly shapeOverflowPx: number;
       /** The tallest line's height in px: about how far one misjudged wrap moves the text. */
       readonly lineHeightPx: number;
@@ -271,6 +272,10 @@ const auditShape = (
     Math.max(0, f.x - inkLeft, inkRight - (f.x + f.w));
   const overflowYOf = (f: typeof frame): number =>
     Math.max(0, f.y - inkTop, inkBottom - (f.y + f.h));
+  const shapeOverflowXOf = (f: typeof frame): number =>
+    Math.max(0, f.x - inkLeft) + Math.max(0, inkRight - (f.x + f.w));
+  const shapeOverflowYOf = (f: typeof frame): number =>
+    Math.max(0, f.y - inkTop) + Math.max(0, inkBottom - (f.y + f.h));
   const lineHeightPx = round2(lineHeight);
 
   const overflowX = overflowXOf(frame);
@@ -279,7 +284,7 @@ const auditShape = (
       ...slideRef,
       kind: 'overflow-x',
       overflowPx: round2(overflowX),
-      shapeOverflowPx: round2(overflowXOf(shapeFrame)),
+      shapeOverflowPx: round2(shapeOverflowXOf(shapeFrame)),
       lineHeightPx,
     });
   }
@@ -289,7 +294,7 @@ const auditShape = (
       ...slideRef,
       kind: 'overflow-y',
       overflowPx: round2(overflowY),
-      shapeOverflowPx: round2(overflowYOf(shapeFrame)),
+      shapeOverflowPx: round2(shapeOverflowYOf(shapeFrame)),
       lineHeightPx,
     });
   }
