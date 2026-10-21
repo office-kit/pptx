@@ -73,6 +73,27 @@ describe('fn API: pointDataLabels', () => {
     expectSchemaValid(xml, 'chart');
   });
 
+  skipIfNoXmllint('keeps the chart-level labels on the points without an override', async () => {
+    const valueOnly: ChartDataLabels = {
+      showValue: true,
+      showCategory: false,
+      showSeriesName: false,
+      showPercent: false,
+    };
+    const { spec, xml } = await roundTrip({
+      kind: 'column',
+      categories: ['A', 'B', 'C'],
+      dataLabels: valueOnly,
+      series: [
+        { name: 'Count', values: [1, 2, 3], pointDataLabels: [null, null, valueAndPercent] },
+      ],
+    });
+    expect(spec.series[0]!.dataLabels).toMatchObject(valueOnly);
+    const ser = xml.slice(xml.indexOf('<c:ser>'), xml.indexOf('</c:ser>'));
+    expect(ser.slice(ser.lastIndexOf('</c:dLbl>'))).toContain('<c:showVal val="1"/>');
+    expectSchemaValid(xml, 'chart');
+  });
+
   skipIfNoXmllint('styles literal point text with the point textStyle', async () => {
     const named: ChartDataLabels = {
       showValue: false,

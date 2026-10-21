@@ -59,8 +59,9 @@ for shared design values. The JSX runtime is
   saving. Review all affected consumers for shared changes. Do not run a separate
   export for every intermediate edit. Before delivery, run npm run check and
   npm run build to export deck.pptx, then review the whole deck. check also
-  measures slide text: fix every error (overflow, text under 10pt) and judge
-  each warning (a word split across lines, a last line of one or two characters).
+  measures slide text: fix every error (text overflowing its box) and judge
+  each warning (text under 10pt, a word split across lines, a last line of one
+  or two characters, an overflow measured with an estimated width).
 - Coordinates and dimensions are inches; font sizes and stroke widths are points.
   The default 16:9 canvas is 13.333 × 7.5 inches.
 - Use native Text, Shape, Image, Table and Chart elements. Use JS functions,

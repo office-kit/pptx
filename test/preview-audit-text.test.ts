@@ -209,22 +209,23 @@ describe('auditTextLayout — line breaks and font size', () => {
     return { pres, shape };
   };
   const lineIssues = (pres: Parameters<typeof auditTextLayout>[0]) =>
-    ofShape(auditTextLayout(pres, { measureText, reportLineBreaks: true }), 'box');
+    ofShape(auditTextLayout(pres, { measureText, reportBadWraps: true }), 'box');
 
-  it('reports a Latin word split because it is wider than the line', async () => {
-    const { pres } = await box('Internationalization', 1);
-    const issues = lineIssues(pres);
-    expect(issues.length).toBeGreaterThan(0);
-    expect(issues.every((i) => i.kind === 'word-break' || i.kind === 'short-last-line')).toBe(true);
-    const split = issues.find((i) => i.kind === 'word-break');
-    expect(split?.kind === 'word-break' && split.text.replace('|', '')).toBe(
-      'Internationalization',
-    );
+  it('reports a Latin word split across several lines once', async () => {
+    const { pres } = await box('Internationalization', 0.6);
+    const splits = lineIssues(pres).filter((i) => i.kind === 'word-break');
+    expect(splits).toHaveLength(1);
+    const text = splits[0]!.kind === 'word-break' ? splits[0]!.text : '';
+    expect(text.split('|').length).toBeGreaterThan(2);
+    expect(text.replaceAll('|', '')).toBe('Internationalization');
   });
 
   it('reports a katakana word split across lines', async () => {
     const { pres } = await box('今期はカスタマーサクセスの体制を見直します', 1.5);
-    expect(lineIssues(pres).some((i) => i.kind === 'word-break')).toBe(true);
+    const splits = lineIssues(pres).filter((i) => i.kind === 'word-break');
+    expect(splits).toHaveLength(1);
+    const text = splits[0]!.kind === 'word-break' ? splits[0]!.text : '';
+    expect(text).toBe('カス|タマーサク|セス');
   });
 
   it('does not report wraps at spaces or authored breaks', async () => {
@@ -255,6 +256,16 @@ describe('auditTextLayout — line breaks and font size', () => {
       { slideIndex: 0, shapeName: 'box', approximate: false, kind: 'small-font', sizePt: 9 },
     ]);
     expect(audit(9)).toEqual([]);
+  });
+
+  it('judges the size after autofit shrinking', async () => {
+    const { pres, shape } = await box(LONG_PARAGRAPH.repeat(12), 2);
+    setShapeTextFormat(shape, { size: 12 });
+    const audit = () => ofShape(auditTextLayout(pres, { measureText, minFontSizePt: 12 }), 'box');
+    expect(audit().filter((i) => i.kind === 'small-font')).toEqual([]);
+    setShapeTextAutoFit(shape, 'normal');
+    const [small] = audit().filter((i) => i.kind === 'small-font');
+    expect(small?.kind === 'small-font' && small.sizePt).toBeLessThan(12);
   });
 });
 

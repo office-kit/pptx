@@ -97,7 +97,7 @@ export interface AuditTextLayoutOptions {
   /** Also report wraps that split a word (`word-break`) and wrapped
    *  paragraphs that end on a line of one or two characters
    *  (`short-last-line`). Horizontal text only. */
-  readonly reportLineBreaks?: boolean;
+  readonly reportBadWraps?: boolean;
   /** Report shapes drawing text below this size in points (`small-font`). */
   readonly minFontSizePt?: number;
 }
@@ -140,7 +140,7 @@ const passthroughFamily = (family: string | null): string => family ?? SANS;
 interface ResolvedOptions {
   readonly tolerancePx: number;
   readonly reportSoftWraps: boolean;
-  readonly reportLineBreaks: boolean;
+  readonly reportBadWraps: boolean;
   readonly minFontSizePt: number | undefined;
 }
 
@@ -153,7 +153,7 @@ const auditShape = (
   options: ResolvedOptions,
   issues: TextAuditIssue[],
 ): void => {
-  const { tolerancePx, reportSoftWraps, reportLineBreaks, minFontSizePt } = options;
+  const { tolerancePx, reportSoftWraps, reportBadWraps, minFontSizePt } = options;
   const kind = getShapeKind(shape);
   if (kind !== 'shape' && kind !== 'graphicFrame') return;
   const bounds = getShapeBoundsResolved(pres, shape);
@@ -282,7 +282,7 @@ const auditShape = (
       }
     });
   }
-  if (reportLineBreaks && vert === 'none') {
+  if (reportBadWraps && vert === 'none') {
     auditLineBreaks(input.paragraphs, core.placements, slideRef, issues);
   }
   if (minFontSizePt !== undefined) {
@@ -331,6 +331,8 @@ const auditParagraphBreaks = (
   issues: TextAuditIssue[],
 ): void => {
   const found: TextAuditIssue[] = [];
+  // A word spanning several lines is one issue, with a `|` at each break.
+  const wordBreaks = new Map<number, { issue: number; breaks: number[]; end: number }>();
   let previousEnd = -1;
   let wrappedLines = 0;
   const closeSegment = (lastLine: string): void => {
@@ -353,9 +355,25 @@ const auditParagraphBreaks = (
         const before = /.$/u.exec(source.slice(0, start))?.[0] ?? '';
         const after = /^./u.exec(source.slice(start))?.[0] ?? '';
         if (gap === '' && splitsWord(before, after)) {
-          const head = WORD_RUN.exec(source.slice(0, start))![0];
-          const tail = WORD_RUN_START.exec(source.slice(start))![0];
-          found.push({ ...ref, kind: 'word-break', text: `${head}|${tail}` });
+          const wordStart = start - WORD_RUN.exec(source.slice(0, start))![0].length;
+          const word = wordBreaks.get(wordStart) ?? {
+            issue: found.length,
+            breaks: [],
+            end: start + WORD_RUN_START.exec(source.slice(start))![0].length,
+          };
+          word.breaks.push(start);
+          wordBreaks.set(wordStart, word);
+          let text = '';
+          let from = wordStart;
+          for (const at of word.breaks) {
+            text += `${source.slice(from, at)}|`;
+            from = at;
+          }
+          found[word.issue] = {
+            ...ref,
+            kind: 'word-break',
+            text: text + source.slice(from, word.end),
+          };
         }
       }
     }
@@ -412,7 +430,7 @@ export const auditTextLayout = (
   const resolved: ResolvedOptions = {
     tolerancePx: options.tolerancePx ?? DEFAULT_TOLERANCE_PX,
     reportSoftWraps: options.reportSoftWraps ?? false,
-    reportLineBreaks: options.reportLineBreaks ?? false,
+    reportBadWraps: options.reportBadWraps ?? false,
     minFontSizePt: options.minFontSizePt,
   };
   const theme = getPresentationTheme(pres);

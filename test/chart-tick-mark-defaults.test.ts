@@ -30,7 +30,7 @@ const chartXml = async (spec: ChartSpec): Promise<string> => {
   return new TextDecoder().decode(readPackagePart(saved, '/ppt/charts/chart1.xml')!);
 };
 
-const axis = (xml: string, tag: 'catAx' | 'valAx'): string =>
+const axis = (xml: string, tag: 'catAx' | 'valAx' | 'serAx'): string =>
   xml.slice(xml.indexOf(`<c:${tag}>`), xml.indexOf(`</c:${tag}>`));
 
 const ticks = (axisXml: string): readonly [string | undefined, string | undefined] => [
@@ -65,6 +65,29 @@ describe('chart builder: tick mark defaults', () => {
     const [x, y] = xml.split('</c:valAx>');
     expect(ticks(x!)).toEqual(['out', 'none']);
     expect(ticks(y!)).toEqual(['out', 'none']);
+  });
+
+  it('writes outward category ticks on a radar chart', async () => {
+    const xml = await chartXml({ kind: 'radar', categories: ['A', 'B', 'C'], series });
+    expect(ticks(axis(xml, 'catAx'))).toEqual(['out', 'none']);
+  });
+
+  it('decides the category ticks by the base kind of a combo chart', async () => {
+    const xml = await chartXml({
+      kind: 'line',
+      categories: ['A', 'B'],
+      series: [...series, { name: 'T', values: [3, 4], chartKind: 'column' }],
+    });
+    expect(ticks(axis(xml, 'catAx'))).toEqual(['out', 'none']);
+  });
+
+  it('writes outward ticks on the series axis of a surface chart', async () => {
+    const xml = await chartXml({
+      kind: 'surface',
+      categories: ['A', 'B'],
+      series: [...series, { name: 'T', values: [3, 4] }],
+    });
+    expect(ticks(axis(xml, 'serAx'))).toEqual(['out', 'none']);
   });
 
   it('keeps authored tick marks', async () => {

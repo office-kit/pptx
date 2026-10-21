@@ -149,10 +149,12 @@ Options:
 - `reportSoftWraps` — opt into `soft-wrap` issues. Off by default because
   wrapping is normal for body text; turn it on when auditing titles or labels
   meant to stay on one line.
-- `reportLineBreaks` — opt into `word-break` and `short-last-line` issues
+- `reportBadWraps` — opt into `word-break` and `short-last-line` issues
   (horizontal text only). A word inside a kanji compound cannot be told apart
   from its neighbours, so only the scripts listed above are checked.
-  A `word-break` issue's `text` is the split word with `|` where the line breaks.
+  A `word-break` issue is reported once per word; its `text` is the word with
+  `|` at each line break. `short-last-line` counts characters, not words, so a
+  Latin last line of `to` is reported and one of `the` is not.
 - `minFontSizePt` — report `small-font` for shapes with text below this size.
 
 Accuracy: the bundled fonts are metric-compatible with the common default fonts, so

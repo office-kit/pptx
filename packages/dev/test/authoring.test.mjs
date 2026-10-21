@@ -255,7 +255,7 @@ export default <Presentation><Slide>
     failed.stdout,
     /^error: Slide 1, "Crowded": text runs [\d.]+px past the top or bottom/m,
   );
-  assert.match(failed.stdout, /^error: Slide 1, "Note": text at 8pt is below 10pt$/m);
+  assert.match(failed.stdout, /^warning: Slide 1, "Note": text at 8pt is below 10pt$/m);
   assert.match(failed.stdout, /^warning: Slide 1, "Split": paragraph 1 breaks the word "Intern/m);
   const relaxed = await execute(process.execPath, [
     cli,
@@ -265,4 +265,15 @@ export default <Presentation><Slide>
     '8',
   ]).catch((error) => error);
   assert.doesNotMatch(relaxed.stdout, /"Note"/);
+  for (const size of ['0', 'ten']) {
+    const rejected = await execute(process.execPath, [
+      cli,
+      'check',
+      deck,
+      '--min-font-size',
+      size,
+    ]).catch((error) => error);
+    assert.equal(rejected.code, 1);
+    assert.match(rejected.stderr, /Minimum font size must be a positive number/);
+  }
 });

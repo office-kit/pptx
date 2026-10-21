@@ -4,12 +4,12 @@ import { exportDeck } from './index.ts';
 import { serveDeck } from './server.ts';
 import { initProject } from './init.ts';
 import { inspectTemplate } from './inspect.ts';
-import { checkDeck } from './check.ts';
+import { checkDeck, DEFAULT_MIN_FONT_SIZE_PT } from './check.ts';
 
 const usage = `Usage: office-pptx init <new-directory>
        office-pptx dev <deck.tsx> [--port 4173]
        office-pptx build <deck.tsx> [--out deck.pptx]
-       office-pptx check <deck.tsx> [--min-font-size 10]
+       office-pptx check <deck.tsx> [--min-font-size ${DEFAULT_MIN_FONT_SIZE_PT}]
        office-pptx inspect <template.pptx>`;
 const [command, entry, ...args] = process.argv.slice(2);
 try {

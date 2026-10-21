@@ -588,11 +588,12 @@ const seriesElement = (
   )) {
     children.push(dPt);
   }
-  // Without the series-level show* group, LibreOffice treats the missing
-  // toggles as on and paints every label kind on the points that have no
-  // override, so per-point labels alone get an all-hidden series group.
+  // A series <c:dLbls> replaces the chart-level group for its other points,
+  // and LibreOffice reads missing show* toggles as on, so per-point labels
+  // carry the chart-level toggles (or all-hidden ones) explicitly.
   const serDLbls = buildDLblsFromLabels(
-    series.dataLabels ?? (series.pointDataLabels !== undefined ? HIDDEN_DATA_LABELS : undefined),
+    series.dataLabels ??
+      (series.pointDataLabels !== undefined ? (spec.dataLabels ?? HIDDEN_DATA_LABELS) : undefined),
     series.pointDataLabels,
   );
   if (serDLbls !== null) children.push(serDLbls);
@@ -1069,6 +1070,8 @@ const serAxis = (spec: ChartSpec): XmlElement => {
   ];
   if (s.majorGridlines) children.push(elem(c('majorGridlines')));
   if (s.title !== undefined) children.push(titleElement(s.title, s.titleStyle));
+  // Absent means `cross`; see `catAxis`.
+  children.push(valNode(c('majorTickMark'), 'out'), valNode(c('minorTickMark'), 'none'));
   if (s.tickLabelPos !== undefined) children.push(valNode(c('tickLblPos'), s.tickLabelPos));
   const line = lineSpPr(s.lineColor, undefined, 'chart: seriesAxis');
   if (line !== null) children.push(line);

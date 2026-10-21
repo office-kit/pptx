@@ -7,7 +7,7 @@ import { buildDeck } from './index.ts';
 export const DEFAULT_MIN_FONT_SIZE_PT = 10;
 
 export interface CheckFinding {
-  /** Errors break the slide; warnings are line breaks worth a look. */
+  /** Errors are measured overflow; warnings need a look (estimated widths, line breaks, small type). */
   severity: 'error' | 'warning';
   message: string;
 }
@@ -20,11 +20,16 @@ export async function checkDeck(
   const { bytes } = await buildDeck(entry);
   const issues = auditTextLayout(await loadPresentation(bytes), {
     measureText: buildFontkitMeasurer(),
-    reportLineBreaks: true,
+    reportBadWraps: true,
     minFontSizePt,
   });
   return issues.map((issue) => ({
-    severity: issue.kind === 'word-break' || issue.kind === 'short-last-line' ? 'warning' : 'error',
+    // Template footers are often 8-9pt and estimated widths can be off, so only
+    // measured overflow fails the check.
+    severity:
+      (issue.kind === 'overflow-x' || issue.kind === 'overflow-y') && !issue.approximate
+        ? 'error'
+        : 'warning',
     message: `Slide ${issue.slideIndex + 1}, ${issue.shapeName ? `"${issue.shapeName}"` : 'unnamed shape'}: ${describe(issue, minFontSizePt)}${issue.approximate ? ' (estimated width)' : ''}`,
   }));
 }
@@ -35,6 +40,7 @@ function describe(issue: TextAuditIssue, minFontSizePt: number): string {
       return `text runs ${issue.overflowPx}px past the sides of its box`;
     case 'overflow-y':
       return `text runs ${issue.overflowPx}px past the top or bottom of its box`;
+    // Not requested by checkDeck; listed so the switch stays exhaustive.
     case 'soft-wrap':
       return `paragraph ${issue.paragraphIndex + 1} wraps onto ${issue.extraLines} more line(s)`;
     case 'word-break':
