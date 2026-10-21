@@ -15,7 +15,8 @@ node <skill-directory>/scripts/deck-text.mjs deck.pptx --mode talk      # or --m
 node <skill-directory>/scripts/deck-text.mjs deck.pptx --full           # every text and note
 ```
 
-The script prints the headline track, mode-specific checks and wording flags. It finds a
+The script prints the headline track, mode-specific checks, the `[要確認]` placeholders
+still on slides and wording flags. It finds a
 headline by the shape name `Headline`, so give each slide's headline `Text` the prop
 `name="Headline"`. Without it the script falls back to a title placeholder or the largest
 text and marks the guess with `?`.

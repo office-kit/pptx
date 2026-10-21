@@ -287,9 +287,26 @@ function flagsFor(line, onSlide) {
   return hits;
 }
 
+// Notes are not flagged: moving an open question there is one way to resolve it.
+const OPEN_QUESTION = /\[要確認/;
+
+function printOpenQuestions(all) {
+  console.log('\n# [要確認] left on slides (fill each or move it to the notes before delivery)');
+  let count = 0;
+  for (const slide of all) {
+    const lines = [slide.headlineRaw ?? '', ...slide.texts].flatMap((text) => text.split(/\n/));
+    for (const line of lines.filter((line) => OPEN_QUESTION.test(line))) {
+      count++;
+      console.log(`${label(slide)} ${oneLine(line).slice(0, 80)}`);
+    }
+  }
+  if (count === 0) console.log('none');
+}
+
 const slides = pptx.getSlides(presentation).map(readSlide);
 printHeadlines(slides);
 if (full) printFullText(slides);
 if (mode === 'talk') printTalkMetrics(slides);
 if (mode === 'document') printDocumentChecks(slides);
+printOpenQuestions(slides);
 printWordingFlags(slides);

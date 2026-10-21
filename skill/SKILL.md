@@ -145,6 +145,11 @@ skill's directory on `deck.pptx`, judge each flag, read the headline track, and 
 new deck or a substantial rewrite run one fresh-eye review by a separate agent. The SVG preview is a rendering
 aid, not a guarantee of fidelity in desktop presentation apps or animation/media playback.
 
+The script also lists every `[要確認: …]` still on a slide. Confirm each with the user
+and fill it, or move it to the slide notes when the slide reads correctly without it.
+Never deliver a deck that still shows one; list the ones that remain in the notes
+(slide and what is missing) in your report.
+
 Deliver the preview URL, the generated `deck.pptx` path and the editable project
 path. State any unverified rendering or unsupported requested feature. On the
 next revision, patch the same project and use the running preview. Rerun the

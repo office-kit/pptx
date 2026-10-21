@@ -29,8 +29,9 @@ export default (
       <Text name="Headline" x={1} y={0.5} width={10} height={1} size={32}>権限はどこで決まるの？</Text>
       <Text x={1} y={2} width={10} height={1} size={60}>1</Text>
       <Text x={1} y={3.5} width={10} height={1}>行レベルの権限が効く</Text>
+      <Text x={1} y={5} width={10} height={1}>{'導入は [要確認: 導入社数] 社'}</Text>
     </Slide>
-    <Slide notes="ここで RLS が効いてくる">
+    <Slide notes={'ここで RLS が効いてくる\\n[要確認: 移行日]'}>
       <Text name="Headline" x={1} y={0.5} width={10} height={1}>目次</Text>
       <Text x={1} y={4} width={10} height={1}>値は有効期間つきで積む</Text>
       <Text x={1} y={5} width={10} height={1}>DB 制約で守り切る</Text>
@@ -54,6 +55,9 @@ export default (
   assert.match(stdout, /^p02 notes \[効く\] ここで RLS が効いてくる$/m);
   assert.match(stdout, /^p02 \[intensifying 切る\] DB 制約で守り切る$/m);
   assert.doesNotMatch(stdout, /有効期間/);
+  const openQuestions = stdout.split('# [要確認] left on slides')[1].split('\n# ')[0];
+  assert.match(openQuestions, /^p01 導入は \[要確認: 導入社数\] 社$/m);
+  assert.doesNotMatch(openQuestions, /移行日/);
 
   await assert.rejects(
     execute(process.execPath, [script, 'deck.pptx', '--mode', 'slides'], { cwd: project }),
