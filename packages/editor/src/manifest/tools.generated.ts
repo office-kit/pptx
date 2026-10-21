@@ -4599,7 +4599,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'compactPackage',
       description:
-        'Removes media parts that no rels graph references. Returns the\nlist of removed part names. Useful after a sequence of slide\nremovals leaves orphan images behind.\n\nOnly `/ppt/media/...` parts are considered. The check walks every\n`.rels` part in the package and resolves each internal rel target\nagainst its source part name to build the live media set.',
+        "Removes every part that cannot be reached from the package root\n(`/_rels/.rels`) through internal relationships, together with its\n`.rels` part and its `[Content_Types].xml` override. Returns the\nremoved part names.\n\n`removeSlide` removes only the slide and its `.rels`, so the slide's\ncharts, embedded workbooks, notes slide, tags and media stay in the\npackage until this runs. Parts still in use — including layouts no\nslide uses, which their master references — are kept.",
       args: [null],
       input_schema: { type: 'object', properties: {}, additionalProperties: false },
       output: {
@@ -5046,7 +5046,7 @@ export const generatedTools: GeneratedTools = {
     {
       name: 'removeSlide',
       description:
-        "Removes the given slide from the deck. Removes the `<p:sldId>`, the\n`presentation.xml.rels` entry, and the slide part + its `.rels` part.\nLinks to this slide from other slides are cleared to prevent accidental\nretargeting when a slide part name is reused.\n\nMedia parts are intentionally NOT cleaned up — they may be shared\nwith other slides. The freed `sldId` is NOT reused on subsequent\n`addSlide` calls (the reference desktop app's quirk, see plan §Risks).",
+        "Removes the given slide from the deck. Removes the `<p:sldId>`, the\n`presentation.xml.rels` entry, and the slide part + its `.rels` part.\nLinks to this slide from other slides are cleared to prevent accidental\nretargeting when a slide part name is reused.\n\nParts the slide referenced (media, charts and their workbooks, the notes\nslide, tags) are left in place because other slides may share them; call\n`compactPackage` afterwards to drop the ones nothing references any more. The freed `sldId` is NOT reused on subsequent\n`addSlide` calls (the reference desktop app's quirk, see plan §Risks).",
       args: [null, 'slide'],
       input_schema: {
         type: 'object',
