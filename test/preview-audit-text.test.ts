@@ -16,6 +16,7 @@ import {
   loadPresentation,
   inches,
   setShapeTextAutoFit,
+  setShapeTextFormat,
   setShapeTextWrap,
 } from '../src/api/index.ts';
 import { auditTextLayout, type TextAuditIssue } from '../packages/preview/src/index.ts';
@@ -191,6 +192,69 @@ describe('auditTextLayout — soft wraps (段落ち)', () => {
     expect(
       ofShape(auditTextLayout(pres, { measureText, reportSoftWraps: true }), 'authored-breaks'),
     ).toEqual([]);
+  });
+});
+
+describe('auditTextLayout — line breaks and font size', () => {
+  const box = async (text: string, widthIn: number) => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(widthIn),
+      h: inches(5),
+      text,
+      name: 'box',
+    });
+    return { pres, shape };
+  };
+  const lineIssues = (pres: Parameters<typeof auditTextLayout>[0]) =>
+    ofShape(auditTextLayout(pres, { measureText, reportLineBreaks: true }), 'box');
+
+  it('reports a Latin word split because it is wider than the line', async () => {
+    const { pres } = await box('Internationalization', 1);
+    const issues = lineIssues(pres);
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues.every((i) => i.kind === 'word-break' || i.kind === 'short-last-line')).toBe(true);
+    const split = issues.find((i) => i.kind === 'word-break');
+    expect(split?.kind === 'word-break' && split.text.replace('|', '')).toBe(
+      'Internationalization',
+    );
+  });
+
+  it('reports a katakana word split across lines', async () => {
+    const { pres } = await box('今期はカスタマーサクセスの体制を見直します', 1.5);
+    expect(lineIssues(pres).some((i) => i.kind === 'word-break')).toBe(true);
+  });
+
+  it('does not report wraps at spaces or authored breaks', async () => {
+    const { pres } = await box(LONG_PARAGRAPH, 2);
+    expect(lineIssues(pres)).toEqual([]);
+    const authored = await box('first line\nsecond line', 4);
+    expect(lineIssues(authored.pres)).toEqual([]);
+  });
+
+  it('reports a wrapped paragraph that ends on one or two characters', async () => {
+    const { pres } = await box('ああああああああああああああああす。', 4.25);
+    const issues = lineIssues(pres).filter((i) => i.kind === 'short-last-line');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.kind === 'short-last-line' && issues[0]!.text).toBe('す。');
+  });
+
+  it('is off unless opted in', async () => {
+    const { pres } = await box('Internationalization', 1);
+    expect(ofShape(auditTextLayout(pres, { measureText }), 'box')).toEqual([]);
+  });
+
+  it('reports text below the minimum size', async () => {
+    const { pres, shape } = await box('Footnote', 4);
+    setShapeTextFormat(shape, { size: 9 });
+    const audit = (minFontSizePt: number) =>
+      ofShape(auditTextLayout(pres, { measureText, minFontSizePt }), 'box');
+    expect(audit(10)).toEqual([
+      { slideIndex: 0, shapeName: 'box', approximate: false, kind: 'small-font', sizePt: 9 },
+    ]);
+    expect(audit(9)).toEqual([]);
   });
 });
 

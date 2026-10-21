@@ -61,6 +61,25 @@ export type TextAuditIssue =
       /** Lines beyond the paragraph's authored line count (1 + explicit
        *  breaks) — i.e. how many times the text wrapped on its own. */
       readonly extraLines: number;
+    })
+  | (IssueBase & {
+      /** A wrap split a word: Latin / Greek / Cyrillic letters or digits, or a katakana run. */
+      readonly kind: 'word-break';
+      readonly paragraphIndex: number;
+      /** The split word, with `|` where the line breaks. */
+      readonly text: string;
+    })
+  | (IssueBase & {
+      /** A wrapped paragraph whose last line holds only a character or two (泣き別れ). */
+      readonly kind: 'short-last-line';
+      readonly paragraphIndex: number;
+      /** The text of that last line. */
+      readonly text: string;
+    })
+  | (IssueBase & {
+      readonly kind: 'small-font';
+      /** The smallest font size drawn in the shape, after autofit shrinking. */
+      readonly sizePt: number;
     });
 
 export interface AuditTextLayoutOptions {
@@ -75,9 +94,28 @@ export interface AuditTextLayoutOptions {
    *  breaks author (段落ち). Off by default: wrapping is normal for body
    *  text, so this is opt-in for single-line-intent content like titles. */
   readonly reportSoftWraps?: boolean;
+  /** Also report wraps that split a word (`word-break`) and wrapped
+   *  paragraphs that end on a line of one or two characters
+   *  (`short-last-line`). Horizontal text only. */
+  readonly reportLineBreaks?: boolean;
+  /** Report shapes drawing text below this size in points (`small-font`). */
+  readonly minFontSizePt?: number;
 }
 
 const DEFAULT_TOLERANCE_PX = 1;
+const PT_PER_PX = 72 / 96;
+const SHORT_LAST_LINE_MAX_CHARS = 2;
+const WORD_CHAR = /[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Nd}]/u;
+// U+30FC (the prolonged sound mark) is Script=Common but belongs to the katakana word.
+const KATAKANA_CHAR = /[\p{Script=Katakana}\u30FC]/u;
+const WORD_RUN =
+  /[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Nd}\p{Script=Katakana}\u30FC]*$/u;
+const WORD_RUN_START =
+  /^[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}\p{Nd}\p{Script=Katakana}\u30FC]*/u;
+
+const splitsWord = (before: string, after: string): boolean =>
+  (WORD_CHAR.test(before) && WORD_CHAR.test(after)) ||
+  (KATAKANA_CHAR.test(before) && KATAKANA_CHAR.test(after));
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -99,16 +137,23 @@ function* walkShapes(shapes: ReadonlyArray<SlideShapeData>): Generator<SlideShap
 // then falls back to the same substitution map.
 const passthroughFamily = (family: string | null): string => family ?? SANS;
 
+interface ResolvedOptions {
+  readonly tolerancePx: number;
+  readonly reportSoftWraps: boolean;
+  readonly reportLineBreaks: boolean;
+  readonly minFontSizePt: number | undefined;
+}
+
 const auditShape = (
   pres: PresentationData,
   theme: PresentationTheme | null,
   shape: SlideShapeData,
   slideIndex: number,
   measure: TextMeasurer,
-  tolerancePx: number,
-  reportSoftWraps: boolean,
+  options: ResolvedOptions,
   issues: TextAuditIssue[],
 ): void => {
+  const { tolerancePx, reportSoftWraps, reportLineBreaks, minFontSizePt } = options;
   const kind = getShapeKind(shape);
   if (kind !== 'shape' && kind !== 'graphicFrame') return;
   const bounds = getShapeBoundsResolved(pres, shape);
@@ -237,6 +282,87 @@ const auditShape = (
       }
     });
   }
+  if (reportLineBreaks && vert === 'none') {
+    auditLineBreaks(input.paragraphs, core.placements, slideRef, issues);
+  }
+  if (minFontSizePt !== undefined) {
+    let smallestPx = Infinity;
+    for (const para of input.paragraphs) {
+      for (const piece of para.pieces) {
+        if (!piece.isBreak && piece.text.trim() !== '' && piece.sizePx < smallestPx) {
+          smallestPx = piece.sizePx;
+        }
+      }
+    }
+    const sizePt = Math.round(smallestPx * PT_PER_PX * 10) / 10;
+    if (sizePt < minFontSizePt) issues.push({ ...slideRef, kind: 'small-font', sizePt });
+  }
+};
+
+// Lines carry no record of the explicit break that ended them, so each line is
+// located in its paragraph's text (a break piece written as `\n`): what lies
+// between two lines tells a hard break, a wrap at a space, and a wrap inside a word.
+const auditLineBreaks = (
+  paragraphs: ReturnType<typeof buildSvgTextInput>['paragraphs'],
+  placements: ReturnType<typeof layoutCore>['placements'],
+  slideRef: IssueBase,
+  issues: TextAuditIssue[],
+): void => {
+  const linesByParagraph = new Map<number, string[]>();
+  for (const { line } of placements) {
+    const text = line.tokens.map((t) => (t.isTab ? '\t' : t.text)).join('');
+    if (text.trim() === '') continue;
+    const lines = linesByParagraph.get(line.paraIndex);
+    if (lines) lines.push(text);
+    else linesByParagraph.set(line.paraIndex, [text]);
+  }
+  for (const [paragraphIndex, lines] of linesByParagraph) {
+    const source = paragraphs[paragraphIndex]!.pieces.map((p) => (p.isBreak ? '\n' : p.text)).join(
+      '',
+    );
+    auditParagraphBreaks(source, lines, { ...slideRef, paragraphIndex }, issues);
+  }
+};
+
+const auditParagraphBreaks = (
+  source: string,
+  lines: readonly string[],
+  ref: IssueBase & { readonly paragraphIndex: number },
+  issues: TextAuditIssue[],
+): void => {
+  const found: TextAuditIssue[] = [];
+  let previousEnd = -1;
+  let wrappedLines = 0;
+  const closeSegment = (lastLine: string): void => {
+    const visible = [...lastLine.replace(/\s/gu, '')];
+    if (wrappedLines > 0 && visible.length <= SHORT_LAST_LINE_MAX_CHARS) {
+      found.push({ ...ref, kind: 'short-last-line', text: lastLine.trim() });
+    }
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const start = source.indexOf(lines[i]!, Math.max(previousEnd, 0));
+    // A line the layout rewrote (e.g. caps) cannot be placed; judge nothing.
+    if (start < 0) return;
+    if (previousEnd >= 0) {
+      const gap = source.slice(previousEnd, start);
+      if (gap.includes('\n')) {
+        closeSegment(lines[i - 1]!);
+        wrappedLines = 0;
+      } else {
+        wrappedLines++;
+        const before = /.$/u.exec(source.slice(0, start))?.[0] ?? '';
+        const after = /^./u.exec(source.slice(start))?.[0] ?? '';
+        if (gap === '' && splitsWord(before, after)) {
+          const head = WORD_RUN.exec(source.slice(0, start))![0];
+          const tail = WORD_RUN_START.exec(source.slice(start))![0];
+          found.push({ ...ref, kind: 'word-break', text: `${head}|${tail}` });
+        }
+      }
+    }
+    previousEnd = start + lines[i]!.length;
+  }
+  closeSegment(lines[lines.length - 1]!);
+  issues.push(...found);
 };
 
 // A shape's verdict is approximate when any of its runs was measured by
@@ -271,7 +397,9 @@ const detectApproximate = (
 /**
  * Measures every text body in the deck and reports text that escapes its box
  * (`overflow-x` / `overflow-y`) and, opt-in, paragraphs that soft-wrap
- * (`soft-wrap`, 段落ち).
+ * (`soft-wrap`, 段落ち), wraps that split a word or strand a line of one or
+ * two characters (`word-break`, `short-last-line`), and text below a minimum
+ * size (`small-font`).
  *
  * Table cell text is not audited (v1 covers shape text bodies, including
  * placeholders and shapes inside groups).
@@ -281,14 +409,18 @@ export const auditTextLayout = (
   options: AuditTextLayoutOptions = {},
 ): ReadonlyArray<TextAuditIssue> => {
   const measure = options.measureText ?? defaultMeasurer;
-  const tolerancePx = options.tolerancePx ?? DEFAULT_TOLERANCE_PX;
-  const reportSoftWraps = options.reportSoftWraps ?? false;
+  const resolved: ResolvedOptions = {
+    tolerancePx: options.tolerancePx ?? DEFAULT_TOLERANCE_PX,
+    reportSoftWraps: options.reportSoftWraps ?? false,
+    reportLineBreaks: options.reportLineBreaks ?? false,
+    minFontSizePt: options.minFontSizePt,
+  };
   const theme = getPresentationTheme(pres);
   const issues: TextAuditIssue[] = [];
   const slides = getSlides(pres);
   for (let slideIndex = 0; slideIndex < slides.length; slideIndex++) {
     for (const shape of walkShapes(getSlideShapes(slides[slideIndex]!))) {
-      auditShape(pres, theme, shape, slideIndex, measure, tolerancePx, reportSoftWraps, issues);
+      auditShape(pres, theme, shape, slideIndex, measure, resolved, issues);
     }
   }
   return issues;
