@@ -590,13 +590,11 @@ const seriesElement = (
   }
   // Without the series-level show* group, LibreOffice treats the missing
   // toggles as on and paints every label kind on the points that have no
-  // override — so per-point labels require the series defaults.
-  if (series.pointDataLabels !== undefined && series.dataLabels === undefined) {
-    throw new Error(
-      `chart: series '${series.name}' sets pointDataLabels without dataLabels; add the series-level dataLabels the overrides fall back to`,
-    );
-  }
-  const serDLbls = buildDLblsFromLabels(series.dataLabels, series.pointDataLabels);
+  // override, so per-point labels alone get an all-hidden series group.
+  const serDLbls = buildDLblsFromLabels(
+    series.dataLabels ?? (series.pointDataLabels !== undefined ? HIDDEN_DATA_LABELS : undefined),
+    series.pointDataLabels,
+  );
   if (serDLbls !== null) children.push(serDLbls);
   // <c:trendline> exists on CT_BarSer/LineSer/AreaSer/ScatterSer/BubbleSer but
   // NOT on CT_PieSer (pie/doughnut) or CT_RadarSer — emitting it there is
@@ -1081,6 +1079,13 @@ const serAxis = (spec: ChartSpec): XmlElement => {
   return elem(c('serAx'), { children });
 };
 
+const HIDDEN_DATA_LABELS: ChartDataLabels = {
+  showValue: false,
+  showCategory: false,
+  showSeriesName: false,
+  showPercent: false,
+};
+
 // Build `<c:dLbls>` from a ChartDataLabels (showVal / showCatName /
 // showSerName / showPercent toggles plus optional numFmt, position,
 // separator). Returns `null` when no dataLabels were authored so
@@ -1099,7 +1104,9 @@ const buildDLblsFromLabels = (
         children: [
           valNode(c('idx'), i),
           // CT_DLbl only: a literal <c:tx> sits between idx and the shared group.
-          ...(pl.text !== undefined ? [elem(c('tx'), { children: [richText(pl.text)] })] : []),
+          ...(pl.text !== undefined
+            ? [elem(c('tx'), { children: [richText(pl.text, pl.textStyle)] })]
+            : []),
           ...dLblGroupChildren(pl),
         ],
       }),
@@ -1639,17 +1646,23 @@ const manualLayoutElement = (
     ],
   });
 
-// A one-run `<c:rich>` body with no formatting of its own.
-const richText = (value: string): XmlElement =>
-  elem(c('rich'), {
+// A one-run `<c:rich>` body. Literal label text ignores the label's
+// `<c:txPr>`, so the style goes on the paragraph defaults and the run.
+const richText = (value: string, style: ChartTextStyle | undefined): XmlElement => {
+  const run = elem(a('r'), {
     children: [
-      elem(a('bodyPr')),
-      elem(a('lstStyle')),
-      elem(a('p'), {
-        children: [elem(a('r'), { children: [elem(a('t'), { children: [text(value)] })] })],
-      }),
+      ...(style !== undefined ? [elem(a('rPr'), rPrAttrsFromStyle(style))] : []),
+      elem(a('t'), { children: [text(value)] }),
     ],
   });
+  const pPr =
+    style !== undefined
+      ? [elem(a('pPr'), { children: [elem(a('defRPr'), rPrAttrsFromStyle(style))] })]
+      : [];
+  return elem(c('rich'), {
+    children: [elem(a('bodyPr')), elem(a('lstStyle')), elem(a('p'), { children: [...pPr, run] })],
+  });
+};
 
 const titleElement = (
   title: string,

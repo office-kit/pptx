@@ -170,7 +170,8 @@ export interface ChartSeries {
   /**
    * Optional per-data-point data-label overrides
    * (`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back
-   * to the series-level `dataLabels`. The reference desktop app draws the per-point element
+   * to the series-level `dataLabels`, or show no label when the series sets
+   * none. The reference desktop app draws the per-point element
    * over the series defaults, which is how pie / doughnut exporters give each
    * slice its own label content and font.
    */

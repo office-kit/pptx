@@ -55,16 +55,44 @@ const valueAndPercent: ChartDataLabels = {
 };
 
 describe('fn API: pointDataLabels', () => {
-  it('rejects per-point overrides without the series-level labels they fall back to', async () => {
-    await expect(
-      roundTrip({
-        kind: 'doughnut',
-        categories: ['A', 'B', 'C'],
-        series: [
-          { name: 'Share', values: [50, 30, 20], pointDataLabels: [valueAndPercent, null, null] },
-        ],
-      }),
-    ).rejects.toThrow(/pointDataLabels without dataLabels/);
+  skipIfNoXmllint('hides the other points when only per-point overrides are set', async () => {
+    const { spec, xml } = await roundTrip({
+      kind: 'doughnut',
+      categories: ['A', 'B', 'C'],
+      series: [
+        { name: 'Share', values: [50, 30, 20], pointDataLabels: [valueAndPercent, null, null] },
+      ],
+    });
+    expect(spec.series[0]!.pointDataLabels).toEqual([valueAndPercent]);
+    expect(spec.series[0]!.dataLabels).toEqual({
+      showValue: false,
+      showCategory: false,
+      showSeriesName: false,
+      showPercent: false,
+    });
+    expectSchemaValid(xml, 'chart');
+  });
+
+  skipIfNoXmllint('styles literal point text with the point textStyle', async () => {
+    const named: ChartDataLabels = {
+      showValue: false,
+      showCategory: false,
+      showSeriesName: false,
+      showPercent: false,
+      text: 'Peak',
+      textStyle: { color: '#C00000', bold: true, sizePt: 14 },
+    };
+    const { spec, xml } = await roundTrip({
+      kind: 'column',
+      categories: ['A', 'B'],
+      series: [{ name: 'Count', values: [1, 2], pointDataLabels: [null, named] }],
+    });
+    expect(spec.series[0]!.pointDataLabels).toEqual([null, named]);
+    const rich = xml.slice(xml.indexOf('<c:rich>'), xml.indexOf('</c:rich>'));
+    const styled = '<a:solidFill><a:srgbClr val="C00000"/></a:solidFill>';
+    expect(rich).toContain(`<a:defRPr sz="1400" b="1">${styled}</a:defRPr>`);
+    expect(rich).toContain(`<a:r><a:rPr sz="1400" b="1">${styled}</a:rPr><a:t>Peak</a:t></a:r>`);
+    expectSchemaValid(xml, 'chart');
   });
 
   skipIfNoXmllint('round-trips sparse per-point overrides on a doughnut', async () => {

@@ -3053,7 +3053,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/ChartDataLabels' }] },
             description:
-              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
+              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`, or show no label when the series sets\nnone. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
           },
           PointExplosions: {
             type: 'array',
@@ -8305,7 +8305,7 @@ export const generatedTools: GeneratedTools = {
             type: 'array',
             items: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/ChartDataLabels' }] },
             description:
-              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
+              'Optional per-data-point data-label overrides\n(`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back\nto the series-level `dataLabels`, or show no label when the series sets\nnone. The reference desktop app draws the per-point element\nover the series defaults, which is how pie / doughnut exporters give each\nslice its own label content and font.',
           },
           PointExplosions: {
             type: 'array',
