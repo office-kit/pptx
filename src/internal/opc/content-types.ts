@@ -15,7 +15,7 @@
 // and `rels`, plus overrides for most parts.
 
 import { NS, type XmlDocument, elem, parseXml, qname, serializeXml } from '../xml/index.ts';
-import { type PartName, basename, partName } from './part-name.ts';
+import { type PartName, basename, partName, partNamesEqual } from './part-name.ts';
 
 export interface ContentTypeDefault {
   /** Lowercase, no leading dot, e.g. `xml`. */
@@ -146,9 +146,23 @@ export const contentTypeResolver = (ct: ContentTypes): ((name: PartName) => stri
   };
 };
 
-/** Resolves the content type of one part name; see `contentTypeResolver`. */
-export const lookupContentType = (ct: ContentTypes, name: PartName): string | null =>
-  contentTypeResolver(ct)(name);
+/**
+ * Resolves the content type of one part name by the rules of
+ * `contentTypeResolver`, scanning without building maps.
+ */
+export const lookupContentType = (ct: ContentTypes, name: PartName): string | null => {
+  for (const o of ct.overrides) {
+    if (partNamesEqual(o.partName, name)) return o.contentType;
+  }
+  const file = basename(name);
+  const dot = file.lastIndexOf('.');
+  if (dot < 0) return null;
+  const ext = file.slice(dot + 1).toLowerCase();
+  for (const d of ct.defaults) {
+    if (d.extension.toLowerCase() === ext) return d.contentType;
+  }
+  return null;
+};
 
 /**
  * Convenience: a fresh ContentTypes seeded with the two defaults every PPTX

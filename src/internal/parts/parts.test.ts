@@ -95,10 +95,11 @@ describe('OpcPackage.load', () => {
     };
     const small = build(3_000);
     const large = build(30_000);
-    time(small);
+    // Best of three keeps one slow run on a busy machine from skewing the ratio.
+    const best = (bytes: Uint8Array): number => Math.min(time(bytes), time(bytes), time(bytes));
     // Ten times the parts must not cost anywhere near the hundredfold a
     // per-part scan of every Override would.
-    expect(time(large)).toBeLessThan(Math.max(time(small), 5) * 30);
+    expect(best(large)).toBeLessThan(Math.max(best(small), 5) * 30);
   });
 
   it('throws when [Content_Types].xml is missing', () => {

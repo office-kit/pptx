@@ -10,8 +10,8 @@
 // directory declares, so a few-KB entry declaring 10 bytes can still burn
 // seconds of synchronous CPU. Here each entry is fed in small chunks and
 // rejected as soon as its output exceeds the declared size, which caps the
-// work at the sum of declared sizes — the number callers can check up front
-// from the central directory alone.
+// work at the sum of declared sizes plus about one chunk of overrun — the
+// sizes callers can check up front from the central directory alone.
 //
 // What we preserve on round-trip:
 //
@@ -102,9 +102,9 @@ const ZIP64_SENTINEL_32 = 0xffffffff;
 const FLAG_UTF8 = 0x0800;
 const METHOD_STORE = 0;
 const METHOD_DEFLATE = 8;
-// A 64KB DEFLATE chunk inflates to at most ~66MB, which bounds the work done
-// past an entry's declared size before the overflow is noticed.
-const INFLATE_CHUNK_SIZE = 64 * 1024;
+// A 16KB DEFLATE chunk inflates to at most ~17MB (~30ms), which bounds the
+// work done past an entry's declared size before the overflow is noticed.
+const INFLATE_CHUNK_SIZE = 16 * 1024;
 
 const invalid = (reason: string): Error => new Error(`invalid ZIP: ${reason}`);
 
@@ -139,12 +139,12 @@ const readCentralDirectoryLocation = (d: Uint8Array): CentralDirectory => {
   const locator = eocd - ZIP64_LOCATOR_SIZE;
   // A ZIP64 locator overrides the 32-bit count and offset even when they are
   // not sentinels, so honour it; the per-entry size checks below hold either way.
+  // One that does not lead to a ZIP64 EOCD is ignored, as fflate did.
   if (locator >= 0 && u32(d, locator) === SIG_ZIP64_LOCATOR) {
-    const zip64Eocd = u64(d, locator + 8);
-    requireRange(d, zip64Eocd, ZIP64_EOCD_MIN_SIZE, 'ZIP64 end of central directory');
-    if (u32(d, zip64Eocd) !== SIG_ZIP64_EOCD)
-      throw invalid('ZIP64 locator target is not a ZIP64 end of central directory');
-    return { count: u64(d, zip64Eocd + 32), offset: u64(d, zip64Eocd + 48) };
+    const zip64Eocd = u32(d, locator + 8) + u32(d, locator + 12) * 2 ** 32;
+    if (zip64Eocd + ZIP64_EOCD_MIN_SIZE <= d.length && u32(d, zip64Eocd) === SIG_ZIP64_EOCD) {
+      return { count: u64(d, zip64Eocd + 32), offset: u64(d, zip64Eocd + 48) };
+    }
   }
   return { count: u16(d, eocd + 10), offset: u32(d, eocd + 16) };
 };
@@ -187,32 +187,34 @@ const resolveZip64Sizes = (
   throw invalid('ZIP64 sizes without a ZIP64 extra field');
 };
 
+// Fills a buffer of the declared size, as `unzipSync` did, so a large entry is
+// held once; the caller can bound declared sizes from the central directory.
 const inflateEntry = (compressed: Uint8Array, declaredSize: number, name: string): Uint8Array => {
-  const chunks: Uint8Array[] = [];
+  const out = new Uint8Array(declaredSize);
+  let overflowed = false;
   let produced = 0;
   const inflater = new Inflate((chunk) => {
-    produced += chunk.length;
-    if (produced > declaredSize) {
+    if (produced + chunk.length > declaredSize) {
+      overflowed = true;
       throw invalid(`entry "${name}" inflates beyond its declared size of ${declaredSize} bytes`);
     }
-    if (chunk.length > 0) chunks.push(chunk);
+    out.set(chunk, produced);
+    produced += chunk.length;
   });
-  if (compressed.length === 0) inflater.push(compressed, true);
   for (let at = 0; at < compressed.length; at += INFLATE_CHUNK_SIZE) {
     const end = Math.min(at + INFLATE_CHUNK_SIZE, compressed.length);
-    inflater.push(compressed.subarray(at, end), end === compressed.length);
+    try {
+      inflater.push(compressed.subarray(at, end), end === compressed.length);
+    } catch (error) {
+      if (overflowed) throw error;
+      const reason = error instanceof Error ? error.message : String(error);
+      throw invalid(`entry "${name}" is not valid DEFLATE data: ${reason}`);
+    }
   }
   if (produced !== declaredSize) {
     throw invalid(
       `entry "${name}" inflates to ${produced} bytes, not its declared ${declaredSize}`,
     );
-  }
-  if (chunks.length === 1) return chunks[0]!;
-  const out = new Uint8Array(produced);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.length;
   }
   return out;
 };

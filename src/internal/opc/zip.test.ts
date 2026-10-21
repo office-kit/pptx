@@ -216,6 +216,13 @@ describe('readZip on hostile input', () => {
     expect(() => readZip(zip)).toThrow(/inflates to 4 bytes, not its declared 100/);
   });
 
+  it('reports corrupt DEFLATE data as an invalid ZIP naming the entry', () => {
+    const zip = buildZip([
+      { name: 'bad.xml', method: 8, stored: new Uint8Array([0xff, 0xff, 0xff]), declaredSize: 4 },
+    ]);
+    expect(() => readZip(zip)).toThrow(/^invalid ZIP: entry "bad.xml" is not valid DEFLATE data: /);
+  });
+
   it('rejects a stored entry whose sizes disagree', () => {
     const zip = buildZip([
       { name: 'a.bin', method: 0, stored: new Uint8Array(8), declaredSize: 4 },
@@ -258,6 +265,19 @@ describe('readZip on hostile input', () => {
       eocd(1, harmlessCd.length, harmlessCdOffset),
     ]);
     expect(() => readZip(withLocator)).toThrow(/"bomb.xml" inflates beyond its declared size/);
+  });
+
+  it('ignores a ZIP64 locator signature that does not lead to a ZIP64 directory', () => {
+    const entry = deflated('a.xml', utf8('<a/>'));
+    const locals = writeLocals([entry]);
+    const cd = centralRecord(entry, locals.offsets[0]!);
+    const zip = concat([
+      locals.bytes,
+      cd,
+      zip64Locator(0),
+      eocd(1, cd.length, locals.bytes.length),
+    ]);
+    expect(readZip(zip).entries.map((e) => e.name)).toEqual(['a.xml']);
   });
 
   it('reads honest ZIP64 records and sizes', () => {
