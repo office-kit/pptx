@@ -52,7 +52,12 @@ async function entryOf(packageDirectory) {
 
 function readSlide(slide, index) {
   const shapes = [];
+  const chart = [];
   for (const shape of pptx.getSlideShapes(slide)) {
+    if (pptx.isChartShape(shape)) {
+      chart.push(...chartTexts(pptx.getShapeChartSpec(shape)));
+      continue;
+    }
     if (pptx.isTableShape(shape)) {
       for (const row of pptx.getTableCells(shape))
         shapes.push({ text: row.map((cell) => pptx.getTableCellText(cell)).join(' | ') });
@@ -72,8 +77,24 @@ function readSlide(slide, index) {
     headlineRaw: headline?.text ?? null,
     texts: shapes.filter((entry) => entry !== headline && !entry.code).map(({ text }) => text),
     code: shapes.filter((entry) => entry.code).map(({ text }) => text),
+    chart,
     notes: pptx.getSlideNotes(slide) ?? '',
   };
+}
+
+function chartTexts(spec) {
+  if (spec === null) return [];
+  return [
+    spec.title,
+    spec.categoryAxisTitle,
+    spec.valueAxisTitle,
+    spec.secondaryValueAxis?.title,
+    ...spec.categories,
+    ...spec.series.flatMap((series) => [
+      series.name,
+      ...(series.pointDataLabels ?? []).map((labels) => labels?.text),
+    ]),
+  ].filter((text) => typeof text === 'string' && text.trim() !== '');
 }
 
 // Code samples and prompt examples are quoted verbatim; wording flags there are noise.
@@ -256,7 +277,8 @@ const WORDING_PATTERNS = [
   ['slide as 枚', /(次|前|この|全)の?枚|[0-9０-９]+枚目/],
 ];
 // A Japanese label before a colon; ASCII labels are code, and source lines legitimately start with 出典.
-const LABEL_COLON = /^\s*(?!出典|注)(?=[^\s：:、。]*[ぁ-んァ-ヶ一-龠])[^\s：:、。]{1,12}[：:]\s*\S/;
+const LABEL_COLON =
+  /^\s*(?!出典|注)(?=[^\s：:、。[［]*[ぁ-んァ-ヶ一-龠])[^\s：:、。[［]{1,12}[：:]\s*\S/;
 const FOREIGN_SCRIPT = /[가-힣Ѐ-ӿ]/;
 
 function printWordingFlags(all) {
@@ -287,20 +309,44 @@ function flagsFor(line, onSlide) {
   return hits;
 }
 
-// Notes are not flagged: moving an open question there is one way to resolve it.
-const OPEN_QUESTION = /\[要確認/;
+// Notes are listed apart: moving an open question there is one way to resolve it.
+const OPEN_QUESTION = /[[［]要確認/;
+const EXCERPT_LENGTH = 80;
+const EXCERPT_LEAD = 20;
 
 function printOpenQuestions(all) {
   console.log('\n# [要確認] left on slides (fill each or move it to the notes before delivery)');
+  const onSlides = all.flatMap((slide) =>
+    [slide.headlineRaw ?? '', ...slide.texts, ...slide.code, ...slide.chart].map((text) => [
+      slide,
+      text,
+    ]),
+  );
+  printMatches(onSlides, '');
+  console.log('\n# [要確認] in notes (report each to the user)');
+  printMatches(
+    all.map((slide) => [slide, slide.notes]),
+    'notes ',
+  );
+}
+
+function printMatches(entries, where) {
   let count = 0;
-  for (const slide of all) {
-    const lines = [slide.headlineRaw ?? '', ...slide.texts].flatMap((text) => text.split(/\n/));
-    for (const line of lines.filter((line) => OPEN_QUESTION.test(line))) {
+  for (const [slide, text] of entries)
+    for (const line of text.split(/\n/).map(oneLine)) {
+      const at = line.search(OPEN_QUESTION);
+      if (at === -1) continue;
       count++;
-      console.log(`${label(slide)} ${oneLine(line).slice(0, 80)}`);
+      console.log(`${label(slide)} ${where}${excerpt(line, at)}`);
     }
-  }
   if (count === 0) console.log('none');
+}
+
+// Keeps the marker visible when a long table row puts it past the cut.
+function excerpt(line, at) {
+  if (line.length <= EXCERPT_LENGTH) return line;
+  const start = Math.max(0, Math.min(at - EXCERPT_LEAD, line.length - EXCERPT_LENGTH));
+  return `${start > 0 ? '…' : ''}${line.slice(start, start + EXCERPT_LENGTH)}${start + EXCERPT_LENGTH < line.length ? '…' : ''}`;
 }
 
 const slides = pptx.getSlides(presentation).map(readSlide);

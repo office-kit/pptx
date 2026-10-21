@@ -43,9 +43,9 @@ Use one primary color and one accent color, plus neutrals (text, greys, white).
 
 - The **primary** color carries structure: header rows, the cover field, section marks,
   the main chart series.
-- The **accent** color means "this is the problem" or "this is the point": the bar that
-  missed the target, the gap, the one number to look at. Use it only for that meaning,
-  at most once or twice per slide. If everything is accented, nothing is.
+- The **accent** color means "this is the problem": the bar that missed the target, the
+  gap, the overdue item. Use it only for that meaning, at most once or twice per slide.
+  If everything is accented, nothing is.
 - Context and comparison data are grey. A chart where every series has its own bright
   color asks the reader to compare all of them.
 - Check contrast with [the TSX reference](tsx.md) ("Readable colors"); do not rely on
@@ -74,7 +74,8 @@ Use one primary color and one accent color, plus neutrals (text, greys, white).
   when the data or axis changes. Name it in the legend or label its end.
 - Label the values the headline talks about with data labels, and leave the rest to the
   axis. Labels on every point compete with the message.
-- Color the series in the message with the primary or accent color and the rest grey.
+- Color the series in the message with the primary color, a problem with the accent, and
+  the rest grey.
 
 ## Tables
 
@@ -92,7 +93,7 @@ Use one primary color and one accent color, plus neutrals (text, greys, white).
 
 1. No text below the floors above; nothing overflows, clips or collides.
 2. Cover and closing use a color field and carry the key figure when the deck has one.
-3. One primary and one accent color; every accent marks a problem or the point.
+3. One primary and one accent color; every accent marks a problem.
 4. Cards in a row share height and edges.
 5. Every chart has its unit, a zero baseline or a note saying it has none, and targets
    drawn as series.

@@ -43,9 +43,7 @@ Decide which kind of deck this is before writing any slide text, including outli
 drafts shown to the user:
 
 - **Talk** (the default when a speaker presents it: conference talk, lightning talk,
-  lecture, all-hands). Read [the talk rules](references/story-talk.md). A talk given to
-  get something approved (an internal proposal or budget request) follows its
-  "Presenting for a decision" section.
+  lecture, all-hands). Read [the talk rules](references/story-talk.md).
 - **Document** (read without the author, or used to reach a decision: report, proposal,
   decision memo, board pack, handout). Read [the document rules](references/story-document.md).
 
@@ -145,10 +143,10 @@ skill's directory on `deck.pptx`, judge each flag, read the headline track, and 
 new deck or a substantial rewrite run one fresh-eye review by a separate agent. The SVG preview is a rendering
 aid, not a guarantee of fidelity in desktop presentation apps or animation/media playback.
 
-The script also lists every `[要確認: …]` still on a slide. Confirm each with the user
-and fill it, or move it to the slide notes when the slide reads correctly without it.
-Never deliver a deck that still shows one; list the ones that remain in the notes
-(slide and what is missing) in your report.
+The script also lists every `[要確認: …]` still on a slide, including chart titles and
+labels. Confirm each with the user and fill it, or move it to the slide notes when the
+slide reads correctly without it. Never deliver a deck that still shows one; report the
+ones the script lists in the notes (slide and what is missing).
 
 Deliver the preview URL, the generated `deck.pptx` path and the editable project
 path. State any unverified rendering or unsupported requested feature. On the
