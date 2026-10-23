@@ -396,6 +396,7 @@
         { name: 'getPresentationTextLength' },
         { name: 'getPresentationNotesText' },
         { name: 'getPresentationNotesLength' },
+        { name: 'getPresentationTextReview' },
       ],
     },
   ];

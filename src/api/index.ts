@@ -99,6 +99,7 @@ export type { ImageCrop } from './fn.ts';
 export type { ImageArtisticEffect, ImageRecolor, ImageRecolorColor } from './fn.ts';
 export type { ImageCompressionState } from './fn.ts';
 export type { ImageFit } from './fn.ts';
+export type { PresentationTextReviewMode, PresentationTextReviewOptions } from './fn.ts';
 export type { ShapeStyleFontReference, ShapeStyleOptions, ShapeStyleReference } from './fn.ts';
 export type {
   AudioFormat,
@@ -422,6 +423,7 @@ export {
   getPresentationText,
   getPresentationTextLength,
   getPresentationTextLengthsBySlide,
+  getPresentationTextReview,
   getPresentationTheme,
   getShapePlaceholderType,
   getShapePosition,
