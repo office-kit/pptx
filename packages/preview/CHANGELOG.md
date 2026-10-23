@@ -1,5 +1,21 @@
 # pptx-kit-preview
 
+## 0.18.0
+
+### Patch Changes
+
+- 8cd5678: `secondaryValueAxis` now takes its scaling fields directly, the same shape as `valueAxis`: `secondaryValueAxis: { min: 0, max: 100, numberFormat: '0"%"', title: 'Rate' }`. Before, they had to be nested under `scaling` (`secondaryValueAxis: { scaling: { min: 0, max: 100 } }`), so code written like the primary axis failed to type-check with "Object literal may only specify known properties".
+
+  The nested `scaling` form still works on write but is deprecated. Combining it with the flat fields throws, because the two would disagree.
+
+  **Read shape change:** `getSlideCharts` / `readChartSpec` now return the secondary axis's `min`, `max`, `majorUnit`, `minorUnit`, `numberFormat`, `logBase`, `displayUnits` and `displayUnitsLabel` directly on `secondaryValueAxis`, no longer under `secondaryValueAxis.scaling`. Code that reads `spec.secondaryValueAxis.scaling.max` should read `spec.secondaryValueAxis.max`. A spec read from a file and passed back to `setChartSpec` round-trips unchanged.
+
+- daeb020: Fixed bar-chart category labels in the preview. A label longer than 14 characters was cut short with "…", and labels wider than the fixed left margin ran off the chart (and off the slide). The plot now narrows so the longest label fits, as presentation apps do, and a label that would take more than half the chart's width wraps onto more lines, breaking at spaces or between Japanese / Chinese characters and never starting a line with closing punctuation such as `）` or `%`. A bar chart's value-axis title now sits under the horizontal value axis and its category-axis title beside the labels; both used to be placed as if the chart were a column chart.
+- 328db2b: Fixed chart value axes in the preview. The automatic range now follows the spreadsheet rule that presentation apps use: each open end is padded by 1/20 of the data range before rounding out to a major unit, and zero is left out of the range when the smallest value is at least 5/6 of the largest. A combo chart's secondary axis with rates of 50–53.4 was drawn 0–60, which flattened its line; it is now 49–54. The secondary axis also uses its own authored `<c:scaling>` (min, max, major unit, number format, display units), tick marks, gridlines and line color instead of ignoring them, its spine is drawn on the right edge of the plot rather than over the left one, and value-axis labels start past an outward tick mark so the tick no longer reads as a minus sign.
+- ee2313b: The browser text path (`textLayout: 'foreignObject'`, the default) now sets `text-autospace: no-autospace` on text boxes and table cells. Presentation files have no setting for extra space between Japanese / Chinese and Latin text, and presentation apps add none, but CSS `text-autospace` may default to adding it in browsers. With that default, a browser preview drew lines like 「9 月に 15,640 件」 wider than the `textLayout: 'svg'` path and `auditTextLayout` measured them, and could wrap them differently.
+- Updated dependencies [8cd5678]
+  - @office-kit/pptx@0.26.0
+
 ## 0.17.0
 
 ### Minor Changes

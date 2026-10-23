@@ -1,5 +1,16 @@
 # @office-kit/pptx-editor
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [8cd5678]
+- Updated dependencies [daeb020]
+- Updated dependencies [328db2b]
+- Updated dependencies [ee2313b]
+  - @office-kit/pptx@0.26.0
+  - @office-kit/pptx-preview@0.18.0
+
 ## 0.2.0
 
 ### Minor Changes
