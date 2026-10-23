@@ -57,6 +57,55 @@ describe('preview: combo charts', () => {
     expect(svg).toMatch(/<text[^>]*text-anchor="start"[^>]*>\s*[45]\s*<\/text>/);
   });
 
+  it('auto-scales a narrow secondary range away from zero', async () => {
+    // Rates 50–53.4%: the data's minimum is above 5/6 of its maximum, so the
+    // automatic axis is 49–54 rather than 0–60 (which flattens the line).
+    const svg = await renderChart({
+      kind: 'column',
+      categories: ['4月', '5月', '6月', '7月', '8月', '9月'],
+      series: [
+        { name: '件数', values: [12480, 13150, 14020, 15360, 14870, 15640], color: '#4472C4' },
+        {
+          name: '率',
+          values: [50, 51, 52, 51, 52.1, 53.4],
+          color: '#ED7D31',
+          chartKind: 'line',
+          secondaryAxis: true,
+        },
+      ],
+    });
+
+    const secondaryLabels = [
+      ...svg.matchAll(/<text[^>]*text-anchor="start"[^>]*>\s*([^<]*?)\s*<\/text>/g),
+    ].map((m) => m[1]);
+    expect(secondaryLabels).toEqual(['49', '50', '51', '52', '53', '54']);
+    // Both spines are drawn: one on each plot edge, not two on the left.
+    const spineXs = [
+      ...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="\1" y2="([\d.]+)" stroke="#000000"/g),
+    ]
+      .filter((m) => Number(m[3]) - Number(m[2]) > 100)
+      .map((m) => Number(m[1]));
+    expect(spineXs).toHaveLength(2);
+    expect(new Set(spineXs).size).toBe(2);
+  });
+
+  it('applies the secondary axis scaling and number format', async () => {
+    const svg = await renderChart({
+      kind: 'column',
+      categories: ['A', 'B'],
+      series: [
+        { name: 'n', values: [10, 20], color: '#4472C4' },
+        { name: 'r', values: [0.2, 0.4], chartKind: 'line', secondaryAxis: true },
+      ],
+      secondaryValueAxis: { scaling: { min: 0, max: 0.5, majorUnit: 0.25, numberFormat: '0%' } },
+    });
+
+    const secondaryLabels = [
+      ...svg.matchAll(/<text[^>]*text-anchor="start"[^>]*>\s*([^<]*?)\s*<\/text>/g),
+    ].map((m) => m[1]);
+    expect(secondaryLabels).toEqual(['0%', '25%', '50%']);
+  });
+
   it('keeps the single-kind path untouched when no combo fields are set', async () => {
     const svg = await renderChart({
       kind: 'column',

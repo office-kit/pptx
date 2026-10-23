@@ -3365,6 +3365,7 @@ const DEFAULT_GRID_COLOR = '#D9D9D9';
 // Major tick marks read at ~5px against the 1280px-wide reference raster.
 const AXIS_TICK_LEN = 5;
 const AXIS_MINOR_TICK_LEN = 3;
+const AXIS_LABEL_GAP = 3;
 
 // Chart text carries `sizePt` in typographic points, but the SVG canvas is
 // 96px/in — emit the converted px size so labels don't render ~25% too small
@@ -3464,7 +3465,10 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       // left-aligned to the right edge for a secondary (right) axis.
       // Authored <c:txPr><a:bodyPr rot="N"/> rotates around the
       // label anchor.
-      const labelX = onRight ? edgeX + 4 : edgeX - 4;
+      // Labels start past an outward tick, or the stub reads as a minus sign.
+      const labelOffset =
+        (tickMark === 'out' || tickMark === 'cross' ? tickLen : 0) + AXIS_LABEL_GAP;
+      const labelX = onRight ? edgeX + labelOffset : edgeX - labelOffset;
       const rot = axis.labelRotationDeg ?? 0;
       const transform = rot ? ` transform="rotate(${rot} ${px(labelX)} ${px(yp)})"` : '';
       out.push(
@@ -3513,7 +3517,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
     const lbl = DISPLAY_UNIT_LABEL[axis.displayUnits];
     if (axis.orientation === 'vertical') {
       // Stack above the top tick, rotated to read along the y-axis.
-      const lblX = f.plotX - 26;
+      const lblX = axis.side === 'right' ? f.plotX + f.plotW + 26 : f.plotX - 26;
       const lblY = f.plotY + f.plotH / 2;
       out.push(
         chartText(
@@ -3540,8 +3544,9 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
   }
   if (!axis.lineHidden) {
     if (axis.orientation === 'vertical') {
+      const spineX = axis.side === 'right' ? f.plotX + f.plotW : f.plotX;
       out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
+        `<line x1="${px(spineX)}" y1="${px(f.plotY)}" x2="${px(spineX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
       );
     } else {
       // Horizontal value axis (bar chart) sits at the category baseline,
@@ -3728,29 +3733,40 @@ const seriesMinMax = (spec: ReadChartSpec): { min: number; max: number; step: nu
   if (!Number.isFinite(min)) min = 0;
   if (!Number.isFinite(max)) max = 1;
   if (max === min) max = min + 1;
-  if (min > 0) min = 0; // include the zero line, like the reference desktop app does
   // percentStacked is always exactly 0..100% with 20% ticks — it gets no
   // spreadsheet-style headroom (which would push the axis to 120% and leave the
   // full-height bar short of the plot top).
   if (isPercent) {
     return { min: 0, max: 1, step: 0.2 };
   }
-  // Spreadsheet-style headroom: the auto axis maximum is the first major-unit
-  // multiple strictly above the data max (data 300 with step 50 → axis 350),
-  // so the tallest bar never touches the plot edge. Matches the reference desktop app and
-  // LibreOffice auto-scaling; an authored max below overrides this.
-  const step = niceStep(max - min);
-  max = (Math.floor(max / step) + 1) * step;
-  // Authored <c:valAx><c:scaling> overrides the computed range so the
-  // chart matches what the deck author saw in the reference desktop app.
-  if (spec.valueAxis?.min !== undefined) min = spec.valueAxis.min;
-  if (spec.valueAxis?.max !== undefined) max = spec.valueAxis.max;
+  // Spreadsheet auto-scaling, which the reference desktop app applies to line /
+  // column / bar / area value axes: an authored bound is used as is, an open
+  // bound is padded by 1/20 of the range and snapped outward to a major unit,
+  // and zero stays in range unless the smallest magnitude is at least 5/6 of the
+  // largest — data 50–53.4 gives 49–54, not 0–60.
+  const authoredMin = spec.valueAxis?.min;
+  const authoredMax = spec.valueAxis?.max;
+  const lo = authoredMin ?? min;
+  const hi = authoredMax ?? max;
+  const pad = (hi - lo) / AUTO_AXIS_PAD_DIVISOR;
+  const autoMin = lo < 0 ? lo - pad : lo >= hi * AUTO_AXIS_ZERO_THRESHOLD ? lo - pad : 0;
+  const autoMax = hi > 0 ? hi + pad : hi <= lo * AUTO_AXIS_ZERO_THRESHOLD ? hi + pad : 0;
+  const step = niceStep((authoredMax ?? autoMax) - (authoredMin ?? autoMin));
+  min = authoredMin ?? snapToStep(autoMin, step, Math.floor);
+  max = authoredMax ?? snapToStep(autoMax, step, Math.ceil);
   if (max === min) max = min + 1;
-  // `step` rides along as the default major unit: recomputing it from the
-  // padded range would coarsen the ticks (data 0–300 → axis 0–350 must keep
-  // the 50-step ticks, not jump to 100).
   return { min, max, step };
 };
+
+// The 1/20 padding and the 5/6 zero threshold of spreadsheet auto-scaling.
+const AUTO_AXIS_PAD_DIVISOR = 20;
+const AUTO_AXIS_ZERO_THRESHOLD = 5 / 6;
+// Rounds away binary-fraction noise (49.000000000000004) so bounds equal the
+// tick values that intervalTicks produces.
+const AXIS_BOUND_PRECISION = 12;
+
+const snapToStep = (value: number, step: number, round: (x: number) => number): number =>
+  Number((round(value / step) * step).toPrecision(AXIS_BOUND_PRECISION));
 
 const renderChartTitle = (f: ChartFrame, title: string, style?: ChartTextStyle): string => {
   if (!title) return '';
@@ -5289,12 +5305,17 @@ const renderChart = (
     const primarySeries = baked.filter((s) => s.secondaryAxis !== true);
     const secondarySeries = baked.filter((s) => s.secondaryAxis === true);
     const primaryScale = seriesMinMax({ ...spec, series: primarySeries });
-    // The authored valueAxis min/max targets the PRIMARY axis; the
-    // secondary axis always auto-scales from its own series.
-    const { valueAxis: _primaryOnlyAxis, ...specWithoutAxis } = spec;
+    // The authored valueAxis targets the PRIMARY axis; the secondary axis
+    // scales from its own series and its own `<c:scaling>`.
+    const secondaryAxis = spec.secondaryValueAxis;
+    const secondaryScaling = secondaryAxis?.scaling;
     const secondaryScale =
       secondarySeries.length > 0
-        ? seriesMinMax({ ...specWithoutAxis, series: secondarySeries })
+        ? seriesMinMax({
+            ...spec,
+            series: secondarySeries,
+            valueAxis: secondaryScaling ?? {},
+          })
         : null;
 
     const N = pointCount(spec);
@@ -5328,17 +5349,29 @@ const renderChart = (
         ...(spec.valueAxisLabelStyle !== undefined ? { labelStyle: spec.valueAxisLabelStyle } : {}),
       });
     }
-    if (secondaryScale) {
+    const secondaryLabelStyle = secondaryAxis?.labelStyle ?? spec.valueAxisLabelStyle;
+    if (secondaryScale && secondaryAxis?.tickLabelPos !== 'none') {
       axes += renderValueAxis(f, {
         orientation: 'vertical',
         side: 'right',
         min: secondaryScale.min,
         max: secondaryScale.max,
-        majorUnit: secondaryScale.step,
-        // Gridlines stay on the primary axis only — a second lattice
-        // with a different pitch reads as noise.
-        majorGridlines: false,
-        ...(spec.valueAxisLabelStyle !== undefined ? { labelStyle: spec.valueAxisLabelStyle } : {}),
+        majorUnit: secondaryScaling?.majorUnit ?? secondaryScale.step,
+        majorGridlines: secondaryAxis?.majorGridlines ?? false,
+        ...(secondaryScaling?.numberFormat !== undefined
+          ? { numberFormat: secondaryScaling.numberFormat }
+          : {}),
+        ...(secondaryScaling?.displayUnits !== undefined
+          ? { displayUnits: secondaryScaling.displayUnits }
+          : {}),
+        ...(secondaryAxis?.majorGridlineColor !== undefined
+          ? { majorGridlineColor: secondaryAxis.majorGridlineColor }
+          : {}),
+        ...(secondaryAxis?.majorTickMark !== undefined
+          ? { majorTickMark: secondaryAxis.majorTickMark }
+          : {}),
+        ...(secondaryAxis?.lineColor !== undefined ? { lineColor: secondaryAxis.lineColor } : {}),
+        ...(secondaryLabelStyle !== undefined ? { labelStyle: secondaryLabelStyle } : {}),
       });
     }
     if (N > 0 && !(spec.categoryAxisHidden || spec.categoryAxisTickLabelPos === 'none')) {

@@ -148,6 +148,29 @@ describe('chart fidelity vs the reference desktop app', () => {
     expect(Math.max(...labels)).toBeGreaterThanOrEqual(20);
   });
 
+  it('pads the automatic maximum by 1/20 of the range before rounding up', async () => {
+    // 96 + (96 - 10)/20 = 100.3 is past the 100 tick, so the axis ends at 120.
+    const svg = await renderChart({
+      kind: 'column',
+      categories: ['A', 'B'],
+      series: [{ name: 'S', values: [10, 96] }],
+    });
+    expect(Math.max(...numericLabels(svg))).toBe(120);
+  });
+
+  it('keeps zero out of a narrow automatic range on the primary axis', async () => {
+    // 90 is above 5/6 of 100, so the automatic minimum is not zero: 89.5–100.5
+    // after padding, rounded out to the step of 2.
+    const svg = await renderChart({
+      kind: 'line',
+      categories: ['A', 'B', 'C'],
+      series: [{ name: 'S', values: [90, 95, 100] }],
+    });
+    const labels = numericLabels(svg);
+    expect(Math.min(...labels)).toBe(88);
+    expect(Math.max(...labels)).toBe(102);
+  });
+
   it('labels a percentStacked value axis 0%..100% (no spreadsheet-style headroom)', async () => {
     const svg = await renderChart({
       kind: 'column',
