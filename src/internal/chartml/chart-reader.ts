@@ -1788,7 +1788,7 @@ export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
     const cb = crossBetweenEl !== null ? getAttrValue(crossBetweenEl, ATTR_VAL) : null;
     const crossBetween = cb === 'between' || cb === 'midCat' ? cb : undefined;
     const fields: ChartSecondaryValueAxis = {
-      ...(scaling !== undefined ? { scaling } : {}),
+      ...scaling,
       ...(title !== undefined ? { title } : {}),
       ...(titleStyle !== undefined ? { titleStyle } : {}),
       ...(labelStyle !== undefined ? { labelStyle } : {}),

@@ -27,6 +27,7 @@ import type {
   ReadChartSpec,
 } from './types.ts';
 import { STOCK_SERIES_WITHOUT_OPEN, STOCK_SERIES_WITH_OPEN, type ChartSpec } from './chart-spec.ts';
+import { secondaryAxisScaling } from './secondary-axis.ts';
 
 // QNames (chart `c:` namespace) --------------------------------------------
 
@@ -1533,7 +1534,7 @@ const secondaryValAxis = (spec: ChartSpec): XmlElement => {
   const s = spec.secondaryValueAxis ?? {};
   return valueAxisElement(
     {
-      scaling: s.scaling,
+      scaling: secondaryAxisScaling(spec.secondaryValueAxis),
       orientation: undefined,
       hidden: undefined,
       majorGridlines: s.majorGridlines,

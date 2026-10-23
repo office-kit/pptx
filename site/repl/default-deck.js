@@ -216,7 +216,7 @@ addSlideChart(margin, {
     ],
     legend: { position: 'b' },
     valueAxis: { min: 0, numberFormat: '$0"M"' },
-    secondaryValueAxis: { scaling: { min: 0, numberFormat: '0"%"' } },
+    secondaryValueAxis: { min: 0, numberFormat: '0"%"' },
     valueAxisMajorGridlines: true,
     valueAxisMajorGridlineColor: LINE,
     gapWidthPct: 70,

@@ -174,6 +174,8 @@ addSlideChart(slide, {
     // Axis line / gridline widths (EMU, 12700 = 1 pt): `valueAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu`,
     // the `categoryAxis…` mirrors, `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu`. Unset = the reference desktop app's default of 0.75 pt.
     // At least one series must stay on the primary axis when others set `secondaryAxis: true`.
+    // The secondary axis takes the same scaling fields as `valueAxis`:
+    // `secondaryValueAxis: { min: 0, max: 100, numberFormat: '0"%"', title: 'Rate' }`.
   },
 });
 

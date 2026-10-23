@@ -598,12 +598,23 @@ export interface ChartTextStyle {
 
 /**
  * Formatting for the secondary value axis (`<c:valAx>` with `axPos="r"`)
- * that `ChartSeries.secondaryAxis` series plot against. The fields mirror
- * the primary `valueAxis*` fields of `ChartSpec` without the prefix, limited
- * to what a right-hand axis needs; the axis position (`r`) and crossing
- * (`max`) stay fixed. Omit the whole object for the reference desktop app's defaults.
+ * that `ChartSeries.secondaryAxis` series plot against. The scaling fields
+ * (`min`, `max`, `majorUnit`, `numberFormat`, …) sit directly on the object,
+ * the same shape as `ChartSpec.valueAxis`; the rest mirror the primary
+ * `valueAxis*` fields of `ChartSpec` without the prefix, limited to what a
+ * right-hand axis needs. The axis position (`r`) and crossing (`max`) stay
+ * fixed. Omit the whole object for the reference desktop app's defaults.
+ *
+ * @example
+ * secondaryValueAxis: { min: 0, max: 100, numberFormat: '0"%"', title: 'Rate' }
  */
-export interface ChartSecondaryValueAxis {
+export interface ChartSecondaryValueAxis extends ChartAxisScaling {
+  /**
+   * @deprecated Put the scaling fields on `secondaryValueAxis` itself
+   * (`secondaryValueAxis: { min: 0, max: 100 }`), as on `valueAxis`.
+   * Still accepted on write, but not together with those fields;
+   * `readChartSpec` returns the flat form.
+   */
   readonly scaling?: ChartAxisScaling;
   readonly title?: string;
   readonly titleStyle?: ChartTextStyle;

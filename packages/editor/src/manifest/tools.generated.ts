@@ -2407,45 +2407,12 @@ export const generatedTools: GeneratedTools = {
             properties: {
               min: { type: 'number' },
               max: { type: 'number' },
-              majorUnit: {
-                type: 'number',
-                description: 'Major tick spacing (`<c:majorUnit val="N"/>`).',
-              },
-              minorUnit: {
-                type: 'number',
-                description: 'Minor tick spacing (`<c:minorUnit val="N"/>`).',
-              },
-              numberFormat: {
-                type: 'string',
-                description:
-                  'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of spreadsheet number formats to label text.',
-              },
-              logBase: {
-                type: 'number',
-                description:
-                  'Logarithmic base for the axis from `<c:scaling><c:logBase val="N"/>`.\nTypical values are `2`, `10`, `Math.E`. When set, the renderer\nprojects values through `Math.log(v) / Math.log(logBase)` before\nmapping to plot coordinates. Linear when omitted.',
-              },
-              displayUnits: {
-                type: 'string',
-                enum: [
-                  'hundreds',
-                  'thousands',
-                  'tenThousands',
-                  'hundredThousands',
-                  'millions',
-                  'tenMillions',
-                  'hundredMillions',
-                  'billions',
-                  'trillions',
-                ],
-                description:
-                  "Authored display-units scale from `<c:dispUnits><c:builtInUnit val=\"…\"/>`.\nToken values map to divisors:\n\n  - `'hundreds'` (100), `'thousands'` (1e3), `'tenThousands'` (1e4),\n    `'hundredThousands'` (1e5), `'millions'` (1e6),\n    `'tenMillions'` (1e7), `'hundredMillions'` (1e8),\n    `'billions'` (1e9), `'trillions'` (1e12)\n\nRenderers divide axis labels by the divisor and may append a unit\nsuffix (\"K\", \"M\", \"B\") for readability.",
-              },
-              displayUnitsLabel: {
-                type: 'boolean',
-                description:
-                  'Show the display-units caption next to the axis ("Thousands",\n"Millions", …) — an empty `<c:dispUnitsLbl/>` under `<c:dispUnits>`.\nOnly meaningful together with `displayUnits`.',
-              },
+              majorUnit: { $ref: '#/$defs/MajorUnit' },
+              minorUnit: { $ref: '#/$defs/MinorUnit' },
+              numberFormat: { $ref: '#/$defs/NumberFormat' },
+              logBase: { $ref: '#/$defs/LogBase' },
+              displayUnits: { $ref: '#/$defs/DisplayUnits' },
+              displayUnitsLabel: { $ref: '#/$defs/DisplayUnitsLabel' },
             },
             additionalProperties: false,
           },
@@ -2646,6 +2613,14 @@ export const generatedTools: GeneratedTools = {
                   'Tick-label position, the mirror of `ChartSpec.valueAxisTickLabelPos`.',
               },
               crossBetween: { type: 'string', enum: ['between', 'midCat'] },
+              min: { type: 'number' },
+              max: { type: 'number' },
+              majorUnit: { $ref: '#/$defs/MajorUnit' },
+              minorUnit: { $ref: '#/$defs/MinorUnit' },
+              numberFormat: { $ref: '#/$defs/NumberFormat' },
+              logBase: { $ref: '#/$defs/LogBase' },
+              displayUnits: { $ref: '#/$defs/DisplayUnits' },
+              displayUnitsLabel: { $ref: '#/$defs/DisplayUnitsLabel' },
             },
             additionalProperties: false,
           },
@@ -2855,6 +2830,27 @@ export const generatedTools: GeneratedTools = {
             description:
               "`<c:dispBlanksAs val=\"…\"/>` — how line / area renderers should\ntreat `null` values in series:\n\n  - `'gap'`  — leave a gap (the default)\n  - `'zero'` — substitute zero\n  - `'span'` — connect the surrounding points across the gap",
           },
+          DisplayUnits: {
+            type: 'string',
+            enum: [
+              'hundreds',
+              'thousands',
+              'tenThousands',
+              'hundredThousands',
+              'millions',
+              'tenMillions',
+              'hundredMillions',
+              'billions',
+              'trillions',
+            ],
+            description:
+              "Authored display-units scale from `<c:dispUnits><c:builtInUnit val=\"…\"/>`.\nToken values map to divisors:\n\n  - `'hundreds'` (100), `'thousands'` (1e3), `'tenThousands'` (1e4),\n    `'hundredThousands'` (1e5), `'millions'` (1e6),\n    `'tenMillions'` (1e7), `'hundredMillions'` (1e8),\n    `'billions'` (1e9), `'trillions'` (1e12)\n\nRenderers divide axis labels by the divisor and may append a unit\nsuffix (\"K\", \"M\", \"B\") for readability.",
+          },
+          DisplayUnitsLabel: {
+            type: 'boolean',
+            description:
+              'Show the display-units caption next to the axis ("Thousands",\n"Millions", …) — an empty `<c:dispUnitsLbl/>` under `<c:dispUnits>`.\nOnly meaningful together with `displayUnits`.',
+          },
           DropLines: {
             type: 'boolean',
             description:
@@ -2960,6 +2956,15 @@ export const generatedTools: GeneratedTools = {
             description:
               'Optional line stroke width in EMU (`<c:ser><c:spPr><a:ln w="…"/>`).\nOnly meaningful for line / area / scatter series. Default falls\nback to the renderer\'s own pick.',
           },
+          LogBase: {
+            type: 'number',
+            description:
+              'Logarithmic base for the axis from `<c:scaling><c:logBase val="N"/>`.\nTypical values are `2`, `10`, `Math.E`. When set, the renderer\nprojects values through `Math.log(v) / Math.log(logBase)` before\nmapping to plot coordinates. Linear when omitted.',
+          },
+          MajorUnit: {
+            type: 'number',
+            description: 'Major tick spacing (`<c:majorUnit val="N"/>`).',
+          },
           MarkerColor: {
             type: 'string',
             description:
@@ -2997,7 +3002,16 @@ export const generatedTools: GeneratedTools = {
             description:
               'Optional marker style for line / scatter series (`<c:ser><c:marker>`).\n`none` hides the markers; the others render the matching glyph at\neach data point. Defaults to `auto`, which renderers map to a small\nfilled circle.',
           },
+          MinorUnit: {
+            type: 'number',
+            description: 'Minor tick spacing (`<c:minorUnit val="N"/>`).',
+          },
           Name: { type: 'string', description: 'Series label rendered in the legend.' },
+          NumberFormat: {
+            type: 'string',
+            description:
+              'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of spreadsheet number formats to label text.',
+          },
           OverlapPct: {
             type: 'number',
             description:
@@ -7730,45 +7744,12 @@ export const generatedTools: GeneratedTools = {
             properties: {
               min: { type: 'number' },
               max: { type: 'number' },
-              majorUnit: {
-                type: 'number',
-                description: 'Major tick spacing (`<c:majorUnit val="N"/>`).',
-              },
-              minorUnit: {
-                type: 'number',
-                description: 'Minor tick spacing (`<c:minorUnit val="N"/>`).',
-              },
-              numberFormat: {
-                type: 'string',
-                description:
-                  'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of spreadsheet number formats to label text.',
-              },
-              logBase: {
-                type: 'number',
-                description:
-                  'Logarithmic base for the axis from `<c:scaling><c:logBase val="N"/>`.\nTypical values are `2`, `10`, `Math.E`. When set, the renderer\nprojects values through `Math.log(v) / Math.log(logBase)` before\nmapping to plot coordinates. Linear when omitted.',
-              },
-              displayUnits: {
-                type: 'string',
-                enum: [
-                  'hundreds',
-                  'thousands',
-                  'tenThousands',
-                  'hundredThousands',
-                  'millions',
-                  'tenMillions',
-                  'hundredMillions',
-                  'billions',
-                  'trillions',
-                ],
-                description:
-                  "Authored display-units scale from `<c:dispUnits><c:builtInUnit val=\"…\"/>`.\nToken values map to divisors:\n\n  - `'hundreds'` (100), `'thousands'` (1e3), `'tenThousands'` (1e4),\n    `'hundredThousands'` (1e5), `'millions'` (1e6),\n    `'tenMillions'` (1e7), `'hundredMillions'` (1e8),\n    `'billions'` (1e9), `'trillions'` (1e12)\n\nRenderers divide axis labels by the divisor and may append a unit\nsuffix (\"K\", \"M\", \"B\") for readability.",
-              },
-              displayUnitsLabel: {
-                type: 'boolean',
-                description:
-                  'Show the display-units caption next to the axis ("Thousands",\n"Millions", …) — an empty `<c:dispUnitsLbl/>` under `<c:dispUnits>`.\nOnly meaningful together with `displayUnits`.',
-              },
+              majorUnit: { $ref: '#/$defs/MajorUnit' },
+              minorUnit: { $ref: '#/$defs/MinorUnit' },
+              numberFormat: { $ref: '#/$defs/NumberFormat' },
+              logBase: { $ref: '#/$defs/LogBase' },
+              displayUnits: { $ref: '#/$defs/DisplayUnits' },
+              displayUnitsLabel: { $ref: '#/$defs/DisplayUnitsLabel' },
             },
             additionalProperties: false,
           },
@@ -7973,6 +7954,14 @@ export const generatedTools: GeneratedTools = {
                   'Tick-label position, the mirror of `ChartSpec.valueAxisTickLabelPos`.',
               },
               crossBetween: { type: 'string', enum: ['between', 'midCat'] },
+              min: { type: 'number' },
+              max: { type: 'number' },
+              majorUnit: { $ref: '#/$defs/MajorUnit' },
+              minorUnit: { $ref: '#/$defs/MinorUnit' },
+              numberFormat: { $ref: '#/$defs/NumberFormat' },
+              logBase: { $ref: '#/$defs/LogBase' },
+              displayUnits: { $ref: '#/$defs/DisplayUnits' },
+              displayUnitsLabel: { $ref: '#/$defs/DisplayUnitsLabel' },
             },
             additionalProperties: false,
           },
@@ -8182,6 +8171,27 @@ export const generatedTools: GeneratedTools = {
             description:
               "`<c:dispBlanksAs val=\"…\"/>` — how line / area renderers should\ntreat `null` values in series:\n\n  - `'gap'`  — leave a gap (the default)\n  - `'zero'` — substitute zero\n  - `'span'` — connect the surrounding points across the gap",
           },
+          DisplayUnits: {
+            type: 'string',
+            enum: [
+              'hundreds',
+              'thousands',
+              'tenThousands',
+              'hundredThousands',
+              'millions',
+              'tenMillions',
+              'hundredMillions',
+              'billions',
+              'trillions',
+            ],
+            description:
+              "Authored display-units scale from `<c:dispUnits><c:builtInUnit val=\"…\"/>`.\nToken values map to divisors:\n\n  - `'hundreds'` (100), `'thousands'` (1e3), `'tenThousands'` (1e4),\n    `'hundredThousands'` (1e5), `'millions'` (1e6),\n    `'tenMillions'` (1e7), `'hundredMillions'` (1e8),\n    `'billions'` (1e9), `'trillions'` (1e12)\n\nRenderers divide axis labels by the divisor and may append a unit\nsuffix (\"K\", \"M\", \"B\") for readability.",
+          },
+          DisplayUnitsLabel: {
+            type: 'boolean',
+            description:
+              'Show the display-units caption next to the axis ("Thousands",\n"Millions", …) — an empty `<c:dispUnitsLbl/>` under `<c:dispUnits>`.\nOnly meaningful together with `displayUnits`.',
+          },
           DropLines: {
             type: 'boolean',
             description:
@@ -8283,6 +8293,15 @@ export const generatedTools: GeneratedTools = {
             description:
               'Optional line stroke width in EMU (`<c:ser><c:spPr><a:ln w="…"/>`).\nOnly meaningful for line / area / scatter series. Default falls\nback to the renderer\'s own pick.',
           },
+          LogBase: {
+            type: 'number',
+            description:
+              'Logarithmic base for the axis from `<c:scaling><c:logBase val="N"/>`.\nTypical values are `2`, `10`, `Math.E`. When set, the renderer\nprojects values through `Math.log(v) / Math.log(logBase)` before\nmapping to plot coordinates. Linear when omitted.',
+          },
+          MajorUnit: {
+            type: 'number',
+            description: 'Major tick spacing (`<c:majorUnit val="N"/>`).',
+          },
           MarkerColor: {
             type: 'string',
             description:
@@ -8320,7 +8339,16 @@ export const generatedTools: GeneratedTools = {
             description:
               'Optional marker style for line / scatter series (`<c:ser><c:marker>`).\n`none` hides the markers; the others render the matching glyph at\neach data point. Defaults to `auto`, which renderers map to a small\nfilled circle.',
           },
+          MinorUnit: {
+            type: 'number',
+            description: 'Minor tick spacing (`<c:minorUnit val="N"/>`).',
+          },
           Name: { type: 'string', description: 'Series label rendered in the legend.' },
+          NumberFormat: {
+            type: 'string',
+            description:
+              'Number-format code from `<c:numFmt formatCode="…"/>`. Common\nvalues: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.\nRenderers project a subset of spreadsheet number formats to label text.',
+          },
           OverlapPct: {
             type: 'number',
             description:

@@ -1,6 +1,7 @@
 import { oneOf } from '../bounds.ts';
 import { LINE_DASHES } from '../enum-values.ts';
 import type { ReadChartSpec, ChartDataLabels, ChartAxisScaling } from './types.ts';
+import { flatSecondaryScaling, secondaryAxisScaling } from './secondary-axis.ts';
 
 export const LABEL_POSITIONS = [
   'ctr',
@@ -194,7 +195,19 @@ export const validateChartSpecEnums = (spec: ReadChartSpec, caller: string): voi
   validateLabels(spec.dataLabels, `${caller}: dataLabels`);
   validateScaling(spec.valueAxis, `${caller}: valueAxis`);
   validateScaling(spec.categoryAxisScaling, `${caller}: categoryAxisScaling`);
-  validateScaling(spec.secondaryValueAxis?.scaling, `${caller}: secondaryValueAxis.scaling`);
+  const secondary = spec.secondaryValueAxis;
+  if (secondary?.scaling !== undefined) {
+    const flat = Object.keys(flatSecondaryScaling(secondary));
+    if (flat.length > 0) {
+      throw new Error(
+        `${caller}: secondaryValueAxis.scaling cannot be combined with secondaryValueAxis.${flat[0]}; write the scaling fields directly on secondaryValueAxis (scaling is deprecated)`,
+      );
+    }
+  }
+  validateScaling(
+    secondaryAxisScaling(secondary),
+    `${caller}: secondaryValueAxis${secondary?.scaling !== undefined ? '.scaling' : ''}`,
+  );
   for (const [index, series] of spec.series.entries()) {
     const field = `${caller}: series[${index}]`;
     if (series.chartKind !== undefined)

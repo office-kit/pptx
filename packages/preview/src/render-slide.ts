@@ -5308,13 +5308,12 @@ const renderChart = (
     // The authored valueAxis targets the PRIMARY axis; the secondary axis
     // scales from its own series and its own `<c:scaling>`.
     const secondaryAxis = spec.secondaryValueAxis;
-    const secondaryScaling = secondaryAxis?.scaling;
     const secondaryScale =
       secondarySeries.length > 0
         ? seriesMinMax({
             ...spec,
             series: secondarySeries,
-            valueAxis: secondaryScaling ?? {},
+            valueAxis: secondaryAxis ?? {},
           })
         : null;
 
@@ -5356,13 +5355,13 @@ const renderChart = (
         side: 'right',
         min: secondaryScale.min,
         max: secondaryScale.max,
-        majorUnit: secondaryScaling?.majorUnit ?? secondaryScale.step,
+        majorUnit: secondaryAxis?.majorUnit ?? secondaryScale.step,
         majorGridlines: secondaryAxis?.majorGridlines ?? false,
-        ...(secondaryScaling?.numberFormat !== undefined
-          ? { numberFormat: secondaryScaling.numberFormat }
+        ...(secondaryAxis?.numberFormat !== undefined
+          ? { numberFormat: secondaryAxis.numberFormat }
           : {}),
-        ...(secondaryScaling?.displayUnits !== undefined
-          ? { displayUnits: secondaryScaling.displayUnits }
+        ...(secondaryAxis?.displayUnits !== undefined
+          ? { displayUnits: secondaryAxis.displayUnits }
           : {}),
         ...(secondaryAxis?.majorGridlineColor !== undefined
           ? { majorGridlineColor: secondaryAxis.majorGridlineColor }

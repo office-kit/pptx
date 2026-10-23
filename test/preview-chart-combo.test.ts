@@ -97,7 +97,7 @@ describe('preview: combo charts', () => {
         { name: 'n', values: [10, 20], color: '#4472C4' },
         { name: 'r', values: [0.2, 0.4], chartKind: 'line', secondaryAxis: true },
       ],
-      secondaryValueAxis: { scaling: { min: 0, max: 0.5, majorUnit: 0.25, numberFormat: '0%' } },
+      secondaryValueAxis: { min: 0, max: 0.5, majorUnit: 0.25, numberFormat: '0%' },
     });
 
     const secondaryLabels = [

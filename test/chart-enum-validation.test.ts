@@ -96,6 +96,11 @@ const invalidCharts: ReadonlyArray<readonly [string, api.ChartSpec]> = [
     { ...baseChart, plotAreaLayout: { x: 0, y: 0, w: 1, h: 1, target: 'bogus' } },
   ],
   [
+    'secondaryValueAxis.displayUnits',
+    // @ts-expect-error Exercise the JavaScript boundary.
+    { ...baseChart, secondaryValueAxis: { displayUnits: 'bogus' } },
+  ],
+  [
     'secondaryValueAxis.scaling.displayUnits',
     // @ts-expect-error Exercise the JavaScript boundary.
     { ...baseChart, secondaryValueAxis: { scaling: { displayUnits: 'bogus' } } },

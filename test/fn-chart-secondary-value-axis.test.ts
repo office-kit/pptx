@@ -52,7 +52,10 @@ const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 
 describe('fn API: secondaryValueAxis', () => {
   const secondary: ChartSecondaryValueAxis = {
-    scaling: { min: 0, max: 50, majorUnit: 10, numberFormat: '#,##0' },
+    min: 0,
+    max: 50,
+    majorUnit: 10,
+    numberFormat: '#,##0',
     title: 'Score',
     titleStyle: { font: 'Yu Gothic', sizePt: 12, bold: true },
     labelStyle: { font: 'Yu Gothic', sizePt: 12, color: '#000000' },
@@ -93,6 +96,39 @@ describe('fn API: secondaryValueAxis', () => {
     },
   );
 
+  it('still accepts the deprecated nested scaling and reads it back flat', async () => {
+    const { spec, xml } = await roundTrip({
+      kind: 'column',
+      categories: ['A', 'B'],
+      series: [
+        { name: 'Count', values: [1, 2] },
+        { name: 'Rate', values: [50, 53.4], chartKind: 'line', secondaryAxis: true },
+      ],
+      secondaryValueAxis: { scaling: { min: 48, max: 54, numberFormat: '0"%"' } },
+    });
+    expect(spec.secondaryValueAxis).toMatchObject({ min: 48, max: 54, numberFormat: '0"%"' });
+    expect(spec.secondaryValueAxis?.scaling).toBeUndefined();
+    const secondaryXml = xml.slice(xml.indexOf('<c:axId val="444444444"/>'));
+    expect(secondaryXml).toContain('<c:max val="54"/>');
+    expect(secondaryXml).toContain('<c:min val="48"/>');
+  });
+
+  it('rejects the deprecated scaling combined with flat scaling fields', async () => {
+    await expect(
+      roundTrip({
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [
+          { name: 'Count', values: [1, 2] },
+          { name: 'Rate', values: [3, 4], chartKind: 'line', secondaryAxis: true },
+        ],
+        secondaryValueAxis: { max: 10, scaling: { min: 0 } },
+      }),
+    ).rejects.toThrow(
+      /^addSlideChart: secondaryValueAxis\.scaling cannot be combined with secondaryValueAxis\.max/,
+    );
+  });
+
   it('bakes the deck text color on the secondary axis labels when none was authored', async () => {
     const { spec } = await roundTrip({
       kind: 'column',
@@ -116,7 +152,7 @@ describe('fn API: secondaryValueAxis', () => {
         kind: 'column',
         categories: ['A', 'B'],
         series: [{ name: 'only', values: [1, 2], secondaryAxis: true }],
-        secondaryValueAxis: { title: 'Right', scaling: { max: 5 } },
+        secondaryValueAxis: { title: 'Right', max: 5 },
       }),
     ).rejects.toThrow(/^chart: at least one series must plot on the primary axis/);
   });
@@ -197,7 +233,7 @@ describe('chart reader: secondary value axis selection', () => {
 </c:chartSpace>`;
     const spec = readChartSpec(parseXml(xml).root)!;
     expect(spec.secondaryValueAxis).toEqual({
-      scaling: { max: 9 },
+      max: 9,
       majorTickMark: 'out',
       minorTickMark: 'none',
     });
