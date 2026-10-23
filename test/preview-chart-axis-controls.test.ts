@@ -64,7 +64,7 @@ function plainChart(
 ): PlainSpec {
   const { series, ...rest } = overrides;
   return {
-    categories: ['Alpha', 'Beta'],
+    categories: ['Q1', 'Q2'],
     valueAxis: { min: 0, max: 100, majorUnit: 20 },
     valueAxisLineColor: VALUE_COLOR,
     categoryAxisLineColor: CATEGORY_COLOR,
@@ -82,7 +82,7 @@ function chart(
   overrides: AxisOverrides = {},
 ): ChartSpec {
   const common = {
-    categories: ['Alpha', 'Beta'],
+    categories: ['Q1', 'Q2'],
     valueAxis: { min: 0, max: 100, majorUnit: 20 },
     valueAxisLineColor: VALUE_COLOR,
     categoryAxisLineColor: CATEGORY_COLOR,
@@ -104,7 +104,7 @@ describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s axis visi
       chart(kind, { valueAxisLineHidden: true, categoryAxisLineHidden: true }),
     );
     expect(spines(svg)).toHaveLength(0);
-    expect(svg).toContain('>Alpha</text>');
+    expect(svg).toContain('>Q1</text>');
     expect(svg).toContain('>100</text>');
     // Bar-family category axes are written without major ticks by default.
     expect(attrsOf(svg, 'line')).toHaveLength(kind === 'line' || kind === 'area' ? 9 : 6);
@@ -121,7 +121,7 @@ describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s axis visi
     );
     expect(coloredSpines).toHaveLength(1);
     expect(coloredSpines[0]?.stroke).toBe(axis === 'value' ? CATEGORY_COLOR : VALUE_COLOR);
-    expect(svg).toContain('>Alpha</text>');
+    expect(svg).toContain('>Q1</text>');
     expect(svg).toContain('>100</text>');
   });
   it('keeps explicitly visible spines', async () => {
@@ -135,7 +135,7 @@ describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s axis visi
   it('still removes the entire axis when AxisHidden is set', async () => {
     const svg = await render(chart(kind, { valueAxisHidden: true, categoryAxisHidden: true }));
     expect(spines(svg)).toHaveLength(0);
-    expect(svg).not.toContain('>Alpha</text>');
+    expect(svg).not.toContain('>Q1</text>');
     expect(svg).not.toContain('>100</text>');
   });
 });
@@ -173,7 +173,7 @@ describe.each(['column', 'bar', 'combo'] as const)('%s category ticks', (kind) =
             expect(tick.x2).toBe(tick.x1);
           }
         });
-        expect(svg).toContain('>Alpha</text>');
+        expect(svg).toContain('>Q1</text>');
       },
     );
   });

@@ -189,7 +189,9 @@ import {
   measureTextBodyHeight,
   substituteFamily,
   cssFamilyName,
+  SANS,
   type BulletInput,
+  type FontSpec,
   type ColumnLayout,
   type ParaInput,
   type PieceInput,
@@ -3137,6 +3139,8 @@ const layoutChart = (
   hasLegend = true,
   titlePx = DEFAULT_CHART_TITLE_PT * PX_PER_PT,
   plotAreaLayout?: ReadChartSpec['plotAreaLayout'],
+  yAxisGutter = hasAxes ? DEFAULT_Y_AXIS_GUTTER : 0,
+  xAxisGutter = hasAxes ? BAR_VALUE_LABEL_ROW : 0,
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -3151,8 +3155,6 @@ const layoutChart = (
   const titleStrip = hasTitle && !titleOverlay ? Math.round(titlePx * 2.4) : 0;
   const legendStrip = hasLegend && !legendOverlay ? 18 : 0;
   const padding = 8;
-  const yAxisGutter = hasAxes ? 32 : 0;
-  const xAxisGutter = hasAxes ? 18 : 0;
   // Outer layouts include axis labels and titles, so their gutters still need automatic layout.
   const inner = plotAreaLayout?.target === 'inner' ? plotAreaLayout : undefined;
   const plotX = inner ? x + Math.max(0, Math.min(1, inner.x)) * w : x + padding + yAxisGutter;
@@ -3376,7 +3378,7 @@ const chartFontPx = (sizePt: number): string => (sizePt * PX_PER_PT).toFixed(1);
 // for axis tick labels. Defaults match the reference desktop app's stock 10pt muted-gray
 // look; authored `<c:txPr>` overrides take over.
 const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
-  const sz = style?.sizePt ?? 10;
+  const sz = style?.sizePt ?? DEFAULT_AXIS_LABEL_PT;
   const fill = style?.color ?? '#6B7280';
   const weight = style?.bold ? ' font-weight="600"' : '';
   const italic = style?.italic ? ' font-style="italic"' : '';
@@ -3556,6 +3558,103 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
   return out.join('');
 };
 
+// Distance between a category label and the plot edge it faces.
+const CATEGORY_LABEL_GAP = 6;
+const CATEGORY_LABEL_LINE_HEIGHT = 1.2;
+// ECMA-376 leaves automatic chart layout to the application. Presentation apps
+// narrow the plot until the longest bar-chart category label fits rather than
+// ellipsize it, and the reference desktop app wraps a label that would take too
+// much of the chart. The width where wrapping starts is not documented; this
+// share is an estimate.
+const MAX_BAR_CATEGORY_LABEL_SHARE = 0.5;
+// Default room left of the plot (value labels, or short bar-chart category
+// labels) and below it (the tick-label row).
+const DEFAULT_Y_AXIS_GUTTER = 32;
+const BAR_VALUE_LABEL_ROW = 18;
+const DEFAULT_AXIS_TITLE_PT = 11;
+const DEFAULT_AXIS_LABEL_PT = 10;
+
+const categoryLabelFontPx = (style: ChartTextStyle | undefined): number =>
+  (style?.sizePt ?? DEFAULT_AXIS_LABEL_PT) * PX_PER_PT;
+
+const axisTitleRowPx = (style: ChartTextStyle | undefined): number =>
+  (style?.sizePt ?? DEFAULT_AXIS_TITLE_PT) * PX_PER_PT * CATEGORY_LABEL_LINE_HEIGHT;
+
+// Closing punctuation that may not start a line (JIS X 4051 line-start rule).
+const NO_LINE_START = new Set('、。，．,.)）]］」』】〉》%％!！?？:：;；ー〜…・');
+
+// Break opportunities: after a space and around each full-width character.
+// Closing punctuation joins the segment before it so it never starts a line.
+const chartLabelSegments = (text: string): string[] => {
+  const segments: string[] = [];
+  let word = '';
+  for (const ch of text) {
+    if (NO_LINE_START.has(ch) && word === '' && segments.length > 0) {
+      segments[segments.length - 1] += ch;
+    } else if (FULLWIDTH_CHAR_PATTERN.test(ch) && !NO_LINE_START.has(ch)) {
+      if (word !== '') segments.push(word);
+      segments.push(ch);
+      word = '';
+    } else {
+      word += ch;
+      if (/\s/u.test(ch)) {
+        segments.push(word);
+        word = '';
+      }
+    }
+  }
+  if (word !== '') segments.push(word);
+  return segments;
+};
+
+// Greedy line fill; a single word wider than the line keeps a line of its own.
+const wrapChartLabel = (
+  text: string,
+  maxPx: number,
+  widthOf: (text: string) => number,
+): string[] => {
+  const lines: string[] = [];
+  let line = '';
+  for (const segment of chartLabelSegments(text)) {
+    if (line !== '' && widthOf((line + segment).trimEnd()) > maxPx) {
+      lines.push(line.trimEnd());
+      line = '';
+    }
+    line += segment;
+  }
+  if (line.trim() !== '') lines.push(line.trimEnd());
+  return lines;
+};
+
+// Bar-chart category labels sit left of the plot. The plot narrows to fit the
+// longest one, up to MAX_BAR_CATEGORY_LABEL_SHARE of the chart width; longer
+// labels wrap within that width.
+const layoutBarCategoryLabels = (
+  spec: ReadChartSpec,
+  chartWidthPx: number,
+  measure: TextMeasurer,
+): { readonly widthPx: number; readonly lines: ReadonlyArray<ReadonlyArray<string>> } => {
+  const style = spec.categoryAxisLabelStyle;
+  // Chart text is painted in the generic sans-serif face, which the
+  // rasterizer resolves to the bundled SANS substitute.
+  const font: FontSpec = {
+    family: SANS,
+    sizePx: categoryLabelFontPx(style),
+    bold: style?.bold === true,
+    italic: style?.italic === true,
+    letterSpacingPx: 0,
+  };
+  const widthOf = (text: string): number => measure(text, font).widthPx;
+  const labels = Array.from(
+    { length: pointCount(spec) },
+    (_, i) => spec.categories[i] ?? (i + 1).toString(),
+  );
+  const maxPx = chartWidthPx * MAX_BAR_CATEGORY_LABEL_SHARE;
+  const lines = labels.map((label) => wrapChartLabel(label, maxPx, widthOf));
+  const widthPx = Math.max(0, ...lines.flatMap((ls) => ls.map(widthOf)));
+  return { widthPx, lines };
+};
+
 // Category labels along the non-value axis.
 const renderCategoryAxis = (
   f: ChartFrame,
@@ -3570,6 +3669,7 @@ const renderCategoryAxis = (
   lineHidden = false,
   majorTickMark: ReadChartSpec['categoryAxisMajorTickMark'] = 'out',
   minorTickMark: ReadChartSpec['categoryAxisMinorTickMark'] = 'none',
+  wrappedLabels?: ReadonlyArray<ReadonlyArray<string>>,
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -3633,6 +3733,30 @@ const renderCategoryAxis = (
     for (let i = 0; i < pointCount; i++) {
       if (skip > 1 && i % skip !== 0) continue;
       const cy = f.plotY + (pointCount - 1 - i + 0.5) * step;
+      const lines = wrappedLabels?.[i];
+      if (lines) {
+        const lx = f.plotX - CATEGORY_LABEL_GAP;
+        const lineH = categoryLabelFontPx(labelStyle) * CATEGORY_LABEL_LINE_HEIGHT;
+        const content =
+          lines.length === 1
+            ? escapeXml(lines[0]!)
+            : lines
+                .map(
+                  (line, k) =>
+                    `<tspan x="${px(lx)}" dy="${px(k === 0 ? (-(lines.length - 1) * lineH) / 2 : lineH)}">${escapeXml(line)}</tspan>`,
+                )
+                .join('');
+        out.push(
+          chartText(
+            f,
+            lx,
+            cy,
+            `text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}`,
+            content,
+          ),
+        );
+        continue;
+      }
       const lx = f.plotX - 4;
       const truncated =
         labels[i] !== undefined && labels[i]!.length > truncLen
@@ -5184,6 +5308,7 @@ const renderChart = (
   transform: string,
   theme: PresentationTheme | null,
   groupReflected: boolean,
+  measure: TextMeasurer,
 ): string | null => {
   let spec: ReadChartSpec | null = null;
   try {
@@ -5209,6 +5334,19 @@ const renderChart = (
   // LibreOffice both render none. An authored legend with `position: null`
   // (`<c:delete/>`-style) is also hidden.
   const hasLegend = spec.legend !== undefined && spec.legend.position !== null;
+  const barLabels =
+    spec.kind === 'bar' &&
+    !spec.categoryAxisHidden &&
+    spec.categoryAxisTickLabelPos !== 'none' &&
+    !spec.categoryAxisLabelRotationDeg
+      ? layoutBarCategoryLabels(spec, w / EMU_PER_PX, measure)
+      : undefined;
+  // A bar chart's value axis is horizontal, so its title sits under the tick
+  // labels and needs its own row there.
+  const barValueTitleRow =
+    spec.kind === 'bar' && spec.valueAxisTitle ? axisTitleRowPx(spec.valueAxisTitleStyle) : 0;
+  const barCategoryTitleRow =
+    spec.kind === 'bar' && spec.categoryAxisTitle ? axisTitleRowPx(spec.categoryAxisTitleStyle) : 0;
   const flip = getShapeFlip(shape);
   const f: ChartFrame = {
     reflected: groupReflected !== Boolean(flip && flip.horizontal !== flip.vertical),
@@ -5224,6 +5362,11 @@ const renderChart = (
       hasLegend,
       (spec.titleStyle?.sizePt ?? DEFAULT_CHART_TITLE_PT) * PX_PER_PT,
       spec.plotAreaLayout,
+      barLabels
+        ? Math.max(DEFAULT_Y_AXIS_GUTTER, barLabels.widthPx + CATEGORY_LABEL_GAP) +
+            barCategoryTitleRow
+        : undefined,
+      barValueTitleRow > 0 ? BAR_VALUE_LABEL_ROW + barValueTitleRow : undefined,
     ),
   };
   const allNamesForLegend: string[] =
@@ -5448,6 +5591,7 @@ const renderChart = (
         spec.categoryAxisLineHidden,
         spec.categoryAxisMajorTickMark,
         spec.categoryAxisMinorTickMark,
+        barLabels?.lines,
       );
     }
   }
@@ -5502,50 +5646,63 @@ const renderChart = (
         )
       : '';
 
-  // Axis titles — value title is rotated -90° to read along the y-axis
-  // tick stack; category title sits below the x-axis. Authored
+  // Axis titles — the title of the vertical axis is rotated -90° to read along
+  // its tick stack; the horizontal axis's title sits below its labels. Authored
   // <a:rPr sz/b/i> + solidFill override the 11pt semibold default.
   const axisTitleAttrs = (style: ChartTextStyle | undefined): string => {
-    const sz = style?.sizePt ?? 11;
+    const sz = style?.sizePt ?? DEFAULT_AXIS_TITLE_PT;
     const fill = style?.color ?? '#374151';
     const weight = style?.bold === false ? '400' : '600';
     const italicAttr = style?.italic ? ' font-style="italic"' : '';
     return `font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}" font-weight="${weight}"${italicAttr}`;
   };
-  // Authored <c:title><c:tx><c:rich><a:bodyPr rot> overrides the
-  // renderer's defaults (-90 for the value-axis title, 0 for the
-  // category-axis title). Pivot stays at the label anchor so the title
-  // hugs its axis.
-  const valueAxisTitleRot = spec.valueAxisTitleRotationDeg ?? -90;
-  const valueAxisTitleSvg = spec.valueAxisTitle
-    ? chartText(
-        f,
-        f.plotX - 26,
-        f.plotY + f.plotH / 2,
-        `text-anchor="middle" ${axisTitleAttrs(spec.valueAxisTitleStyle)} transform="rotate(${valueAxisTitleRot} ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})"`,
-        `${escapeXml(spec.valueAxisTitle)}`,
-      )
-    : '';
-  const catTitleRot = spec.categoryAxisTitleRotationDeg ?? 0;
-  const catTitleCx = f.plotX + f.plotW / 2;
+  // Authored <c:title><c:tx><c:rich><a:bodyPr rot> overrides the renderer's
+  // defaults (-90 beside the plot, 0 below it). Pivot stays at the label
+  // anchor so the title hugs its axis.
   // The tick-label row's baseline sits at plotY + plotH + 12 (renderCategoryAxis);
   // its own ascent/descent plus the title's ascent need clearance below that so
   // the two text rows don't collide, hence +28 here rather than the tick row's
   // near-identical +16.
-  const catTitleCy = f.plotY + f.plotH + 28;
-  const catTitleTransform =
-    catTitleRot !== 0
-      ? ` transform="rotate(${catTitleRot} ${px(catTitleCx)} ${px(catTitleCy)})"`
-      : '';
-  const categoryAxisTitleSvg = spec.categoryAxisTitle
-    ? chartText(
-        f,
-        catTitleCx,
-        catTitleCy,
-        `text-anchor="middle" ${axisTitleAttrs(spec.categoryAxisTitleStyle)}${catTitleTransform}`,
-        `${escapeXml(spec.categoryAxisTitle)}`,
-      )
-    : '';
+  const bottomTitle = { x: f.plotX + f.plotW / 2, y: f.plotY + f.plotH + 28 };
+  // A bar chart's labels fill the gutter its layout reserved; the title takes
+  // the strip left of them.
+  const sideTitleX = barLabels
+    ? f.plotX - CATEGORY_LABEL_GAP - barLabels.widthPx - barCategoryTitleRow / 2
+    : f.plotX - 26;
+  const sideTitle = { x: sideTitleX, y: f.plotY + f.plotH / 2 };
+  // A bar chart's value axis runs along the bottom and its category axis up
+  // the side, so the two titles trade places.
+  const isBar = spec.kind === 'bar';
+  const axisTitleSvg = (
+    title: string | undefined,
+    style: ChartTextStyle | undefined,
+    rotationDeg: number | undefined,
+    side: boolean,
+  ): string => {
+    if (!title) return '';
+    const at = side ? sideTitle : bottomTitle;
+    const rot = rotationDeg ?? (side ? -90 : 0);
+    const transform = rot !== 0 ? ` transform="rotate(${rot} ${px(at.x)} ${px(at.y)})"` : '';
+    return chartText(
+      f,
+      at.x,
+      at.y,
+      `text-anchor="middle" ${axisTitleAttrs(style)}${transform}`,
+      escapeXml(title),
+    );
+  };
+  const valueAxisTitleSvg = axisTitleSvg(
+    spec.valueAxisTitle,
+    spec.valueAxisTitleStyle,
+    spec.valueAxisTitleRotationDeg,
+    !isBar,
+  );
+  const categoryAxisTitleSvg = axisTitleSvg(
+    spec.categoryAxisTitle,
+    spec.categoryAxisTitleStyle,
+    spec.categoryAxisTitleRotationDeg,
+    isBar,
+  );
   return [
     `<g${transform}>`,
     // Chart-area backdrop honors <c:chartSpace><c:spPr><a:solidFill> /
@@ -6651,7 +6808,17 @@ const renderShapeContent = (
     // graphicFrame variants @office-kit/pptx doesn't model fall through to a
     // labelled placeholder.
     if (isChartShape(shape)) {
-      const chartSvg = renderChart(shape, x, y, w, h, transform, theme, ctx.groupReflected);
+      const chartSvg = renderChart(
+        shape,
+        x,
+        y,
+        w,
+        h,
+        transform,
+        theme,
+        ctx.groupReflected,
+        ctx.measure,
+      );
       if (chartSvg) return chartSvg;
     }
     if (isTableShape(shape)) {
