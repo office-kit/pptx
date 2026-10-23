@@ -27,7 +27,13 @@ export type { BuiltinTableStyle, BuiltinTableStyleName } from '../internal/prese
 export { BUILTIN_TABLE_STYLES } from '../internal/presentationml/index.ts';
 export type { BuiltinPictureStyleName } from '../internal/drawingml/index.ts';
 export { BUILTIN_PICTURE_STYLES } from '../internal/drawingml/index.ts';
-export type { PresentationInput, PresentationSize, SlideSize } from './fn.ts';
+export type {
+  LoadLimits,
+  LoadPresentationOptions,
+  PresentationInput,
+  PresentationSize,
+  SlideSize,
+} from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
 export type {

@@ -3,7 +3,12 @@
 // this file, so `node:fs/promises` stays out of the browser tree.
 
 import { readFile, writeFile } from 'node:fs/promises';
-import { type PresentationData, loadPresentation, savePresentation } from './api/index.ts';
+import {
+  type LoadPresentationOptions,
+  type PresentationData,
+  loadPresentation,
+  savePresentation,
+} from './api/index.ts';
 
 export * from './api/index.ts';
 
@@ -11,9 +16,12 @@ export * from './api/index.ts';
  * Reads a `.pptx` from disk and returns a `PresentationData`. Convenience
  * over `loadPresentation(await fs.readFile(path))`.
  */
-export const loadPresentationFile = async (path: string): Promise<PresentationData> => {
+export const loadPresentationFile = async (
+  path: string,
+  options: LoadPresentationOptions = {},
+): Promise<PresentationData> => {
   const bytes = await readFile(path);
-  return loadPresentation(bytes);
+  return loadPresentation(bytes, options);
 };
 
 /**

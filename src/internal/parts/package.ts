@@ -20,6 +20,7 @@ import {
   type PartName,
   type Relationships,
   type ZipEntry,
+  type ZipReadOptions,
   contentTypeResolver,
   emptyContentTypes,
   fromZipPath,
@@ -112,11 +113,11 @@ export class OpcPackage {
    * eagerly; leaves part bodies as raw `Uint8Array`s for higher layers to
    * interpret.
    *
-   * Throws if the archive is not a valid ZIP, or if `[Content_Types].xml` is
-   * missing or malformed.
+   * Throws if the archive is not a valid ZIP, if it breaks `options.limits`,
+   * or if `[Content_Types].xml` is missing or malformed.
    */
-  static load(bytes: Uint8Array): OpcPackage {
-    const zip = readZip(bytes);
+  static load(bytes: Uint8Array, options: ZipReadOptions = {}): OpcPackage {
+    const zip = readZip(bytes, options);
     let contentTypes: ContentTypes | null = null;
     const parts: Part[] = [];
 

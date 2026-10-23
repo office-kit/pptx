@@ -1,7 +1,13 @@
 // internal/opc — OPC package: ZIP, [Content_Types].xml, .rels.
 // Allowed imports: internal/xml.
 
-export type { CompressionLevel, ZipEntry, ZipReadResult } from './zip.ts';
+export type {
+  CompressionLevel,
+  LoadLimits,
+  ZipEntry,
+  ZipReadOptions,
+  ZipReadResult,
+} from './zip.ts';
 export { readZip, shouldStore, writeZip } from './zip.ts';
 
 export type { PartName } from './part-name.ts';

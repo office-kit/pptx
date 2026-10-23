@@ -1,6 +1,6 @@
 import { deflateSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { readZip, writeZip } from './zip.ts';
+import { type LoadLimits, readZip, writeZip } from './zip.ts';
 
 const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s);
 
@@ -357,5 +357,122 @@ describe('readZip on hostile input', () => {
   it('rejects input without an end of central directory', () => {
     expect(() => readZip(new Uint8Array(100))).toThrow(/end of central directory not found/);
     expect(() => readZip(new Uint8Array(0))).toThrow(/end of central directory not found/);
+  });
+});
+
+describe('readZip with load limits', () => {
+  const roomy: LoadLimits = {
+    maxEntries: 100,
+    maxTotalUncompressedBytes: 1 << 20,
+    maxXmlPartBytes: 1 << 16,
+    maxTotalXmlBytes: 1 << 18,
+  };
+  const xmlEntries = (count: number, size: number): RawEntry[] =>
+    Array.from({ length: count }, (_, i) => deflated(`ppt/p${i}.xml`, new Uint8Array(size)));
+
+  it('reads an archive within the limits exactly as without them', () => {
+    const zip = buildZip([
+      deflated('ppt/a.xml', utf8('<a/>'.repeat(1000))),
+      deflated('ppt/_rels/a.xml.rels', utf8('<r/>')),
+      { name: 'media/b.png', method: 0, stored: new Uint8Array([1, 2, 3]), declaredSize: 3 },
+    ]);
+    expect(readZip(zip, { limits: roomy })).toEqual(readZip(zip));
+  });
+
+  it('accepts sizes equal to each limit', () => {
+    const zip = buildZip([...xmlEntries(2, 100), deflated('media/a.bin', new Uint8Array(100))]);
+    const limits: LoadLimits = {
+      maxEntries: 3,
+      maxTotalUncompressedBytes: 300,
+      maxXmlPartBytes: 100,
+      maxTotalXmlBytes: 200,
+    };
+    expect(readZip(zip, { limits }).entries).toHaveLength(3);
+  });
+
+  it('rejects more entries than maxEntries', () => {
+    const zip = buildZip(xmlEntries(4, 1));
+    expect(() => readZip(zip, { limits: { ...roomy, maxEntries: 3 } })).toThrow(
+      /^invalid ZIP: archive lists 4 entries, over the maxEntries limit of 3$/,
+    );
+  });
+
+  it('rejects declared sizes over maxTotalUncompressedBytes', () => {
+    const zip = buildZip([
+      deflated('media/a.bin', new Uint8Array(600)),
+      deflated('media/b.bin', new Uint8Array(600)),
+    ]);
+    expect(() => readZip(zip, { limits: { ...roomy, maxTotalUncompressedBytes: 1000 } })).toThrow(
+      /^invalid ZIP: entries declare 1200 uncompressed bytes, over the maxTotalUncompressedBytes limit of 1000$/,
+    );
+  });
+
+  it('caps .xml and .rels parts but not media under maxXmlPartBytes', () => {
+    const limits = { ...roomy, maxXmlPartBytes: 100 };
+    const media = deflated('ppt/media/a.bin', new Uint8Array(500));
+    expect(readZip(buildZip([media]), { limits }).entries).toHaveLength(1);
+    const rels = deflated('_rels/.RELS', new Uint8Array(101));
+    expect(() => readZip(buildZip([rels]), { limits })).toThrow(
+      /^invalid ZIP: entry "_rels\/.RELS" declares 101 bytes, over the maxXmlPartBytes limit of 100$/,
+    );
+  });
+
+  it('rejects XML parts over maxTotalXmlBytes', () => {
+    const zip = buildZip(xmlEntries(3, 100));
+    expect(() => readZip(zip, { limits: { ...roomy, maxTotalXmlBytes: 250 } })).toThrow(
+      /^invalid ZIP: XML parts declare 300 bytes, over the maxTotalXmlBytes limit of 250$/,
+    );
+  });
+
+  it('checks the limits before inflating any entry', () => {
+    // The first entry is corrupt; inflating it would report that instead.
+    const zip = buildZip([
+      { name: 'bad.xml', method: 8, stored: new Uint8Array([0xff, 0xff, 0xff]), declaredSize: 4 },
+      deflated('big.xml', new Uint8Array(1000)),
+    ]);
+    expect(() => readZip(zip)).toThrow(/"bad.xml" is not valid DEFLATE data/);
+    expect(() => readZip(zip, { limits: { ...roomy, maxXmlPartBytes: 999 } })).toThrow(
+      /"big.xml" declares 1000 bytes, over the maxXmlPartBytes limit/,
+    );
+  });
+
+  it('stops mid-inflate when an entry within the limits inflates past its declared size', () => {
+    // The tail is not valid DEFLATE, so reaching it would fail differently.
+    const stored = concat([
+      zeroBomb(40_000).subarray(0, 64 * 1024),
+      new Uint8Array(1 << 20).fill(0xff),
+    ]);
+    const zip = buildZip([{ name: 'bomb.xml', method: 8, stored, declaredSize: 10 }]);
+    expect(() => readZip(zip, { limits: roomy })).toThrow(
+      /^invalid ZIP: entry "bomb.xml" inflates beyond its declared size of 10 bytes$/,
+    );
+  });
+
+  it('rejects a ZIP64 locator, which it reads without limits', () => {
+    const zip = buildZip([deflated('a.xml', utf8('<a/>'))], { zip64: true });
+    expect(readZip(zip).entries.map((e) => e.name)).toEqual(['a.xml']);
+    expect(() => readZip(zip, { limits: roomy })).toThrow(
+      /^invalid ZIP: ZIP64 end of central directory locator is not accepted under load limits$/,
+    );
+  });
+
+  it('rejects ZIP64 sizes in an entry, which it reads without limits', () => {
+    const zip = buildZip([{ ...deflated('a.xml', utf8('<a/>')), zip64Sizes: true }]);
+    expect(readZip(zip).entries[0]?.data).toEqual(utf8('<a/>'));
+    expect(() => readZip(zip, { limits: roomy })).toThrow(
+      /^invalid ZIP: entry "a.xml" uses ZIP64 sizes, which are not accepted under load limits$/,
+    );
+  });
+
+  it('rejects a limit that is negative or NaN but accepts Infinity', () => {
+    const zip = buildZip([deflated('a.xml', utf8('<a/>'))]);
+    expect(() => readZip(zip, { limits: { ...roomy, maxEntries: Number.NaN } })).toThrow(
+      RangeError,
+    );
+    expect(() => readZip(zip, { limits: { ...roomy, maxTotalXmlBytes: -1 } })).toThrow(
+      /maxTotalXmlBytes must be a non-negative number/,
+    );
+    const unbounded = { ...roomy, maxTotalUncompressedBytes: Number.POSITIVE_INFINITY };
+    expect(readZip(zip, { limits: unbounded }).entries).toHaveLength(1);
   });
 });

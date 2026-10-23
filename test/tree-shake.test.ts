@@ -132,9 +132,9 @@ describe('tree-shake: minimal load+save entry', () => {
     }
   });
 
-  it('full fn-API bundle stays under 265 KB', async () => {
+  it('full fn-API bundle stays under 270 KB', async () => {
     // A consumer that uses every free-function entry point should ship
-    // a bundle below 265 KB — wide upper bound to catch regressions.
+    // a bundle below 270 KB — wide upper bound to catch regressions.
     const fn = await bundleEntry(`
       import * as kit from '@office-kit/pptx';
       export async function run(bytes) {
@@ -162,7 +162,7 @@ describe('tree-shake: minimal load+save entry', () => {
         return await kit.savePresentation(pres);
       }
     `);
-    expect(fn.bytes).toBeLessThan(265_000);
+    expect(fn.bytes).toBeLessThan(270_000);
     process.stderr.write(`tree-shake: full-fn-API bundle = ${fn.bytes} bytes\n`);
   });
 
