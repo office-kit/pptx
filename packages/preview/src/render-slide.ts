@@ -1554,6 +1554,13 @@ const renderRun = (
 // `line-height` declaration in renderRun.
 const LINE_HEIGHT = 1.05;
 
+// DrawingML has no setting for space between CJK and Latin text (`a:pPr` only
+// has eaLnBrk / latinLnBrk / hangingPunct, which govern line breaking), and the
+// reference desktop app inserts none. CSS `text-autospace` may default to
+// adding it, which would widen browser-laid text past what the SVG layout and
+// auditTextLayout measure.
+const NO_AUTOSPACE = 'text-autospace:no-autospace;';
+
 // `<a:normAutofit/>` shrink-to-fit search bounds. The reference desktop app reduces the font
 // in discrete steps until the body fits its box; we sweep from 1.0 down to the
 // floor in fixed decrements. The floor stops a pathologically small box from
@@ -2857,7 +2864,7 @@ const renderTextBody = (
   // hit when the autofit scale wasn't enough.
   const content = paragraphs.join('');
   const offsetStyle = `translate:${model.anchorOffset.x}px ${model.anchorOffset.y}px;`;
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};${offsetStyle}${wrapStyle}${vertStyles}">${content}</div>`;
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};${NO_AUTOSPACE}${offsetStyle}${wrapStyle}${vertStyles}">${content}</div>`;
   const foreign = `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
   // Keep the editable browser text in foreignObject, but paint character
   // effects in a sibling SVG layer. Mirroring an HTML inline box changes
@@ -5770,7 +5777,7 @@ const renderTableCellText = (
   const body = renderHtmlParagraphs(paraData, numberLabels, theme, 1, DEFAULT_BODY_PT, color).join(
     '',
   );
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>${fillOverlay()}${bevelOverlay()}`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};${NO_AUTOSPACE}word-break:break-word;${directionStyle}">${body}</div></foreignObject>${fillOverlay()}${bevelOverlay()}`;
 };
 
 // The reference desktop app (Mac 16.113) does not blend a two-stop linear table background at
