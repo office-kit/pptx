@@ -12503,7 +12503,7 @@ export const generatedTools: GeneratedTools = {
                           text: {
                             type: 'string',
                             description:
-                              'Run text, written verbatim — unlike `setShapeText`, newlines are not\nsplit into paragraphs (the reference desktop app shows a CR LF inside a run as a line\nbreak, which some exporters rely on).',
+                              'Run text. Unlike `setShapeText`, a newline (`\\n` or `\\r\\n`) does not\nstart a paragraph: it is written as a line break (`<a:br>`) between runs of\nthe same format, since a raw newline inside `<a:t>` reads as a paragraph\nbreak in some apps and as a line break in others.',
                           },
                           format: { $ref: '#/$defs/TextFormat' },
                         },
@@ -19584,7 +19584,7 @@ export const generatedTools: GeneratedTools = {
                       text: {
                         type: 'string',
                         description:
-                          'Run text, written verbatim — unlike `setShapeText`, newlines are not\nsplit into paragraphs (the reference desktop app shows a CR LF inside a run as a line\nbreak, which some exporters rely on).',
+                          'Run text. Unlike `setShapeText`, a newline (`\\n` or `\\r\\n`) does not\nstart a paragraph: it is written as a line break (`<a:br>`) between runs of\nthe same format, since a raw newline inside `<a:t>` reads as a paragraph\nbreak in some apps and as a line break in others.',
                       },
                       format: { $ref: '#/$defs/TextFormat' },
                     },

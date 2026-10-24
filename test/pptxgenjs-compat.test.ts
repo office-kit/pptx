@@ -287,7 +287,15 @@ describe('pptxgenjs compatibility: text', () => {
     const reloaded = await loadPresentation(await savePresentation(pres));
     xsd(partXml(reloaded, '/ppt/slides/slide1.xml'), 'pml');
     const [againText, againTable] = getSlideShapes(getSlides(reloaded)[0]!);
-    expect(shapeParagraphs(againText!)).toEqual(beforeText);
+    // Written back, the run that held only the raw newline becomes an <a:br>.
+    expect(shapeParagraphs(againText!)).toEqual(
+      beforeText.map((p) => ({
+        ...p,
+        elements: p.elements.map((e) =>
+          e.kind === 'r' && e.text === '\n' ? { kind: 'br', format: e.format } : e,
+        ),
+      })),
+    );
     expect(
       getTableCells(againTable!).map((row) => row.map((cell) => getTableCellParagraphs(cell))),
     ).toEqual(beforeCells);
