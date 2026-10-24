@@ -30,7 +30,6 @@ const NAME_BU_NONE = qname('a', 'buNone', NS.dml);
 const NAME_BU_FONT = qname('a', 'buFont', NS.dml);
 const ATTR_CHAR = qname('', 'char', '');
 const ATTR_BU_TYPE = qname('', 'type', '');
-const ATTR_START_AT = qname('', 'startAt', '');
 const ATTR_TYPEFACE = qname('', 'typeface', '');
 
 const NAME_P = qname('a', 'p', NS.dml);
@@ -277,11 +276,9 @@ const buildBulletElement = (n: NormalizedBullet): XmlElement => {
     case 'char':
       return elem(NAME_BU_CHAR, { attrs: [attr(ATTR_CHAR, n.char)] });
     case 'autoNum':
-      // `startAt="1"` is the default, but the reference desktop app and PptxGenJS write it
-      // explicitly on an authored numbered list.
-      return elem(NAME_BU_AUTO_NUM, {
-        attrs: [attr(ATTR_START_AT, '1'), attr(ATTR_BU_TYPE, n.type)],
-      });
+      // `startAt` is left out because 1 is the default, and LibreOffice restarts the count on
+      // every paragraph that carries it, numbering a list 1. 1. 1.
+      return elem(NAME_BU_AUTO_NUM, { attrs: [attr(ATTR_BU_TYPE, n.type)] });
     case 'none':
       return elem(NAME_BU_NONE);
   }
