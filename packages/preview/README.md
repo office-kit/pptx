@@ -116,6 +116,20 @@ regular and the bold one — and register them with `buildFontkitMeasurer({ font
 for the measurer. East Asian characters are drawn in the family of the first
 `fontFiles` face that covers kana, in the face closest to each run's weight.
 
+Every authored font name is drawn in a bundled substitute unless you pass
+`resolveFamily`. Map a deck's font to a family you load through `fontFiles`
+(and register with the measurer) to draw the run in that face; East Asian
+characters keep the kana face above, and `resolveFamily` decides the rest.
+
+```ts
+const noto = 'fonts/NotoSansCJKjp-Regular.otf';
+const png = renderSlideToImage(pres, slide, {
+  fontFiles: [noto],
+  measureText: buildFontkitMeasurer({ fonts: [{ family: 'Noto Sans CJK JP', source: noto }] }),
+  resolveFamily: (family) => (family === 'Meiryo' ? 'Noto Sans CJK JP' : substituteFamily(family)),
+});
+```
+
 ### Text-layout audit (overflow / soft-wrap detection)
 
 ```ts
