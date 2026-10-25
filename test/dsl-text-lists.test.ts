@@ -67,6 +67,16 @@ describe('Text paragraph bullet and level', () => {
     expect(grandchild).toBeGreaterThan(child!);
   });
 
+  it("sizes a bullet's hanging indent from the text size", async () => {
+    const { shape } = await compileText({ bullets: 'bullet', size: 14, children: 'One\nTwo' });
+    // 1.5 × 14 pt = 21 pt; the stock 0.375 in is 27 pt, sized for 18 pt text.
+    expect(api.getParagraphIndent(shape, 0)).toEqual({
+      leftEmu: 21 * 12700,
+      rightEmu: null,
+      firstLineEmu: -21 * 12700,
+    });
+  });
+
   it('keeps paragraphSpacing, paragraph align and run formats next to them', async () => {
     const { shape } = await compileText({
       size: 16,

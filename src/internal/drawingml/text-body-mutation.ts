@@ -409,22 +409,50 @@ const BULLET_INDENT_BY_LEVEL: ReadonlyArray<{ marL: number; indent: number }> = 
   { marL: 1600200, indent: -228600 },
   { marL: 2057400, indent: -228600 },
 ];
-const bulletIndentForLevel = (lvl: number): { marL: number; indent: number } =>
-  BULLET_INDENT_BY_LEVEL[Math.min(lvl, BULLET_INDENT_BY_LEVEL.length - 1)]!;
+// The indents above suit 18 pt text, the text-box default (a 27 pt hanging
+// indent, 1.5 times the size, at the top level), and scale with the text: at
+// 14 pt the stock 0.375 in left the bullet far from its text.
+const BULLET_INDENT_BASE_PT = 18;
+const HUNDREDTHS_PER_PT = 100;
+
+// A paragraph's text size: its first run's, else its end-of-paragraph size,
+// else the text-box default the stock indents suit.
+const paragraphSizePt = (paragraph: XmlElement): number => {
+  for (const child of paragraph.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    const props =
+      child.name.localName === 'r' || child.name.localName === 'fld'
+        ? firstChildElement(child, NAME_RPR)
+        : child.name.localName === 'endParaRPr'
+          ? child
+          : null;
+    const sz = props?.attrs.find((a) => a.name.namespaceURI === '' && a.name.localName === 'sz');
+    if (sz !== undefined) return Number(sz.value) / HUNDREDTHS_PER_PT;
+  }
+  return BULLET_INDENT_BASE_PT;
+};
+
+const bulletIndentForLevel = (lvl: number, sizePt: number): { marL: number; indent: number } => {
+  const base = BULLET_INDENT_BY_LEVEL[Math.min(lvl, BULLET_INDENT_BY_LEVEL.length - 1)]!;
+  const scale = sizePt / BULLET_INDENT_BASE_PT;
+  return { marL: Math.round(base.marL * scale), indent: Math.round(base.indent * scale) };
+};
 
 const ATTR_MAR_L = qname('', 'marL', '');
 const ATTR_INDENT = qname('', 'indent', '');
 
 export const updateBulletIndentForLevel = (
+  paragraph: XmlElement,
   pPr: XmlElement,
   previousLevel: number,
   level: number,
 ): void => {
-  const previous = bulletIndentForLevel(previousLevel);
+  const sizePt = paragraphSizePt(paragraph);
+  const previous = bulletIndentForLevel(previousLevel, sizePt);
   const marL = pPr.attrs.find((a) => a.name.namespaceURI === '' && a.name.localName === 'marL');
   const indent = pPr.attrs.find((a) => a.name.namespaceURI === '' && a.name.localName === 'indent');
   if (marL?.value !== String(previous.marL) || indent?.value !== String(previous.indent)) return;
-  const next = bulletIndentForLevel(level);
+  const next = bulletIndentForLevel(level, sizePt);
   pPr.attrs = pPr.attrs.map((a) =>
     a === marL
       ? attr(a.name, String(next.marL))
@@ -466,7 +494,10 @@ const applyNormalizedBullet = (paragraph: XmlElement, style: NormalizedBullet): 
       pPr.attrs.find((a) => a.name.localName === 'lvl')?.value ?? '0',
       10,
     );
-    const { marL, indent } = bulletIndentForLevel(Number.isFinite(lvl) ? lvl : 0);
+    const { marL, indent } = bulletIndentForLevel(
+      Number.isFinite(lvl) ? lvl : 0,
+      paragraphSizePt(paragraph),
+    );
     if (!hasAttr(pPr, 'marL')) pPr.attrs.push(attr(ATTR_MAR_L, String(marL)));
     if (!hasAttr(pPr, 'indent')) pPr.attrs.push(attr(ATTR_INDENT, String(indent)));
   }
