@@ -64,6 +64,12 @@ const svg = renderSlideToSvg(pres, slide, {
 });
 ```
 
+The bundled substitutes have no Japanese, Chinese or Korean glyphs. Pass
+`eastAsianFamily` to write a run's East Asian characters (kana, kanji, Hangul,
+and CJK and full-width punctuation) in a family the viewer has, in the weights
+the deck uses; otherwise the glyphs are left to the rasterizer's fallback,
+which in resvg ignores bold.
+
 `renderSlideLayoutToSvg(pres, layout, { master })` draws what a slide master
 editor shows behind the placeholders: the layout's background and decorative
 shapes over its master's (the master's are left out when the layout hides
@@ -104,6 +110,11 @@ Cambria, Liberation ≈ Arial/Times/Courier; OFL / Apache-2.0, see
 `fonts/LICENSES.md`). The measurer, resvg's font set, and the SVG family names
 all reference the same fonts, so wrap/positioning math agrees with the painted
 glyphs and the result is deterministic (no system fonts).
+
+For Japanese, Chinese or Korean text, pass the faces in `fontFiles` — the
+regular and the bold one — and register them with `buildFontkitMeasurer({ fonts })`
+for the measurer. East Asian characters are drawn in the family of the first
+`fontFiles` face that covers kana, in the face closest to each run's weight.
 
 ### Text-layout audit (overflow / soft-wrap detection)
 

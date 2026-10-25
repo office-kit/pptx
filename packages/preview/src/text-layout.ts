@@ -77,6 +77,15 @@ export interface RenderSlideOptions {
    *  `@font-face` rule the host embeds), and pair it with a `measureText` that
    *  knows its metrics so line breaks match the glyphs. */
   readonly resolveFamily?: (family: string | null) => string;
+  /** Family written for East Asian characters (kana, kanji, Hangul, and CJK
+   *  and full-width punctuation) with `textLayout: 'svg'`, split from the
+   *  run's Latin text the way presentation apps switch to a run's East Asian
+   *  font. Unset keeps them in the run's family and leaves the face to the
+   *  rasterizer's fallback; resvg's fallback ignores the weight, so bold
+   *  Japanese text there paints with whichever face it finds first. Name a
+   *  family the rasterizer has loaded in the weights the deck uses. The
+   *  `/node` entry sets it from the first `fontFiles` face that covers kana. */
+  readonly eastAsianFamily?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -442,7 +451,7 @@ type LineBuilder = (contentLeft: number, contentRight: number) => { lines: Line[
 // breaks East Asian runs between any two characters. Split CJK runs into
 // per-character tokens, gluing closing punctuation to its predecessor and
 // opening brackets to their successor (simple kinsoku).
-const EAST_ASIAN_CHAR = /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/;
+export const EAST_ASIAN_CHAR = /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/;
 const CLOSING_PUNCT = /^[、。，．・）」』】〉》”’！？：；ー〜…,.!?:;)\]}]+$/;
 const OPENING_PUNCT = /^[（「『【〈《“‘([{]+$/;
 
@@ -1110,6 +1119,38 @@ const emitPlacements = (
   return paragraphs.join('');
 };
 
+const familyOf = (g: Group): string => g.piece.cssFamily ?? g.piece.family;
+
+// resvg paints a text chunk that mixes families and East Asian glyphs wrongly:
+// the face it picks for the East Asian glyphs paints the other runs' Latin
+// glyphs too, at that face's weight. An absolute x at each family change starts
+// a new chunk, so every run keeps its own face; the line then lays out from its
+// start edge.
+const lineText = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  span: (g: Group, x?: number) => string,
+): { readonly x: number; readonly anchor: 'start' | 'middle' | 'end'; readonly body: string } => {
+  const families = new Set(groups.filter((g) => !g.isTab).map(familyOf));
+  if (families.size < 2 || !groups.some((g) => EAST_ASIAN_CHAR.test(g.text))) {
+    return { x: x0, anchor: textAnchor, body: groups.map((g) => span(g)).join('') };
+  }
+  const totalWidth = groups.reduce((sum, g) => sum + g.width, 0);
+  const start =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  let cursor = start;
+  let family: string | null = null;
+  const parts: string[] = [];
+  for (const g of groups) {
+    const changes = !g.isTab && familyOf(g) !== family;
+    parts.push(span(g, changes && family !== null ? cursor : undefined));
+    if (changes) family = familyOf(g);
+    cursor += g.width;
+  }
+  return { x: start, anchor: 'start', body: parts.join('') };
+};
+
 const topPad = (line: Line): number => {
   // Half-leading: spread (advance - (ascent+descent)) above and below the
   // glyph box. For the natural advance this is lineGap/2.
@@ -1147,19 +1188,17 @@ const emitLine = (
   const content = toks.filter((t) => !t.isBreak);
   if (content.length === 0) return '';
   const groups = groupTokens(content);
-  const tspans = groups
-    .map((g) => {
-      const span = tspan(g);
-      const href = g.piece.href ? safeLinkHref(g.piece.href) : undefined;
-      if (!href) return span;
-      const target = href.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
-      const title = g.piece.hrefTip ? `<title>${escapeXml(g.piece.hrefTip)}</title>` : '';
-      return `<a href="${escapeXml(href)}"${target}>${title}${span}</a>`;
-    })
-    .join('');
-  if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
-  const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  const linked = lineText(groups, line.textAnchor, x0, (g, x) => {
+    const span = tspan(g, x);
+    const href = g.piece.href ? safeLinkHref(g.piece.href) : undefined;
+    if (!href) return span;
+    const target = href.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
+    const title = g.piece.hrefTip ? `<title>${escapeXml(g.piece.hrefTip)}</title>` : '';
+    return `<a href="${escapeXml(href)}"${target}>${title}${span}</a>`;
+  });
+  if (linked.body === '') return '';
+  const text = `<text x="${fmt(linked.x)}" y="${fmt(baselineY)}" text-anchor="${linked.anchor}" xml:space="preserve">${linked.body}</text>`;
   if (effectsOnly && effectKind === 'fill') {
     // Only the paint-filled groups draw; the rest stay in the <text> as
     // unpainted placeholders so every glyph keeps its laid-out position.
@@ -1167,7 +1206,8 @@ const emitLine = (
       g.piece.fillPaint ? g : { ...g, piece: unpaintedPiece(g.piece) },
     );
     if (!painted.some((g) => g.piece.fillPaint)) return '';
-    const glyphs = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve" aria-hidden="true" pointer-events="none">${painted.map(tspan).join('')}</text>`;
+    const paintedText = lineText(painted, line.textAnchor, x0, tspan);
+    const glyphs = `<text x="${fmt(paintedText.x)}" y="${fmt(baselineY)}" text-anchor="${paintedText.anchor}" xml:space="preserve" aria-hidden="true" pointer-events="none">${paintedText.body}</text>`;
     return (
       emitTextOuterEffects(painted, line.textAnchor, x0, baselineY, nextEffectId) +
       glyphs +
@@ -1481,7 +1521,8 @@ const emitTextBevel = (
   const beveled = groups.map((g) =>
     g.piece.bevel && !g.isTab ? g : { ...g, piece: unpaintedPiece(g.piece) },
   );
-  return `${defs}<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${textAnchor}" xml:space="preserve" filter="url(#${id})" aria-hidden="true" pointer-events="none" data-pptx-bevel="text">${beveled.map(tspan).join('')}</text>`;
+  const beveledText = lineText(beveled, textAnchor, x0, tspan);
+  return `${defs}<text x="${fmt(beveledText.x)}" y="${fmt(baselineY)}" text-anchor="${beveledText.anchor}" xml:space="preserve" filter="url(#${id})" aria-hidden="true" pointer-events="none" data-pptx-bevel="text">${beveledText.body}</text>`;
 };
 
 // SVG baseline-shift sign convention: positive shifts the glyph UP (smaller
@@ -1753,11 +1794,12 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.href === b.href &&
   a.hrefTip === b.hrefTip;
 
-const tspan = (g: Group): string => {
+const tspan = (g: Group, x?: number): string => {
   if (g.isTab) return `<tspan dx="${fmt(g.width)}">&#8203;</tspan>`;
   const p = g.piece;
   const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
+    ...(x === undefined ? [] : [`x="${fmt(x)}"`]),
     `font-family="${escapeXml(p.cssFamily ?? p.family)}"`,
     `font-size="${fmt(sizePx)}"`,
     `fill="${p.fillHex}"`,

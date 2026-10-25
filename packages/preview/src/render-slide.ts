@@ -189,6 +189,7 @@ import {
   measureTextBodyHeight,
   substituteFamily,
   cssFamilyName,
+  EAST_ASIAN_CHAR,
   SANS,
   type BulletInput,
   type FontSpec,
@@ -221,6 +222,8 @@ interface LayoutCtx {
   // autofit measurement shared by both modes. foreignObject text always uses
   // `browserFontFamily`, a CSS stack that keeps the authored name.
   readonly resolveFamily: (family: string | null) => string;
+  // `RenderSlideOptions.eastAsianFamily`, svg mode only.
+  readonly eastAsianFamily: string | undefined;
   // Product of the scale factors of every enclosing group (`<a:ext>` over
   // `<a:chExt>`). Geometry scales with the group; text does not — the reference desktop app
   // and LibreOffice both keep a group child's glyphs at their authored size
@@ -300,6 +303,12 @@ const fontFamilyStyles = (font: string): string[] =>
 // names its face with the same CSS stack, which is already a valid
 // `font-family` value and is written verbatim.
 const BROWSER_FAMILIES = { resolveFamily: browserFontFamily, familyIsCssList: true } as const;
+const svgFamilies = (
+  ctx: LayoutCtx,
+): Pick<SvgTextArgs, 'resolveFamily' | 'eastAsianFamily'> => ({
+  resolveFamily: ctx.resolveFamily,
+  ...(ctx.eastAsianFamily === undefined ? {} : { eastAsianFamily: ctx.eastAsianFamily }),
+});
 // Bullet font when no buFont is authored or inherited. The stock
 // template's master bodyStyle sets buFont="Arial", and its '•'/'◦' glyphs are
 // smaller and higher than the theme minor face (Calibri) — so Arial, not the
@@ -1672,6 +1681,9 @@ export interface SvgTextArgs {
   /** `resolveFamily` returns a CSS font-family list rather than one name, so
    *  it is written as is instead of being quoted as a single family. */
   readonly familyIsCssList?: boolean;
+  /** `RenderSlideOptions.eastAsianFamily`; unset keeps East Asian text in
+   *  the run's family. */
+  readonly eastAsianFamily?: string;
 }
 
 // Runs whose glyphs the SVG fill layer paints — a non-solid fill or a
@@ -1760,6 +1772,32 @@ const faceOf = (
 ): { readonly family: string; readonly cssFamily?: string } => {
   const family = (a.resolveFamily ?? substituteFamily)(font);
   return a.familyIsCssList ? { family } : { family, cssFamily: cssFamilyName(family) };
+};
+
+// Presentation apps draw a run's East Asian characters with its East Asian
+// font, so they become their own pieces in `eastAsianFamily`.
+const eastAsianParts = <P extends { readonly text: string }>(
+  piece: P,
+  family: string | undefined,
+): P[] => {
+  if (family === undefined || !EAST_ASIAN_CHAR.test(piece.text)) return [piece];
+  const face = { family, cssFamily: cssFamilyName(family) };
+  const parts: P[] = [];
+  let current = '';
+  let currentEastAsian = false;
+  const flush = (): void => {
+    if (current === '') return;
+    parts.push(currentEastAsian ? { ...piece, ...face, text: current } : { ...piece, text: current });
+    current = '';
+  };
+  for (const ch of piece.text) {
+    const eastAsian = EAST_ASIAN_CHAR.test(ch);
+    if (eastAsian !== currentEastAsian) flush();
+    currentEastAsian = eastAsian;
+    current += ch;
+  }
+  flush();
+  return parts;
 };
 
 // Build the px-native engine input from the resolved paraData (at a.autoFitScale).
@@ -1899,8 +1937,9 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
       const segs = run.text.split('\n');
       segs.forEach((seg, i) => {
         const segText = caps ? seg.toUpperCase() : seg;
-        const segPieces =
-          cap === 'small' ? smallCapsParts(seg, base) : [{ ...base, text: segText }];
+        const segPieces = (
+          cap === 'small' ? smallCapsParts(seg, base) : [{ ...base, text: segText }]
+        ).flatMap((piece) => eastAsianParts(piece, a.eastAsianFamily));
         if (a.vert === 'upright') {
           // wordArtVert stacks one grapheme per line (spaces become blank
           // rows). Reuse the calibrated horizontal engine with a break before
@@ -2102,6 +2141,7 @@ export const resolveTextBodyModel = (
   defaultColor: string,
   useSvgTextRect = false,
   resolveFamily: (family: string | null) => string = substituteFamily,
+  eastAsianFamily?: string,
 ): TextBodyModel | null => {
   let paragraphCount: number;
   try {
@@ -2412,6 +2452,7 @@ export const resolveTextBodyModel = (
       vert: fitVert,
       columns: fitColumns,
       resolveFamily,
+      ...(eastAsianFamily === undefined ? {} : { eastAsianFamily }),
     };
     let s = 1;
     while (s > AUTOFIT_FLOOR) {
@@ -2451,6 +2492,7 @@ export const resolveTextBodyModel = (
       vert,
       autoFitScale,
       resolveFamily,
+      ...(eastAsianFamily === undefined ? {} : { eastAsianFamily }),
       columns:
         vert === 'none' && cols && cols.count >= 2
           ? { count: cols.count, gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 0 }
@@ -2711,6 +2753,7 @@ const renderTextBody = (
     activeDeckTextColor,
     ctx.mode === 'svg' && output === 'body',
     ctx.resolveFamily,
+    ctx.eastAsianFamily,
   );
   if (model === null) return '';
   const bevel = textBevelOf(getShapeText3D(shape));
@@ -2792,7 +2835,7 @@ const renderTextBody = (
       innerW: vInnerW,
       innerH: vInnerH,
       measure: ctx.mode === 'svg' ? ctx.measure : (browserTextMeasurer() ?? ctx.measure),
-      ...(ctx.mode === 'foreignObject' ? BROWSER_FAMILIES : { resolveFamily: ctx.resolveFamily }),
+      ...(ctx.mode === 'foreignObject' ? BROWSER_FAMILIES : svgFamilies(ctx)),
       vert: svgVert,
       columns: svgColumns,
       bevel,
@@ -2978,6 +3021,7 @@ export const renderTextEffectsSvg = (
     mode: 'foreignObject',
     measure: opts.measureText ?? browserTextMeasurer() ?? defaultMeasurer,
     resolveFamily: substituteFamily,
+    eastAsianFamily: undefined,
     ownShapes: true,
     background: { id: '', width: localBounds.w / EMU_PER_PX, height: localBounds.h / EMU_PER_PX },
     inverseGroupTransform: '',
@@ -3019,6 +3063,7 @@ const renderTableCellEffectsSvgInternal = (
     mode: 'foreignObject',
     measure: opts.measureText ?? browserTextMeasurer() ?? defaultMeasurer,
     resolveFamily: substituteFamily,
+    eastAsianFamily: undefined,
     ownShapes: true,
     background: { id: '', width: localBounds.w / EMU_PER_PX, height: localBounds.h / EMU_PER_PX },
     inverseGroupTransform: '',
@@ -5923,7 +5968,7 @@ const renderTableCellText = (
     innerW: innerW * EMU_PER_PX,
     innerH: innerH * EMU_PER_PX,
     measure: ctx.mode === 'svg' ? ctx.measure : (browserTextMeasurer() ?? ctx.measure),
-    ...(ctx.mode === 'foreignObject' ? BROWSER_FAMILIES : { resolveFamily: ctx.resolveFamily }),
+    ...(ctx.mode === 'foreignObject' ? BROWSER_FAMILIES : svgFamilies(ctx)),
     vert: verticalLayoutOf(getTableCellTextDirection(cell)),
     columns: null,
     ...(effectsOnly ? { effectsOnly: true } : {}),
@@ -7335,6 +7380,7 @@ const renderSurface = (
     // autofit, measured with the SVG engine) never depends on it.
     resolveFamily:
       opts.textLayout === 'svg' ? (opts.resolveFamily ?? substituteFamily) : substituteFamily,
+    eastAsianFamily: opts.textLayout === 'svg' ? opts.eastAsianFamily : undefined,
     ownShapes: true,
     background: { id: '', width: W / EMU_PER_PX, height: H / EMU_PER_PX },
     inverseGroupTransform: '',

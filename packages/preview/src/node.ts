@@ -8,6 +8,8 @@
 // glyphs.
 
 import { Resvg } from '@resvg/resvg-js';
+import * as fontkit from 'fontkit';
+import { existsSync, readFileSync } from 'node:fs';
 import { getSlideSize, type PresentationData, type SlideData } from '@office-kit/pptx';
 import { renderSlideSvg } from './render-slide.ts';
 import { MONO, SANS, SERIF, type TextMeasurer } from './text-layout.ts';
@@ -47,7 +49,9 @@ export interface RenderImageOptions {
    * coverage, so decks with Japanese / Chinese / Korean text render as
    * missing-glyph boxes unless the caller supplies a face here (pair it with
    * a {@link buildFontkitMeasurer} `fonts` registration so wrap math uses the
-   * same metrics).
+   * same metrics). East Asian text is drawn in the family of the first face
+   * here that covers kana, in the weight closest to the run's, so supply that
+   * family's bold face too for bold Japanese text.
    */
   readonly fontFiles?: ReadonlyArray<string>;
   /**
@@ -67,13 +71,61 @@ const DEFAULT_WIDTH = 1280;
 let sharedMeasurer: TextMeasurer | undefined;
 const getSharedMeasurer = (): TextMeasurer => (sharedMeasurer ??= buildFontkitMeasurer());
 
+// Hiragana あ: a face that has it is a Japanese (or pan-CJK) face.
+const KANA_PROBE = 0x3042;
+
+// Reading a face's names means parsing the file, so remember the answer per
+// list of files: a deck renders every slide with the same list.
+const eastAsianFamilyCache = new Map<string, string | undefined>();
+
+// The family resvg matches a face by: the typographic family when the face
+// has one ("Hiragino Sans" for "Hiragino Sans W6"), else the family name.
+const matchFamilyOf = (font: fontkit.Font): string =>
+  font.getName('preferredFamily', 'en') ?? font.familyName;
+
+// resvg skips a font file it cannot find or parse, and `fontFiles` promises
+// the same, so such a file names no family here either.
+const openFontFile = (path: string): fontkit.Font | fontkit.FontCollection | null => {
+  if (!existsSync(path)) return null;
+  try {
+    return fontkit.create(readFileSync(path));
+  } catch {
+    return null;
+  }
+};
+
+const eastAsianFamilyOf = (fontFiles: ReadonlyArray<string>): string | undefined => {
+  const key = fontFiles.join('\n');
+  if (eastAsianFamilyCache.has(key)) return eastAsianFamilyCache.get(key);
+  let family: string | undefined;
+  for (const path of fontFiles) {
+    const opened = openFontFile(path);
+    if (opened === null) continue;
+    const faces = 'fonts' in opened ? opened.fonts : [opened];
+    const face = faces.find((f) => f.hasGlyphForCodePoint(KANA_PROBE));
+    if (face) {
+      family = matchFamilyOf(face);
+      break;
+    }
+  }
+  eastAsianFamilyCache.set(key, family);
+  return family;
+};
+
 const rasterize = (pres: PresentationData, slide: SlideData, opts: RenderImageOptions) => {
   // `getSlideSize` is only consulted to fail fast on a malformed deck; the SVG
   // carries its own viewBox and resvg fits to the requested width.
   getSlideSize(pres);
   const width = opts.width ?? DEFAULT_WIDTH;
   const measureText = opts.measureText ?? getSharedMeasurer();
-  const svg = renderSlideSvg(pres, slide, { measureText, textLayout: 'svg' });
+  // resvg's own fallback for glyphs the run's family lacks ignores the weight
+  // (bold Japanese paints with the regular face), so name the face instead.
+  const eastAsianFamily = eastAsianFamilyOf(opts.fontFiles ?? []);
+  const svg = renderSlideSvg(pres, slide, {
+    measureText,
+    textLayout: 'svg',
+    ...(eastAsianFamily === undefined ? {} : { eastAsianFamily }),
+  });
   const resvg = new Resvg(svg, {
     fitTo: { mode: 'width', value: width },
     font: {
