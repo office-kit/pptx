@@ -114,6 +114,19 @@ type ShapeClickAction =
 ## Errors
 
 - **Malformed package** — `loadPresentation` throws a descriptive `Error` naming the missing or malformed OPC part.
+- **Untrusted upload** — pass `limits` to cap what a `.pptx` may decompress to. They are checked against the sizes the archive declares before anything is inflated, an entry that inflates past its declared size stops mid-way, and ZIP64 archives are rejected. A breach throws an `Error` starting with `invalid ZIP:` that names the limit. Cap the input's own byte length before calling.
+
+  ```ts
+  const pres = await loadPresentation(upload, {
+    limits: {
+      maxEntries: 1000,
+      maxTotalUncompressedBytes: 100 * 1024 * 1024,
+      maxXmlPartBytes: 10 * 1024 * 1024, // per .xml / .rels part
+      maxTotalXmlBytes: 50 * 1024 * 1024,
+    },
+  });
+  ```
+
 - **Encrypted .pptx** — detected by CFB Compound Document magic and rejected up-front; decrypt with [`officecrypto-tool`](https://github.com/zurmokeeper/officecrypto-tool) first.
 - **Unknown image format** — `addSlideImage` / `setShapeImage` throw if the magic bytes don't match a supported format (PNG / JPEG / GIF / SVG / BMP / TIFF). Pass `options.format` to override detection.
 - **Unknown media container / bad URL** — `addSlideMedia` throws when a clip's container cannot be detected (pass `format`), when the poster is not a supported image, or when an online video `url` is not an absolute `http(s)` URL. Nothing is added to the package in that case.

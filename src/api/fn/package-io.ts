@@ -1,5 +1,6 @@
 // Presentation I/O: load, save, and create.
 
+import type { LoadLimits } from '../../internal/opc/index.ts';
 import { type BlankDeckAspect, OpcPackage, buildBlankDeck } from '../../internal/parts/index.ts';
 import { INTERNAL_PACKAGE, type PresentationData } from '../_internal-symbols.ts';
 
@@ -21,12 +22,34 @@ const normalize = async (input: PresentationInput): Promise<Uint8Array> => {
   throw new TypeError('loadPresentation: expected Uint8Array | ArrayBuffer | Blob');
 };
 
+export type { LoadLimits };
+
+/** Options for {@link loadPresentation}. */
+export interface LoadPresentationOptions {
+  /**
+   * Hard caps for opening an untrusted `.pptx`, such as an upload on a server.
+   * They are checked against the sizes the archive's central directory
+   * declares before anything is decompressed; an entry that decompresses past
+   * its declared size stops mid-way. With limits set, archives that use ZIP64
+   * records are rejected too. The input bytes themselves are not capped:
+   * check their length before calling. Without `limits`, nothing is capped
+   * beyond the declared sizes.
+   */
+  limits?: LoadLimits;
+}
+
 /**
  * Loads an existing `.pptx` and returns a `PresentationData` value.
+ *
+ * Throws an `Error` whose message starts with `invalid ZIP:` when the archive
+ * is malformed or breaks `options.limits`; the message names the limit.
  */
-export const loadPresentation = async (input: PresentationInput): Promise<PresentationData> => {
+export const loadPresentation = async (
+  input: PresentationInput,
+  options: LoadPresentationOptions = {},
+): Promise<PresentationData> => {
   const bytes = await normalize(input);
-  const pkg = OpcPackage.load(bytes);
+  const pkg = OpcPackage.load(bytes, options);
   return { [INTERNAL_PACKAGE]: pkg, _slidesCache: null };
 };
 

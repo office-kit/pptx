@@ -17,10 +17,10 @@
       title: 'Load / save',
       description: 'Open and persist a .pptx, plus the Node fs convenience subpath.',
       exports: [
-        { name: 'loadPresentation', signature: '(input: Uint8Array | ArrayBuffer | Blob) => Promise<PresentationData>' },
+        { name: 'loadPresentation', signature: '(input: Uint8Array | ArrayBuffer | Blob, options?: { limits?: LoadLimits }) => Promise<PresentationData>' },
         { name: 'savePresentation', signature: '(pres: PresentationData) => Promise<Uint8Array>' },
         { name: 'createPresentation', signature: '() => PresentationData' },
-        { name: 'loadPresentationFile', signature: '(path: string) => Promise<PresentationData> — @office-kit/pptx/node' },
+        { name: 'loadPresentationFile', signature: '(path: string, options?: { limits?: LoadLimits }) => Promise<PresentationData> — @office-kit/pptx/node' },
         { name: 'savePresentationToFile', signature: '(pres: PresentationData, path: string) => Promise<void> — @office-kit/pptx/node' },
       ],
     },

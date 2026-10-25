@@ -26,7 +26,8 @@
 //
 //   - File timestamps (`mtime`). The reference desktop app sets these to the current time
 //     anyway; preserving the original would be misleading.
-//   - ZIP64 records. They are read, but never written.
+//   - ZIP64 records. They are read, but never written, and rejected when the
+//     caller passes load limits.
 //   - Extra fields, file attributes, UTF-8 flags. These are not load-bearing
 //     for PPTX as consumed by the reference desktop app.
 
@@ -42,6 +43,32 @@ export interface ZipEntry {
 export interface ZipReadResult {
   /** Entries in the order the central directory listed them. */
   entries: ZipEntry[];
+}
+
+/**
+ * Hard caps for opening an untrusted archive. Sizes are uncompressed bytes as
+ * the central directory declares them; they are checked before anything is
+ * inflated, and inflation stops once an entry outgrows its declared size, so
+ * they bound the real output too. XML parts are entries ending in `.xml` or
+ * `.rels`.
+ */
+export interface LoadLimits {
+  /** Most entries the archive may list, directory entries included. */
+  maxEntries: number;
+  /** Most uncompressed bytes across all entries. */
+  maxTotalUncompressedBytes: number;
+  /** Most uncompressed bytes in a single XML part. */
+  maxXmlPartBytes: number;
+  /** Most uncompressed bytes across all XML parts. */
+  maxTotalXmlBytes: number;
+}
+
+export interface ZipReadOptions {
+  /**
+   * Caps checked against the central directory. Also rejects ZIP64 records,
+   * which a PPTX never needs and which can restate counts and offsets.
+   */
+  limits?: LoadLimits;
 }
 
 const STORE_BY_EXTENSION = new Set([
@@ -78,6 +105,8 @@ const extensionOf = (name: string): string => {
   const dot = name.lastIndexOf('.');
   return dot < 0 ? '' : name.slice(dot + 1).toLowerCase();
 };
+
+const XML_EXTENSIONS = new Set(['xml', 'rels']);
 
 /**
  * Returns true if the entry should be stored uncompressed. PPTX writers
@@ -138,13 +167,16 @@ interface CentralDirectory {
   count: number;
 }
 
-const readCentralDirectoryLocation = (d: Uint8Array): CentralDirectory => {
+const readCentralDirectoryLocation = (d: Uint8Array, rejectZip64: boolean): CentralDirectory => {
   const eocd = findEocd(d);
   const locator = eocd - ZIP64_LOCATOR_SIZE;
   // A ZIP64 locator overrides the 32-bit count and offset even when they are
   // not sentinels, so honour it; the per-entry size checks below hold either way.
   // One that does not lead to a ZIP64 EOCD is ignored, as fflate did.
   if (locator >= 0 && u32(d, locator) === SIG_ZIP64_LOCATOR) {
+    if (rejectZip64) {
+      throw invalid('ZIP64 end of central directory locator is not accepted under load limits');
+    }
     const zip64Eocd = u32(d, locator + 8) + u32(d, locator + 12) * 2 ** 32;
     if (zip64Eocd + ZIP64_EOCD_MIN_SIZE <= d.length && u32(d, zip64Eocd) === SIG_ZIP64_EOCD) {
       return { count: u64(d, zip64Eocd + 32), offset: u64(d, zip64Eocd + 48) };
@@ -159,6 +191,11 @@ interface EntrySizes {
   localHeaderOffset: number;
 }
 
+const usesZip64 = (sizes: EntrySizes): boolean =>
+  sizes.uncompressedSize === ZIP64_SENTINEL_32 ||
+  sizes.compressedSize === ZIP64_SENTINEL_32 ||
+  sizes.localHeaderOffset === ZIP64_SENTINEL_32;
+
 // The ZIP64 extra field lists only the values whose 32-bit slot holds the
 // sentinel, in this fixed order (APPNOTE 4.5.3).
 const resolveZip64Sizes = (
@@ -167,10 +204,10 @@ const resolveZip64Sizes = (
   extraEnd: number,
   sizes: EntrySizes,
 ): EntrySizes => {
+  if (!usesZip64(sizes)) return sizes;
   const needUncompressed = sizes.uncompressedSize === ZIP64_SENTINEL_32;
   const needCompressed = sizes.compressedSize === ZIP64_SENTINEL_32;
   const needOffset = sizes.localHeaderOffset === ZIP64_SENTINEL_32;
-  if (!needUncompressed && !needCompressed && !needOffset) return sizes;
   for (let at = extraStart; at + 4 <= extraEnd; at += 4 + u16(d, at + 2)) {
     if (u16(d, at) !== ZIP64_EXTRA_ID) continue;
     const fieldEnd = at + 4 + u16(d, at + 2);
@@ -270,16 +307,33 @@ const inflateEntry = (compressed: Uint8Array, declaredSize: number, name: string
   return out;
 };
 
-/**
- * Reads a ZIP archive (a `.pptx` file is a ZIP) and returns entries in
- * central-directory order. Throws if `input` is not a valid ZIP, if two
- * entries share a name, or if an entry's data does not match the size its
- * central-directory record declares.
- */
-export const readZip = (input: Uint8Array): ZipReadResult => {
-  const { offset, count } = readCentralDirectoryLocation(input);
-  const entries: ZipEntry[] = [];
+const limitError = (subject: string, limit: keyof LoadLimits, max: number): Error =>
+  invalid(`${subject}, over the ${limit} limit of ${max}`);
+
+// A NaN limit would make every comparison false and silently disable it.
+const requireLimits = (limits: LoadLimits): void => {
+  for (const [key, value] of Object.entries(limits)) {
+    if (!(value >= 0)) throw new RangeError(`load limit ${key} must be a non-negative number`);
+  }
+};
+
+interface CentralRecord extends EntrySizes {
+  name: string;
+  method: number;
+}
+
+const readCentralDirectory = (
+  input: Uint8Array,
+  limits: LoadLimits | undefined,
+): CentralRecord[] => {
+  const { offset, count } = readCentralDirectoryLocation(input, limits !== undefined);
+  if (limits !== undefined && count > limits.maxEntries) {
+    throw limitError(`archive lists ${count} entries`, 'maxEntries', limits.maxEntries);
+  }
+  const records: CentralRecord[] = [];
   const seen = new Set<string>();
+  let totalBytes = 0;
+  let totalXmlBytes = 0;
   let cursor = offset;
   for (let i = 0; i < count; i++) {
     requireRange(input, cursor, CENTRAL_HEADER_SIZE, 'central directory');
@@ -294,21 +348,71 @@ export const readZip = (input: Uint8Array): ZipReadResult => {
     const recordEnd = extraStart + extraLength + commentLength;
     requireRange(input, cursor, recordEnd - cursor, 'central directory');
     const name = strFromU8(input.subarray(nameStart, extraStart), (flags & FLAG_UTF8) === 0);
-    const { compressedSize, uncompressedSize, localHeaderOffset } = resolveZip64Sizes(
-      input,
-      extraStart,
-      extraStart + extraLength,
-      {
-        compressedSize: u32(input, cursor + 20),
-        uncompressedSize: u32(input, cursor + 24),
-        localHeaderOffset: u32(input, cursor + 42),
-      },
-    );
+    const declared: EntrySizes = {
+      compressedSize: u32(input, cursor + 20),
+      uncompressedSize: u32(input, cursor + 24),
+      localHeaderOffset: u32(input, cursor + 42),
+    };
     cursor = recordEnd;
 
     if (seen.has(name)) throw invalid(`duplicate entry "${name}"`);
     seen.add(name);
 
+    if (limits === undefined) {
+      records.push({
+        name,
+        method,
+        ...resolveZip64Sizes(input, extraStart, extraStart + extraLength, declared),
+      });
+      continue;
+    }
+    if (usesZip64(declared)) {
+      throw invalid(`entry "${name}" uses ZIP64 sizes, which are not accepted under load limits`);
+    }
+    const size = declared.uncompressedSize;
+    totalBytes += size;
+    if (totalBytes > limits.maxTotalUncompressedBytes) {
+      throw limitError(
+        `entries declare ${totalBytes} uncompressed bytes`,
+        'maxTotalUncompressedBytes',
+        limits.maxTotalUncompressedBytes,
+      );
+    }
+    if (XML_EXTENSIONS.has(extensionOf(name))) {
+      if (size > limits.maxXmlPartBytes) {
+        throw limitError(
+          `entry "${name}" declares ${size} bytes`,
+          'maxXmlPartBytes',
+          limits.maxXmlPartBytes,
+        );
+      }
+      totalXmlBytes += size;
+      if (totalXmlBytes > limits.maxTotalXmlBytes) {
+        throw limitError(
+          `XML parts declare ${totalXmlBytes} bytes`,
+          'maxTotalXmlBytes',
+          limits.maxTotalXmlBytes,
+        );
+      }
+    }
+    records.push({ name, method, ...declared });
+  }
+  return records;
+};
+
+/**
+ * Reads a ZIP archive (a `.pptx` file is a ZIP) and returns entries in
+ * central-directory order. Throws if `input` is not a valid ZIP, if two
+ * entries share a name, if an entry's data does not match the size its
+ * central-directory record declares, or if the archive breaks
+ * `options.limits`. The whole central directory is read before any entry is
+ * inflated.
+ */
+export const readZip = (input: Uint8Array, options: ZipReadOptions = {}): ZipReadResult => {
+  if (options.limits !== undefined) requireLimits(options.limits);
+  const entries: ZipEntry[] = [];
+  for (const record of readCentralDirectory(input, options.limits)) {
+    const { name, method, compressedSize, uncompressedSize, localHeaderOffset } = record;
     requireRange(input, localHeaderOffset, LOCAL_HEADER_SIZE, `local header of "${name}"`);
     if (u32(input, localHeaderOffset) !== SIG_LOCAL_HEADER) {
       throw invalid(`bad local header signature for "${name}"`);
