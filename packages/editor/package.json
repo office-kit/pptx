@@ -1,6 +1,6 @@
 {
   "name": "@office-kit/pptx-editor",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Embeddable browser editor for .pptx presentations, built on @office-kit/pptx",
   "keywords": [
     "editor",

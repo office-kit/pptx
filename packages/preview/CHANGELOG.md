@@ -1,5 +1,15 @@
 # pptx-kit-preview
 
+## 0.21.0
+
+### Minor Changes
+
+- bfeebf5: Added `resolveFamily` to the options of `renderSlideToImage` / `renderSlideToRgba`, the same mapping `renderSlideToSvg` already takes for `textLayout: 'svg'`. The PNG path mapped every authored font name to a bundled substitute, so a caller that measured a deck's font with its own face (for example a `buildFontkitMeasurer` alias from the deck's font to a face in `fontFiles`) got lines wrapped for that face but painted in the substitute. Return a family loaded through `fontFiles` to draw and measure the run in it. East Asian characters still take the family of the first `fontFiles` face that covers kana; `resolveFamily` decides the rest of the run. Unset, the output is unchanged.
+
+### Patch Changes
+
+- baf373a: Fixed the preview giving column, line, area and combo charts a taller plot area than presentation apps do, which hid data labels that overlap in the real chart. Line labels above a point also sat on top of the marker, so a bar label and a line label that collide in LibreOffice were drawn apart. The automatic layout of bar, column, line, area and combo charts now keeps 2% of the chart's width and height clear on each side, as LibreOffice does, and leaves a category-label row sized to the label font; a line label above or below its point stays 1 mm clear of the marker. Charts render with a slightly smaller plot area than before; charts with a manual inner plot-area layout are unchanged.
+
 ## 0.20.0
 
 ### Minor Changes

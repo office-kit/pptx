@@ -1,5 +1,14 @@
 # @office-kit/pptx-dev
 
+## 0.14.4
+
+### Patch Changes
+
+- Updated dependencies [baf373a]
+- Updated dependencies [bfeebf5]
+  - @office-kit/pptx-preview@0.21.0
+  - @office-kit/pptx-editor@0.2.4
+
 ## 0.14.3
 
 ### Patch Changes
