@@ -498,7 +498,7 @@ export const setParagraphLevel = (
     const pPr = ensurePPr(paragraph);
     pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
     if (next > 0) pPr.attrs.push(attr(ATTR_LVL, String(next)));
-    updateBulletIndentForLevel(pPr, previousLevel, next);
+    updateBulletIndentForLevel(paragraph, pPr, previousLevel, next);
     changed = true;
   }
   if (changed) commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);

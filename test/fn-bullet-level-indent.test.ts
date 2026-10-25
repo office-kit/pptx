@@ -17,6 +17,7 @@ import {
   setParagraphLevel,
   setShapeBulletStyle,
   setShapeText,
+  setShapeTextFormat,
 } from '../src/api/index.ts';
 
 const makeBox = () => {
@@ -74,6 +75,38 @@ describe('bullet indentation follows paragraph level', () => {
     setShapeText(box, 'replacement\nchild');
     setParagraphLevel(box, 1, 1);
     expect(getParagraphIndent(box, 1)).toEqual(nestedIndent);
+  });
+
+  // The stock indents suit 18 pt text and scale with the paragraph's size.
+  it('scales the hanging indent with the text size, at every level', () => {
+    const { box } = makeBox();
+    setShapeTextFormat(box, { size: 14 });
+    setShapeBulletStyle(box, 'bullet');
+    expect(getParagraphIndent(box, 0)).toEqual({
+      leftEmu: 266700,
+      rightEmu: null,
+      firstLineEmu: -266700,
+    });
+    setParagraphLevel(box, 1, 1);
+    expect(getParagraphIndent(box, 1)).toEqual({
+      leftEmu: 577850,
+      rightEmu: null,
+      firstLineEmu: -222250,
+    });
+    setParagraphLevel(box, 1, 0);
+    expect(getParagraphIndent(box, 1)).toEqual(getParagraphIndent(box, 0));
+  });
+
+  it("sizes each paragraph's indent from its own first run", () => {
+    const { box } = makeBox();
+    setParagraphLevel(box, 1, 0);
+    setShapeTextFormat(box, { size: 24 });
+    setShapeBulletStyle(box, 'number');
+    expect(getParagraphIndent(box, 0)).toEqual({
+      leftEmu: 457200,
+      rightEmu: null,
+      firstLineEmu: -457200,
+    });
   });
 
   it.each([undefined, 'none'] as const)('does not add indentation with bullets %j', (style) => {
