@@ -60,7 +60,9 @@ describe.each(['column', 'bar'] as const)('%s fill opacity', (kind) => {
           const fraction = grouping === 'percentStacked' ? 0.4 : 0.2;
           if (kind === 'column') {
             expect(Number(base.height)).toBeCloseTo(PLOT.height * fraction);
-            expect(Number(visible.y) + Number(visible.height)).toBeCloseTo(PLOT.bottom - PLOT.height * fraction);
+            expect(Number(visible.y) + Number(visible.height)).toBeCloseTo(
+              PLOT.bottom - PLOT.height * fraction,
+            );
           } else {
             expect(Number(base.width)).toBeCloseTo(PLOT.width * fraction);
             expect(Number(visible.x)).toBeCloseTo(PLOT.left + PLOT.width * fraction);

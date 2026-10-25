@@ -84,9 +84,7 @@ describe('automatic cartesian chart layout', () => {
 
   it('gives larger category labels a taller row under the axis', async () => {
     const small = plotOf(await render(column));
-    const large = plotOf(
-      await render({ ...column, categoryAxisLabelStyle: { sizePt: 18 } }),
-    );
+    const large = plotOf(await render({ ...column, categoryAxisLabelStyle: { sizePt: 18 } }));
 
     expect(small.bottom - large.bottom).toBeCloseTo(((18 - 10) * PX_PER_PT * 1.2) / 2, 1);
   });

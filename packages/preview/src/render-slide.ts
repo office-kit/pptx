@@ -3235,7 +3235,11 @@ const layoutChart = (
   const bottomLegendPx = hasLegend && !legendOverlay ? (labelRoom?.bottomLegendPx ?? null) : null;
   const legendBox = bottomLegendPx === null ? 0 : legendBoxPx(bottomLegendPx);
   const legendStrip =
-    bottomLegendPx !== null ? legendBox + 2 * LEGEND_EDGE_GAP_PX : hasLegend && !legendOverlay ? 18 : 0;
+    bottomLegendPx !== null
+      ? legendBox + 2 * LEGEND_EDGE_GAP_PX
+      : hasLegend && !legendOverlay
+        ? 18
+        : 0;
   const paddingX = labelRoom ? w * CHART_AREA_INSET_RATIO : 8;
   const paddingY = labelRoom ? h * CHART_AREA_INSET_RATIO : 8;
   const topLabel = labelRoom ? (labelRoom.topValueLabelPx * CATEGORY_LABEL_LINE_HEIGHT) / 2 : 0;
@@ -3263,7 +3267,13 @@ const layoutChart = (
     // edge to match where LibreOffice paints the title line.
     titleY: y + (titleOverlay ? 14 : paddingY + titlePx * 0.7),
     legendY:
-      y + h - (legendOverlay ? 18 : bottomLegendPx !== null ? LEGEND_EDGE_GAP_PX + legendBox / 2 : legendStrip / 2),
+      y +
+      h -
+      (legendOverlay
+        ? 18
+        : bottomLegendPx !== null
+          ? LEGEND_EDGE_GAP_PX + legendBox / 2
+          : legendStrip / 2),
   };
 };
 
@@ -5478,8 +5488,7 @@ const renderChart = (
   const barCategoryTitleRow =
     spec.kind === 'bar' && spec.categoryAxisTitle ? axisTitleRowPx(spec.categoryAxisTitleStyle) : 0;
   const vertical = isCartesian && spec.kind !== 'bar';
-  const categoryLabelsShown =
-    !spec.categoryAxisHidden && spec.categoryAxisTickLabelPos !== 'none';
+  const categoryLabelsShown = !spec.categoryAxisHidden && spec.categoryAxisTickLabelPos !== 'none';
   const labelRoom: ChartLabelRoom | undefined = isCartesian
     ? {
         topValueLabelPx:
