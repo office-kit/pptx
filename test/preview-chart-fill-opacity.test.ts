@@ -21,9 +21,8 @@ async function render(spec: ChartSpec) {
 }
 
 // The 8 × 5 in chart's plot area: 2% of the frame clear on each side, a 32 px
-// value-label gutter, half a value-label line above a column plot and a 20 px
-// category-label row below it.
-const PLOT = { left: 143.36, width: 705.28, height: 432.8, bottom: 546.4 };
+// value-label gutter and a 20 px category-label row below a column plot.
+const PLOT = { left: 143.36, width: 705.28, height: 440.8, bottom: 546.4 };
 
 describe.each(['column', 'bar'] as const)('%s fill opacity', (kind) => {
   describe.each(['clustered', 'stacked', 'percentStacked'] as const)('%s grouping', (grouping) => {

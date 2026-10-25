@@ -3179,31 +3179,13 @@ interface SeriesGeometry {
   readonly dPath: string;
 }
 
-// LibreOffice's automatic chart layout (chart2 ChartView.cxx, VLegend.cxx):
-// the plot area, axis labels included, keeps 2% of the chart's width and
-// height from each edge, and a bottom legend sits 1.85 mm above the chart's
-// bottom edge with another 1.85 mm before the plot area. The legend box pads
-// its text by 0.2 of the font size above and below, at least 1 mm.
+// LibreOffice's automatic chart layout (chart2 ChartView.cxx): the plot area,
+// axis labels included, keeps 2% of the chart's width and height from each edge.
 const CHART_AREA_INSET_RATIO = 0.02;
 const PX_PER_MM = 96 / 25.4;
-const LEGEND_EDGE_GAP_PX = 1.85 * PX_PER_MM;
-const LEGEND_PADDING_RATIO = 0.2;
-const LEGEND_MIN_PADDING_PX = PX_PER_MM;
 const DEFAULT_LEGEND_PT = 11;
 // Category tick labels are centered this far below the plot area.
 const CATEGORY_LABEL_OFFSET_PX = 12;
-
-// Room a cartesian chart's plot area gives up to its labels, as LibreOffice
-// lays it out: half a line above the top value label, the category labels'
-// line below the axis, and a bottom legend with its gaps.
-interface ChartLabelRoom {
-  readonly topValueLabelPx: number;
-  readonly bottomLegendPx: number | null;
-}
-
-const legendBoxPx = (fontPx: number): number =>
-  fontPx * CATEGORY_LABEL_LINE_HEIGHT +
-  2 * Math.max(LEGEND_MIN_PADDING_PX, fontPx * LEGEND_PADDING_RATIO);
 
 const layoutChart = (
   xEmu: number,
@@ -3219,7 +3201,7 @@ const layoutChart = (
   plotAreaLayout?: ReadChartSpec['plotAreaLayout'],
   yAxisGutter = hasAxes ? DEFAULT_Y_AXIS_GUTTER : 0,
   xAxisGutter = hasAxes ? BAR_VALUE_LABEL_ROW : 0,
-  labelRoom?: ChartLabelRoom,
+  proportionalInset = false,
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -3232,23 +3214,13 @@ const layoutChart = (
   // matching LibreOffice's title box + gap) instead of a fixed strip, so a
   // larger authored title reserves proportionally more room.
   const titleStrip = hasTitle && !titleOverlay ? Math.round(titlePx * 2.4) : 0;
-  const bottomLegendPx = hasLegend && !legendOverlay ? (labelRoom?.bottomLegendPx ?? null) : null;
-  const legendBox = bottomLegendPx === null ? 0 : legendBoxPx(bottomLegendPx);
-  const legendStrip =
-    bottomLegendPx !== null
-      ? legendBox + 2 * LEGEND_EDGE_GAP_PX
-      : hasLegend && !legendOverlay
-        ? 18
-        : 0;
-  const paddingX = labelRoom ? w * CHART_AREA_INSET_RATIO : 8;
-  const paddingY = labelRoom ? h * CHART_AREA_INSET_RATIO : 8;
-  const topLabel = labelRoom ? (labelRoom.topValueLabelPx * CATEGORY_LABEL_LINE_HEIGHT) / 2 : 0;
+  const legendStrip = hasLegend && !legendOverlay ? 18 : 0;
+  const paddingX = proportionalInset ? w * CHART_AREA_INSET_RATIO : 8;
+  const paddingY = proportionalInset ? h * CHART_AREA_INSET_RATIO : 8;
   // Outer layouts include axis labels and titles, so their gutters still need automatic layout.
   const inner = plotAreaLayout?.target === 'inner' ? plotAreaLayout : undefined;
   const plotX = inner ? x + Math.max(0, Math.min(1, inner.x)) * w : x + paddingX + yAxisGutter;
-  const plotY = inner
-    ? y + Math.max(0, Math.min(1, inner.y)) * h
-    : y + titleStrip + paddingY + topLabel;
+  const plotY = inner ? y + Math.max(0, Math.min(1, inner.y)) * h : y + titleStrip + paddingY;
   return {
     x,
     y,
@@ -3261,19 +3233,12 @@ const layoutChart = (
       : Math.max(0, w - 2 * paddingX - yAxisGutter),
     plotH: inner
       ? Math.max(0, Math.min(y + h, y + (inner.y + inner.h) * h) - plotY)
-      : Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * paddingY - topLabel),
+      : Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * paddingY),
     // The title sits near the TOP of its (now taller) strip, not its bottom —
     // dominant-baseline:middle, so center it ~0.7 of the title px below the top
     // edge to match where LibreOffice paints the title line.
     titleY: y + (titleOverlay ? 14 : paddingY + titlePx * 0.7),
-    legendY:
-      y +
-      h -
-      (legendOverlay
-        ? 18
-        : bottomLegendPx !== null
-          ? LEGEND_EDGE_GAP_PX + legendBox / 2
-          : legendStrip / 2),
+    legendY: y + h - (legendOverlay ? 18 : legendStrip / 2),
   };
 };
 
@@ -5489,16 +5454,6 @@ const renderChart = (
     spec.kind === 'bar' && spec.categoryAxisTitle ? axisTitleRowPx(spec.categoryAxisTitleStyle) : 0;
   const vertical = isCartesian && spec.kind !== 'bar';
   const categoryLabelsShown = !spec.categoryAxisHidden && spec.categoryAxisTickLabelPos !== 'none';
-  const labelRoom: ChartLabelRoom | undefined = isCartesian
-    ? {
-        topValueLabelPx:
-          vertical && !spec.valueAxisHidden ? categoryLabelFontPx(spec.valueAxisLabelStyle) : 0,
-        bottomLegendPx:
-          (spec.legend?.position ?? 'b') === 'b'
-            ? (spec.legend?.textStyle?.sizePt ?? DEFAULT_LEGEND_PT) * PX_PER_PT
-            : null,
-      }
-    : undefined;
   const categoryLabelRow =
     vertical && categoryLabelsShown
       ? Math.max(
@@ -5527,7 +5482,7 @@ const renderChart = (
             barCategoryTitleRow
         : undefined,
       barValueTitleRow > 0 ? BAR_VALUE_LABEL_ROW + barValueTitleRow : categoryLabelRow,
-      labelRoom,
+      isCartesian,
     ),
   };
   const allNamesForLegend: string[] =

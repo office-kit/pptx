@@ -86,7 +86,7 @@ describe('manual inner chart layout', () => {
       });
       const plot = attrsOf(svg, 'rect').find((r) => r.fill === '#FFFFCC')!;
       expect([plot.x, plot.y, plot.width, plot.height].map(Number)).toEqual([
-        143.36, 113.6, 705.28, 432.8,
+        143.36, 105.6, 705.28, 440.8,
       ]);
     },
   );

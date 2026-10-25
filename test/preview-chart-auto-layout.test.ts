@@ -1,8 +1,7 @@
 // Automatic plot-area layout of cartesian charts, following LibreOffice's
-// chart2 view (ChartView.cxx, VLegend.cxx): 2% of the frame clear on each
-// side, a bottom legend 1.85 mm above the frame edge with 1.85 mm more before
-// the plot, half a value-label line above the plot, and line-chart labels kept
-// 1 mm clear of their markers.
+// chart2 view (ChartView.cxx): 2% of the frame clear on each side, a
+// category-label row sized to the label font, and line-chart labels kept 1 mm
+// clear of their markers.
 
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
@@ -52,34 +51,12 @@ const plotOf = (svg: string) => {
 };
 
 describe('automatic cartesian chart layout', () => {
-  it('keeps 2% of the frame clear and half a value-label line above the plot', async () => {
+  it('keeps 2% of the frame clear on each side', async () => {
     const plot = plotOf(await render(column));
-    const halfLabelLine = (10 * PX_PER_PT * 1.2) / 2;
 
     expect(plot.x).toBeCloseTo(FRAME.x + FRAME.w * 0.02 + 32, 1);
-    expect(plot.y).toBeCloseTo(FRAME.y + FRAME.h * 0.02 + halfLabelLine, 1);
+    expect(plot.y).toBeCloseTo(FRAME.y + FRAME.h * 0.02, 1);
     expect(plot.x + plot.w).toBeCloseTo(FRAME.x + FRAME.w * 0.98, 1);
-  });
-
-  it('reserves a bottom legend box with its gaps and centers the legend in it', async () => {
-    const legendPt = 10;
-    const svg = await render({
-      ...column,
-      legend: { position: 'b', textStyle: { sizePt: legendPt } },
-    });
-    const plot = plotOf(svg);
-    const legendPx = legendPt * PX_PER_PT;
-    const box = legendPx * 1.2 + 2 * PX_PER_MM;
-    const gap = 1.85 * PX_PER_MM;
-    const categoryRow = 12 + (10 * PX_PER_PT * 1.2) / 2;
-
-    expect(plot.bottom).toBeCloseTo(
-      FRAME.y + FRAME.h - gap - box - gap - FRAME.h * 0.02 - categoryRow,
-      1,
-    );
-    const legendText = [...svg.matchAll(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Sessions<\/text>/g)];
-    expect(legendText).toHaveLength(1);
-    expect(Number(legendText[0]![1])).toBeCloseTo(FRAME.y + FRAME.h - gap - box / 2, 1);
   });
 
   it('gives larger category labels a taller row under the axis', async () => {
