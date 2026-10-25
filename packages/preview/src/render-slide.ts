@@ -303,9 +303,7 @@ const fontFamilyStyles = (font: string): string[] =>
 // names its face with the same CSS stack, which is already a valid
 // `font-family` value and is written verbatim.
 const BROWSER_FAMILIES = { resolveFamily: browserFontFamily, familyIsCssList: true } as const;
-const svgFamilies = (
-  ctx: LayoutCtx,
-): Pick<SvgTextArgs, 'resolveFamily' | 'eastAsianFamily'> => ({
+const svgFamilies = (ctx: LayoutCtx): Pick<SvgTextArgs, 'resolveFamily' | 'eastAsianFamily'> => ({
   resolveFamily: ctx.resolveFamily,
   ...(ctx.eastAsianFamily === undefined ? {} : { eastAsianFamily: ctx.eastAsianFamily }),
 });
@@ -1787,7 +1785,9 @@ const eastAsianParts = <P extends { readonly text: string }>(
   let currentEastAsian = false;
   const flush = (): void => {
     if (current === '') return;
-    parts.push(currentEastAsian ? { ...piece, ...face, text: current } : { ...piece, text: current });
+    parts.push(
+      currentEastAsian ? { ...piece, ...face, text: current } : { ...piece, text: current },
+    );
     current = '';
   };
   for (const ch of piece.text) {
