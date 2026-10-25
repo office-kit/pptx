@@ -83,7 +83,7 @@ Details that trip up type checking and layout:
 
 | Element        | Inputs                                                                                                                                                                                                                           |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Presentation` | Optional `source` bytes, new-deck `size`, `theme`, `mode`.                                                                                                                                                                       |
+| `Presentation` | Optional `source` bytes, new-deck `size`, `theme`, `fonts` (theme body / heading typefaces that charts and tables inherit), `mode`.                                                                                              |
 | `Slide`        | `background`, `notes`, `layout`, source `from` or edit `target`.                                                                                                                                                                 |
 | `Text`         | Literal children or rich core `ParagraphSpec[]` in `paragraphs`; core `TextFormat` props such as `size`, `font`, `bold`, `color`; `bullets`, `paragraphSpacing`.                                                                 |
 | `Shape`        | `preset`, solid/gradient `fill`, `stroke`, rotation, effects, optional text with `align` and `anchor`.                                                                                                                           |
