@@ -1,5 +1,20 @@
 # @office-kit/pptx
 
+## 0.27.0
+
+### Minor Changes
+
+- 4eb151c: Added: `loadPresentation` and `loadPresentationFile` take an optional `limits` option for opening untrusted decks, such as uploads on a server: `{ maxEntries, maxTotalUncompressedBytes, maxXmlPartBytes, maxTotalXmlBytes }`. The limits are checked against the sizes the archive declares before anything is decompressed, and an entry that decompresses past its declared size still stops mid-way. With `limits` set, archives that use ZIP64 records are rejected too. A deck that breaks a limit throws an `Error` whose message starts with `invalid ZIP:` and names the limit. Without `limits`, loading is unchanged.
+- 8cf577e: Add `getPresentationTextReview(pres, { mode, full })`, which returns the deck review the skill's `deck-text.mjs` prints: the headline track, `[要確認]` markers left on slides and in notes, Japanese wording flags, and with `mode: 'talk' | 'document'` the matching headline checks. Servers and workers can now produce that review from a loaded presentation without running the script. The script now calls this function, so it needs `@office-kit/pptx` 0.27.0 or later in the slide project and says so when the installed copy is older.
+
+### Patch Changes
+
+- 659a1ce: Numbered lists now count 1. 2. 3. in LibreOffice too
+
+  `bullets: 'number'` wrote `startAt="1"` on every paragraph. LibreOffice reads each one as a fresh start and numbers the list 1. 1. 1. The attribute is now left out; 1 is its default, so the reference desktop app numbers the list the same as before.
+
+- ad79d4c: Fixed a newline inside a run's text (`setShapeParagraphs`, `setTableCellParagraphs`, and the DSL `<Text paragraphs>`) being written as a raw newline inside `<a:t>`. LibreOffice read it as a paragraph break, so a bulleted item that wrapped onto two lines got a second bullet and the text overflowed its box. A `\n` or `\r\n` in a run is now written as a line break (`<a:br>`) between runs with the same format, which presentation apps and the preview all show as a line break inside the paragraph. Reading the text back still returns `\n` at each break; a `\r\n` reads back as `\n`.
+
 ## 0.26.0
 
 ### Minor Changes

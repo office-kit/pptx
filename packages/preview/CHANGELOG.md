@@ -1,5 +1,15 @@
 # pptx-kit-preview
 
+## 0.19.0
+
+### Patch Changes
+
+- Updated dependencies [659a1ce]
+- Updated dependencies [4eb151c]
+- Updated dependencies [8cf577e]
+- Updated dependencies [ad79d4c]
+  - @office-kit/pptx@0.27.0
+
 ## 0.18.0
 
 ### Patch Changes
