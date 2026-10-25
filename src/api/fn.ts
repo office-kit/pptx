@@ -61,6 +61,7 @@ export * from './fn/slide-notes.ts';
 export * from './fn/slide-size.ts';
 export * from './fn/guides.ts';
 export * from './fn/slide-title.ts';
+export * from './fn/text-review.ts';
 
 // Tables / charts / comments / validation / package introspection
 export * from './fn/comments.ts';

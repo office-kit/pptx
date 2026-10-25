@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm, symlink } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,5 +90,26 @@ export default (
   await assert.rejects(
     execute(process.execPath, [script, 'deck.pptx', '--mode', 'slides'], { cwd: project }),
     /Usage/,
+  );
+});
+
+test('the skill deck-text script names the fix when the project core predates the review API', async (t) => {
+  const project = await mkdtemp(join(tmpdir(), 'pptx-deck-text-old-core-'));
+  t.after(() => rm(project, { recursive: true, force: true }));
+  const core = join(project, 'node_modules', '@office-kit', 'pptx');
+  await mkdir(core, { recursive: true });
+  await writeFile(
+    join(core, 'package.json'),
+    JSON.stringify({
+      name: '@office-kit/pptx',
+      type: 'module',
+      exports: { '.': { import: './index.js' } },
+    }),
+  );
+  await writeFile(join(core, 'index.js'), 'export const loadPresentation = () => {};\n');
+
+  await assert.rejects(
+    execute(process.execPath, [script, 'deck.pptx'], { cwd: project }),
+    /older than 0\.27\.0 and has no getPresentationTextReview/,
   );
 });
