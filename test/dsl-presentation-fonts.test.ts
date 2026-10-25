@@ -1,3 +1,4 @@
+import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import * as api from '../src/api/index.ts';
 import { Chart, Presentation, Slide, Text, compile } from '../packages/dsl/src/index.ts';
@@ -32,10 +33,11 @@ describe('Presentation fonts', () => {
       // East Asian text keeps the theme's own East Asian and script fonts.
       minorEastAsian: null,
     });
-    const slide = api.getSlides(pres)[0]!;
-    const chart = api.getSlideShapes(slide).find((shape) => api.getShapeChartSpec(shape))!;
+    const parts = unzipSync(await api.savePresentation(pres));
+    const charts = Object.keys(parts).filter((path) => /^ppt\/charts\/chart\d+\.xml$/.test(path));
+    expect(charts).toHaveLength(1);
     // The chart names no typeface, so it draws with the theme's.
-    expect(api.getShapeChartSpec(chart)?.textStyle?.font).toBeUndefined();
+    expect(strFromU8(parts[charts[0]!]!)).not.toContain('typeface=');
   });
 
   it('leaves the theme fonts alone when omitted', async () => {
