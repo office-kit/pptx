@@ -56,6 +56,8 @@ describe('L3: bullet / numbered lists', () => {
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
     expect((xml.match(/<a:buAutoNum/g) ?? []).length).toBe(2);
     expect(xml).toContain('type="arabicPeriod"');
+    // LibreOffice restarts the count on each paragraph that writes startAt.
+    expect(xml).not.toContain('startAt=');
   });
 
   it('accepts a custom bullet character', async () => {
