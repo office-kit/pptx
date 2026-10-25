@@ -23,6 +23,9 @@ export type PresentationProps = Children &
     | { source?: never; size?: api.PresentationSize }
   ) & {
     theme?: Parameters<typeof api.setPresentationTheme>[1];
+    /** Theme typefaces (`minorLatin` is the body font, `majorLatin` the heading font) that
+     *  text, tables and charts without a font of their own inherit. */
+    fonts?: api.PresentationFontsInput;
     /** Compose replaces the slide sequence; edit retains the original sequence. */
     mode?: 'compose' | 'edit';
   };
@@ -40,6 +43,7 @@ export function Presentation(props: PresentationProps): PresentationNode {
           ? api.createPresentation(props.size === undefined ? {} : { size: props.size })
           : await api.loadPresentation(props.source);
       if (props.theme) api.setPresentationTheme(presentation, props.theme);
+      if (props.fonts) api.setPresentationFonts(presentation, props.fonts);
       const originals = [...api.getSlides(presentation)];
       const context: Context = {
         presentation,

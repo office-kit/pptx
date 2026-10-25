@@ -52,7 +52,7 @@ Layout is explicit: CSS and automatic UI layout are not implemented.
 
 | Element        | Input                                                                     |
 | -------------- | ------------------------------------------------------------------------- |
-| `Presentation` | Optional source PPTX bytes or `size`, theme, `mode`                       |
+| `Presentation` | Optional source PPTX bytes or `size`, theme, fonts, `mode`                |
 | `Slide`        | Source `from` or edit `target`, layout, background, notes                 |
 | `Text`         | Literal children or core `ParagraphSpec[]` via `paragraphs`, text format  |
 | `Shape`        | Core preset geometry, fill, stroke, effects, optional text                |
@@ -185,6 +185,11 @@ retains existing parts. Editing text intentionally replaces that shape's text.
 longer than the placeholder); omitted, the shape keeps the template's setting.
 `size` applies only to new decks; source decks retain their original dimensions.
 `theme` accepts the core theme overrides and follows its first-theme semantics.
+`fonts` sets the theme typefaces the same way (`setPresentationFonts`): text,
+tables and charts that name no font inherit `minorLatin` (body) and `majorLatin`
+(headings). Set the deck's body font there rather than on every `Text`, so chart
+labels use it too; a chart's `textStyle.font` names one typeface for Latin and
+East Asian text alike.
 
 Slide references accept a zero-based index, exact title, or part name. Layout
 references accept exact name, type, or part name. Shape targets accept exact name,
