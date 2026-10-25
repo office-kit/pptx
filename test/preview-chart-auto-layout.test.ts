@@ -97,7 +97,14 @@ describe('automatic cartesian chart layout', () => {
       categories: ['A', 'B'],
       series: [{ name: 'Rate', values: [50, 50], markerSymbol: 'circle', markerSizePt: markerPt }],
       valueAxis: { min: 0, max: 100 },
-      dataLabels: { showValue: true, position: 't', textStyle: { sizePt: labelPt } },
+      dataLabels: {
+        showValue: true,
+        showCategory: false,
+        showSeriesName: false,
+        showPercent: false,
+        position: 't',
+        textStyle: { sizePt: labelPt },
+      },
       plotAreaFill: '#FFFFCC',
     });
     const plot = plotOf(svg);
