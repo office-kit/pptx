@@ -12,7 +12,7 @@ import * as fontkit from 'fontkit';
 import { existsSync, readFileSync } from 'node:fs';
 import { getSlideSize, type PresentationData, type SlideData } from '@office-kit/pptx';
 import { renderSlideSvg } from './render-slide.ts';
-import { MONO, SANS, SERIF, type TextMeasurer } from './text-layout.ts';
+import { MONO, SANS, SERIF, type RenderSlideOptions, type TextMeasurer } from './text-layout.ts';
 import { buildFontkitMeasurer, FONT_FILES } from './measure.ts';
 
 // Re-export the browser-safe surface so a Node consumer gets everything from
@@ -61,6 +61,15 @@ export interface RenderImageOptions {
    * deterministic.
    */
   readonly loadSystemFonts?: boolean;
+  /**
+   * Maps an authored font name to the family drawn and measured, as
+   * {@link RenderSlideOptions.resolveFamily}. Defaults to `substituteFamily`.
+   * Return a family loaded through `fontFiles` (and registered with the
+   * measurer) to draw a deck's own font instead of a bundled substitute.
+   * East Asian characters still take the family of the first `fontFiles`
+   * face that covers kana; this only decides the rest of the run.
+   */
+  readonly resolveFamily?: RenderSlideOptions['resolveFamily'];
 }
 
 const DEFAULT_WIDTH = 1280;
@@ -124,6 +133,7 @@ const rasterize = (pres: PresentationData, slide: SlideData, opts: RenderImageOp
   const svg = renderSlideSvg(pres, slide, {
     measureText,
     textLayout: 'svg',
+    ...(opts.resolveFamily === undefined ? {} : { resolveFamily: opts.resolveFamily }),
     ...(eastAsianFamily === undefined ? {} : { eastAsianFamily }),
   });
   const resvg = new Resvg(svg, {
