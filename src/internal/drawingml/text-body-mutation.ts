@@ -38,6 +38,8 @@ const NAME_T = qname('a', 't', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
 const NAME_PPR = qname('a', 'pPr', NS.dml);
 const NAME_END_PARA_RPR = qname('a', 'endParaRPr', NS.dml);
+const NAME_BR = qname('a', 'br', NS.dml);
+const RUN_LINE_BREAK = /\r?\n/;
 const ATTR_XML_SPACE = qname('xml', 'space', NS.xml);
 
 const cloneAttrs = (attrs: ReadonlyArray<XmlAttr>): XmlAttr[] =>
@@ -561,9 +563,10 @@ export const setTextBody = (
 /** One run of a `ParagraphSpec`: text plus the format applied to its `<a:rPr>`. */
 export interface RunSpec {
   /**
-   * Run text, written verbatim — unlike `setShapeText`, newlines are not
-   * split into paragraphs (the reference desktop app shows a CR LF inside a run as a line
-   * break, which some exporters rely on).
+   * Run text. Unlike `setShapeText`, a newline (`\n` or `\r\n`) does not
+   * start a paragraph: it is written as a line break (`<a:br>`) between runs of
+   * the same format, since a raw newline inside `<a:t>` reads as a paragraph
+   * break in some apps and as a line break in others.
    */
   readonly text: string;
   readonly format?: TextFormat;
@@ -606,8 +609,15 @@ export const buildTextBodyParagraphs = (
       for (const run of para.runs) {
         const rPr = elem(NAME_RPR);
         if (run.format !== undefined) applyRunFormat(rPr, run.format, caller, embedder);
-        const t = elem(NAME_T, { children: run.text.length > 0 ? [text(run.text)] : [] });
-        children.push(elem(NAME_R, { children: [rPr, t] }));
+        const lines = run.text.split(RUN_LINE_BREAK);
+        lines.forEach((line, index) => {
+          if (index > 0) children.push(elem(NAME_BR, { children: [cloneElement(rPr)] }));
+          // An empty piece around a break would only add an empty run.
+          if (line.length > 0 || lines.length === 1) {
+            const t = elem(NAME_T, { children: line.length > 0 ? [text(line)] : [] });
+            children.push(elem(NAME_R, { children: [cloneElement(rPr), t] }));
+          }
+        });
       }
       // CT_TextParagraph is a sequence: <a:endParaRPr> comes after every run.
       if (para.endFormat !== undefined) {

@@ -67,19 +67,55 @@ describe('fn API: setShapeParagraphs', () => {
     expect(getShapeParagraphElements(again, 2)).toHaveLength(0);
   });
 
-  it('keeps a CR LF inside a run verbatim across a save', async () => {
+  skipIfNoXmllint('writes a newline inside a run as <a:br> with the run format', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
     const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
     setShapeParagraphs(shape, [
-      { runs: [{ text: 'Hello', format: { bold: true } }, { text: '\r\n' }, { text: 'world' }] },
+      {
+        runs: [
+          { text: 'Hello\nthere', format: { bold: true } },
+          { text: '\r\n' },
+          { text: 'world' },
+        ],
+      },
+      { runs: [{ text: 'tail\n' }] },
     ]);
 
     const reloaded = await loadPresentation(await savePresentation(pres));
     const again = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
-    expect(getShapeParagraphCount(again)).toBe(1);
+    expect(getShapeParagraphCount(again)).toBe(2);
+    expect(getShapeText(again)).toBe('Hello\nthere\nworld\ntail\n');
+    const elements = getShapeParagraphElements(again, 0);
+    expect(elements.map((e) => (e.kind === 'br' ? '<br>' : e.text))).toEqual([
+      'Hello',
+      '<br>',
+      'there',
+      '<br>',
+      'world',
+    ]);
+    expect(elements[1]).toMatchObject({ kind: 'br', format: { bold: true } });
+    expect(elements[2]).toMatchObject({ format: { bold: true } });
+    const xml = decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!);
+    expect(xml).not.toMatch(/<a:t>[^<]*[\r\n]/);
+    expectSchemaValid(xml, 'pml');
+  });
+
+  it('writes a newline inside a table cell run as <a:br>', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const table = addSlideTable(getSlides(pres)[0]!, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(1),
+      rows: [['head']],
+    });
+    setTableCellParagraphs(getTableCell(table, 0, 0), [{ runs: [{ text: 'A\r\nB' }] }]);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const cell = getTableCell(getSlideShapes(getSlides(reloaded)[0]!).at(-1)!, 0, 0);
     expect(
-      getShapeParagraphElements(again, 0).map((e) => (e.kind === 'br' ? '<br>' : e.text)),
-    ).toEqual(['Hello', '\r\n', 'world']);
+      getTableCellParagraphs(cell)[0]!.elements.map((e) => (e.kind === 'br' ? '<br>' : e.text)),
+    ).toEqual(['A', '<br>', 'B']);
   });
 });
 
