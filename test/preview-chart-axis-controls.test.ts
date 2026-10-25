@@ -15,7 +15,17 @@ import { attrsOf } from './lib/svg-query.ts';
 
 const CATEGORY_COLOR = '#11AA11';
 const VALUE_COLOR = '#AA1111';
-const frame = { left: 136, top: 104, width: 720, height: 446, bottom: 550 };
+// The 8 × 5 in chart at (1 in, 1 in) keeps 2% of its width and height clear on
+// each side, as LibreOffice does; a column-style chart also leaves half a
+// value-label line above the plot and a category-label row (20 px at 10 pt)
+// below it, a bar chart an 18 px value-label row.
+const plotFrame = (kind: string, valueLabels: boolean) => {
+  const left = 96 + 768 * 0.02 + 32;
+  const width = 768 * 0.96 - 32;
+  const top = 96 + 480 * 0.02 + (kind !== 'bar' && valueLabels ? 8 : 0);
+  const bottom = 576 - 480 * 0.02 - (kind === 'bar' ? 18 : 20);
+  return { left, top, width, height: bottom - top, bottom };
+};
 async function render(spec: ChartSpec) {
   const pres = await loadPresentation(
     await readFile(new URL('./fixtures/minimal/blank.pptx', import.meta.url)),
@@ -156,6 +166,7 @@ describe.each(['column', 'bar', 'combo'] as const)('%s category ticks', (kind) =
         const ticks = attrsOf(svg, 'line');
         const count = level === 'major' ? 3 : 2;
         expect(ticks).toHaveLength(mark === 'none' ? 0 : count);
+        const frame = plotFrame(kind, false);
         const length = level === 'major' ? 5 : 3;
         const outward = mark === 'in' ? 0 : length;
         const inward = mark === 'out' ? 0 : -length;
@@ -248,6 +259,7 @@ describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s minor gri
     );
     const minor = attrsOf(svg, 'line').filter((line) => line.stroke === '#123456');
     expect(minor).toHaveLength(20);
+    const frame = plotFrame(kind, true);
     minor.forEach((line, i) => {
       const fraction = (Math.floor(i / 4) * 20 + ((i % 4) + 1) * 4) / 100;
       expect(Number(line['stroke-width'])).toBe(1);
