@@ -3179,6 +3179,14 @@ interface SeriesGeometry {
   readonly dPath: string;
 }
 
+// LibreOffice's automatic chart layout (chart2 ChartView.cxx): the plot area,
+// axis labels included, keeps 2% of the chart's width and height from each edge.
+const CHART_AREA_INSET_RATIO = 0.02;
+const PX_PER_MM = 96 / 25.4;
+const DEFAULT_LEGEND_PT = 11;
+// Category tick labels are centered this far below the plot area.
+const CATEGORY_LABEL_OFFSET_PX = 12;
+
 const layoutChart = (
   xEmu: number,
   yEmu: number,
@@ -3193,6 +3201,7 @@ const layoutChart = (
   plotAreaLayout?: ReadChartSpec['plotAreaLayout'],
   yAxisGutter = hasAxes ? DEFAULT_Y_AXIS_GUTTER : 0,
   xAxisGutter = hasAxes ? BAR_VALUE_LABEL_ROW : 0,
+  proportionalInset = false,
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -3206,11 +3215,12 @@ const layoutChart = (
   // larger authored title reserves proportionally more room.
   const titleStrip = hasTitle && !titleOverlay ? Math.round(titlePx * 2.4) : 0;
   const legendStrip = hasLegend && !legendOverlay ? 18 : 0;
-  const padding = 8;
+  const paddingX = proportionalInset ? w * CHART_AREA_INSET_RATIO : 8;
+  const paddingY = proportionalInset ? h * CHART_AREA_INSET_RATIO : 8;
   // Outer layouts include axis labels and titles, so their gutters still need automatic layout.
   const inner = plotAreaLayout?.target === 'inner' ? plotAreaLayout : undefined;
-  const plotX = inner ? x + Math.max(0, Math.min(1, inner.x)) * w : x + padding + yAxisGutter;
-  const plotY = inner ? y + Math.max(0, Math.min(1, inner.y)) * h : y + titleStrip + padding;
+  const plotX = inner ? x + Math.max(0, Math.min(1, inner.x)) * w : x + paddingX + yAxisGutter;
+  const plotY = inner ? y + Math.max(0, Math.min(1, inner.y)) * h : y + titleStrip + paddingY;
   return {
     x,
     y,
@@ -3220,14 +3230,14 @@ const layoutChart = (
     plotY,
     plotW: inner
       ? Math.max(0, Math.min(x + w, x + (inner.x + inner.w) * w) - plotX)
-      : Math.max(0, w - 2 * padding - yAxisGutter),
+      : Math.max(0, w - 2 * paddingX - yAxisGutter),
     plotH: inner
       ? Math.max(0, Math.min(y + h, y + (inner.y + inner.h) * h) - plotY)
-      : Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
+      : Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * paddingY),
     // The title sits near the TOP of its (now taller) strip, not its bottom —
     // dominant-baseline:middle, so center it ~0.7 of the title px below the top
     // edge to match where LibreOffice paints the title line.
-    titleY: y + (titleOverlay ? 14 : padding + titlePx * 0.7),
+    titleY: y + (titleOverlay ? 14 : paddingY + titlePx * 0.7),
     legendY: y + h - (legendOverlay ? 18 : legendStrip / 2),
   };
 };
@@ -3550,7 +3560,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
           `<line x1="${px(xp)}" y1="${px(ty1)}" x2="${px(xp)}" y2="${px(ty2)}" stroke="${axisColor}" stroke-width="1"/>`,
         );
       }
-      const horizLabelY = f.plotY + f.plotH + 12;
+      const horizLabelY = f.plotY + f.plotH + CATEGORY_LABEL_OFFSET_PX;
       const rotH = axis.labelRotationDeg ?? 0;
       const transformH = rotH ? ` transform="rotate(${rotH} ${px(xp)} ${px(horizLabelY)})"` : '';
       out.push(
@@ -3743,7 +3753,7 @@ const renderCategoryAxis = (
       if (skip > 1 && i % skip !== 0) continue;
       // Center labels under each category slot.
       const cx = f.plotX + (i + 0.5) * step;
-      const cy = f.plotY + f.plotH + 12;
+      const cy = f.plotY + f.plotH + CATEGORY_LABEL_OFFSET_PX;
       const truncated =
         labels[i] !== undefined && labels[i]!.length > truncLen
           ? `${labels[i]!.slice(0, truncLen - 2)}…`
@@ -3984,7 +3994,7 @@ const renderChartLegend = (
 ): string => {
   if (names.length === 0) return '';
   // Authored <c:txPr> font / weight / color overrides the 11pt #374151 default.
-  const sz = textStyle?.sizePt ?? 11;
+  const sz = textStyle?.sizePt ?? DEFAULT_LEGEND_PT;
   const fill = textStyle?.color ?? '#374151';
   const weight = textStyle?.bold ? ' font-weight="600"' : '';
   const italic = textStyle?.italic ? ' font-style="italic"' : '';
@@ -4579,6 +4589,25 @@ const formatDataLabelValue = (
 // Point label text style wins over the series and chart defaults.
 // Falls back to the renderer's hardcoded size / caller-supplied fill /
 // weight so existing layouts don't shift when no textStyle is authored.
+const LINE_DATA_LABEL_PT = 9;
+const DEFAULT_MARKER_PT = 5;
+// Line box of the bundled sans substitute (Carlito: win ascent 0.952 em,
+// descent 0.269 em): where a label's baseline sits from its box edges.
+const LABEL_ASCENT_RATIO = 0.952;
+const LABEL_DESCENT_RATIO = 0.269;
+
+const dataLabelStyle = (
+  spec: ReadChartSpec,
+  seriesIdx: number,
+  pointIdx: number | undefined,
+): ChartTextStyle | undefined => {
+  const point =
+    pointIdx === undefined ? undefined : spec.series[seriesIdx]?.pointDataLabels?.[pointIdx];
+  return (
+    point?.textStyle ?? spec.series[seriesIdx]?.dataLabels?.textStyle ?? spec.dataLabels?.textStyle
+  );
+};
+
 const dataLabelTextAttrs = (
   spec: ReadChartSpec,
   seriesIdx: number,
@@ -4587,10 +4616,7 @@ const dataLabelTextAttrs = (
   fallbackBold = false,
   pointIdx?: number,
 ): string => {
-  const point =
-    pointIdx === undefined ? undefined : spec.series[seriesIdx]?.pointDataLabels?.[pointIdx];
-  const style =
-    point?.textStyle ?? spec.series[seriesIdx]?.dataLabels?.textStyle ?? spec.dataLabels?.textStyle;
+  const style = dataLabelStyle(spec, seriesIdx, pointIdx);
   const sz = style?.sizePt ?? fallbackSizePt;
   const fill = style?.color ?? fallbackFill;
   const isBold = style?.bold ?? fallbackBold;
@@ -4866,9 +4892,12 @@ const renderLineChart = (
       series.markerSymbol !== undefined &&
       series.markerSymbol !== 'auto' &&
       series.markerSymbol !== 'none';
-    if (series.markerSymbol !== 'none' && !fill && (spec.lineMarkers === true || explicitSymbol)) {
+    const markerShown =
+      series.markerSymbol !== 'none' && !fill && (spec.lineMarkers === true || explicitSymbol);
+    const markerHalfPx = ((series.markerSizePt ?? DEFAULT_MARKER_PT) * PX_PER_PT) / 2;
+    if (markerShown) {
       const symbol = autoMarkerSymbol(series.markerSymbol, s);
-      const size = series.markerSizePt ?? 5;
+      const size = series.markerSizePt ?? DEFAULT_MARKER_PT;
       const r = Math.max(1, size * 0.5);
       for (const [xp, yp] of pts) {
         out.push(seriesMarker(symbol, xp, yp, r, ...markerColors(series, color)));
@@ -4886,15 +4915,23 @@ const renderLineChart = (
       const [xp, yp] = p;
       const pos = chartPointLabelOptions(spec, s, c).position;
       const lx = pos === 'l' ? xp - 6 : pos === 'r' ? xp + 6 : xp;
+      // Above or below a point, LibreOffice keeps the label's line box 1 mm
+      // clear of the marker.
+      const labelPx = (dataLabelStyle(spec, s, c)?.sizePt ?? LINE_DATA_LABEL_PT) * PX_PER_PT;
+      const clearance = (markerShown ? markerHalfPx : 0) + PX_PER_MM;
       const ly =
-        pos === 'b' ? yp + 13 : pos === 'ctr' || pos === 'l' || pos === 'r' ? yp + 3 : yp - 5;
+        pos === 'b'
+          ? yp + clearance + labelPx * LABEL_ASCENT_RATIO
+          : pos === 'ctr' || pos === 'l' || pos === 'r'
+            ? yp + 3
+            : yp - clearance - labelPx * LABEL_DESCENT_RATIO;
       const anchor = pos === 'l' ? 'end' : pos === 'r' ? 'start' : 'middle';
       out.push(
         chartText(
           f,
           lx,
           ly,
-          `text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, '#374151', 9, false, c)}`,
+          `text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, '#374151', LINE_DATA_LABEL_PT, false, c)}`,
           `${escapeXml(labelText)}`,
         ),
       );
@@ -5415,6 +5452,16 @@ const renderChart = (
     spec.kind === 'bar' && spec.valueAxisTitle ? axisTitleRowPx(spec.valueAxisTitleStyle) : 0;
   const barCategoryTitleRow =
     spec.kind === 'bar' && spec.categoryAxisTitle ? axisTitleRowPx(spec.categoryAxisTitleStyle) : 0;
+  const vertical = isCartesian && spec.kind !== 'bar';
+  const categoryLabelsShown = !spec.categoryAxisHidden && spec.categoryAxisTickLabelPos !== 'none';
+  const categoryLabelRow =
+    vertical && categoryLabelsShown
+      ? Math.max(
+          BAR_VALUE_LABEL_ROW,
+          CATEGORY_LABEL_OFFSET_PX +
+            (categoryLabelFontPx(spec.categoryAxisLabelStyle) * CATEGORY_LABEL_LINE_HEIGHT) / 2,
+        )
+      : undefined;
   const flip = getShapeFlip(shape);
   const f: ChartFrame = {
     reflected: groupReflected !== Boolean(flip && flip.horizontal !== flip.vertical),
@@ -5434,7 +5481,8 @@ const renderChart = (
         ? Math.max(DEFAULT_Y_AXIS_GUTTER, barLabels.widthPx + CATEGORY_LABEL_GAP) +
             barCategoryTitleRow
         : undefined,
-      barValueTitleRow > 0 ? BAR_VALUE_LABEL_ROW + barValueTitleRow : undefined,
+      barValueTitleRow > 0 ? BAR_VALUE_LABEL_ROW + barValueTitleRow : categoryLabelRow,
+      isCartesian,
     ),
   };
   const allNamesForLegend: string[] =

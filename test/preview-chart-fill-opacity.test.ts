@@ -20,6 +20,10 @@ async function render(spec: ChartSpec) {
   return renderSlideToSvg(pres, slide);
 }
 
+// The 8 × 5 in chart's plot area: 2% of the frame clear on each side, a 32 px
+// value-label gutter and a 20 px category-label row below a column plot.
+const PLOT = { left: 143.36, width: 705.28, height: 440.8, bottom: 546.4 };
+
 describe.each(['column', 'bar'] as const)('%s fill opacity', (kind) => {
   describe.each(['clustered', 'stacked', 'percentStacked'] as const)('%s grouping', (grouping) => {
     it.each([
@@ -54,11 +58,13 @@ describe.each(['column', 'bar'] as const)('%s fill opacity', (kind) => {
         if (grouping !== 'clustered') {
           const fraction = grouping === 'percentStacked' ? 0.4 : 0.2;
           if (kind === 'column') {
-            expect(Number(base.height)).toBeCloseTo(446 * fraction);
-            expect(Number(visible.y) + Number(visible.height)).toBeCloseTo(550 - 446 * fraction);
+            expect(Number(base.height)).toBeCloseTo(PLOT.height * fraction);
+            expect(Number(visible.y) + Number(visible.height)).toBeCloseTo(
+              PLOT.bottom - PLOT.height * fraction,
+            );
           } else {
-            expect(Number(base.width)).toBeCloseTo(720 * fraction);
-            expect(Number(visible.x)).toBeCloseTo(136 + 720 * fraction);
+            expect(Number(base.width)).toBeCloseTo(PLOT.width * fraction);
+            expect(Number(visible.x)).toBeCloseTo(PLOT.left + PLOT.width * fraction);
           }
         }
       },
