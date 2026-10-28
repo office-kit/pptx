@@ -2152,64 +2152,20 @@ export const ja: Record<string, string> = {
   'Search (⌘?)': '検索 (⌘?)',
   "Can't Undo": '元に戻せません',
   "Can't Repeat": '繰り返しできません',
-  'The editor has no template gallery.': 'このエディタにはテンプレート ギャラリーがありません。',
-  'The browser keeps no list of recent files.':
-    'ブラウザーは最近使ったファイルの一覧を保持しません。',
-  'Close the browser tab to close the presentation.':
-    'プレゼンテーションを閉じるには、ブラウザーのタブを閉じてください。',
-  'The editor cannot save templates.': 'このエディタではテンプレートを保存できません。',
-  'Export to other formats is not available in this editor.':
-    'このエディタでは他の形式へのエクスポートを利用できません。',
-  'The editor cannot mark a file read-only.':
-    'このエディタではファイルを読み取り専用に設定できません。',
-  'Restricting permissions needs a rights management service.':
-    'アクセスの制限には権利管理サービスが必要です。',
-  'Password protection is not available in this editor.':
-    'このエディタではパスワード保護を利用できません。',
-  'Printing is not available in this editor.': 'このエディタでは印刷を利用できません。',
   'Paste and Match Formatting pastes into text being edited.':
     '[ペーストしてスタイルを合わせる] は編集中の文字列にペーストします。',
-  'Press Delete to remove the selection.':
-    '選択したものを削除するには Delete キーを押してください。',
   'The current slide is not in a section.': '現在のスライドはセクションに含まれていません。',
-  'Rename sections from Home ▸ Section.':
-    'セクション名は [ホーム] ▸ [セクション] から変更してください。',
-  'Use Next match and Previous match in the Find dialog.':
-    '検索ダイアログの [次の一致] と [前の一致] を使ってください。',
-  'The editor has no Replace Fonts dialog yet.':
-    'このエディタにはまだ [フォントの置換] ダイアログがありません。',
-  'The editor has no message bar.': 'このエディタにはメッセージ バーがありません。',
   'The browser does not allow full screen here.':
     'ここではブラウザーが全画面表示を許可していません。',
   'Place the cursor in text to insert a symbol.':
     '記号を挿入するには、文字列内にカーソルを置いてください。',
-  'Use Animations ▸ Animation Painter.':
-    '[アニメーション] ▸ [アニメーションのコピー/貼り付け] を使ってください。',
-  'Choose theme colors from Design ▸ Variants.':
-    'テーマの配色は [デザイン] ▸ [バリエーション] から選んでください。',
-  'Choose the proofing language from Review ▸ Language.':
-    '校正言語は [校閲] ▸ [言語] から選んでください。',
-  'AutoCorrect is not available in this editor.':
-    'このエディタではオートコレクトを利用できません。',
   'The presentation has no custom shows.':
     'このプレゼンテーションには目的別スライド ショーがありません。',
-  'The editor keeps no application data to clear.':
-    'このエディタには消去するアプリケーション データがありません。',
-  'The editor updates with its npm package.': 'このエディタは npm パッケージと一緒に更新されます。',
-  'Needs a presentation saved to cloud storage.':
-    'クラウド ストレージに保存されたプレゼンテーションが必要です。',
-  'The browser manages its own windows.': 'ウインドウはブラウザーが管理します。',
   'The slide show runs in the preview page around the editor.':
     'スライド ショーはエディタを囲むプレビュー ページで実行されます。',
   'Press ⌘V to paste into the outline.': 'アウトラインにペーストするには ⌘V を押してください。',
   'Edit the text on the slide to use this.':
     'これを使うには、スライド上の文字列を編集してください。',
-  'Importing slides from another file is not available in this editor.':
-    'このエディタでは他のファイルからスライドを取り込めません。',
-  'Action buttons are not in the editor’s shape gallery yet.':
-    '動作設定ボタンはまだエディタの図形ギャラリーにありません。',
-  'macOS provides this to native apps, not to web pages.':
-    'これは macOS がネイティブ アプリに提供する機能で、Web ページでは使えません。',
   // View ▸ masters, Notes Page and the status bar (the reference desktop app (Mac, 16), Japanese UI).
   'Notes {n} of {count}': 'ノート {n} / {count}',
   'Currently in Slide Master View.': '現在のモード: スライド マスター表示',
