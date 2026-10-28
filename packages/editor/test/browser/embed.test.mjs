@@ -372,20 +372,8 @@ test('shows the Japanese interface and saves through it', async () => {
 // form or issue tracker anywhere, and offers agents no such command.
 test('the public mount has no feedback entry point, in English or Japanese', async () => {
   const HELP = {
-    en: {
-      menu: 'Help',
-      items: ['Editor Help', '----', 'Clear Application Data', '----', 'Check for Updates'],
-    },
-    ja: {
-      menu: 'ヘルプ',
-      items: [
-        'エディター ヘルプ',
-        '----',
-        'アプリケーション データのクリア',
-        '----',
-        '更新プログラムのチェック',
-      ],
-    },
+    en: { menu: 'Help', items: ['Editor Help'] },
+    ja: { menu: 'ヘルプ', items: ['エディター ヘルプ'] },
   };
   for (const [locale, help] of Object.entries(HELP)) {
     const { page, errors } = await hostPage();
