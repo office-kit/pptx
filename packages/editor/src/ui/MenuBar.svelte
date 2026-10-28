@@ -10,12 +10,12 @@
   import type { NativeMenuEntry, NativeMenuItem } from '../core/menubar-native.ts';
   import { menuItemForKey } from '../core/menubar-shortcuts.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { menuCommand, nativeMenus, runMenuKey, type MenuHost } from './menubar-commands.ts';
+  import { menuCommand, nativeMenus, runMenuKey, visibleMenus, type MenuHost } from './menubar-commands.ts';
   import TextColumnsDialog from './TextColumnsDialog.svelte';
 
   let { file }: { file: Pick<MenuHost, 'save' | 'download' | 'open' | 'newPresentation'> } = $props();
   const editor = getEditor();
-  const menus = $derived(nativeMenus(editor));
+  const menus = $derived(visibleMenus(editor));
   let openMenu = $state<string | null>(null);
   /** Open submenus by depth, outermost first. */
   let path = $state<string[]>([]);
@@ -92,7 +92,7 @@
 
   function onMenuKeydown(event: KeyboardEvent, depth: number) {
     // Shortcuts close the menu and run, as they do over a native menu.
-    if (menuItemForKey(menus, event)) return;
+    if (menuItemForKey(nativeMenus(), event)) return;
     event.stopPropagation();
     const target = event.target as HTMLElement;
     const menu = target.closest('.menu');
@@ -210,7 +210,7 @@
             onmousedown={(event) => { if (keepFocus) event.preventDefault(); }}
             onpointerenter={() => enter(entry, depth)}
             onclick={() => choose(entry)}
-          ><span class="mark" aria-hidden="true">{action.checked ? (action.bullet ? '•' : '✓') : ''}</span><span class="label">{name}</span>{#if entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}</button>
+          ><span class="mark" aria-hidden="true">{action.checked ? '✓' : ''}</span><span class="label">{name}</span>{#if entry.shortcut}<kbd>{entry.shortcut}</kbd>{/if}</button>
         {/if}
       {/if}
     {/each}

@@ -1,7 +1,8 @@
 // What each menu-bar item does, keyed by the ids in core/menubar-native.ts.
-// Every item reaches an existing editor command; items the editor cannot
-// perform are disabled with the reason as their tooltip. The same lookup
-// drives both the menus and their keyboard shortcuts.
+// Every item reaches an existing editor command. Items the editor can never
+// perform are left out of the menus; items unavailable in the current state
+// are disabled with the reason as their tooltip. The same lookup drives both
+// the menus and their keyboard shortcuts.
 
 import {
   getShapeKind,
@@ -16,6 +17,7 @@ import { eventTarget } from '../core/dom-root.ts';
 import { insertMedia } from '../core/insert-objects.ts';
 import { APPLY_TO_DEFAULTS, NATIVE_MENUBAR, type NativeMenu } from '../core/menubar-native.ts';
 import { menuItemForKey, parseShortcut, isModifiedChord } from '../core/menubar-shortcuts.ts';
+import { pruneMenus } from '../core/menubar-visible.ts';
 import {
   alignParagraphs,
   canAlignParagraphs,
@@ -45,8 +47,6 @@ export interface MenuCommand {
   readonly radio?: boolean;
   /** Replaces the native label, already localized (Edit ▸ Undo <edit> …). */
   readonly label?: string;
-  /** The reference desktop app's window-list bullet rather than a check mark. */
-  readonly bullet?: boolean;
 }
 
 /** What only the title bar can do: it owns the file input and the host's save. */
@@ -65,35 +65,10 @@ export interface MenuHost {
 
 const FEEDBACK = 'help/feedback';
 
-// Help ▸ Feedback and the separator before it. Only the internal dev mount
-// gives the editor a feedback URL; every other host gets these menus.
-function withoutFeedback(menus: readonly NativeMenu[]): readonly NativeMenu[] {
-  return menus.map((menu) => {
-    const at = menu.items.findIndex((item) => item !== '-' && item.id === FEEDBACK);
-    if (at < 0) return menu;
-    return { ...menu, items: menu.items.filter((_, index) => index !== at && index !== at - 1) };
-  });
-}
-
-const MENUS_WITHOUT_FEEDBACK = {
-  en: withoutFeedback(NATIVE_MENUBAR.en),
-  ja: withoutFeedback(NATIVE_MENUBAR.ja),
-};
-
-export function nativeMenus(editor: EditorController): readonly NativeMenu[] {
-  return (editor.feedbackUrl === undefined ? MENUS_WITHOUT_FEEDBACK : NATIVE_MENUBAR)[getLocale()];
-}
-
 const unavailable = (reason: string): MenuCommand => ({ disabled: true, reason });
 
 // Reasons shared by several items.
-const NO_CLOUD = 'Needs a presentation saved to cloud storage.';
-const WINDOWS = 'The browser manages its own windows.';
-const SUBTITLES = 'Live subtitles need an online service.';
 const SLIDE_SHOW_HOST = 'The slide show runs in the preview page around the editor.';
-const ONLINE = 'Online pictures need an online image service.';
-const MEDIA_LIBRARY = 'The Photos and Music libraries are not available in the browser.';
-const OS_TEXT_SERVICE = 'macOS provides this to native apps, not to web pages.';
 const OUTLINE_PASTE = 'Press ⌘V to paste into the outline.';
 const SLIDE_TEXT = 'Edit the text on the slide to use this.';
 
@@ -157,20 +132,105 @@ const PARAGRAPH_ALIGN: Readonly<Record<string, string>> = {
   'format/alignment/distributed': 'distribute',
 };
 
-// Whole submenus the editor has no counterpart for.
-const UNAVAILABLE_GROUPS: readonly (readonly [string, string])[] = [
-  ['file/share/', NO_CLOUD],
-  ['edit/autofill/', OS_TEXT_SERVICE],
-  ['insert/slides-from/', 'Importing slides from another file is not available in this editor.'],
-  ['insert/smartart/', 'SmartArt is not supported by the library yet.'],
-  ['insert/3d-models/', '3D models are not supported by the library yet.'],
-  ['insert/zoom/', 'Slide zoom is not supported by the library yet.'],
-  ['insert/action-buttons/', 'Action buttons are not in the editor’s shape gallery yet.'],
-  ['insert/chart/', 'This chart type is not supported by the library yet.'],
-  ['tools/macro/', 'Macros (VBA) do not run in this editor.'],
-  ['slide-show/subtitle-settings/', SUBTITLES],
-  ['window/', WINDOWS],
+// Items the editor can never perform: it has no counterpart, or a browser
+// page cannot do them. They stay out of the menus.
+const HIDDEN = new Set([
+  'file/new-from-template',
+  'file/close',
+  'file/save-as-template',
+  'file/export',
+  'file/move',
+  'file/rename',
+  'file/browse-version-history',
+  'file/always-open-read-only',
+  'file/restrict-permissions',
+  'file/passwords',
+  'file/print',
+  'edit/paste-special',
+  'edit/clear',
+  'edit/rename-section',
+  'edit/find/find-next',
+  'edit/find/find-previous',
+  'edit/find/replace-fonts',
+  'edit/start-dictation',
+  'edit/emoji-and-symbols',
+  'view/message-bar',
+  'view/markup',
+  'view/advanced-markup',
+  'insert/picture/photo-browser',
+  'insert/picture/stock-images',
+  'insert/picture/online-pictures',
+  'insert/picture/brand-images',
+  'insert/audio/audio-browser',
+  'insert/audio/record-audio',
+  'insert/video/movie-browser',
+  'insert/video/stock-videos',
+  'insert/video/online-movie',
+  'insert/cameo',
+  'insert/equation',
+  'insert/icons',
+  'insert/object',
+  'format/bullets-and-numbering',
+  'format/animation-painter',
+  'format/replace-fonts',
+  'format/theme-colors',
+  'arrange/reorder-objects',
+  'tools/spelling',
+  'tools/thesaurus',
+  'tools/translate',
+  'tools/set-proofing-language',
+  'tools/autocorrect-options',
+  'tools/add-ins',
+  'slide-show/rehearse-with-coach',
+  'slide-show/always-use-subtitles',
+  'help/clear-application-data',
+  'help/check-for-updates',
+]);
+
+// Whole submenus (and the Window menu) the editor has no counterpart for.
+const HIDDEN_GROUPS = [
+  'file/open-recent',
+  'file/share',
+  'edit/autofill',
+  'insert/slides-from',
+  'insert/smartart',
+  'insert/3d-models',
+  'insert/zoom',
+  'insert/action-buttons',
+  'tools/macro',
+  'slide-show/subtitle-settings',
+  'window',
 ];
+
+function isHidden(id: string): boolean {
+  if (HIDDEN.has(id)) return true;
+  if (id.startsWith('insert/chart/')) return !(id in CHARTS);
+  return HIDDEN_GROUPS.some((group) => id === group || id.startsWith(`${group}/`));
+}
+
+// Help ▸ Feedback is only there when the host gives the editor a feedback URL
+// (the internal dev mount does).
+const MENUS = {
+  en: pruneMenus(NATIVE_MENUBAR.en, isHidden),
+  ja: pruneMenus(NATIVE_MENUBAR.ja, isHidden),
+};
+const MENUS_WITHOUT_FEEDBACK = {
+  en: pruneMenus(MENUS.en, (id) => id === FEEDBACK),
+  ja: pruneMenus(MENUS.ja, (id) => id === FEEDBACK),
+};
+
+/** The menus the menu bar shows. */
+export function visibleMenus(editor: EditorController): readonly NativeMenu[] {
+  return (editor.feedbackUrl === undefined ? MENUS_WITHOUT_FEEDBACK : MENUS)[getLocale()];
+}
+
+/**
+ * Every menu item, for keyboard shortcuts: a hidden item's shortcut still
+ * resolves, so the browser does not act on it (⌘P would print the page).
+ */
+export function nativeMenus(): readonly NativeMenu[] {
+  return NATIVE_MENUBAR[getLocale()];
+}
 
 /** The command behind a menu-bar item in the editor's current state. */
 export function menuCommand(editor: EditorController, host: MenuHost, id: string): MenuCommand {
@@ -188,6 +248,7 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
   const present = (action: Parameters<EditorController['present']>[0]): MenuCommand =>
     editor.canPresent ? { run: () => editor.present(action) } : unavailable(SLIDE_SHOW_HOST);
 
+  if (isHidden(id)) return { disabled: true };
   if (id in VIEWS) {
     const mode = VIEWS[id]!;
     return {
@@ -253,41 +314,16 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     // File
     case 'file/new-presentation':
       return { run: host.newPresentation };
-    case 'file/new-from-template':
-      return unavailable('The editor has no template gallery.');
     case 'file/open':
       return { run: host.open };
-    case 'file/open-recent':
-      return {};
-    case 'file/open-recent/more':
-      return unavailable('The browser keeps no list of recent files.');
-    case 'file/close':
-      return unavailable('Close the browser tab to close the presentation.');
     case 'file/save':
       return { run: host.save };
     case 'file/save-as':
       return { run: host.download };
-    case 'file/save-as-template':
-      return unavailable('The editor cannot save templates.');
-    case 'file/export':
-      return unavailable('Export to other formats is not available in this editor.');
-    case 'file/move':
-    case 'file/rename':
-    case 'file/browse-version-history':
-    case 'file/share':
-      return id === 'file/share' ? {} : unavailable(NO_CLOUD);
-    case 'file/always-open-read-only':
-      return unavailable('The editor cannot mark a file read-only.');
-    case 'file/restrict-permissions':
-      return unavailable('Restricting permissions needs a rights management service.');
-    case 'file/passwords':
-      return unavailable('Password protection is not available in this editor.');
     case 'file/compress-pictures':
       return { run: () => (editor.activeDialog = 'compressPictures') };
     case 'file/page-setup':
       return run('setSlideSize');
-    case 'file/print':
-      return unavailable('Printing is not available in this editor.');
     case 'file/properties':
       return run('setCoreProperties');
 
@@ -322,15 +358,9 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     case 'edit/paste':
       if (!text) return { run: () => void editor.paste() };
       return text.clipboard ? { run: () => text.clipboard!('paste') } : unavailable(OUTLINE_PASTE);
-    case 'edit/paste-special':
-      return unavailable(
-        'Paste Special needs the system clipboard formats, which the browser does not expose.',
-      );
     case 'edit/paste-and-match-formatting':
       if (!text) return unavailable('Paste and Match Formatting pastes into text being edited.');
       return text.pastePlain ? { run: text.pastePlain } : unavailable(OUTLINE_PASTE);
-    case 'edit/clear':
-      return unavailable('Press Delete to remove the selection.');
     case 'edit/select-all':
       return {
         disabled: !slide,
@@ -350,30 +380,16 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
               doc.transact(t('Remove Section'), () => removeSection(doc.pres, section.start)),
           }
         : unavailable('The current slide is not in a section.');
-    case 'edit/rename-section':
-      return unavailable(
-        section ? 'Rename sections from Home ▸ Section.' : 'The current slide is not in a section.',
-      );
     case 'edit/find':
       return {};
     case 'edit/find/find':
     case 'edit/find/advanced-find':
     case 'edit/find/replace':
       return { run: () => editor.runOrPrompt('replaceTextInPresentation') };
-    case 'edit/find/find-next':
-    case 'edit/find/find-previous':
-      return unavailable('Use Next match and Previous match in the Find dialog.');
-    case 'edit/find/replace-fonts':
-      return unavailable('The editor has no Replace Fonts dialog yet.');
     case 'edit/select-data':
       return run('setChartSpec');
     case 'edit/toggle-drawing':
       return { disabled: !slide, run: () => editor.ink.toggle('pen') };
-    case 'edit/autofill':
-      return {};
-    case 'edit/start-dictation':
-    case 'edit/emoji-and-symbols':
-      return unavailable(OS_TEXT_SERVICE);
 
     // View
     // Without a host viewer, Reading View is the editor's own full-window mode.
@@ -395,14 +411,9 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
         checked: editor.ribbonVisible,
         run: () => (editor.ribbonVisible = !editor.ribbonVisible),
       };
-    case 'view/message-bar':
-      return unavailable('The editor has no message bar.');
     case 'view/header-and-footer':
     case 'insert/header-and-footer':
       return { disabled: !slide, run: () => (editor.activeDialog = 'headerFooter') };
-    case 'view/markup':
-    case 'view/advanced-markup':
-      return unavailable('Co-authoring is not available here.');
     case 'view/ruler':
       return {
         disabled: sorter,
@@ -485,38 +496,17 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
     case 'insert/table':
       return run('addSlideTable');
     case 'insert/chart':
-    case 'insert/smartart':
     case 'insert/picture':
     case 'insert/audio':
     case 'insert/video':
     case 'insert/shape':
-    case 'insert/3d-models':
-    case 'insert/zoom':
-    case 'insert/action-buttons':
-    case 'insert/slides-from':
       return {};
     case 'insert/picture/picture-from-file':
       return run('addSlideImage');
-    case 'insert/picture/photo-browser':
-    case 'insert/audio/audio-browser':
-    case 'insert/video/movie-browser':
-      return unavailable(MEDIA_LIBRARY);
-    case 'insert/picture/stock-images':
-    case 'insert/picture/online-pictures':
-    case 'insert/picture/brand-images':
-    case 'insert/video/stock-videos':
-      return unavailable(ONLINE);
     case 'insert/audio/audio-from-file':
       return { disabled: !slide, run: () => void insertMedia(editor, 'audio', t('Audio')) };
     case 'insert/video/movie-from-file':
       return { disabled: !slide, run: () => void insertMedia(editor, 'video', t('Video')) };
-    case 'insert/audio/record-audio':
-    case 'insert/cameo':
-      return unavailable('Recording is not available in the browser.');
-    case 'insert/video/online-movie':
-      return unavailable('Online videos are not supported by the library yet.');
-    case 'insert/equation':
-      return unavailable('Equations are not supported by the library yet.');
     case 'insert/symbol':
       return text?.insertText
         ? {
@@ -526,12 +516,8 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
             },
           }
         : unavailable('Place the cursor in text to insert a symbol.');
-    case 'insert/icons':
-      return unavailable('The icon library is not available here.');
     case 'insert/action-settings':
       return run('setShapeClickAction');
-    case 'insert/object':
-      return unavailable('Embedded OLE objects are not supported by the library yet.');
     case 'insert/hyperlink':
       if (text) {
         if (!text.hyperlink) return unavailable(SLIDE_TEXT);
@@ -549,8 +535,6 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       };
     case 'format/paragraph':
       return { disabled: !paragraphs, run: () => editor.openParagraphDialog(text?.element?.()) };
-    case 'format/bullets-and-numbering':
-      return unavailable('The editor has no Bullets and Numbering dialog yet.');
     case 'format/columns':
       return { disabled: !textShapes || locked, run: host.columns };
     case 'format/alignment':
@@ -565,12 +549,6 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       return shapeSelected
         ? { run: () => editor.pasteObjectFormat() }
         : { disabled: true, label: APPLY_TO_DEFAULTS[getLocale()] };
-    case 'format/animation-painter':
-      return unavailable('Use Animations ▸ Animation Painter.');
-    case 'format/replace-fonts':
-      return unavailable('The editor has no Replace Fonts dialog yet.');
-    case 'format/theme-colors':
-      return unavailable('Choose theme colors from Design ▸ Variants.');
     case 'format/slide-background':
       return { disabled: !slide, run: () => editor.showBackgroundFormat() };
     case 'format/crop':
@@ -582,8 +560,6 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       return { disabled: !objectSelected, run: () => editor.showShapeFormat() };
 
     // Arrange
-    case 'arrange/reorder-objects':
-      return unavailable('The layered stacking view is not available in this editor.');
     case 'arrange/reorder-overlapping-objects':
       return {
         disabled: editor.reorderMembers().length < 2,
@@ -629,22 +605,8 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       };
 
     // Tools
-    case 'tools/spelling':
-      return unavailable('Spelling is checked by the browser as you type.');
-    case 'tools/thesaurus':
-      return unavailable('The thesaurus needs an online reference service.');
-    case 'tools/translate':
-      return unavailable('Translation needs an online translation service.');
-    case 'tools/set-proofing-language':
-      return unavailable('Choose the proofing language from Review ▸ Language.');
-    case 'tools/autocorrect-options':
-      return unavailable('AutoCorrect is not available in this editor.');
     case 'tools/check-accessibility':
       return { run: () => (editor.accessibilityOpen = true) };
-    case 'tools/macro':
-      return {};
-    case 'tools/add-ins':
-      return unavailable('Add-ins are not available in this editor.');
 
     // Slide Show
     case 'slide-show/play-from-start':
@@ -655,8 +617,6 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       return doc.customShows.length ? {} : unavailable('The presentation has no custom shows.');
     case 'slide-show/custom-slide-show/custom-shows':
       return { run: () => editor.openCustomShows() };
-    case 'slide-show/rehearse-with-coach':
-      return unavailable('Rehearse with Coach needs an online service.');
     case 'slide-show/presenter-view':
       return present('presenter');
     case 'slide-show/rehearse-timings':
@@ -674,21 +634,6 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
       };
     case 'slide-show/set-up-show':
       return { run: () => (editor.activeDialog = 'showProperties') };
-    case 'slide-show/always-use-subtitles':
-      return unavailable(SUBTITLES);
-    case 'slide-show/subtitle-settings':
-      return {};
-
-    // Window
-    case 'window/move-and-resize':
-      return {};
-    case 'window/document':
-      return {
-        checked: true,
-        bullet: true,
-        label: doc.fileName.replace(/\.pptx$/i, ''),
-        run: () => {},
-      };
 
     // Help
     case 'help/editor-help':
@@ -700,13 +645,7 @@ export function menuCommand(editor: EditorController, host: MenuHost, id: string
         ? { disabled: true }
         : { run: () => void window.open(url, '_blank', 'noopener') };
     }
-    case 'help/clear-application-data':
-      return unavailable('The editor keeps no application data to clear.');
-    case 'help/check-for-updates':
-      return unavailable('The editor updates with its npm package.');
   }
-  const group = UNAVAILABLE_GROUPS.find(([prefix]) => id.startsWith(prefix));
-  if (group) return unavailable(group[1]);
   throw new Error(`Menu item ${id} has no command`);
 }
 
@@ -757,7 +696,7 @@ const DOCUMENT_SCOPE = [
  * itself owns.
  */
 export function menuKeyLeavesText(editor: EditorController, event: KeyboardEvent): boolean {
-  const item = menuItemForKey(nativeMenus(editor), event);
+  const item = menuItemForKey(nativeMenus(), event);
   if (!item || TEXT_KEYS.has(item.id)) return false;
   const chord = parseShortcut(item.shortcut!);
   return chord !== null && isModifiedChord(chord);
@@ -776,7 +715,7 @@ export function runMenuKey(
     !editor.ownsEvent(event)
   )
     return false;
-  const item = menuItemForKey(nativeMenus(editor), event);
+  const item = menuItemForKey(nativeMenus(), event);
   if (!item || WINDOW_KEYS.has(item.id)) return false;
   const origin = eventTarget(event);
   const target = origin instanceof HTMLElement ? origin : null;
