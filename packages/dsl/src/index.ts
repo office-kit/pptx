@@ -409,7 +409,10 @@ const cellSpec = (cell: TableCell): TableCellSpec =>
   typeof cell === 'string' ? { text: cell } : cell;
 const cellValue = (spec: TableCellSpec): string =>
   spec.paragraphs
-    ? spec.paragraphs.map((paragraph) => paragraph.runs.map((run) => run.text).join('')).join('\n')
+    ? spec.paragraphs
+        // Equations have no plain text, as in `getShapeText`.
+        .map((paragraph) => paragraph.runs.map((run) => ('text' in run ? run.text : '')).join(''))
+        .join('\n')
     : spec.text;
 
 /** Maps every position a merge covers to that merge's top-left cell. */

@@ -12498,18 +12498,41 @@ export const generatedTools: GeneratedTools = {
                     runs: {
                       type: 'array',
                       items: {
-                        type: 'object',
-                        properties: {
-                          text: {
-                            type: 'string',
-                            description:
-                              'Run text. Unlike `setShapeText`, a newline (`\\n` or `\\r\\n`) does not\nstart a paragraph: it is written as a line break (`<a:br>`) between runs of\nthe same format, since a raw newline inside `<a:t>` reads as a paragraph\nbreak in some apps and as a line break in others.',
+                        anyOf: [
+                          {
+                            type: 'object',
+                            properties: {
+                              text: {
+                                type: 'string',
+                                description:
+                                  'Run text. Unlike `setShapeText`, a newline (`\\n` or `\\r\\n`) does not\nstart a paragraph: it is written as a line break (`<a:br>`) between runs of\nthe same format, since a raw newline inside `<a:t>` reads as a paragraph\nbreak in some apps and as a line break in others.',
+                              },
+                              format: { $ref: '#/$defs/TextFormat' },
+                            },
+                            required: ['text'],
+                            additionalProperties: false,
                           },
-                          format: { $ref: '#/$defs/TextFormat' },
-                        },
-                        required: ['text'],
-                        additionalProperties: false,
+                          {
+                            type: 'object',
+                            properties: {
+                              equation: { $ref: '#/$defs/MathNodeSpecs' },
+                              display: {
+                                type: 'boolean',
+                                description:
+                                  'A display equation (`<m:oMathPara>`) instead of an inline one.',
+                              },
+                              format: {
+                                $ref: '#/$defs/TextFormat',
+                                description:
+                                  "Format of every math run (size, color, …), under each text node's own.",
+                              },
+                            },
+                            required: ['equation'],
+                            additionalProperties: false,
+                          },
+                        ],
                       },
+                      description: 'Text runs and equations, in reading order.',
                     },
                     endFormat: {
                       $ref: '#/$defs/TextFormat',
@@ -12719,6 +12742,144 @@ export const generatedTools: GeneratedTools = {
               { type: 'string', const: 'ctr' },
             ],
           },
+          MathNodeSpecs: {
+            type: 'array',
+            items: {
+              anyOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'text' },
+                    text: { type: 'string' },
+                    style: { type: 'string', enum: ['bold', 'italic', 'plain', 'boldItalic'] },
+                    format: { $ref: '#/$defs/TextFormat' },
+                  },
+                  required: ['kind', 'text'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'fraction' },
+                    type: { type: 'string', enum: ['bar', 'skewed', 'linear', 'noBar'] },
+                    numerator: { $ref: '#/$defs/MathNodeSpecs' },
+                    denominator: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'numerator', 'denominator'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'subscript' },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    sub: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'sub'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'superscript' },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    sup: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'sup'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'subSuperscript' },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    sub: { $ref: '#/$defs/MathNodeSpecs' },
+                    sup: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'sub', 'sup'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'radical' },
+                    degree: { $ref: '#/$defs/NullOrMathNodeSpecs' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'nary' },
+                    operator: { type: 'string' },
+                    limitLocation: { type: 'string', enum: ['underOver', 'subSup'] },
+                    sub: { $ref: '#/$defs/NullOrMathNodeSpecs' },
+                    sup: { $ref: '#/$defs/NullOrMathNodeSpecs' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'delimiter' },
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                    separator: { type: 'string' },
+                    items: { type: 'array', items: { $ref: '#/$defs/MathNodeSpecs' } },
+                  },
+                  required: ['kind', 'items'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'matrix' },
+                    rows: {
+                      type: 'array',
+                      items: { type: 'array', items: { $ref: '#/$defs/MathNodeSpecs' } },
+                    },
+                  },
+                  required: ['kind', 'rows'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'accent' },
+                    accent: { type: 'string' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'function' },
+                    name: { $ref: '#/$defs/MathNodeSpecs' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'name', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', enum: ['lowerLimit', 'upperLimit'] },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    limit: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'limit'],
+                  additionalProperties: false,
+                },
+              ],
+            },
+          },
+          NullOrMathNodeSpecs: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/MathNodeSpecs' }] },
           OffsetEmu: {
             type: 'number',
             description: 'Offset distance in EMU. Defaults to 38100 (3pt).',
@@ -19579,18 +19740,41 @@ export const generatedTools: GeneratedTools = {
                 runs: {
                   type: 'array',
                   items: {
-                    type: 'object',
-                    properties: {
-                      text: {
-                        type: 'string',
-                        description:
-                          'Run text. Unlike `setShapeText`, a newline (`\\n` or `\\r\\n`) does not\nstart a paragraph: it is written as a line break (`<a:br>`) between runs of\nthe same format, since a raw newline inside `<a:t>` reads as a paragraph\nbreak in some apps and as a line break in others.',
+                    anyOf: [
+                      {
+                        type: 'object',
+                        properties: {
+                          text: {
+                            type: 'string',
+                            description:
+                              'Run text. Unlike `setShapeText`, a newline (`\\n` or `\\r\\n`) does not\nstart a paragraph: it is written as a line break (`<a:br>`) between runs of\nthe same format, since a raw newline inside `<a:t>` reads as a paragraph\nbreak in some apps and as a line break in others.',
+                          },
+                          format: { $ref: '#/$defs/TextFormat' },
+                        },
+                        required: ['text'],
+                        additionalProperties: false,
                       },
-                      format: { $ref: '#/$defs/TextFormat' },
-                    },
-                    required: ['text'],
-                    additionalProperties: false,
+                      {
+                        type: 'object',
+                        properties: {
+                          equation: { $ref: '#/$defs/MathNodeSpecs' },
+                          display: {
+                            type: 'boolean',
+                            description:
+                              'A display equation (`<m:oMathPara>`) instead of an inline one.',
+                          },
+                          format: {
+                            $ref: '#/$defs/TextFormat',
+                            description:
+                              "Format of every math run (size, color, …), under each text node's own.",
+                          },
+                        },
+                        required: ['equation'],
+                        additionalProperties: false,
+                      },
+                    ],
                   },
+                  description: 'Text runs and equations, in reading order.',
                 },
                 endFormat: {
                   $ref: '#/$defs/TextFormat',
@@ -19789,6 +19973,144 @@ export const generatedTools: GeneratedTools = {
               { type: 'string', const: 'ctr' },
             ],
           },
+          MathNodeSpecs: {
+            type: 'array',
+            items: {
+              anyOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'text' },
+                    text: { type: 'string' },
+                    style: { type: 'string', enum: ['bold', 'italic', 'plain', 'boldItalic'] },
+                    format: { $ref: '#/$defs/TextFormat' },
+                  },
+                  required: ['kind', 'text'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'fraction' },
+                    type: { type: 'string', enum: ['bar', 'skewed', 'linear', 'noBar'] },
+                    numerator: { $ref: '#/$defs/MathNodeSpecs' },
+                    denominator: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'numerator', 'denominator'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'subscript' },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    sub: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'sub'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'superscript' },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    sup: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'sup'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'subSuperscript' },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    sub: { $ref: '#/$defs/MathNodeSpecs' },
+                    sup: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'sub', 'sup'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'radical' },
+                    degree: { $ref: '#/$defs/NullOrMathNodeSpecs' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'nary' },
+                    operator: { type: 'string' },
+                    limitLocation: { type: 'string', enum: ['underOver', 'subSup'] },
+                    sub: { $ref: '#/$defs/NullOrMathNodeSpecs' },
+                    sup: { $ref: '#/$defs/NullOrMathNodeSpecs' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'delimiter' },
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                    separator: { type: 'string' },
+                    items: { type: 'array', items: { $ref: '#/$defs/MathNodeSpecs' } },
+                  },
+                  required: ['kind', 'items'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'matrix' },
+                    rows: {
+                      type: 'array',
+                      items: { type: 'array', items: { $ref: '#/$defs/MathNodeSpecs' } },
+                    },
+                  },
+                  required: ['kind', 'rows'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'accent' },
+                    accent: { type: 'string' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'function' },
+                    name: { $ref: '#/$defs/MathNodeSpecs' },
+                    body: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'name', 'body'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', enum: ['lowerLimit', 'upperLimit'] },
+                    base: { $ref: '#/$defs/MathNodeSpecs' },
+                    limit: { $ref: '#/$defs/MathNodeSpecs' },
+                  },
+                  required: ['kind', 'base', 'limit'],
+                  additionalProperties: false,
+                },
+              ],
+            },
+          },
+          NullOrMathNodeSpecs: { anyOf: [{ type: 'null' }, { $ref: '#/$defs/MathNodeSpecs' }] },
           OffsetEmu: {
             type: 'number',
             description: 'Offset distance in EMU. Defaults to 38100 (3pt).',

@@ -6,6 +6,7 @@
 // Keeping them separate keeps `text-body.ts` small and clearly side-effect-
 // free.
 
+import { buildEquation, type EquationSpec } from './math.ts';
 import { oneOf } from '../bounds.ts';
 import { AUTO_NUMBER_SCHEMES } from '../enum-values.ts';
 
@@ -606,7 +607,8 @@ export interface RunSpec {
 /** One paragraph for `setTextBodyParagraphs`: optional alignment plus its runs. */
 export interface ParagraphSpec {
   readonly align?: ParagraphAlignment;
-  readonly runs: ReadonlyArray<RunSpec>;
+  /** Text runs and equations, in reading order. */
+  readonly runs: ReadonlyArray<RunSpec | EquationSpec>;
   /**
    * Format of the paragraph-end mark (`<a:endParaRPr>`), the place to give a
    * paragraph with no runs a font size. Omit to write no `<a:endParaRPr>`.
@@ -638,6 +640,10 @@ export const buildTextBodyParagraphs = (
         children.push(elem(NAME_PPR, { attrs: [attr(ATTR_ALGN, alignToken(para.align, caller))] }));
       }
       for (const run of para.runs) {
+        if ('equation' in run) {
+          children.push(buildEquation(run, caller, embedder));
+          continue;
+        }
         const rPr = elem(NAME_RPR);
         if (run.format !== undefined) applyRunFormat(rPr, run.format, caller, embedder);
         const lines = run.text.split(RUN_LINE_BREAK);

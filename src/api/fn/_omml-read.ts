@@ -9,23 +9,16 @@
 
 import { NS, firstChildElement, getAttrValue, qname } from '../../internal/xml/index.ts';
 import type { XmlElement } from '../../internal/xml/index.ts';
-import type { ReadTextFormat } from '../../internal/drawingml/index.ts';
+import type {
+  MathFractionType,
+  MathLimitLocation,
+  MathTextStyle,
+  ReadTextFormat,
+} from '../../internal/drawingml/index.ts';
 import { parseRPrLikeElement } from './shape-color.ts';
 
 /** A sequence of math nodes laid out left to right (an OMML argument). */
 export type MathNodes = ReadonlyArray<MathNode>;
-
-/**
- * Character style of a math run (`<m:sty>`). Omitted means the math default:
- * letters italic, digits and operators upright.
- */
-export type MathTextStyle = 'plain' | 'bold' | 'italic' | 'boldItalic';
-
-/** Where an n-ary operator puts its limits (`<m:limLoc>`). */
-export type MathLimitLocation = 'underOver' | 'subSup';
-
-/** Fraction layout (`<m:type>` of `<m:fPr>`). */
-export type MathFractionType = 'bar' | 'skewed' | 'linear' | 'noBar';
 
 /**
  * One node of an equation, modeled on the OMML elements of
@@ -315,4 +308,24 @@ export const mathZoneEquations = (zone: XmlElement): MathZoneEquation[] => {
     }
   }
   return out;
+};
+
+const isA14Zone = (el: XmlElement): boolean =>
+  el.name.namespaceURI === NS.a14 && el.name.localName === 'm';
+
+/**
+ * The `<a14:m>` a paragraph child holds: the child itself, or the zone in an
+ * `mc:AlternateContent` choice (the form the library writes), else `null`.
+ */
+export const equationZoneOf = (child: XmlElement): XmlElement | null => {
+  if (isA14Zone(child)) return child;
+  if (child.name.namespaceURI !== NS.mc || child.name.localName !== 'AlternateContent') return null;
+  for (const choice of child.children) {
+    if (choice.kind !== 'element' || choice.name.namespaceURI !== NS.mc) continue;
+    if (choice.name.localName !== 'Choice') continue;
+    for (const zone of choice.children) {
+      if (zone.kind === 'element' && isA14Zone(zone)) return zone;
+    }
+  }
+  return null;
 };

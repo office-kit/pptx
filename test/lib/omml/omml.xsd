@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ECMA-376's shared-math.xsd with the XML namespace resolved locally: the
+     first import of a namespace supplies its schema. -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <xsd:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/>
+  <xsd:import namespace="http://schemas.openxmlformats.org/officeDocument/2006/math"
+    schemaLocation="../../../references/ecma-376-5th/ECMA-376/OfficeOpenXML-XMLSchema-Transitional/shared-math.xsd"/>
+</xsd:schema>

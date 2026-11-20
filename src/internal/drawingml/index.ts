@@ -23,6 +23,15 @@ export {
   setTextBodyParagraphs,
   updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
+export {
+  buildEquation,
+  type EquationSpec,
+  type MathFractionType,
+  type MathLimitLocation,
+  type MathNodeSpec,
+  type MathNodeSpecs,
+  type MathTextStyle,
+} from './math.ts';
 export type {
   ImageEmbedder,
   ReadTextFill,

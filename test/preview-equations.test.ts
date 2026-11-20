@@ -2,7 +2,14 @@
 // line, instead of leaving the equation out.
 
 import { describe, expect, it } from 'vitest';
-import { getSlides } from '../src/api/index.ts';
+import {
+  addBlankSlide,
+  addSlideTextBox,
+  createPresentation,
+  getSlides,
+  inches,
+  setShapeParagraphs,
+} from '../src/api/index.ts';
 import { auditTextLayout, renderSlideToSvg } from '../packages/preview/src/index.ts';
 import {
   displayMathZone,
@@ -105,5 +112,35 @@ describe('equations in the preview', () => {
         elements: ['eqArr', 'groupChr'],
       }),
     );
+  });
+
+  it('draws the equations the library writes, not their fallback text', () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(1),
+      text: '',
+    });
+    setShapeParagraphs(shape, [
+      {
+        runs: [
+          {
+            equation: [
+              {
+                kind: 'fraction',
+                numerator: [{ kind: 'text', text: 'a' }],
+                denominator: [{ kind: 'text', text: 'b' }],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    expect(mathGroups(svg)).toHaveLength(1);
+    expect(svg).not.toContain('a/b');
   });
 });
