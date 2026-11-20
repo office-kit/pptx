@@ -1,3 +1,4 @@
+import { textElements } from './text-elements.ts';
 import {
   getShapeId,
   addSlideAt,
@@ -53,7 +54,7 @@ export function deleteOutlineTitleBodyRange(
   const text = getShapeText(title);
   // The reference desktop app keeps all title paragraphs through the paragraph where deletion starts.
   let boundary = 0;
-  for (const paragraph of getShapeParagraphElements(title)) {
+  for (const paragraph of getShapeParagraphElements(title).map((p) => textElements(p))) {
     boundary += paragraph.reduce(
       (length, element) => length + (element.kind === 'br' ? 1 : element.text.length),
       0,
@@ -88,7 +89,8 @@ export function outlineSlots(pres: PresentationData) {
 
 function paragraphSpans(shape: SlideShapeData): Array<{ start: number; end: number }> {
   let offset = 0;
-  return getShapeParagraphElements(shape).map((elements) => {
+  return getShapeParagraphElements(shape).map((all) => {
+    const elements = textElements(all);
     const start = offset;
     const end =
       start +
@@ -341,7 +343,7 @@ export function splitOutlineTitleRange(
   const text = getShapeText(source);
   // The reference desktop app promotes the unselected end paragraph into the new title.
   // Subsequent body paragraphs stay body paragraphs on the new slide.
-  const paragraphs = getShapeParagraphElements(source);
+  const paragraphs = getShapeParagraphElements(source).map((p) => textElements(p));
   let boundary = 0;
   for (const paragraph of paragraphs) {
     boundary += paragraph.reduce(
@@ -394,7 +396,7 @@ export function outlineTitleMove(pres: PresentationData, slide: SlideData, direc
   const after = getShapeText(body);
   const source = direction === -1 ? previous : body;
   if (!(direction === -1 ? before : after)) return null;
-  const paragraphs = getShapeParagraphElements(source);
+  const paragraphs = getShapeParagraphElements(source).map((p) => textElements(p));
   const moved = direction === -1 ? paragraphs.at(-1)! : paragraphs[0]!;
   const length = moved.reduce(
     (sum, element) => sum + (element.kind === 'br' ? 1 : element.text.length),
@@ -498,7 +500,7 @@ export function promoteOutlineBody(
 ): SlideData[] {
   const text = getShapeText(source);
   const levels = getParagraphLevel(source, { start: 0, end: text.length });
-  const elementsByParagraph = getShapeParagraphElements(source);
+  const elementsByParagraph = getShapeParagraphElements(source).map((p) => textElements(p));
   if (levels.length < elementsByParagraph.length)
     levels.push(getParagraphLevel(source, elementsByParagraph.length - 1));
   let offset = 0;
@@ -580,7 +582,8 @@ export function outlineParagraphMove(
 ) {
   getParagraphLevel(source, range);
   let offset = 0;
-  const paragraphs = getShapeParagraphElements(source).map((elements) => {
+  const paragraphs = getShapeParagraphElements(source).map((all) => {
+    const elements = textElements(all);
     const start = offset;
     const end =
       start +

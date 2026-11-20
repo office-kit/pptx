@@ -24,6 +24,8 @@ export const NS = {
   sml: 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
   // WordprocessingML (embedded in some PPTX parts)
   wml: 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+  // Math markup, OMML (ECMA-376 Part 1 §22.1)
+  math: 'http://schemas.openxmlformats.org/officeDocument/2006/math',
   // Markup Compatibility & Extensibility
   mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
   // 2007+ vendor extension namespaces (a14, p14, p15, p16, etc.)
@@ -56,6 +58,7 @@ export const SUGGESTED_PREFIX: Readonly<Record<string, string>> = {
   [NS.chartDrawing]: 'cdr',
   [NS.sml]: '',
   [NS.wml]: 'w',
+  [NS.math]: 'm',
   [NS.mc]: 'mc',
   [NS.a14]: 'a14',
   [NS.a15]: 'a15',

@@ -7,6 +7,7 @@ import { readBulletStyleLayer } from './bullet-style.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
+import { mathPlainText, mathZoneEquations, readMathNodes, type MathNodes } from './_omml-read.ts';
 import {
   alignToken,
   type BulletStyle,
@@ -155,12 +156,13 @@ export const getShapeParagraphCount = (shape: SlideShapeData): number => {
 /**
  * One inline element in a paragraph as ordered: a literal text run
  * (`<a:r>`), a field substitution (`<a:fld>` — slide number, date, etc.),
- * or a line break (`<a:br>`). Renderers walk this list instead of the
+ * a line break (`<a:br>`), or an equation (`<a14:m>`, one
+ * element per `<m:oMath>`). Renderers walk this list instead of the
  * strict `<a:r>`-only `getShapeRunCount` / `getShapeRunText` pair when
  * they need to reproduce the paragraph's full visible content.
  *
  * `text` is the cached value (`<a:t>` content for `r` and `fld`; `''`
- * for `br`). `format` is the literal `<a:rPr>` on the element when
+ * for `br`; the run text of the equation for `math`). `format` is the literal `<a:rPr>` on the element when
  * present; use `getShapeRunFormatEffective` to walk inheritance.
  *
  * Field kinds (`fld.type`): typical ECMA-376 `ST_TextFieldType` tokens
@@ -176,7 +178,17 @@ export type ShapeParagraphElement =
       readonly format: ReadTextFormat | null;
       readonly type: string | null;
     }
-  | { readonly kind: 'br'; readonly format: ReadTextFormat | null };
+  | { readonly kind: 'br'; readonly format: ReadTextFormat | null }
+  | {
+      readonly kind: 'math';
+      /** The equation's run text in document order, for search and plain-text use. */
+      readonly text: string;
+      /** `true` for a display equation (`<m:oMathPara>`), `false` for inline. */
+      readonly display: boolean;
+      readonly math: MathNodes;
+      /** Always `null`: `<a14:m>` has no `<a:rPr>`; each text node carries its own. */
+      readonly format: null;
+    };
 
 /**
  * Returns the inline children of a paragraph in document order — runs,
@@ -248,7 +260,20 @@ export const readParagraphElements = (
     return parseRPrLikeElement(rPr);
   };
   for (const child of paragraph.children) {
-    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    if (child.kind !== 'element') continue;
+    if (child.name.namespaceURI === NS.a14 && child.name.localName === 'm') {
+      for (const { display, oMath } of mathZoneEquations(child)) {
+        out.push({
+          kind: 'math',
+          text: mathPlainText(oMath),
+          display,
+          math: readMathNodes(oMath),
+          format: null,
+        });
+      }
+      continue;
+    }
+    if (child.name.namespaceURI !== NS.dml) continue;
     if (child.name.localName === 'r') {
       out.push({ kind: 'r', text: readT(child), format: readFmt(child) });
     } else if (child.name.localName === 'fld') {

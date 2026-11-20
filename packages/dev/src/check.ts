@@ -58,5 +58,7 @@ function describe(issue: TextAuditIssue, minFontSizePt: number): string {
       return `paragraph ${issue.paragraphIndex + 1} ends on a line of only "${issue.text}"`;
     case 'small-font':
       return `text at ${issue.sizePt}pt is below ${minFontSizePt}pt`;
+    case 'unsupported-math':
+      return `paragraph ${issue.paragraphIndex + 1} has equation parts the preview draws as plain text: ${issue.elements.join(', ')}`;
   }
 }

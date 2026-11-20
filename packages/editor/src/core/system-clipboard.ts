@@ -7,6 +7,7 @@
 // instances also read the private payload .pptx (see clipboard-deck.ts), so
 // slides and objects stay editable between tabs and browsers.
 
+import { textElements } from './text-elements.ts';
 import {
   getParagraphPropertiesEffective,
   getShapeFillEffective,
@@ -279,8 +280,8 @@ type TextOwner = { shape: SlideShapeData; cell?: { row: number; col: number } };
 function paragraphBlocks(pres: PresentationData, { shape, cell }: TextOwner): HTMLElement[] {
   const cellData = cell ? getTableCells(shape)[cell.row]![cell.col]! : undefined;
   const paragraphs = cellData
-    ? getTableCellParagraphs(cellData).map((paragraph) => paragraph.elements)
-    : getShapeParagraphElements(shape);
+    ? getTableCellParagraphs(cellData).map((paragraph) => textElements(paragraph.elements))
+    : getShapeParagraphElements(shape).map((p) => textElements(p));
   const blocks: HTMLElement[] = [];
   let list: HTMLElement | null = null;
   let offset = 0;

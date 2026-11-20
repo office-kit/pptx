@@ -60,8 +60,9 @@ export interface RenderSlideOptions {
    *  use canvas font metrics, falling back to this measurer outside a browser. */
   readonly measureText?: TextMeasurer;
   /** Which text path to use. Defaults to 'foreignObject' (the browser path).
-   *  Bodies with custom tab stops use SVG positioning in either mode, since
-   *  CSS cannot represent their alignment. The harness opts into 'svg'. */
+   *  Bodies with custom tab stops or equations use SVG positioning in either
+   *  mode, since CSS cannot represent tab alignment and only the SVG engine
+   *  lays out equations. The harness opts into 'svg'. */
   readonly textLayout?: TextLayoutMode;
   /** `false` paints only the slide's own shapes on a transparent surface:
    *  no background fill and no master or layout graphics. Defaults to `true`. */
@@ -106,6 +107,8 @@ export const substituteFamily = (family: string | null | undefined): string => {
   if (!family) return SANS;
   const f = family.trim().toLowerCase();
   if (f.startsWith('calibri') || f.startsWith('aptos')) return SANS;
+  // Caladea has no Greek or most math operators; Cambria Math's equations need both.
+  if (f === 'cambria math') return TIMES;
   if (f.startsWith('cambria')) return SERIF;
   if (f === 'arial' || f === 'helvetica' || f === 'helvetica neue' || f.startsWith('arial '))
     return ARIAL;
@@ -235,6 +238,21 @@ export interface PieceInput {
   readonly bevel?: TextBevelInput;
   /** The character decimal tab stops align on in this run; `.` when omitted. */
   readonly decimalSeparator?: string;
+  /**
+   * An atomic inline object (an equation) laid out like one unbreakable word.
+   * `text` then only stands in for it in line text; the box draws itself.
+   */
+  readonly inlineBox?: InlineBox;
+}
+
+/** Pre-laid-out inline content: its advance, extent around the baseline, and SVG. */
+export interface InlineBox {
+  readonly width: number;
+  readonly ascent: number;
+  readonly descent: number;
+  readonly svg: (x: number, baselineY: number) => string;
+  /** Parts of the content the box could not draw faithfully, for the audit. */
+  readonly unsupported?: ReadonlyArray<string>;
 }
 
 /** User-space bounds of a laid-out text block, in px. */
@@ -671,6 +689,17 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           tokens.push({ text: '', piece, isSpace: false, isBreak: true, width: 0 });
           continue;
         }
+        if (piece.inlineBox) {
+          flushWord();
+          tokens.push({
+            text: piece.text,
+            piece,
+            isSpace: false,
+            isBreak: false,
+            width: piece.inlineBox.width,
+          });
+          continue;
+        }
         for (const word of piece.text.match(/\t|[^\S\t]+|\S+/g) ?? []) {
           if (!/^\s+$/.test(word)) {
             wordParts.push({ text: word, piece });
@@ -731,8 +760,11 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
         for (const t of toks) {
           if (t.isSpace || t.isBreak) continue;
           const m = mMetrics(t.piece);
-          if (m.a > ascent) ascent = m.a;
-          if (m.d > descent) descent = m.d;
+          // A tall equation grows its line beyond the font's own extent.
+          const a = Math.max(m.a, t.piece.inlineBox?.ascent ?? 0);
+          const d = Math.max(m.d, t.piece.inlineBox?.descent ?? 0);
+          if (a > ascent) ascent = a;
+          if (d > descent) descent = d;
           if (m.g > lineGap) lineGap = m.g;
         }
         // The reference desktop app uses a break's font metrics for an otherwise empty line,
@@ -1132,7 +1164,7 @@ const lineText = (
   x0: number,
   span: (g: Group, x?: number) => string,
 ): { readonly x: number; readonly anchor: 'start' | 'middle' | 'end'; readonly body: string } => {
-  const families = new Set(groups.filter((g) => !g.isTab).map(familyOf));
+  const families = new Set(groups.filter((g) => !g.isTab && !g.piece.inlineBox).map(familyOf));
   if (families.size < 2 || !groups.some((g) => EAST_ASIAN_CHAR.test(g.text))) {
     return { x: x0, anchor: textAnchor, body: groups.map((g) => span(g)).join('') };
   }
@@ -1143,7 +1175,7 @@ const lineText = (
   let family: string | null = null;
   const parts: string[] = [];
   for (const g of groups) {
-    const changes = !g.isTab && familyOf(g) !== family;
+    const changes = !g.isTab && !g.piece.inlineBox && familyOf(g) !== family;
     parts.push(span(g, changes && family !== null ? cursor : undefined));
     if (changes) family = familyOf(g);
     cursor += g.width;
@@ -1236,10 +1268,29 @@ const emitLine = (
     outerEffects +
     reflections +
     text +
+    emitInlineBoxes(groups, line.textAnchor, x0, baselineY) +
     bevels +
     innerShadows +
     emitTextDecorations(groups, line.textAnchor, x0, baselineY)
   );
+};
+
+const emitInlineBoxes = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+): string => {
+  if (!groups.some((g) => g.piece.inlineBox)) return '';
+  const totalWidth = groups.reduce((sum, g) => sum + g.width, 0);
+  let cursor =
+    x0 - (textAnchor === 'middle' ? totalWidth / 2 : textAnchor === 'end' ? totalWidth : 0);
+  let out = '';
+  for (const g of groups) {
+    if (g.piece.inlineBox) out += g.piece.inlineBox.svg(cursor, baselineY);
+    cursor += g.width;
+  }
+  return out;
 };
 
 // A piece that keeps its metrics but draws nothing: no fill, outline,
@@ -1263,7 +1314,14 @@ const groupTokens = (toks: Token[]): Group[] => {
   for (const t of toks) {
     if (t.isBreak) continue;
     const last = groups[groups.length - 1];
-    if (last && !last.isTab && !t.isTab && samePiece(last.piece, t.piece)) {
+    if (
+      last &&
+      !last.isTab &&
+      !t.isTab &&
+      !last.piece.inlineBox &&
+      !t.piece.inlineBox &&
+      samePiece(last.piece, t.piece)
+    ) {
       last.text += t.text;
       last.width += t.width;
       last.parts.push({ text: t.text, width: t.width });
@@ -1795,7 +1853,8 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.hrefTip === b.hrefTip;
 
 const tspan = (g: Group, x?: number): string => {
-  if (g.isTab) return `<tspan dx="${fmt(g.width)}">&#8203;</tspan>`;
+  // An inline box keeps its advance in the text flow; emitInlineBoxes draws it.
+  if (g.isTab || g.piece.inlineBox) return `<tspan dx="${fmt(g.width)}">&#8203;</tspan>`;
   const p = g.piece;
   const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
