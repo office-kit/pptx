@@ -15,6 +15,7 @@
 // then set the relevant attributes / child elements. Existing properties
 // not addressed by the format object are preserved.
 
+import { equationRunProperties } from './math-runs.ts';
 import type { Color } from './color.ts';
 import {
   NS,
@@ -993,6 +994,14 @@ export const applyValidatedFormatToAllRuns = (
         r.children.unshift(rPr);
       }
       applyValidatedRunFormat(rPr, format, images);
+    }
+    // Equations follow the shape's size, color and emphasis, but keep their
+    // math face: the desktop app sets every math run in Cambria Math.
+    const equation = equationRunProperties(p);
+    if (equation.math.length > 0) {
+      const { font: _font, fontEastAsian: _ea, fontComplexScript: _cs, ...mathFormat } = format;
+      for (const rPr of equation.math) applyValidatedRunFormat(rPr, mathFormat, images);
+      for (const rPr of equation.fallback) applyValidatedRunFormat(rPr, format, images);
     }
   }
   // Force-touch a NAME_R reference so it isn't elided as unused.
