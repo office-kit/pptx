@@ -167,7 +167,12 @@ jobs:
   fidelity:
     name: Preview fidelity
     needs: static
-    runs-on: ubuntu-latest
+    # Pinned: the ground truth comes from the distro's LibreOffice, and the
+    # baseline was measured with 24.2 (ubuntu-24.04). ubuntu-latest moved to
+    # 26.04 (LibreOffice 26.2), which renders some slides differently and fails
+    # the gate without any change on our side. Move to a newer image together
+    # with a re-measured baseline.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
 
