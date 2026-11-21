@@ -6,15 +6,19 @@
 import type { OpcPackage } from '../../internal/parts/index.ts';
 import {
   REL_TYPES,
+  alternateContentShapes,
+  classifyShapeElement,
   readSlideLayoutPart,
   readSlidePart,
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
+  type XmlNode,
   elem,
   firstChildElement,
   getAttrValue,
+  isAlternateContent,
   qname,
   serializeXml,
   walkElements,
@@ -269,19 +273,51 @@ export const setOpcDefault = (pkg: OpcPackage, extension: string, contentType: s
 };
 
 /** Locate the owning slide/group container without descending into shape content. */
-export const findShapeParent = (shape: SlideShapeData): XmlElement | null => {
+/**
+ * Whether `node` is a shape in a shape tree's child list: a shape element, or
+ * an `mc:AlternateContent` holding one in its branches (the shape the reader
+ * enumerates is in one of them).
+ */
+export const isShapeSlot = (node: XmlNode): node is XmlElement =>
+  node.kind === 'element' &&
+  (classifyShapeElement(node) !== null ||
+    (isAlternateContent(node) && alternateContentShapes(node).length > 0));
+
+/** The shape elements a slot holds: the slot itself, or every branch's shape. */
+export const shapesInSlot = (slot: XmlElement): XmlElement[] =>
+  isAlternateContent(slot) ? alternateContentShapes(slot) : [slot];
+
+/** Maps each shape element held by `container`'s slots to that slot. */
+export const shapeSlotsIn = (container: XmlElement): Map<XmlElement, XmlElement> => {
+  const slots = new Map<XmlElement, XmlElement>();
+  for (const child of container.children) {
+    if (!isShapeSlot(child)) continue;
+    for (const shape of shapesInSlot(child)) slots.set(shape, child);
+  }
+  return slots;
+};
+
+const isGroupElement = (node: XmlNode): node is XmlElement =>
+  node.kind === 'element' && node.name.namespaceURI === NS.pml && node.name.localName === 'grpSp';
+
+/**
+ * The container (`p:spTree` or `p:grpSp`) holding the shape and the slot it
+ * occupies there: the shape element, or the `mc:AlternateContent` wrapping it.
+ * Structural edits (remove, reorder, group, copy) move the slot, so the
+ * wrapper and its other branches go along with the shape.
+ */
+export const findShapeSlot = (
+  shape: SlideShapeData,
+): { parent: XmlElement; slot: XmlElement } | null => {
   const stack = [requireSpTree(shape[SHAPE_SLIDE])];
   const target = shape[SHAPE_ELEMENT];
   while (stack.length) {
     const parent = stack.pop()!;
     for (const child of parent.children) {
-      if (child === target) return parent;
-      if (
-        child.kind === 'element' &&
-        child.name.namespaceURI === NS.pml &&
-        child.name.localName === 'grpSp'
-      )
-        stack.push(child);
+      if (!isShapeSlot(child)) continue;
+      const held = shapesInSlot(child);
+      if (held.includes(target)) return { parent, slot: child };
+      stack.push(...held.filter(isGroupElement));
     }
   }
   return null;

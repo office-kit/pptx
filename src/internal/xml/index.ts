@@ -26,6 +26,11 @@ export {
   qnameEquals,
   text,
 } from './ast.ts';
+export {
+  isAlternateContent,
+  selectAlternateContentBranch,
+  withPrefixDecls,
+} from './markup-compatibility.ts';
 export { NS, SUGGESTED_PREFIX } from './namespaces.ts';
 export { XmlParseError, parseFragment, parseXml } from './parse.ts';
 export {

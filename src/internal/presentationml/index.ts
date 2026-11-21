@@ -12,6 +12,8 @@ export type {
 export { readPresentationPart } from './presentation-part.ts';
 export type { PlaceholderType, ShapeKind, SlidePart, SlideShape } from './slide-part.ts';
 export {
+  alternateContentShapes,
+  classifyShapeElement,
   readGroupChildren,
   readShapeTreeFromCsldRoot,
   readSlidePart,

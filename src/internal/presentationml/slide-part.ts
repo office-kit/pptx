@@ -23,7 +23,15 @@
 
 import type { PLACEHOLDER_TYPES } from '../enum-values.ts';
 import { textBodyText } from '../drawingml/index.ts';
-import { NS, firstChildElement, getAttrValue, qname } from '../xml/index.ts';
+import {
+  NS,
+  firstChildElement,
+  getAttrValue,
+  isAlternateContent,
+  qname,
+  selectAlternateContentBranch,
+  withPrefixDecls,
+} from '../xml/index.ts';
 import type { XmlElement } from '../xml/index.ts';
 
 export type ShapeKind = 'shape' | 'picture' | 'group' | 'graphicFrame' | 'connector';
@@ -93,7 +101,8 @@ const NV_BY_KIND: Record<ShapeKind, ReturnType<typeof qname>> = {
   connector: NAME_NV_CXN_SP_PR,
 };
 
-const classify = (element: XmlElement): ShapeKind | null => {
+/** The shape kind of a shape-tree child, or `null` for anything that is not a shape. */
+export const classifyShapeElement = (element: XmlElement): ShapeKind | null => {
   if (element.name.namespaceURI !== NS.pml) return null;
   switch (element.name.localName) {
     case 'sp':
@@ -150,17 +159,53 @@ const extractShape = (element: XmlElement, kind: ShapeKind): SlideShape => {
   return { kind, id, name, placeholderType, placeholderIdx, text, element };
 };
 
-const collectShapes = (spTree: XmlElement, out: SlideShape[], recurseIntoGroups: boolean): void => {
-  for (const child of spTree.children) {
+// The namespaces whose `mc:Choice` branches the shape tree reader takes. The
+// desktop app wraps a shape holding an equation in a choice requiring a14 (the
+// `a14:m` zone, which the text readers parse) with a picture as the fallback.
+// Choices requiring anything else fall back, as a reader that does not know
+// them must.
+const UNDERSTOOD_CHOICES: ReadonlySet<string> = new Set([NS.a14]);
+
+// `scope` is the prefix bindings in effect inside `container`.
+const collectShapes = (
+  container: XmlElement,
+  out: SlideShape[],
+  recurseIntoGroups: boolean,
+  scope: ReadonlyMap<string, string>,
+): void => {
+  for (const child of container.children) {
     if (child.kind !== 'element') continue;
-    const kind = classify(child);
+    if (isAlternateContent(child)) {
+      const branch = selectAlternateContentBranch(child, UNDERSTOOD_CHOICES, scope);
+      if (branch !== null) {
+        const inner = withPrefixDecls(withPrefixDecls(scope, child), branch);
+        collectShapes(branch, out, recurseIntoGroups, inner);
+      }
+      continue;
+    }
+    const kind = classifyShapeElement(child);
     if (kind === null) continue;
     out.push(extractShape(child, kind));
     if (kind === 'group' && recurseIntoGroups) {
-      collectShapes(child, out, recurseIntoGroups);
+      collectShapes(child, out, recurseIntoGroups, withPrefixDecls(scope, child));
     }
   }
 };
+
+/**
+ * The shape elements an `mc:AlternateContent` in a shape tree holds, across
+ * all its branches. Edits that move or reposition the wrapped shape apply to
+ * each, so every reader sees the same result.
+ */
+export const alternateContentShapes = (alternateContent: XmlElement): XmlElement[] =>
+  alternateContent.children.flatMap((branch) =>
+    branch.kind === 'element' && branch.name.namespaceURI === NS.mc
+      ? branch.children.filter(
+          (child): child is XmlElement =>
+            child.kind === 'element' && classifyShapeElement(child) !== null,
+        )
+      : [],
+  );
 
 /**
  * Reads the immediate child shapes of a `<p:grpSp>` (group shape)
@@ -176,7 +221,7 @@ export const readGroupChildren = (element: XmlElement): SlideShape[] => {
     );
   }
   const out: SlideShape[] = [];
-  collectShapes(element, out, false);
+  collectShapes(element, out, false, element.prefixDecls);
   return out;
 };
 
@@ -200,7 +245,8 @@ export const readShapeTreeFromCsldRoot = (
   const spTree = firstChildElement(cSld, NAME_SP_TREE);
   if (spTree === null) throw new Error('<p:cSld>: missing <p:spTree>');
   const shapes: SlideShape[] = [];
-  collectShapes(spTree, shapes, options.recurseIntoGroups ?? true);
+  const scope = withPrefixDecls(withPrefixDecls(root.prefixDecls, cSld), spTree);
+  collectShapes(spTree, shapes, options.recurseIntoGroups ?? true, scope);
   return { shapes, cSld };
 };
 
