@@ -21,7 +21,7 @@ import {
   setPosition as writePosition,
   setSize as writeSize,
 } from '../../internal/drawingml/index.ts';
-import { buildGroup, readGroupChildren } from '../../internal/presentationml/index.ts';
+import { buildGroup, classifyShapeElement } from '../../internal/presentationml/index.ts';
 import { type XmlElement } from '../../internal/xml/index.ts';
 import {
   SHAPE_ELEMENT,
@@ -33,8 +33,11 @@ import {
 import {
   commitSlideData,
   nextShapeId,
+  findShapeSlot,
+  isShapeSlot,
   rebuildShapesFromDocument,
-  findShapeParent,
+  shapeSlotsIn,
+  shapesInSlot,
 } from './_helpers.ts';
 import { getGroupTransform } from './shape-read-base.ts';
 
@@ -66,9 +69,10 @@ export const groupShapes = (
     throw new Error('groupShapes: at least 2 shapes are required');
   }
   const slide = shapes[0]![SHAPE_SLIDE];
-  const spTree = findShapeParent(shapes[0]!);
+  const spTree = findShapeSlot(shapes[0]!)?.parent;
   if (!spTree) throw new Error('groupShapes: shape is not attached to the slide');
-  const siblings = new Set(spTree.children);
+  // A member wrapped in mc:AlternateContent moves into the group with its wrapper.
+  const slots = shapeSlotsIn(spTree);
 
   const seen = new Set<XmlElement>();
   let minX = Number.POSITIVE_INFINITY;
@@ -80,16 +84,17 @@ export const groupShapes = (
       throw new Error('groupShapes: all shapes must belong to the same slide');
     }
     const el = shape[SHAPE_ELEMENT];
-    if (seen.has(el)) {
-      throw new Error(`groupShapes: shape "${shape[SHAPE_SNAPSHOT].name}" was passed twice`);
-    }
-    seen.add(el);
-    if (!siblings.has(el)) {
+    const slot = slots.get(el);
+    if (slot === undefined) {
       throw new Error(
         `groupShapes: shape "${shape[SHAPE_SNAPSHOT].name}" is not a direct child of the ` +
           'same parent as the other shapes',
       );
     }
+    if (seen.has(slot)) {
+      throw new Error(`groupShapes: shape "${shape[SHAPE_SNAPSHOT].name}" was passed twice`);
+    }
+    seen.add(slot);
     const kind = shape[SHAPE_SNAPSHOT].kind;
     const pos = readPosition(el, kind);
     const size = readSize(el, kind);
@@ -171,14 +176,18 @@ export const ungroupShapes = (group: SlideShapeData): ReadonlyArray<SlideShapeDa
   const centerY = outer.y + outer.h / 2;
 
   const slide = group[SHAPE_SLIDE];
-  const spTree = findShapeParent(group);
-  if (!spTree) throw new Error('ungroupShapes: group is not attached to the slide');
+  const found = findShapeSlot(group);
+  if (!found) throw new Error('ungroupShapes: group is not attached to the slide');
+  const spTree = found.parent;
+  const idx = spTree.children.indexOf(found.slot);
   const groupEl = group[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(groupEl);
-  if (idx < 0) throw new Error('ungroupShapes: group is not attached to the slide');
 
-  const children = readGroupChildren(groupEl);
-  const childElements = children.map((child) => {
+  // Each slot moves out whole; every shape it holds (all branches of an
+  // mc:AlternateContent) gets the same transform.
+  const slots = groupEl.children.filter(isShapeSlot);
+  const moved = slots.flatMap(shapesInSlot);
+  for (const element of moved) {
+    const child = { element, kind: classifyShapeElement(element)! };
     const pos = readPosition(child.element, child.kind);
     const size = readSize(child.element, child.kind);
     if (pos !== null && size !== null) {
@@ -210,17 +219,13 @@ export const ungroupShapes = (group: SlideShapeData): ReadonlyArray<SlideShapeDa
         });
       }
     }
-    return child.element;
-  });
+  }
 
-  spTree.children.splice(idx, 1, ...childElements);
+  spTree.children.splice(idx, 1, ...slots);
 
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
-  const byElement = new Map(slide[SLIDE_SHAPES].map((s) => [s[SHAPE_ELEMENT], s] as const));
-  return childElements.map((el) => {
-    const found = byElement.get(el);
-    if (!found) throw new Error('ungroupShapes: post-condition failed');
-    return found;
-  });
+  // Document order, so the children come back in their original order.
+  const movedSet = new Set(moved);
+  return slide[SLIDE_SHAPES].filter((s) => movedSet.has(s[SHAPE_ELEMENT]));
 };

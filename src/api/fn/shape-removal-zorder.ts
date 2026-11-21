@@ -18,10 +18,12 @@ import {
 import {
   appendAndReturnNewShape,
   commitSlideData,
+  findShapeSlot,
+  isShapeSlot,
   nextShapeId,
+  shapeSlotsIn,
   rebuildShapesFromDocument,
   requireSpTree,
-  findShapeParent,
 } from './_helpers.ts';
 import { addMediaTimingNode, removeMediaTimingNodes } from './_media-timing.ts';
 import { planAnimationCopy } from './shape-animation.ts';
@@ -44,7 +46,9 @@ export const copyShape = (
   opts: { readonly preserveGroupTransform?: boolean } = {},
 ): SlideShapeData => {
   const sourceSlide = sourceShape[SHAPE_SLIDE];
-  const sourceEl = sourceShape[SHAPE_ELEMENT];
+  // The slot, so a shape wrapped in mc:AlternateContent is copied with its
+  // other branches.
+  const sourceEl = findShapeSlot(sourceShape)?.slot ?? sourceShape[SHAPE_ELEMENT];
 
   let cloned = cloneXmlElement(sourceEl);
   if (opts.preserveGroupTransform) {
@@ -57,9 +61,11 @@ export const copyShape = (
     while (stack.length) {
       const parent = stack.pop()!;
       for (const child of parent.children) {
-        if (child.kind !== 'element' || !isShapeChild(child)) continue;
+        if (!isShapeSlot(child)) continue;
         parents.set(child, parent);
-        if (child.name.localName === 'grpSp') stack.push(child);
+        if (child.name.namespaceURI === NS.pml && child.name.localName === 'grpSp') {
+          stack.push(child);
+        }
       }
     }
     let branch = sourceEl;
@@ -67,11 +73,11 @@ export const copyShape = (
     while (parent && parent !== root) {
       const wrapper = cloneXmlElement({
         ...parent,
-        children: parent.children.filter((child) => !isShapeChild(child)),
+        children: parent.children.filter((child) => !isShapeSlot(child)),
       });
       const insertion = parent.children
         .slice(0, parent.children.indexOf(branch))
-        .filter((child) => !isShapeChild(child)).length;
+        .filter((child) => !isShapeSlot(child)).length;
       wrapper.children.splice(insertion, 0, cloned);
       cloned = wrapper;
       branch = parent;
@@ -138,7 +144,9 @@ const rewriteShapeIds = (root: XmlElement, firstId: number): Map<string, string>
       el.attrs = el.attrs.map((a) => {
         if (a.name.namespaceURI !== '' || a.name.localName !== 'id') return a;
         if (rewriteReferences) return { ...a, value: ids.get(a.value) ?? a.value };
-        const value = String(nextId++);
+        // An id seen before is the same shape in another mc:AlternateContent
+        // branch, which keeps sharing one id.
+        const value = ids.get(a.value) ?? String(nextId++);
         ids.set(a.value, value);
         return { ...a, value };
       });
@@ -159,18 +167,9 @@ const rewriteShapeIds = (root: XmlElement, firstId: number): Map<string, string>
 // directly to reordering those children.
 //
 // Each function targets only "real" shape children — `<p:sp>`, `<p:pic>`,
-// `<p:cxnSp>`, `<p:graphicFrame>`, `<p:grpSp>`. The required
-// `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface stays at the top.
-
-const SHAPE_CHILD_LOCALS = new Set(['sp', 'pic', 'cxnSp', 'graphicFrame', 'grpSp']);
-
-const isShapeChild = (node: {
-  kind: string;
-  name?: { namespaceURI: string; localName: string };
-}): boolean =>
-  node.kind === 'element' &&
-  node.name?.namespaceURI === NS.pml &&
-  SHAPE_CHILD_LOCALS.has(node.name.localName);
+// `<p:cxnSp>`, `<p:graphicFrame>`, `<p:grpSp>`, or an `mc:AlternateContent`
+// wrapping one. The required `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface stays at
+// the top.
 
 /** Move one shape or a selection in front of all siblings, preserving their stacking order. */
 export const bringShapeToFront = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
@@ -194,17 +193,15 @@ function reorderShapes(
   const shapes: readonly SlideShapeData[] = SHAPE_ELEMENT in input ? [input] : input;
   const first = shapes[0];
   if (!first) return;
-  const parent = findShapeParent(first);
+  const parent = findShapeSlot(first)?.parent;
   if (!parent) return;
   const slide = first[SHAPE_SLIDE];
-  const selected = new Set(shapes.map((shape) => shape[SHAPE_ELEMENT]));
-  const siblings = parent.children.filter((child): child is XmlElement => isShapeChild(child));
-  const siblingSet = new Set(siblings);
-  if (
-    shapes.some((shape) => shape[SHAPE_SLIDE] !== slide || !siblingSet.has(shape[SHAPE_ELEMENT]))
-  ) {
+  const slots = shapeSlotsIn(parent);
+  const siblings = parent.children.filter(isShapeSlot);
+  if (shapes.some((shape) => shape[SHAPE_SLIDE] !== slide || !slots.has(shape[SHAPE_ELEMENT]))) {
     throw new Error('Shapes must belong to the same parent container.');
   }
+  const selected = new Set(shapes.map((shape) => slots.get(shape[SHAPE_ELEMENT])!));
   let ordered = [...siblings];
   if (direction === 'front' || direction === 'back') {
     const chosen = siblings.filter((child) => selected.has(child));
@@ -228,7 +225,7 @@ function reorderShapes(
   let index = 0;
   // Retain non-shape slots, including the required preface and extension lists.
   parent.children = parent.children.map((child) =>
-    isShapeChild(child) ? ordered[index++]! : child,
+    isShapeSlot(child) ? ordered[index++]! : child,
   );
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
@@ -241,15 +238,9 @@ function reorderShapes(
  * Higher numbers render in front.
  */
 export const getShapeZIndex = (shape: SlideShapeData): number => {
-  const spTree = findShapeParent(shape);
-  if (!spTree) return -1;
-  let i = 0;
-  for (const c of spTree.children) {
-    if (!isShapeChild(c)) continue;
-    if (c === shape[SHAPE_ELEMENT]) return i;
-    i++;
-  }
-  return -1;
+  const found = findShapeSlot(shape);
+  if (!found) return -1;
+  return found.parent.children.filter(isShapeSlot).indexOf(found.slot);
 };
 
 /**
@@ -264,26 +255,24 @@ export const setShapeZIndex = (
   const shapes: readonly SlideShapeData[] = SHAPE_ELEMENT in shape ? [shape] : shape;
   const first = shapes[0];
   if (!first) return;
-  const parent = findShapeParent(first);
+  const parent = findShapeSlot(first)?.parent;
   if (!parent) return;
   const slide = first[SHAPE_SLIDE];
-  const siblings = parent.children.filter((child): child is XmlElement => isShapeChild(child));
-  const siblingSet = new Set(siblings);
-  const chosen = shapes.map((member) => member[SHAPE_ELEMENT]);
-  const selected = new Set(chosen);
-  if (selected.size !== chosen.length) throw new Error('Duplicate shapes are not allowed.');
-  if (
-    shapes.some((member) => member[SHAPE_SLIDE] !== slide || !siblingSet.has(member[SHAPE_ELEMENT]))
-  ) {
+  const slots = shapeSlotsIn(parent);
+  const siblings = parent.children.filter(isShapeSlot);
+  if (shapes.some((member) => member[SHAPE_SLIDE] !== slide || !slots.has(member[SHAPE_ELEMENT]))) {
     throw new Error('Shapes must belong to the same parent container.');
   }
+  const chosen = shapes.map((member) => slots.get(member[SHAPE_ELEMENT])!);
+  const selected = new Set(chosen);
+  if (selected.size !== chosen.length) throw new Error('Duplicate shapes are not allowed.');
   const remaining = siblings.filter((child) => !selected.has(child));
   const clamped = Math.max(0, Math.min(toIndex, remaining.length));
   const ordered = [...remaining.slice(0, clamped), ...chosen, ...remaining.slice(clamped)];
   if (ordered.every((child, index) => child === siblings[index])) return;
   let index = 0;
   parent.children = parent.children.map((child) =>
-    isShapeChild(child) ? ordered[index++]! : child,
+    isShapeSlot(child) ? ordered[index++]! : child,
   );
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
@@ -306,13 +295,13 @@ export const clearSlideShapes = (slide: SlideData): void => {
   const spTree = requireSpTree(slide);
   const removedIds = new Set<number>();
   for (const child of spTree.children) {
-    if (child.kind === 'element' && isShapeChild(child)) collectShapeIds(child, removedIds);
+    if (isShapeSlot(child)) collectShapeIds(child, removedIds);
   }
   // Before the shapes go, so a slide whose timing could not survive losing
   // them keeps both the shapes and their animations.
   const dropAnimations = planShapeAnimationRemoval(slide, removedIds);
 
-  spTree.children = spTree.children.filter((c) => !isShapeChild(c));
+  spTree.children = spTree.children.filter((c) => !isShapeSlot(c));
   dropAnimations();
   removeMediaTimingNodes(slide, removedIds);
   commitSlideData(slide);
@@ -328,12 +317,12 @@ export const clearSlideShapes = (slide: SlideData): void => {
  */
 export const removeShape = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
-  const spTree = findShapeParent(shape);
-  if (!spTree) return;
-  const idx = spTree.children.indexOf(shape[SHAPE_ELEMENT]);
-  if (idx < 0) return;
+  const found = findShapeSlot(shape);
+  if (!found) return;
+  const spTree = found.parent;
+  const idx = spTree.children.indexOf(found.slot);
   const removedIds = new Set<number>();
-  collectShapeIds(shape[SHAPE_ELEMENT], removedIds);
+  collectShapeIds(found.slot, removedIds);
   // Before the shape goes, so a slide whose timing could not survive losing it
   // keeps both the shape and its animations.
   const dropAnimations = planShapeAnimationRemoval(slide, removedIds);

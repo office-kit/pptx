@@ -755,6 +755,13 @@ The equation is written as a native, editable `<a14:m>` inside
 the fallback that apps without equation support show. `getShapeParagraphElements`
 reads it back as a `math` element, and `@office-kit/pptx-preview` draws it.
 
+The desktop app saves a shape holding an equation differently: the whole shape
+sits in `mc:AlternateContent`, with a picture of it as the fallback.
+`getSlideShapes` returns the shape from the equation branch, so its text and
+equations read and edit as usual, and removing, reordering, grouping or copying
+it moves the wrapper too. Text and format edits change only that branch, so an
+app that shows the fallback keeps showing the old picture.
+
 To create several destination slides, use `addSlideAt(pres, index, [{ layout },
 { layout }])`. It returns the new slides in insertion order, with existing slide
 handles preserved. Every layout must belong to the presentation.
