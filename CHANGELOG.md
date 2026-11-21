@@ -1,5 +1,19 @@
 # @office-kit/pptx
 
+## 0.29.0
+
+### Minor Changes
+
+- ff0c2ad: Equations (`<a14:m>`) in a paragraph now read as `math` elements of `getShapeParagraphElements` and `getTableCellParagraphs`, one per `<m:oMath>`. Each carries a typed `MathNode` tree (fractions, scripts, radicals, n-ary operators, delimiters, matrices, accents, functions and limits) plus its plain run text; other OMML elements read as `unsupported` nodes with their text. Code that switches on `kind` should handle the new `'math'` member; a `math` element's `format` is always `null`.
+
+  The preview draws these equations in place of the blank it left before, in both text layouts, with display equations (`<m:oMathPara>`) at full size. Elements outside the modeled set are drawn as plain text in a dashed box and reported by `auditTextLayout` as `unsupported-math`. The editor keeps ignoring equations when it counts text offsets, as the core text-range functions do.
+
+- 7778e29: `setShapeParagraphs` and `setTableCellParagraphs` accept an equation as a run: `{ equation, display?, format? }`, where `equation` is a tree of `MathNodeSpec` nodes (the input counterpart of `MathNode`). It is written as a native `<a14:m>` equation inside `mc:AlternateContent`, with the equation's linear text (`σ(z)=1/(1+e^(−z))`) as the fallback run that apps without equation support show. Equations in that form now also read back through `getShapeParagraphElements`. `ParagraphSpec.runs` is now `ReadonlyArray<RunSpec | EquationSpec>`, so code that reads `run.text` from a spec needs to check for `equation` first.
+
+### Patch Changes
+
+- 20583aa: `setShapeTextFormat` without a range (and so a DSL `Text`'s `size`, `color`, `bold`, …) now also formats the shape's equations and their fallback text. Equations keep their Cambria Math face; the fallback text takes the font too. The DSL README describes writing equations through `paragraphs`.
+
 ## 0.28.0
 
 ### Minor Changes

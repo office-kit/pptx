@@ -1,5 +1,21 @@
 # @office-kit/pptx-dev
 
+## 0.14.6
+
+### Patch Changes
+
+- ff0c2ad: Equations (`<a14:m>`) in a paragraph now read as `math` elements of `getShapeParagraphElements` and `getTableCellParagraphs`, one per `<m:oMath>`. Each carries a typed `MathNode` tree (fractions, scripts, radicals, n-ary operators, delimiters, matrices, accents, functions and limits) plus its plain run text; other OMML elements read as `unsupported` nodes with their text. Code that switches on `kind` should handle the new `'math'` member; a `math` element's `format` is always `null`.
+
+  The preview draws these equations in place of the blank it left before, in both text layouts, with display equations (`<m:oMathPara>`) at full size. Elements outside the modeled set are drawn as plain text in a dashed box and reported by `auditTextLayout` as `unsupported-math`. The editor keeps ignoring equations when it counts text offsets, as the core text-range functions do.
+
+- Updated dependencies [20583aa]
+- Updated dependencies [ff0c2ad]
+- Updated dependencies [7778e29]
+  - @office-kit/pptx@0.29.0
+  - @office-kit/pptx-dsl@0.16.0
+  - @office-kit/pptx-preview@0.22.0
+  - @office-kit/pptx-editor@0.3.1
+
 ## 0.14.5
 
 ### Patch Changes
