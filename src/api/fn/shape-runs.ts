@@ -7,7 +7,13 @@ import { readBulletStyleLayer } from './bullet-style.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
-import { mathPlainText, mathZoneEquations, readMathNodes, type MathNodes } from './_omml-read.ts';
+import {
+  equationZoneOf,
+  mathPlainText,
+  mathZoneEquations,
+  readMathNodes,
+  type MathNodes,
+} from './_omml-read.ts';
 import {
   alignToken,
   type BulletStyle,
@@ -156,8 +162,8 @@ export const getShapeParagraphCount = (shape: SlideShapeData): number => {
 /**
  * One inline element in a paragraph as ordered: a literal text run
  * (`<a:r>`), a field substitution (`<a:fld>` — slide number, date, etc.),
- * a line break (`<a:br>`), or an equation (`<a14:m>`, one
- * element per `<m:oMath>`). Renderers walk this list instead of the
+ * a line break (`<a:br>`), or an equation (`<a14:m>`, also inside an
+ * `mc:AlternateContent` choice; one element per `<m:oMath>`). Renderers walk this list instead of the
  * strict `<a:r>`-only `getShapeRunCount` / `getShapeRunText` pair when
  * they need to reproduce the paragraph's full visible content.
  *
@@ -261,8 +267,9 @@ export const readParagraphElements = (
   };
   for (const child of paragraph.children) {
     if (child.kind !== 'element') continue;
-    if (child.name.namespaceURI === NS.a14 && child.name.localName === 'm') {
-      for (const { display, oMath } of mathZoneEquations(child)) {
+    const zone = equationZoneOf(child);
+    if (zone !== null) {
+      for (const { display, oMath } of mathZoneEquations(zone)) {
         out.push({
           kind: 'math',
           text: mathPlainText(oMath),

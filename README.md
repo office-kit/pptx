@@ -697,6 +697,64 @@ its text-body settings and list styles. All batch ranges are read before any
 destination text changes. `getShapeParagraphElements(shape)` reads all paragraphs
 in one pass; passing an index reads one paragraph.
 
+### Equations
+
+A paragraph run can be an equation: a tree of math nodes (fractions, scripts,
+radicals, n-ary operators, delimiters, matrices, accents, functions, limits).
+LaTeX conversion is left to the caller.
+
+```ts
+import { setShapeParagraphs } from '@office-kit/pptx';
+
+const t = (text: string) => ({ kind: 'text', text }) as const;
+setShapeParagraphs(shape, [
+  {
+    runs: [
+      { text: 'Logistic: ' },
+      {
+        equation: [
+          t('σ(z)='),
+          {
+            kind: 'fraction',
+            numerator: [t('1')],
+            denominator: [t('1+'), { kind: 'superscript', base: [t('e')], sup: [t('−z')] }],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    runs: [
+      {
+        equation: [
+          t('A='),
+          {
+            kind: 'delimiter',
+            items: [
+              [
+                {
+                  kind: 'matrix',
+                  rows: [
+                    [[t('a')], [t('b')]],
+                    [[t('c')], [t('d')]],
+                  ],
+                },
+              ],
+            ],
+          },
+        ],
+        display: true,
+      },
+    ],
+  },
+]);
+```
+
+The equation is written as a native, editable `<a14:m>` inside
+`mc:AlternateContent`, with the equation's linear text (`σ(z)=1/(1+e^(−z))`) as
+the fallback that apps without equation support show. `getShapeParagraphElements`
+reads it back as a `math` element, and `@office-kit/pptx-preview` draws it.
+
 To create several destination slides, use `addSlideAt(pres, index, [{ layout },
 { layout }])`. It returns the new slides in insertion order, with existing slide
 handles preserved. Every layout must belong to the presentation.
