@@ -1,3 +1,4 @@
+import { textElements } from './text-elements.ts';
 import {
   getShapeParagraphElements,
   getShapeRunFormatEffective,
@@ -17,7 +18,7 @@ export function outlineTextHtml(
   showFormatting = false,
   source: SlideShapeData = shape,
 ): string {
-  const paragraphs = getShapeParagraphElements(shape);
+  const paragraphs = getShapeParagraphElements(shape).map((p) => textElements(p));
   const properties = paragraphs.map((_, index) =>
     getParagraphPropertiesEffective(pres, shape, index, { inheritanceSource: source }),
   );

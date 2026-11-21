@@ -1,3 +1,4 @@
+import { textElements } from './text-elements.ts';
 import {
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -64,7 +65,7 @@ export function stepShapeFontSize(
   let formatIndex = 0;
   let changed = false;
   for (let paragraphIndex = 0; paragraphIndex < getShapeParagraphCount(shape); paragraphIndex++) {
-    const elements = getShapeParagraphElements(shape, paragraphIndex);
+    const elements = textElements(getShapeParagraphElements(shape, paragraphIndex));
     if (!elements.some((element) => (element.kind === 'br' ? 1 : element.text.length) > 0)) {
       const selected =
         !range ||
@@ -118,7 +119,7 @@ export function stepTableCellFontSize(
   let offset = 0;
   let changed = false;
   for (const [paragraphIndex, paragraph] of getTableCellParagraphs(cell).entries()) {
-    const elements = paragraph.elements;
+    const elements = textElements(paragraph.elements);
     if (!elements.some((element) => (element.kind === 'br' ? 1 : element.text.length) > 0)) {
       const selected =
         !range ||

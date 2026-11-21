@@ -1,3 +1,4 @@
+import { textElements } from './text-elements.ts';
 import {
   toWritableTextFormat,
   getParagraphPropertiesEffective,
@@ -99,9 +100,9 @@ export function inlineTextHtml(
   const defaults = defaultTextMetrics(pres, shape);
   const themeFonts = getPresentationFonts(pres);
   const paragraphs = tableCell
-    ? getTableCellParagraphs(tableCell).map((p) => p.elements)
+    ? getTableCellParagraphs(tableCell).map((p) => textElements(p.elements))
     : Array.from({ length: getShapeParagraphCount(shape) }, (_, index) =>
-        getShapeParagraphElements(shape, index),
+        textElements(getShapeParagraphElements(shape, index)),
       );
   const container = document.createElement('div');
   const scaled = (value: number, unit: string) => `calc(${value}${unit} * var(--text-zoom))`;

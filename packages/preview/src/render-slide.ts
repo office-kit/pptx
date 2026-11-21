@@ -180,8 +180,10 @@ import {
   type SlideShapeData,
   type TableCellParagraph,
   type ReadTextFormat,
+  type MathNodes,
 } from '@office-kit/pptx';
 import { renderEmfToSvg } from './emf.ts';
+import { layoutMath } from './math-layout.ts';
 import {
   defaultMeasurer,
   layoutTextSvg,
@@ -1586,6 +1588,8 @@ type RunData = {
   text: string;
   fmt: ReadTextFormat | null;
   sizePt: number;
+  /** An equation, drawn as one inline box; `text` is then its plain run text. */
+  math?: { readonly display: boolean; readonly nodes: MathNodes };
   /** Omitted for `.`, the separator of runs without a language. */
   decimalSeparator?: string;
   href?: string;
@@ -1817,6 +1821,10 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         });
         continue;
       }
+      if (run.math) {
+        pieces.push(mathPiece(a, run, run.math));
+        continue;
+      }
       let fmt = run.fmt;
       if (run.href) {
         const hlinkColor = a.theme ? normalizeHex(a.theme.hyperlink) : '#0563C1';
@@ -2024,6 +2032,59 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
 
 const buildAndLayoutSvgText = (a: SvgTextArgs): string =>
   layoutTextSvg(buildSvgTextInput(a), a.measure);
+
+// The desktop app sets equations in Cambria Math whatever the paragraph's font.
+const MATH_FONT = 'Cambria Math';
+// U+FFFC OBJECT REPLACEMENT CHARACTER: the text an inline equation stands in
+// for when the engine and audit read a line's characters.
+const INLINE_OBJECT = '\uFFFC';
+
+const mathPiece = (
+  a: SvgTextArgs,
+  run: RunData,
+  math: NonNullable<RunData['math']>,
+): PieceInput => {
+  const scale = a.autoFitScale;
+  const sizePx = run.sizePt * scale * PX_PER_PT;
+  const fillHex =
+    run.fmt?.color !== undefined && run.fmt.color !== null
+      ? resolveColor(run.fmt.color, a.theme, '#000000')
+      : a.defaultColor;
+  const face = faceOf(a, MATH_FONT);
+  const box = layoutMath(
+    math.nodes,
+    math.display,
+    {
+      ...face,
+      sizePx,
+      fillHex,
+      runStyle: (format) => ({
+        ...(format.size !== undefined ? { sizePx: format.size * scale * PX_PER_PT } : {}),
+        ...(format.color !== undefined && format.color !== null
+          ? { fillHex: resolveColor(format.color, a.theme, fillHex) }
+          : {}),
+      }),
+    },
+    a.measure,
+  );
+  return {
+    ...face,
+    text: INLINE_OBJECT,
+    sizePx,
+    bold: false,
+    italic: false,
+    letterSpacingPx: 0,
+    fillHex,
+    underline: 'none',
+    strike: false,
+    baseline: 0,
+    href: null,
+    isBreak: false,
+    inlineBox: box,
+  };
+};
+
+const hasMath = (para: ParaData): boolean => para.runs.some((run) => run.math !== undefined);
 
 const breakPiece = (): PieceInput => ({
   text: '',
@@ -2312,6 +2373,19 @@ export const resolveTextBodyModel = (
       if (el.kind === 'br') {
         const fmt = getShapeRunFormatEffective(pres, shape, p, { breakIndex: breakIndex++ });
         runs.push({ text: '\n', fmt, sizePt: fmt.size ?? defaultPt });
+        continue;
+      }
+      if (el.kind === 'math') {
+        // `<a14:m>` has no run properties: the equation takes the paragraph's
+        // effective format, and each math run may override it.
+        const fmt = getShapeRunFormatEffective(pres, shape, p, null);
+        if (el.text) hasAnyText = true;
+        runs.push({
+          text: el.text,
+          fmt,
+          sizePt: fmt.size ?? defaultPt,
+          math: { display: el.display, nodes: el.math },
+        });
         continue;
       }
       // A `slidenum` field shows the slide's own number, which the reference desktop app
@@ -2799,8 +2873,9 @@ const renderTextBody = (
     (para) => para.tabStops?.length && para.runs.some((run) => run.text.includes('\t')),
   );
   // CSS tab-size only represents a repeating interval, not authored positions
-  // or right/center/decimal alignment. Use the shared layout for these bodies.
-  if (ctx.mode === 'svg' || customTabs) {
+  // or right/center/decimal alignment. Use the shared layout for these bodies,
+  // and for equations, which only the SVG engine draws.
+  if (ctx.mode === 'svg' || customTabs || paraData.some(hasMath)) {
     const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     // numCol only applies to horizontal text — see the engine's combination note.
@@ -5901,6 +5976,17 @@ const cellParaData = (
         runs.push({ text: '\n', fmt, sizePt: fmt.size ?? DEFAULT_BODY_PT });
         continue;
       }
+      if (el.kind === 'math') {
+        const fmt = getTableCellRunFormatEffective(pres, cell, index, null);
+        if (el.text.trim()) hasText = true;
+        runs.push({
+          text: el.text,
+          fmt,
+          sizePt: fmt.size ?? DEFAULT_BODY_PT,
+          math: { display: el.display, nodes: el.math },
+        });
+        continue;
+      }
       if (el.text.trim()) hasText = true;
       const href = el.clickAction ? clickActionHref(pres, el.clickAction) : null;
       // Table-cell readers expose the literal run format. Resolve the same
@@ -6032,7 +6118,7 @@ const renderTableCellText = (
     svgArgs.bevel
       ? buildAndLayoutSvgText({ ...svgArgs, effectsOnly: true, effectKind: 'bevel' })
       : '';
-  if (ctx.mode === 'svg' || customTabs || effectsOnly) {
+  if (ctx.mode === 'svg' || customTabs || effectsOnly || paraData.some(hasMath)) {
     if (effectsOnly) {
       const reflection = paraData.some((para) =>
         para.runs.some((run) => run.fmt?.reflection != null),

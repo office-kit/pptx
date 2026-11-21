@@ -2,6 +2,7 @@
 // ST_TextLanguageID): what Review ▸ Language sets. It is not appearance, so
 // it is kept apart from the run-format readers and writers.
 
+import { mathZoneEquations } from './_omml-read.ts';
 import {
   NS,
   type XmlElement,
@@ -82,7 +83,13 @@ export const getParagraphElementLanguages = (
 ): ReadonlyArray<string | null> => {
   const languages: (string | null)[] = [];
   for (const child of requireParagraph(target, paragraphIndex).children) {
-    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    if (child.kind !== 'element') continue;
+    if (child.name.namespaceURI === NS.a14 && child.name.localName === 'm') {
+      // An equation's runs each carry their own `<a:rPr>`; the zone has none.
+      for (const _ of mathZoneEquations(child)) languages.push(null);
+      continue;
+    }
+    if (child.name.namespaceURI !== NS.dml) continue;
     if (!RUN_CONTAINERS.has(child.name.localName)) continue;
     const properties = firstChildElement(child, NAME_RPR);
     languages.push(properties ? getAttrValue(properties, ATTR_LANG) : null);

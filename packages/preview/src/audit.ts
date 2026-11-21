@@ -82,6 +82,14 @@ export type TextAuditIssue =
       readonly text: string;
     })
   | (IssueBase & {
+      /** An equation holds OMML elements the preview does not lay out; they
+       *  are drawn as plain text in a dashed box. */
+      readonly kind: 'unsupported-math';
+      readonly paragraphIndex: number;
+      /** Local names of those elements (`eqArr`, `groupChr`, …), in document order. */
+      readonly elements: ReadonlyArray<string>;
+    })
+  | (IssueBase & {
       readonly kind: 'small-font';
       /** The smallest font size drawn in the shape, after autofit shrinking. */
       readonly sizePt: number;
@@ -318,6 +326,12 @@ const auditShape = (
   if (reportBadWraps && vert === 'none') {
     auditLineBreaks(input.paragraphs, core.placements, slideRef, issues);
   }
+  input.paragraphs.forEach((para, paragraphIndex) => {
+    const elements = para.pieces.flatMap((piece) => piece.inlineBox?.unsupported ?? []);
+    if (elements.length > 0) {
+      issues.push({ ...slideRef, kind: 'unsupported-math', paragraphIndex, elements });
+    }
+  });
   if (minFontSizePt !== undefined) {
     let smallestPx = Infinity;
     for (const para of input.paragraphs) {

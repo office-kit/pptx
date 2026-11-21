@@ -791,6 +791,13 @@ export type {
   ParagraphTabStop,
   ShapeParagraphElement,
 } from './fn.ts';
+export type {
+  MathFractionType,
+  MathLimitLocation,
+  MathNode,
+  MathNodes,
+  MathTextStyle,
+} from './fn/_omml-read.ts';
 export type { TextCase } from './fn/shape-text.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type { SlideNotesTextFormatOptions } from './fn.ts';

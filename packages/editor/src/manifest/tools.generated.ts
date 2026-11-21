@@ -11350,7 +11350,7 @@ export const generatedTools: GeneratedTools = {
               },
               path: {
                 type: 'string',
-                enum: ['circle', 'shape', 'rect', 'linear'],
+                enum: ['circle', 'shape', 'linear', 'rect'],
                 description:
                   "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
               },
@@ -12726,7 +12726,7 @@ export const generatedTools: GeneratedTools = {
           Opacity: { type: 'number', description: 'Opacity (0–1). Defaults to fully opaque.' },
           Path: {
             type: 'string',
-            enum: ['circle', 'shape', 'rect', 'linear'],
+            enum: ['circle', 'shape', 'linear', 'rect'],
             description:
               "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
           },
@@ -14338,7 +14338,7 @@ export const generatedTools: GeneratedTools = {
           Opacity: { type: 'number', description: 'Opacity (0–1). Defaults to fully opaque.' },
           Path: {
             type: 'string',
-            enum: ['circle', 'shape', 'rect', 'linear'],
+            enum: ['circle', 'shape', 'linear', 'rect'],
             description:
               "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
           },
@@ -14912,7 +14912,7 @@ export const generatedTools: GeneratedTools = {
                   },
                   path: {
                     type: 'string',
-                    enum: ['circle', 'shape', 'rect', 'linear'],
+                    enum: ['circle', 'shape', 'linear', 'rect'],
                     description:
                       "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
                   },
@@ -16861,7 +16861,7 @@ export const generatedTools: GeneratedTools = {
           Opacity: { type: 'number', description: 'Opacity (0–1). Defaults to fully opaque.' },
           Path: {
             type: 'string',
-            enum: ['circle', 'shape', 'rect', 'linear'],
+            enum: ['circle', 'shape', 'linear', 'rect'],
             description:
               "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
           },
@@ -17309,7 +17309,7 @@ export const generatedTools: GeneratedTools = {
               },
               path: {
                 type: 'string',
-                enum: ['circle', 'shape', 'rect', 'linear'],
+                enum: ['circle', 'shape', 'linear', 'rect'],
                 description:
                   "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
               },
@@ -18606,7 +18606,7 @@ export const generatedTools: GeneratedTools = {
           Opacity: { type: 'number', description: 'Opacity (0–1). Defaults to fully opaque.' },
           Path: {
             type: 'string',
-            enum: ['circle', 'shape', 'rect', 'linear'],
+            enum: ['circle', 'shape', 'linear', 'rect'],
             description:
               "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
           },
@@ -19796,7 +19796,7 @@ export const generatedTools: GeneratedTools = {
           Opacity: { type: 'number', description: 'Opacity (0–1). Defaults to fully opaque.' },
           Path: {
             type: 'string',
-            enum: ['circle', 'shape', 'rect', 'linear'],
+            enum: ['circle', 'shape', 'linear', 'rect'],
             description:
               "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
           },
@@ -21037,7 +21037,7 @@ export const generatedTools: GeneratedTools = {
           Opacity: { type: 'number', description: 'Opacity (0–1). Defaults to fully opaque.' },
           Path: {
             type: 'string',
-            enum: ['circle', 'shape', 'rect', 'linear'],
+            enum: ['circle', 'shape', 'linear', 'rect'],
             description:
               "Non-linear gradient path. `circle` paints concentric circles,\n`rect` paints nested rectangles, `shape` follows the shape's\noutline. Absent / `'linear'` → linear gradient using `angleDeg`.\nMirrors ECMA-376 §20.1.8.33 `<a:path path=\"…\"/>`.",
           },

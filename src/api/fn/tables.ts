@@ -1458,8 +1458,11 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
         child.name.namespaceURI === NS.dml &&
         ['r', 'fld', 'br'].includes(child.name.localName),
     );
-    const elements = readParagraphElements(p).map((element, index) => {
-      const properties = firstChildElement(inline[index]!, qname('a', 'rPr', NS.dml));
+    let inlineIndex = 0;
+    const elements = readParagraphElements(p).map((element) => {
+      // Equations have no `<a:rPr>` of their own, so no click action.
+      if (element.kind === 'math') return element;
+      const properties = firstChildElement(inline[inlineIndex++]!, qname('a', 'rPr', NS.dml));
       const link = properties
         ? firstChildElement(properties, qname('a', 'hlinkClick', NS.dml))
         : null;

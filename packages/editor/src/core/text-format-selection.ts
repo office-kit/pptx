@@ -1,3 +1,4 @@
+import { textElements } from './text-elements.ts';
 import {
   getShapeParagraphCount,
   getShapeRunFormatEffective,
@@ -34,9 +35,9 @@ export function textFormatsInRange(
   let offset = 0;
   const tableCell = cell ? getTableCells(shape)[cell.row]![cell.col]! : undefined;
   const paragraphs = tableCell
-    ? getTableCellParagraphs(tableCell)
+    ? getTableCellParagraphs(tableCell).map((p) => ({ ...p, elements: textElements(p.elements) }))
     : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => ({
-        elements: getShapeParagraphElements(shape, i),
+        elements: textElements(getShapeParagraphElements(shape, i)),
         endFormat: getParagraphEndFormat(shape, i),
       }));
   for (const [paragraphIndex, { elements, endFormat }] of paragraphs.entries()) {

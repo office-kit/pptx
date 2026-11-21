@@ -1,3 +1,4 @@
+import { textElements } from './text-elements.ts';
 import {
   asColor,
   getShapeParagraphElements,
@@ -122,8 +123,10 @@ export function copyTextRange(
   ) => TextFormat | undefined,
 ): TextClipboard {
   const paragraphs = cell
-    ? getTableCellParagraphs(getTableCells(shape)[cell.row]![cell.col]!).map((p) => p.elements)
-    : getShapeParagraphElements(shape);
+    ? getTableCellParagraphs(getTableCells(shape)[cell.row]![cell.col]!).map((p) =>
+        textElements(p.elements),
+      )
+    : getShapeParagraphElements(shape).map((p) => textElements(p));
   let text = '';
   const formats: TextClipboard['formats'] = [];
   function append(value: string, format: TextFormat) {
