@@ -82,7 +82,7 @@ const texts = (pres: PresentationData) =>
   getSlideShapes(firstSlide(pres)).map((shape) =>
     getShapeParagraphElements(shape)
       .flat()
-      .map((element) => element.text)
+      .map((element) => ('text' in element ? element.text : ''))
       .join(''),
   );
 
@@ -167,9 +167,9 @@ describe('shapes wrapped in mc:AlternateContent', () => {
 
     setShapePosition(group, inches(2), inches(1));
     const [first, second] = ungroupShapes(group);
-    expect(getShapeParagraphElements(first!)[0]![0]!.text).toBe('Before');
+    expect(getShapeParagraphElements(first!)[0]![0]).toMatchObject({ text: 'Before' });
     expect(hasEquation(pres, getSlideShapes(slide).indexOf(second!))).toBe(true);
-    const moved = getShapePosition(second!);
+    const moved = getShapePosition(second!)!;
     expect(moved.x).toBe(inches(2));
 
     const xml = await slideXml(pres);
