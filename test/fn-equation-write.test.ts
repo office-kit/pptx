@@ -19,6 +19,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeParagraphs,
+  setShapeTextFormat,
   setTableCellParagraphs,
   validatePresentation,
   type MathNodeSpec,
@@ -229,6 +230,21 @@ describe('writing equations', () => {
     if (math?.kind !== 'math') throw new Error('expected an equation');
     expect(math.math[0]).toMatchObject({ format: { size: 24, font: 'Cambria Math' } });
     expect(math.math[1]).toMatchObject({ format: { size: 24, color: '#FF0000' } });
+  });
+
+  it('gives equations the shape-wide format, keeping their math face', async () => {
+    const { pres, shape } = textBox();
+    setShapeParagraphs(shape, [{ runs: [{ text: 'f: ' }, { equation: [t('x')] }] }]);
+    setShapeTextFormat(shape, { size: 30, color: '#1F4E79', bold: true, font: 'Arial' });
+    expect(getShapeXmlString(shape)).toContain(
+      '<mc:Fallback><a:r><a:rPr sz="3000" b="1"><a:solidFill><a:srgbClr val="1F4E79"/></a:solidFill><a:latin typeface="Arial"/></a:rPr>',
+    );
+    const { shape: read } = await reload(pres);
+    const [, math] = getShapeParagraphElements(read, 0);
+    if (math?.kind !== 'math') throw new Error('expected an equation');
+    expect(math.math[0]).toMatchObject({
+      format: { size: 30, color: '#1F4E79', bold: true, font: 'Cambria Math' },
+    });
   });
 
   it('writes equations into table cells', async () => {

@@ -123,6 +123,46 @@ top-left cell: covered positions get no style and no `styleCell` call.
 />
 ```
 
+## Equations
+
+An equation is a run in `paragraphs`, in a `Text` or a table cell: `{ equation }`,
+a tree of core math nodes. It exports as a native, editable equation and the preview
+draws it. Write the tree yourself (or with a local helper); LaTeX is not parsed.
+The element's `size` and `color` apply to it; its font stays Cambria Math.
+
+```tsx
+const t = (text: string) => ({ kind: 'text', text }) as const;
+
+<Text
+  x={1}
+  y={1}
+  width={8}
+  height={1}
+  size={24}
+  paragraphs={[
+    {
+      runs: [
+        { text: 'Logistic: ' },
+        {
+          equation: [
+            t('σ(z)='),
+            {
+              kind: 'fraction',
+              numerator: [t('1')],
+              denominator: [t('1+'), { kind: 'superscript', base: [t('e')], sup: [t('−z')] }],
+            },
+          ],
+        },
+      ],
+    },
+  ]}
+/>;
+```
+
+`display: true` sets a standalone equation at full size. Node kinds: `text`,
+`fraction`, `subscript`, `superscript`, `subSuperscript`, `radical`, `nary` (∑, ∫,
+…), `delimiter`, `matrix`, `accent`, `function`, `lowerLimit`, `upperLimit`.
+
 ## Lists and tables of contents
 
 An agenda is a normal slide composed from `Text`. There are no built-in `Bullets`
